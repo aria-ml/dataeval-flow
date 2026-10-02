@@ -7,7 +7,7 @@ what invalidates it, and how to clean it up.
 ## Used in these tutorials
 
 - {doc}`Assess dataset coverage <../notebooks/data_coverage>`
-- {doc}`Parameter Sweep for Data Cleaning <../notebooks/parameter_sweep>`
+- {doc}`Tune data cleaning with a matrix <../notebooks/tune_data_cleaning>`
 
 ## Turn it on
 

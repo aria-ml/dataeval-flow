@@ -114,6 +114,11 @@ MAITE
     AI/ML datasets, models, and components. MAITE-compliant inputs give DataEval
     Flow native interoperability with the rest of the JATIC suite.
 
+Matrix
+    A task's `matrix:`: it runs the task's entry once per combination of the
+    values it lists, and compares the runs in one result. See
+    [Sweep settings with a matrix](../how_to/run_a_matrix.md).
+
 Maximum Mean Discrepancy (MMD)
     A multivariate drift statistic that measures the distance between the mean
     {term}`embeddings<Embedding>` of a reference and an incoming sample in a
@@ -147,10 +152,6 @@ Outlier
     A sample that deviates significantly from the rest of a dataset, detected
     via statistical methods (adaptive, modified z-score, z-score, or IQR) over image
     statistics or {term}`embeddings<Embedding>`.
-
-Parameter Sweep
-    A workflow that runs another workflow repeatedly across a grid of parameter
-    values and compares the per-configuration results.
 
 Pipeline
     The full sequence executed in a single DataEval Flow run: one or more
@@ -221,7 +222,7 @@ Workflow
     {term}`determinations<Determination>` against
     {term}`health thresholds<Health Threshold>`: Data Cleaning, Data Analysis,
     Data Coverage, Dataset Splitting, Drift Detection, Classwise Drift, OOD
-    Detection, Prioritization, or Parameter Sweep. Each has its own
+    Detection, or Prioritization. Each has its own
     configuration schema, defaults, and {term}`caching<Caching>` contract.
 
 Workflow Configuration

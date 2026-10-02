@@ -17,7 +17,7 @@ referenced from all of the tutorials:
 - {doc}`Detect classwise drift <../notebooks/classwise_drift>`
 - {doc}`Detect out-of-distribution samples <../notebooks/ood_detection>`
 - {doc}`Prioritize unlabeled data for labeling <../notebooks/data_prioritization>`
-- {doc}`Parameter Sweep for Data Cleaning <../notebooks/parameter_sweep>`
+- {doc}`Tune data cleaning with a matrix <../notebooks/tune_data_cleaning>`
 
 ## Prerequisites
 
@@ -352,21 +352,27 @@ workflows:
 ```
 ````
 
-````{tab-item} parameter-sweep
-Sweep data-cleaning parameters across a grid and compare the results.
-See the {doc}`Parameter Sweep tutorial <../notebooks/parameter_sweep>` for a full walkthrough.
-
-A sweep varies data-cleaning parameters. There is no separate grid block: any
-swept field takes a *list* of values and the workflow runs every combination,
-while static fields take a single value shared across all runs.
+````{tab-item} matrix
+Run any workflow once per combination of its settings and compare the runs in
+one table. A matrix is not a workflow type: it goes on the task, and the entry
+it varies is an ordinary one, valid on its own. See
+{doc}`Sweep settings with a matrix <run_a_matrix>` for every way to write one,
+and the {doc}`Tune data cleaning with a matrix <../notebooks/tune_data_cleaning>`
+tutorial for a worked run.
 
 ```yaml
 workflows:
-  - name: threshold_sweep
-    type: parameter-sweep
-    outlier_flags: [dimension, pixel, visual]   # static — the stat groups to test
-    outlier_method: [modzscore, iqr]            # swept — 2 values
-    outlier_threshold: [2.5, 3.0, 3.5]          # swept — 3 values, so 6 runs
+  - name: threshold_tuning
+    type: data-cleaning
+    outlier_method: modzscore
+    outlier_flags: [dimension, pixel, visual]
+
+tasks:
+  - name: tune_train
+    workflow: threshold_tuning
+    sources: train_full
+    matrix:
+      outlier_threshold: [2.5, 3.0, 3.5]   # 3 runs, compared in one result
 ```
 ````
 `````

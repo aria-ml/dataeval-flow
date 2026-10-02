@@ -381,7 +381,8 @@ print(json_str[:500] + "\n...")
 # - **Data analysis**: Use the `data-analysis` workflow for cross-split leakage,
 #   distribution shift, and bias analysis.
 # - **Threshold tuning**: Adjust `outlier_threshold`, test alternative outlier methods
-#   like IQR, or sweep parameters with `parameter-sweep`.
+#   like IQR, or compare several settings in one run with a task matrix, as
+#   {doc}`Tune data cleaning with a matrix <tune_data_cleaning>` does.
 
 # %% [markdown]
 # ## Related guides

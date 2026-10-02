@@ -6,7 +6,7 @@ control what counts as an outlier and when a finding becomes a warning.
 ## Used in these tutorials
 
 - {doc}`Clean a dataset <../notebooks/data_cleaning>`
-- {doc}`Parameter Sweep for Data Cleaning <../notebooks/parameter_sweep>`
+- {doc}`Tune data cleaning with a matrix <../notebooks/tune_data_cleaning>`
 
 ## Pick a statistical method
 
@@ -57,8 +57,9 @@ you chose; raise it to flag less, lower it to flag more.
     outlier_threshold: 3.5
 ```
 
-Because the right value depends on the dataset, this is the parameter most worth sweeping — see
-{doc}`the Parameter Sweep tutorial <../notebooks/parameter_sweep>` to run a grid and compare the flag rates.
+Because the right value depends on the dataset, this is the parameter most worth sweeping. A `matrix:` on the task
+runs it once per value and compares the flag rates in one table: see {doc}`Sweep settings with a matrix
+<run_a_matrix>`, and {doc}`Tune data cleaning with a matrix <../notebooks/tune_data_cleaning>` for a worked run.
 
 :::{note}
 The pixel rescale that arrived in v0.2 did **not** move any outlier flag, and a threshold tuned under v0.1 is still

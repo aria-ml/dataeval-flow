@@ -51,7 +51,8 @@ built-in evaluation workflows, published to PyPI through v0.1.2. See
 - [x] Drift detection workflow (classwise drift)
 - [x] Out-of-distribution (OOD) detection workflow
 - [x] Prioritization workflow (dataset sample ranking)
-- [x] Parameter sweep workflow (grid comparison over another workflow) — v0.1.1
+- [x] Parameter sweep workflow (grid comparison over data cleaning) — v0.1.1; replaced by task matrices, which run
+  any task across a grid of settings
 - [x] Interactive TUI app + simple CLI config builder
 - [x] Disk-backed and in-memory result caching
 - [x] HuggingFace, MAITE, TorchVision, ImageFolder, COCO, YOLO dataset adapters
@@ -161,11 +162,11 @@ code per format.
 
 ### Existing — supported and maintained
 
-The eight shipped workflows continue to receive bug fixes and minor enhancements
-throughout the v0.x line:
+The seven shipped workflows continue to receive bug fixes and minor enhancements
+throughout the v0.x line, and a task matrix runs any of them across a grid of settings:
 
 - Data Cleaning, Data Analysis, Data Coverage, Dataset Splitting, Drift Detection
-  (including classwise), OOD Detection, Prioritization, Parameter Sweep
+  (including classwise), OOD Detection, Prioritization
 
 ### Planned additions — TBD
 
