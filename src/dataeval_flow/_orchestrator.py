@@ -20,6 +20,7 @@ _logger: logging.Logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     import torch
 
+    from dataeval_flow._cache import DatasetCache
     from dataeval_flow._chain._run import ChainRun, ExtractorSetup
     from dataeval_flow._policy import ResolvedPolicy
     from dataeval_flow._result import Result
@@ -431,13 +432,16 @@ def _run_single_task(
 
     `output_dir` is where export steps write, under ``<output_dir>/datasets/``. ``None`` writes nothing, and export
     steps are skipped with a reason.
+
+    A task with a ``matrix:`` runs each of its runs this way, and returns them as one
+    :class:`~dataeval_flow.MatrixResult`.
     """
-    from dataeval_flow._kind import input_problem, result_type_of
-    from dataeval_flow._tables import TableLimits
-    from dataeval_flow.evaluators._result import EvaluatorResult
-    from dataeval_flow.workflows._base import WorkflowConfig
-    from dataeval_flow.workflows._preset import Preset, expand_preset
-    from dataeval_flow.workflows._result import WorkflowResult
+    if task.matrix is not None:
+        from dataeval_flow._matrix._run import run_matrix
+
+        return run_matrix(
+            task, config, data_dir=data_dir, cache_dir=cache_dir, report_images=report_images, output_dir=output_dir
+        )
 
     _logger.info("Task '%s': starting (%s)", task.name, _target_of(task))
 
@@ -451,11 +455,51 @@ def _run_single_task(
 
     # 2. Resolve extractor config (optional — single per task)
     setup = _extractor_setup(task.extractor, config, data_dir)
-    extractor_cfg = setup.config if setup is not None else None
 
     # 3. Build a DatasetContext per source
     dataset_contexts, resolved_sources = _source_contexts(source_names, config, setup, data_dir, cache_dir)
     _logger.debug("Task '%s': resolved %d source(s): %s", task.name, len(source_names), source_names)
+
+    return _run_resolved(
+        task,
+        config,
+        setup,
+        dataset_contexts,
+        resolved_sources,
+        data_dir=data_dir,
+        cache_dir=cache_dir,
+        report_images=report_images,
+        output_dir=output_dir,
+    )
+
+
+def _run_resolved(
+    task: "TaskConfig",
+    config: "PipelineConfig",
+    setup: "ExtractorSetup | None",
+    dataset_contexts: "dict[str, DatasetContext]",
+    resolved_sources: "list[ResolvedSource]",
+    *,
+    data_dir: Path | None,
+    cache_dir: Path | None,
+    report_images: bool,
+    output_dir: Path | None,
+) -> "Result[Any, Any]":
+    """Run `task` over its resolved extractor and sources: from resolving its target to the filled envelope.
+
+    :func:`_run_single_task` resolves the extractor and sources first; a task matrix resolves them once and runs each
+    run from here. Resolving the target and its policies raises on a config error; a task that does not meet its
+    target's inputs, and any failure of the run itself, come back as a failed result.
+    """
+    from dataeval_flow._kind import input_problem, result_type_of
+    from dataeval_flow._tables import TableLimits
+    from dataeval_flow.evaluators._result import EvaluatorResult
+    from dataeval_flow.workflows._base import WorkflowConfig
+    from dataeval_flow.workflows._preset import Preset, expand_preset
+    from dataeval_flow.workflows._result import WorkflowResult
+
+    source_names = list(dataset_contexts)
+    extractor_cfg = setup.config if setup is not None else None
 
     # 4. Resolve the target → type + params. A task runs a workflow, an evaluator, or a custom workflow's chain;
     #    the context, policies, timing and envelope below serve the first two.
@@ -593,7 +637,6 @@ def _source_contexts(
     """Resolve each source a task reads, and the context its run reads it through, keyed by source name."""
     from dataeval_flow._cache import DatasetCache
     from dataeval_flow._sources import resolve_source
-    from dataeval_flow.workflows._context import DatasetContext
 
     dataset_contexts: dict[str, DatasetContext] = {}
     resolved_sources: list[ResolvedSource] = []
@@ -607,24 +650,78 @@ def _source_contexts(
             name=resolved.cache_name,
             cache_key=resolved.cache_key,
         )
-
-        dataset_contexts[src_name] = DatasetContext(
-            name=src_name,
-            dataset=resolved.dataset,
-            extractor=setup.config if setup is not None else None,
-            transforms=setup.transforms if setup is not None else None,
-            view_operations=resolved.view_config.operations if resolved.view_config else None,
-            batch_size=setup.batch_size if setup is not None else None,
-            label_source=_label_source_of(resolved.label_sources),
-            value_range=_value_range_of(resolved),
-            channel_groups=_channel_groups_of(resolved),
-            cache=ds_cache,
-        )
+        dataset_contexts[src_name] = _dataset_context(src_name, resolved, setup, ds_cache)
 
     if cache_dir:
         _logger.info("Cache enabled: %s", cache_dir)
 
     return dataset_contexts, resolved_sources
+
+
+def _dataset_context(
+    src_name: str,
+    resolved: "ResolvedSource",
+    setup: "ExtractorSetup | None",
+    ds_cache: "DatasetCache | None",
+    *,
+    drawn: Any = None,
+) -> "DatasetContext":
+    """The context a run reads source `src_name` through: over its view, or over `drawn`, a draw of it made once."""
+    from dataeval_flow.workflows._context import DatasetContext
+
+    view = resolved.view_config.operations if resolved.view_config else None
+    return DatasetContext(
+        name=src_name,
+        dataset=resolved.dataset if drawn is None else drawn,
+        extractor=setup.config if setup is not None else None,
+        transforms=setup.transforms if setup is not None else None,
+        view_operations=view if drawn is None else None,
+        batch_size=setup.batch_size if setup is not None else None,
+        label_source=_label_source_of(resolved.label_sources),
+        value_range=_value_range_of(resolved),
+        channel_groups=_channel_groups_of(resolved),
+        cache=ds_cache,
+    )
+
+
+def _refused(
+    task: "TaskConfig",
+    config: "PipelineConfig",
+    message: str,
+    setup: "ExtractorSetup | None",
+    dataset_contexts: "Mapping[str, DatasetContext]",
+    resolved_sources: "Sequence[ResolvedSource]",
+    *,
+    data_dir: Path | None,
+    elapsed: float,
+) -> "Result[Any, Any]":
+    """A failed result of the class `task`'s run would return, carrying `message`, in the envelope that run would
+    fill: its sources, extractor, entry and configuration. For a matrix run that raised."""
+    from dataeval_flow._kind import result_type_of
+    from dataeval_flow.evaluators._result import EvaluatorResult
+    from dataeval_flow.steps._result import ChainResult
+    from dataeval_flow.workflows._preset import Preset
+    from dataeval_flow.workflows._result import WorkflowResult
+
+    instance = (
+        _resolve_evaluator(task.workflow, config)
+        if task.kind == "evaluator"
+        else _resolve_workflow(task.workflow, config)
+    )
+    refused: Result[Any, Any]
+    if isinstance(instance, CustomWorkflowConfig):
+        refused = ChainResult.failed(type=instance.name, errors=[message])
+        refused.metadata.workflow = instance.name
+    else:
+        runner = _implementation(instance)
+        default = EvaluatorResult if task.kind == "evaluator" else WorkflowResult
+        refused = result_type_of(runner, default).failed(type=runner.name, errors=[message])
+        if isinstance(refused, ChainResult):
+            refused._preset = isinstance(runner, Preset)  # noqa: SLF001 - a preset's refusal names its type
+    _ensure_result_datasets(refused, dataset_contexts)
+    extractor_cfg = setup.config if setup is not None else None
+    _populate_result_metadata(refused, resolved_sources, extractor_cfg, elapsed, instance, config, data_dir=data_dir)
+    return refused
 
 
 def _run_one_step(
@@ -1233,7 +1330,7 @@ def run_tasks(
     dict[str, Result]
         Each executed task's result, keyed by task name, in execution order. A task
         whose run raised has a failed result, so check ``result.success`` before
-        reading ``result.output``.
+        reading ``result.output``. A task with a `matrix:` returns a :class:`~dataeval_flow.MatrixResult`.
 
     Raises
     ------
@@ -1300,6 +1397,7 @@ def run_task(
         ``isinstance(result, ParameterSweepResult)`` narrows it. A run that raised returns a failed
         result of the same class. A custom workflow's, or a preset's such as drift-monitoring's, is a
         :class:`~dataeval_flow.steps.ChainResult`, holding every step's outcome whether or not one failed.
+        A task with a `matrix:` returns a :class:`~dataeval_flow.MatrixResult`.
     """
     _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))
     return _run_single_task(

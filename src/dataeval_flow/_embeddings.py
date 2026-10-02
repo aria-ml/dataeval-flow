@@ -7,6 +7,7 @@ __all__ = [
     "fit_identity",
     "is_stateful_extractor",
     "mark_fitted",
+    "new_extractor_scope",
     "reuse_within_task",
     "shared_extractor_scope",
 ]
@@ -92,15 +93,24 @@ def is_stateful_extractor(extractor_config: "ExtractorConfig") -> bool:
     return get_extractor(extractor_config.model).stateful
 
 
+def new_extractor_scope() -> _Scope:
+    """A fresh scope for :func:`shared_extractor_scope` to hold: a task matrix keeps one per ``sources`` value."""
+    return _Scope()
+
+
 @contextmanager
-def shared_extractor_scope() -> Iterator[None]:
+def shared_extractor_scope(scope: "_Scope | None" = None) -> Iterator[None]:
     """Build and fit each stateful extractor once for everything inside this scope.
 
     A task compares sources with each other, so they have to be described the same way.
     The first source to ask for embeddings is the fitter: the extractor is fitted on its data
-    and describes the rest in that fit. The orchestrator opens one scope per task.
+    and describes the rest in that fit. The orchestrator opens one scope per task. A task matrix
+    passes the `scope` its runs over one ``sources`` value share; a scope opened inside an open one joins it.
     """
-    token = _task_scope.set(_Scope())
+    if scope is None and _task_scope.get() is not None:
+        yield
+        return
+    token = _task_scope.set(scope if scope is not None else _Scope())
     try:
         yield
     finally:

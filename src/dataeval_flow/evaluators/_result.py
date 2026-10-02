@@ -9,14 +9,12 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeVar
 from pydantic import BaseModel, Field
 
 from dataeval_flow._blocks import Block, Scalar
-from dataeval_flow._result import Result, ResultMetadata
+from dataeval_flow._result import Result, ResultKind, ResultMetadata
 from dataeval_flow._tables import table_limits
 
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
     from dataeval.types import ExecutionMetadata
-
-    from dataeval_flow.config._schemas._task import TaskKind
 
 
 class DataEvalExecution(BaseModel):
@@ -106,7 +104,7 @@ class EvaluatorResult(Result[EvaluatorMetadata, TOutput]):
     ...     print(result.output.aggregate_by_item())
     """
 
-    kind: "ClassVar[TaskKind]" = "evaluator"
+    kind: ClassVar[ResultKind] = "evaluator"
     metadata_type: ClassVar[type[ResultMetadata]] = EvaluatorMetadata
 
     def __init__(

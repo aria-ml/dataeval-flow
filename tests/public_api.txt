@@ -1,5 +1,7 @@
 dataeval_flow:InputKind
 dataeval_flow:InputSpec
+dataeval_flow:MatrixResult
+dataeval_flow:MatrixRun
 dataeval_flow:PipelineConfig
 dataeval_flow:Result
 dataeval_flow:ResultMetadata

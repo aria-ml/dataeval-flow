@@ -15,6 +15,8 @@ PUBLIC_API = [
     "set_device",
     "PipelineConfig",
     "Result",
+    "MatrixResult",
+    "MatrixRun",
     "ResultMetadata",
     "InputSpec",
     "InputKind",

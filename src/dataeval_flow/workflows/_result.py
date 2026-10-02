@@ -7,12 +7,11 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 from dataeval_flow._binning_report import binning_blocks
 from dataeval_flow._blocks import Block, Paragraph, Section, Summary, SummaryItem
 from dataeval_flow._kind import type_arguments
-from dataeval_flow._result import Result, ResultMetadata, TMetadata
+from dataeval_flow._result import Result, ResultKind, ResultMetadata, TMetadata
 from dataeval_flow.workflows._base import Finding, WorkflowOutput
 
 if TYPE_CHECKING:
     import dataeval_flow.workflows
-    from dataeval_flow.config._schemas._task import TaskKind
 
 TOutput = TypeVar("TOutput", bound="WorkflowOutput[Any, Any]")
 
@@ -83,7 +82,7 @@ class WorkflowResult(Result[TMetadata, TOutput]):
     ...     print(result.output.raw.counts)
     """
 
-    kind: "ClassVar[TaskKind]" = "workflow"
+    kind: ClassVar[ResultKind] = "workflow"
     metadata_type: ClassVar[type[ResultMetadata]] = ResultMetadata
 
     def __init_subclass__(cls, **kwargs: Any) -> None:

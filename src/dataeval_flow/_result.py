@@ -6,7 +6,7 @@ payload, and :meth:`Result.export` to write JSON or YAML. A new output format be
 once, built from those two.
 """
 
-__all__ = ["LabelSpaceRecord", "LineageRecord", "Result", "ResultMetadata"]
+__all__ = ["LabelSpaceRecord", "LineageRecord", "Result", "ResultKind", "ResultMetadata"]
 
 import math
 from abc import ABC, abstractmethod
@@ -25,7 +25,8 @@ from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH, Frame, render_
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
 
-    from dataeval_flow.config._schemas._task import TaskKind
+ResultKind = Literal["workflow", "evaluator", "matrix"]
+"""Which kind of result a task returns: a workflow's, an evaluator's, or a task matrix's."""
 
 
 class LabelSpaceRecord(BaseModel):
@@ -330,8 +331,8 @@ class Result(ABC, Generic[TMetadata, TOutput]):
     """One task's result, whichever kind of task ran.
 
     ``kind`` says which: ``"workflow"`` (a :class:`~dataeval_flow.workflows.WorkflowResult`, which judges
-    health) or ``"evaluator"`` (an :class:`~dataeval_flow.evaluators.EvaluatorResult`, which reports DataEval's
-    determinations and judges nothing).
+    health), ``"evaluator"`` (an :class:`~dataeval_flow.evaluators.EvaluatorResult`, which reports DataEval's
+    determinations and judges nothing) or ``"matrix"`` (a :class:`~dataeval_flow.MatrixResult`, a task matrix's runs).
 
     Read :attr:`output` only when ``success`` is true: on a failed run it raises, so a failure can never be read as
     a clean result. :meth:`report`, :meth:`to_dict` and :meth:`export` work either way.
@@ -353,7 +354,7 @@ class Result(ABC, Generic[TMetadata, TOutput]):
 
     Attributes
     ----------
-    kind : {"workflow", "evaluator"}
+    kind : {"workflow", "evaluator", "matrix"}
         Which kind of task made the result; a class variable of each subclass.
     type : str
         The type id of what ran.
@@ -376,8 +377,8 @@ class Result(ABC, Generic[TMetadata, TOutput]):
     -----------
     Do not subclass ``Result`` directly: subclass :class:`~dataeval_flow.workflows.WorkflowResult` for a workflow
     or :class:`~dataeval_flow.evaluators.EvaluatorResult` for an evaluator. Each implements how its kind reports
-    and serializes a successful run, which is all a direct subclass would add, and Flow builds only those two
-    kinds of result.
+    and serializes a successful run, which is all a direct subclass would add. Flow builds those two kinds of
+    result, and a :class:`~dataeval_flow.MatrixResult` holding a task matrix's runs.
 
     Examples
     --------
@@ -388,7 +389,7 @@ class Result(ABC, Generic[TMetadata, TOutput]):
     >>> results["clean"].export("output/clean.json")  # doctest: +SKIP
     """
 
-    kind: "ClassVar[TaskKind]"
+    kind: "ClassVar[ResultKind]"
     metadata_type: ClassVar[type[ResultMetadata]]
 
     def __init__(
