@@ -19,6 +19,9 @@ __all__ = [
     "OODThresholds",
     "OutlierRateCheck",
     "OutlierRateConfig",
+    "StratificationCheck",
+    "StratificationConfig",
+    "StratificationThresholds",
     "TargetOutlierRateCheck",
     "TargetOutlierRateConfig",
 ]
@@ -40,5 +43,10 @@ from dataeval_flow.steps.checks._outliers import (
     OutlierRateConfig,
     TargetOutlierRateCheck,
     TargetOutlierRateConfig,
+)
+from dataeval_flow.steps.checks._stratification import (
+    StratificationCheck,
+    StratificationConfig,
+    StratificationThresholds,
 )
 from dataeval_flow.steps.checks._triage import MetadataIssuesCheck, MetadataIssuesConfig

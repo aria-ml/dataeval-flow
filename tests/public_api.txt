@@ -177,6 +177,9 @@ dataeval_flow.steps.checks:OODCheckConfig
 dataeval_flow.steps.checks:OODThresholds
 dataeval_flow.steps.checks:OutlierRateCheck
 dataeval_flow.steps.checks:OutlierRateConfig
+dataeval_flow.steps.checks:StratificationCheck
+dataeval_flow.steps.checks:StratificationConfig
+dataeval_flow.steps.checks:StratificationThresholds
 dataeval_flow.steps.checks:TargetOutlierRateCheck
 dataeval_flow.steps.checks:TargetOutlierRateConfig
 dataeval_flow.steps.combines:ClasswiseOutliers
