@@ -668,3 +668,11 @@ class TestSectionViewModel:
         result = vm.build_result("t1", None, {"workflow": "w1", "sources": ["s1"]})
         assert result is not None
         assert result["enabled"] is True
+
+
+def test_editing_a_task_keeps_its_matrix() -> None:
+    existing = {"name": "t", "workflow": "w", "sources": "src", "matrix": {"outlier_threshold": [1.0, 2.0]}}
+    vm = SectionViewModel("tasks", existing=existing)
+    built = vm.build_result("t", None, {"workflow": "w", "sources": "src"})
+    assert built is not None
+    assert built["matrix"] == {"outlier_threshold": [1.0, 2.0]}

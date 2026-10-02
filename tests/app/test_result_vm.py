@@ -484,3 +484,17 @@ class TestChainResults:
         assert rvm.finding_count() == 1
         assert rvm.summary_line().startswith("1 finding,")
         assert rvm.status_tag() == " [bold red][failed][/bold red]"
+
+
+def test_a_matrix_result_shows_its_report_and_its_health() -> None:
+    from dataeval_flow import MatrixResult, ResultMetadata
+    from dataeval_flow._app._viewmodel._result_vm import ResultViewModel
+    from dataeval_flow._matrix._result import MatrixRun
+    from dataeval_flow.evaluators._result import EvaluatorResult
+
+    run = MatrixRun(number=1, label="k=1", values={"k": 1}, result=EvaluatorResult.failed(type="toy", errors=["no"]))
+    vm = ResultViewModel(MatrixResult(type="toy", keys=["k"], runs=[run], metadata=ResultMetadata()))
+    assert vm.shows_output
+    assert "k=1" in vm.output_text().lower()
+    assert "failed" in vm.status_tag()
+    assert vm.summary_line().startswith("1 runs, 0 warning(s)")
