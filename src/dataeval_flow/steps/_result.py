@@ -180,6 +180,10 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         """Every finding the health counts, in run order: each check's, and each completed workflow-type step's."""
         return [finding for record in self.steps.values() for finding in _step_findings(record)]
 
+    def findings_by_step(self) -> list[tuple[str, Finding]]:
+        """Every finding :attr:`findings` holds, beside the name of the step that made it, in run order."""
+        return [(name, finding) for name, record in self.steps.items() for finding in _step_findings(record)]
+
     @property
     def check_findings(self) -> list[Finding]:
         """The findings the check steps made, in run order: those the JSON lists at the top level (spec §7.3)."""
