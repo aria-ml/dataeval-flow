@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from dataeval_flow.config.extractors._base import ExtractorConfig
     from dataeval_flow.evaluators._evaluator import Evaluator
     from dataeval_flow.workflows._base import Workflow
-    from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology
+    from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology, Subset
 
 _logger = logging.getLogger(__name__)
 
@@ -95,8 +95,7 @@ class ChainRun:
 
 def input_node(address: str, context: "DatasetContext", *, source: str, cache_name: str, cache_key: str) -> Node:
     """A chain input: the source's context, named for `address`, keyed exactly as the source is today."""
-    if context.name != address:
-        context = replace(context, name=address)
+    context = replace(context, name=address, embedded={})
     root = Root(
         source=source,
         cache_name=cache_name,
@@ -794,6 +793,8 @@ def _made_node(
         transforms=setup.transforms if setup is not None else None,
         batch_size=setup.batch_size if setup is not None else None,
         label_source=_label_source_of(_label_sources(roots)),
+        parent=_subset_of(dataset, sources),
+        embedded={},
         value_range=next(iter(ranges)) if len(ranges) == 1 else None,
         channel_groups=_merge_channel_groups((root.channel_groups for root in roots), f"Step '{spec.name}'"),
         cache=DatasetCache.get_or_create(
@@ -810,6 +811,26 @@ def _made_node(
         step_type=spec.type,
         inputs=tuple(node.address for node in sources),
     )
+
+
+def _subset_of(dataset: Any, sources: Sequence[Node]) -> "Subset | None":
+    """Where `dataset`'s items sit in its one input's, when it views that input through operations that change no
+    pixels; ``None`` otherwise, and it extracts its own embeddings (data-splitting spec §5.3)."""
+    from dataeval.data import ClassBalance, ClassFilter, Indices, Limit, Relabel, Reverse, Shuffle, View
+
+    from dataeval_flow.workflows._context import Subset
+
+    if len(sources) != 1 or not isinstance(dataset, View):
+        return None
+    (source,) = sources
+    if source.context is None or dataset.source is not source.value:
+        return None
+    below = dataset.source.operation_groups if isinstance(dataset.source, View) else []
+    operations = [operation for group in dataset.operation_groups[len(below) :] for operation in group]
+    safe = (ClassBalance, ClassFilter, Indices, Limit, Relabel, Reverse, Shuffle)
+    if not all(isinstance(operation, safe) for operation in operations):
+        return None
+    return Subset(source.context, tuple(int(index) for index in dataset.resolve_indices()))
 
 
 def _label_sources(roots: Sequence[Root]) -> list[str | None]:

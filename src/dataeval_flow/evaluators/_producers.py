@@ -70,6 +70,7 @@ def produce_clusters(pc: ProducerContext) -> dict[str, Any]:
     from dataeval.types import ClusterConfigMixin
 
     from dataeval_flow._cache import get_or_compute_cluster_result, get_or_compute_embeddings
+    from dataeval_flow._embeddings import node_embeddings
 
     config = pc.config
     if not isinstance(config, _ClusterConsumer):
@@ -77,7 +78,9 @@ def produce_clusters(pc: ProducerContext) -> dict[str, Any]:
     dc = pc.dataset_context
     if dc.extractor is None:
         raise ValueError("Cluster mode needs an extractor on the task.")
-    embeddings = get_or_compute_embeddings(pc.dataset, dc.extractor, dc.transforms, dc.batch_size)
+    embeddings = node_embeddings(
+        dc, lambda: get_or_compute_embeddings(pc.dataset, dc.extractor, dc.transforms, dc.batch_size)
+    )
     algorithm = config.cluster_algorithm or ClusterConfigMixin.model_fields["cluster_algorithm"].default
     clusters = get_or_compute_cluster_result(
         embeddings,

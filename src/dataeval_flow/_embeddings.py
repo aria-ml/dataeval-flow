@@ -8,6 +8,7 @@ __all__ = [
     "is_stateful_extractor",
     "mark_fitted",
     "new_extractor_scope",
+    "node_embeddings",
     "reuse_within_task",
     "shared_extractor_scope",
 ]
@@ -28,7 +29,10 @@ from dataeval_flow.config.extractors._registry import get_extractor
 _logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
     from dataeval_flow.config.extractors._base import ExtractorConfig
+    from dataeval_flow.workflows._context import DatasetContext
 
 # The task scope: one entry per extractor identity (the instance every source shares, and
 # the selection it is fitted on), and the stateful results computed without a seed.
@@ -344,3 +348,53 @@ def build_extractor(extractor_config: "ExtractorConfig", transforms: Callable | 
     if entry.extractor is None:
         entry.extractor = extractor.build(extractor_config, transforms)
     return entry.extractor
+
+
+def node_embeddings(context: "DatasetContext", extract: "Callable[[], Any]") -> "NDArray[Any]":
+    """`context`'s embeddings: rows this run already extracted for it, rows sliced from an ancestor that has them,
+    or `extract()`'s, remembered for its subsets (data-splitting spec §5.3).
+
+    Only a config extractor's feature rows are remembered or sliced: an instance has no stable key, and a model's
+    rows can be detections.
+    """
+    import numpy as np
+
+    key = _settings_key(context)
+    if key is None:
+        return extract()
+    memo = context.embedded
+    if memo is not None and key in memo:
+        return memo[key]
+    rows = _sliced(context, key)
+    if rows is not None:
+        return rows
+    rows = np.asarray(extract())
+    if memo is not None:
+        memo[key] = rows
+    return rows
+
+
+def _settings_key(context: "DatasetContext") -> str | None:
+    """What makes two contexts' rows the same: the extractor's config, its preprocessing and batch size; ``None``
+    where rows must not be remembered."""
+    from dataeval_flow._cache import _extractor_config_key, _is_instance_extractor
+    from dataeval_flow._predictions import runs_model
+
+    extractor = context.extractor
+    if extractor is None or _is_instance_extractor(extractor) or runs_model(extractor):
+        return None
+    return f"{_extractor_config_key(extractor)}|{context.transforms!r}|{context.batch_size}"
+
+
+def _sliced(context: "DatasetContext", key: str) -> "NDArray[Any] | None":
+    """`context`'s rows from the nearest ancestor this run extracted them for under `key`; ``None`` where none did."""
+    import numpy as np
+
+    link = context.parent
+    if link is None:
+        return None
+    parent = link.context
+    rows = parent.embedded.get(key) if parent.embedded is not None else None
+    if rows is None:
+        rows = _sliced(parent, key)
+    return None if rows is None else rows[np.asarray(link.indices, dtype=np.intp)]
