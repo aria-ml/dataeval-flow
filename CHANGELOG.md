@@ -5,7 +5,7 @@
 ### Added
 
 - `uncertainty` extractor: an ONNX classifier's or detector's normalized entropy per prediction, for drift on unlabelled
-  data, one row per detection for a detector; only drift evaluators read it
+  data, one row per detection for a detector; only drift and OOD evaluators read it
 - `by: predicted` keys a step by the class a model predicts
 - A drift-monitoring detector may name its own `extractor:`, which its steps embed with instead of the task's
 - Every tool computes on CUDA when PyTorch sees a GPU, else the CPU; `dataeval_flow.set_device` chooses from Python,
@@ -126,6 +126,12 @@
   with `min_items` items in every input, in one Output that names each class it left out and why. A class whose run
   raises is left out with its error, and the step fails only when every class raises. On a check, it judges each
   class and rolls the findings into one, briefed `2/8 classes warn`
+- `ood` and `ood-agreement` checks, and `ood-union`, `factor-predictors` and `factor-deviation` combines, the steps the
+  `ood-detection` preset runs
+- OOD evaluators read the `uncertainty` extractor: a classifier's rows, one per image, or a detector's, one per
+  detection, judged per image, where any detection flagged flags its image
+- A combine may read a Dataset's statistics and draw its own report section, and require the Outputs it reads to share
+  their Datasets, or to have been computed on its own
 - `drift`, a check: a warning when a drift evaluator finds drift or, chunked, when `chunk_percent` of the chunks
   drift or `consecutive_chunks` drift in a row
 - The drift evaluators' results have a report section: the verdict's fields, or one row per chunk
@@ -224,6 +230,23 @@
   - `chunking.threshold_multiplier: k` is `chunking.threshold: [zscore, k]`. Legacy chunked every detector with a
     z-score threshold of 3, while an unset `threshold` now uses DataEval's default for the detector, a constant AUROC
     band for `drift-domain-classifier`, so `threshold: [zscore, 3.0]` restores legacy's judgment
+- `ood-detection` is a preset: each detector is a step judged by an `ood` check, an `agreement` step groups each
+  flagged image as mutual, partial or unique and is judged by `ood-agreement`, and two optional steps explain the
+  flagged images by their metadata, as report sections where they were findings. Each test source is tested on its own
+  against the reference, where they were joined; `merge` them in a custom workflow to test them as one. It returns a
+  `ChainResult`; a detector that raises fails its step and the task. To upgrade:
+  - `method: kneighbors|domain_classifier` is `type: ood-kneighbors|ood-domain-classifier`, and two detectors of one
+    type need distinct `name`s
+  - a domain-classifier detector thresholds on `n_std` unless `threshold_perc` is written, where legacy always used
+    the 95th percentile: write `threshold_perc: 95` to keep legacy's verdicts
+  - `health_thresholds.ood_pct_warning` and `ood_pct_info` are `health_thresholds.ood.warning` and `info`, and
+    `health_thresholds["ood-agreement"]` judges the agreement
+  - `max_ood_insights` is `factor_deviation.max_items`
+  - `value_range` and the `metadata_*` fields are gone: set `value_range` on the dataset, and name a `metadata:` policy
+- A result's JSON writes NaN and infinities as `null`, which strict JSON parsers require
+- `drift-kneighbors` on the `uncertainty` extractor refuses a written `distance_metric: cosine`, which cannot rank one
+  number
+- The TUI offers workflow, evaluator and extractor types registered after import, plugins included
 - `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
 - A custom workflow's or preset's result records the encodings its steps read, as `metadata_binning` and
   `encoding_digest`: one record where they read one Dataset one way, and `per_split`, keyed by the Dataset's address,
@@ -254,6 +277,8 @@
 
 ### Fixed
 
+- Every step of a task reads a source through its Dataset node's one draw of its view, so an unseeded `Shuffle` or any
+  random view gives all of a task's steps the same order, where each step drew its own
 - An exactly declared `continuous_factor_bins` name beats a bare statistic's expansion, whatever the key order
 - `metadata-triage` no longer calls a factor its policy's descriptor pins unpinned, so it suggests no bin count the
   policy refuses as named by both `encoding` and `continuous_factor_bins`
@@ -332,6 +357,8 @@
   `ChunkingConfig`, `UpdateStrategyConfig` and `DriftMonitoringHealthThresholds` classes; a detector is a drift
   evaluator config, and its `chunking:` a `ChunkedDriftConfig`
 - `DriftMonitoringResult` and its parts; a drift-monitoring result is a `ChainResult`
+- `OODDetectionResult`, `OODDetectorKNeighbors`, `OODDetectorDomainClassifier` and `OODDetectionHealthThresholds`;
+  ood-detection returns a `ChainResult`, and its detectors are OOD evaluator entries
 
 ## v0.2.2
 

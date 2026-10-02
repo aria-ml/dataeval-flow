@@ -257,7 +257,7 @@ workflows:
 - **A classifier gives one row per image. A detector gives one row per box** whose top score is at least `confidence`.
   The model returns a fixed number of boxes per image, padding included, so a detector needs `confidence`; `0` keeps
   every box, and caches every one.
-- **Only drift reads it.** A detector's rows are detections, not images, so load refuses the extractor on any other
+- **Drift and OOD detection read it.** A detector's rows are detections, not images, so load refuses the extractor on any other
   evaluator. A detector entry's own `extractor:` lets one task mix it with the task's embeddings.
 - **Chunks hold whole images.** `chunk_size` and `chunk_count` count images, and a chunk whose images hold no
   detections is listed as not assessed. The section says how many detections each source held, in how many images.
@@ -285,8 +285,35 @@ workflows:
         extractor: yolo-uncertainty
 ```
 
+### Out-of-distribution images
+
+The same extractor feeds OOD detectors, which flag individual images where drift tests a whole batch.
+
+```yaml
+workflows:
+  - name: ood
+    type: ood-detection
+    detectors:
+      - {type: ood-kneighbors, k: 10}          # the task's embeddings
+      - name: uncertain
+        type: ood-kneighbors
+        extractor: yolo-uncertainty
+        distance_metric: euclidean             # required: an uncertainty row is one number
+```
+
+- **Images are judged, and detections reported beside them.** On a detector's rows, an image is out of distribution
+  when any of its detections is, and scores as its most out-of-distribution detection. The finding's brief adds the
+  detections flagged: "9/300 images OOD (3.0%; 12/4,812 detections at confidence ≥ 0.25)".
+- **An image with no detection at the confidence is not assessed.** The detector's section lists it, and the percent
+  counts assessed images only. A source with no detection at all fails the detector's step.
+- **`ood-kneighbors` needs `distance_metric: euclidean`** here: cosine distance, DataEval's default, cannot rank one
+  number, and load refuses it.
+- **A detector on embeddings and one on uncertainty agree per image,** so the `agreement` step combines them, and its
+  section pictures each flagged image once.
+
 ## See also
 
 - [Distribution Shift](../concepts/DistributionShift.md) — what drift and out-of-distribution detection ask
 - [Check and Combine Catalog](../reference/checks.md) — the `drift` check's fields, and `by: class`
 - [Evaluator Catalog](../reference/evaluators.md) — each drift evaluator's fields
+- [OOD detection tutorial](../notebooks/ood_detection) — the `ood-detection` preset on embeddings
