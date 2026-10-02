@@ -149,6 +149,6 @@ def test_the_insights_agree_with_legacy(name: str) -> None:
     (deviation,) = _elements(result, "factor-deviation").values()
     assert predictors.factors == approximately(golden["predictors"] or {})
     computed = {str(item.index): item.deviations for item in deviation.items}
-    # Legacy computed every flagged image's deviations here (at most 50 were flagged), so each of the preset's is there.
-    assert set(computed) <= set(golden["deviations"])
+    # Legacy recorded every flagged image among its first `max_ood_insights`; the preset explains the agreed ones.
+    assert set(computed) == set(golden["deviations"]) & {str(index) for index in golden["mutual"]}
     assert computed == approximately({key: golden["deviations"][key] for key in computed})
