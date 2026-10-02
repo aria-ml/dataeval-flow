@@ -114,6 +114,8 @@ def markdown_summary(results: Mapping[str, "Result[Any, Any]"]) -> str:
             verdict = (
                 "failed"
                 if health["status"] == "failed"
+                else "ran"  # an evaluator has no findings, so nothing to pass
+                if result.runs[0].result.kind == "evaluator"
                 else "passed"
                 if not health["warnings"]
                 else f"{health['warnings']} warning{'s' if health['warnings'] != 1 else ''}"

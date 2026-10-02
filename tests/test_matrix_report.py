@@ -7,6 +7,7 @@ import pytest
 
 from dataeval_flow import MatrixResult, ResultMetadata, run_tasks
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow._ci_reports import markdown_summary
 from dataeval_flow._matrix._result import MatrixRun
 from dataeval_flow._matrix._table import comparison_table
 from dataeval_flow.workflows import Finding
@@ -50,14 +51,23 @@ def test_a_one_value_matrix_gives_a_one_row_table() -> None:
     assert len(comparison_table(result).rows) == 1
 
 
-def test_a_short_report_is_the_table_and_a_full_one_adds_each_run() -> None:
+def test_a_short_report_is_the_table_and_a_full_one_adds_each_run_under_runs() -> None:
     result = _run({"outlier_threshold": [1.0, 3.0]})
     short, full = result.report(detailed=False), result.report(detailed=True)
     assert "matrix of 2 runs" in short
     assert "Run 1 · outlier_threshold=1.0" not in short
-    # the text report upper-cases a section title
-    assert "RUN 1 · OUTLIER_THRESHOLD=1.0" in full
-    assert "RUN 2 · OUTLIER_THRESHOLD=3.0" in full
+    # one upper-cased section holds the runs, so each run's heading keeps its values' case
+    assert "\n  RUNS\n" in full
+    assert "Run 1 · outlier_threshold=1.0" in full
+    assert "Run 2 · outlier_threshold=3.0" in full
+
+
+def test_the_health_column_fits_its_header_at_80_columns() -> None:
+    result = _run({"outlier_threshold": [1.0, 3.0]})
+    assert [row["health"] for row in comparison_table(result).rows] == ["[!!]", "[!!]"]
+    text = result.report(detailed=False)
+    # the table is wider than 80 columns, and narrows its columns to their headers, Health's to `Health`
+    assert "warnin" not in text[text.index("#  outlier_threshold") :]
 
 
 def test_the_html_page_draws_the_table() -> None:
@@ -91,7 +101,18 @@ def test_repeated_titles_are_numbered_and_a_failed_run_s_error_is_listed() -> No
     assert [column.header for column in table.columns] == ["#", "k", "Health", "Outliers", "Outliers (2)"]
     assert [table.rows[0][column.key] for column in table.columns[3:]] == ["[!!] 9", "[..]"]
     assert [table.rows[1][column.key] for column in table.columns[3:]] == ["—", "—"]
-    assert "Run 2 failed: it broke" in result.report(detailed=False)
+    assert [row["health"] for row in table.rows] == ["[!!]", "failed"]
+    short = result.report(detailed=False)
+    assert "Run 2 failed: it broke" in short
+    assert "Health: failed [!!] — run 2 of 2 failed" in short
+
+
+def test_the_health_line_counts_one_run_and_one_warning_in_the_singular() -> None:
+    warned = MatrixResult(type="toy", keys=["k"], runs=[_fake(1, [Finding(title="O", severity="warning")])])
+    assert "Health: 1 warning [!!] across 1 run — review flagged findings" in warned.report(detailed=False)
+    clean = MatrixResult(type="toy", keys=["k"], runs=[_fake(1, [Finding(title="O", severity="ok")])])
+    assert [row["health"] for row in comparison_table(clean).rows] == ["[ok]"]
+    assert "Health: ok — 1 run, no warnings" in clean.report(detailed=False)
 
 
 def test_a_legacy_workflow_s_findings_fill_the_table() -> None:
@@ -119,3 +140,6 @@ def test_an_evaluator_matrix_has_no_finding_columns() -> None:
     result = run_tasks(config)["t"]
     assert isinstance(result, MatrixResult)
     assert [column.header for column in comparison_table(result).columns] == ["#", "merge_near_duplicates", "Health"]
+    # an evaluator judges nothing, so its runs ran rather than passed
+    assert "Health: ran — 2 runs; an evaluator has no findings to list" in result.report(detailed=False)
+    assert "**Health:** ran" in markdown_summary({"t": result})

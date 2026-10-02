@@ -49,14 +49,19 @@ def _headers(keys: "list[_ColumnKey]") -> "dict[_ColumnKey, str]":
     return headers
 
 
+def _marker(severity: str) -> str:
+    return _MARKERS[severity].strip()
+
+
 def _cell(finding: "Finding") -> str:
-    marker = _MARKERS[finding.severity].strip()
+    marker = _marker(finding.severity)
     return f"{marker} {finding.brief}" if finding.brief else marker
 
 
 def comparison_table(result: "MatrixResult") -> Table:
-    """The table: each run's number, its value for each key (blank where its grid sets none), its health, and each
-    finding's marker and brief (``—`` where it made none)."""
+    """The table: each run's number, its value for each key (blank where its grid sets none), its health as a marker
+    (``[ok]``, ``[!!]``) or ``failed``, which fit the column's header, and each finding's marker and brief (``—`` where
+    it made none)."""
     per_run = [_findings(run.result) for run in result.runs]
     finding_keys = list(dict.fromkeys(key for cells in per_run for key in cells))
     headers = _headers(finding_keys)
@@ -70,21 +75,31 @@ def comparison_table(result: "MatrixResult") -> Table:
     ]
     rows: list[dict[str, Any]] = []
     for run, cells in zip(result.runs, per_run, strict=True):
-        row: dict[str, Any] = {"number": run.number, "health": run.status}
+        row: dict[str, Any] = {
+            "number": run.number,
+            "health": run.status if run.status == "failed" else _marker(run.status),
+        }
         row.update({key_ids[key]: show_value(run.values[key]) if key in run.values else "" for key in result.keys})
         row.update({finding_ids[key]: _cell(cells[key]) if key in cells else "—" for key in finding_keys})
         rows.append(row)
     return Table(columns=columns, rows=rows)
 
 
+def _counted(count: int, noun: str) -> str:
+    return f"{count} {noun}{'' if count == 1 else 's'}"
+
+
 def _health_line(result: "MatrixResult") -> str:
-    health, count = result.health, len(result.runs)
+    health, runs, marker = result.health, _counted(len(result.runs), "run"), _marker("warning")
     if health["status"] == "failed":
         failed = ", ".join(str(number) for number in health["failed_runs"])
-        return f"Health: failed [!!] — run{'s' if len(health['failed_runs']) > 1 else ''} {failed} of {count} failed"
+        which = "runs" if len(health["failed_runs"]) > 1 else "run"
+        return f"Health: failed {marker} — {which} {failed} of {len(result.runs)} failed"
     if health["status"] == "warning":
-        return f"Health: {health['warnings']} warning(s) [!!] across {count} runs — review flagged findings"
-    return f"Health: ok — {count} runs, no warnings"
+        return f"Health: {_counted(health['warnings'], 'warning')} {marker} across {runs} — review flagged findings"
+    if result.runs[0].result.kind == "evaluator":
+        return f"Health: ran — {runs}; an evaluator has no findings to list"
+    return f"Health: ok — {runs}, no warnings"
 
 
 def run_section(run: "MatrixRun") -> Section:
@@ -93,7 +108,7 @@ def run_section(run: "MatrixRun") -> Section:
 
 
 def comparison_blocks(result: "MatrixResult", *, detailed: bool) -> list[Block]:
-    """The health line, the table, each failed run's error, and, when *detailed*, each run's report."""
+    """The health line, the table, each failed run's error, and, when *detailed*, each run's report under ``Runs``."""
     blocks: list[Block] = [Paragraph(text=_health_line(result)), comparison_table(result)]
     blocks.extend(
         Paragraph(text=f"Run {run.number} failed: {run.result.errors[0] if run.result.errors else 'failed'}")
@@ -101,5 +116,6 @@ def comparison_blocks(result: "MatrixResult", *, detailed: bool) -> list[Block]:
         if not run.result.success
     )
     if detailed:
-        blocks.extend(run_section(run) for run in result.runs)
+        # Nested one level in, a run's heading keeps its values' case: the text report upper-cases a top section's.
+        blocks.append(Section(title="Runs", blocks=[run_section(run) for run in result.runs]))
     return blocks
