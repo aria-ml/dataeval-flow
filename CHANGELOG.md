@@ -278,7 +278,8 @@
 ### Fixed
 
 - Every step of a task reads a source through its Dataset node's one draw of its view, so an unseeded `Shuffle` or any
-  random view gives all of a task's steps the same order, where each step drew its own
+  random view gives all of a task's steps the same order, where each step drew its own. A result's `dataset` and
+  `sources`, and the report's thumbnails, hold that same draw, where they drew the view again
 - An exactly declared `continuous_factor_bins` name beats a bare statistic's expansion, whatever the key order
 - `metadata-triage` no longer calls a factor its policy's descriptor pins unpinned, so it suggests no bin count the
   policy refuses as named by both `encoding` and `continuous_factor_bins`

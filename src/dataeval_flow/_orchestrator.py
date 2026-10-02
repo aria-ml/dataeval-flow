@@ -530,7 +530,7 @@ def _run_single_task(
         )
 
     # 5-7. Resolve the step's policies and ontology, then run it as a one-step graph.
-    result, elapsed, ontology = _run_one_step(
+    result, elapsed, ontology, drawn = _run_one_step(
         task,
         instance,
         runner,
@@ -545,13 +545,13 @@ def _run_single_task(
     )
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
-    # 8. Backfill the resolved dataset(s) when the workflow left them unset —
+    # 8. Backfill the dataset(s) the step read when the workflow left them unset —
     # notably on failure paths, where callers still need the inputs to debug.
-    _ensure_result_datasets(result, dataset_contexts)
+    _ensure_result_datasets(result, drawn)
 
     # 9. Thumbnails of the items the report names, read while the run's datasets are at hand.
     if report_images and result.success:
-        _capture_assets(result, dataset_contexts, _unless_all(config.result.max_images))
+        _capture_assets(result, drawn, _unless_all(config.result.max_images))
 
     # 10. Populate metadata envelope
     _populate_result_metadata(
@@ -640,16 +640,16 @@ def _run_one_step(
     cache_dir: Path | None,
     output_dir: Path | None,
     limits: "TableLimits",
-) -> "tuple[Result[Any, Any], float, ResolvedOntology | None]":
+) -> "tuple[Result[Any, Any], float, ResolvedOntology | None, dict[str, DatasetContext]]":
     """Run an ``evaluator:`` or workflow-type task as a one-step graph: its result, unwrapped, the seconds it took,
-    and the ontology its step resolved.
+    the ontology its step resolved, and each source's context over the one draw of its view the step read.
 
     The step's metadata policy, value range, stats policy and ontology resolve before anything reads the dataset,
     so a misspelled factor or a missing descriptor costs a config error, not an hour of walking images.
     """
     from dataeval_flow._chain._graph import one_step_graph
     from dataeval_flow._chain._preflight import step_contexts
-    from dataeval_flow._chain._run import RunSettings, bind_inputs, run_chain
+    from dataeval_flow._chain._run import RunSettings, _datasets, bind_inputs, run_chain
     from dataeval_flow._kind import result_type_of
     from dataeval_flow._tables import limited_tables
     from dataeval_flow.evaluators._result import EvaluatorResult
@@ -687,7 +687,15 @@ def _run_one_step(
         result = result_type_of(runner, default).failed(type=runner.name, errors=record.errors)
     if diagnostics:
         result.metadata.diagnostics = list(diagnostics)
-    return result, elapsed, contexts[task.name].ontology
+    try:
+        drawn = {
+            node.source: replace(dataset_contexts[node.source], dataset=node.value, view_operations=None)
+            for node in _datasets(inputs.values())
+            if node.source is not None
+        }
+    except Exception:  # noqa: BLE001 - a view that cannot be drawn failed the step; the backfill retries and logs it
+        drawn = dataset_contexts
+    return result, elapsed, contexts[task.name].ontology, drawn
 
 
 def _run_custom_task(
@@ -714,7 +722,7 @@ def _run_custom_task(
     """
     from dataeval_flow._chain._graph import binding_problems, build_graph
     from dataeval_flow._chain._preflight import check_kinds, step_contexts
-    from dataeval_flow._chain._run import RunSettings, bind_inputs, run_chain
+    from dataeval_flow._chain._run import RunSettings, _datasets, bind_inputs, run_chain
     from dataeval_flow._sources import label_space_records
     from dataeval_flow._tables import limited_tables
     from dataeval_flow.steps._result import ChainMetadata, ChainResult
@@ -768,7 +776,8 @@ def _run_custom_task(
     if diagnostics:
         result.metadata.diagnostics = list(diagnostics)
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
-    result.sources = {source.name: source.realized() for source in resolved_sources}
+    # The draw of each source's view its steps read: a fresh one would differ where the view shuffles unseeded.
+    result.sources = {node.source: node.value for node in _datasets(inputs.values()) if node.source is not None}
     if report_images:
         _capture_chain_assets(result, chain, _unless_all(config.result.max_images))
     _populate_result_metadata(
@@ -854,8 +863,10 @@ def _ensure_result_datasets(
     Workflows attach the resolved, post-selection dataset to successful
     results only — an early return or an exception leaves the fields unset,
     which prevents callers from inspecting the inputs that produced the failure.
-    Rebuild the selection here for those cases; already-populated fields are
-    left untouched, so the success path is unaffected.
+    Fill them here from *dataset_contexts*: a run passes each source's context
+    over the draw its step read; a refused task, which read nothing, its own,
+    whose view is built here. Already-populated fields are left untouched, so
+    the success path is unaffected.
     """
     if not dataset_contexts:
         return

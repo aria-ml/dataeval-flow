@@ -365,6 +365,82 @@ def test_an_ood_thumbnail_is_the_image_scored_though_its_view_shuffles_unseeded(
     assert {item: shades[item] < 8 for item in agreed} == dict.fromkeys(agreed, True)
 
 
+def _shuffled_pipeline(**entries: Any) -> PipelineConfig:
+    """`entries` over one source `src` of 40 toy images, read through a view that shuffles unseeded."""
+    from dataeval_flow.config import DatasetProtocolConfig, ViewOperation
+
+    return PipelineConfig.model_validate(
+        {
+            "datasets": [DatasetProtocolConfig(name="toy", format="maite", dataset=ToyImages(count=40))],
+            "views": [ViewConfig(name="shuffled", operations=[ViewOperation(type="Shuffle", params={})])],
+            "sources": [SourceConfig(name="src", dataset="toy", view="shuffled")],
+            **entries,
+        }
+    )
+
+
+def _ids(dataset: Any) -> list[int]:
+    """Which toy image each index holds."""
+    return [dataset[index][2]["id"] for index in range(len(dataset))]
+
+
+def test_a_chain_result_s_sources_are_the_draw_its_steps_read_though_the_view_shuffles_unseeded() -> None:
+    config = _shuffled_pipeline(
+        evaluators=[DuplicatesConfig(name="dupes")],
+        workflows=[{"name": "w", "inputs": ["a"], "steps": [{"name": "dupes", "evaluator": "dupes", "input": "a"}]}],
+        tasks=[TaskConfig(name="t", workflow="w", sources="src")],
+    )
+    result = run_tasks(config)["t"]
+    assert isinstance(result, ChainResult)
+    read = result.steps["dupes"].result
+    assert read is not None
+    assert read.dataset is not None
+    assert result.sources is not None
+    assert _ids(result.sources["src"]) == _ids(read.dataset)
+
+
+def test_a_workflow_result_s_backfilled_dataset_is_the_draw_its_step_read_though_the_view_shuffles_unseeded(
+    plugins: dict[str, list[tuple[str, str]]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tests.workflow_toys import ToyCountConfig, ToyCountWorkflow, register_count
+
+    register_count(plugins)
+    read: list[Any] = []
+    count = ToyCountWorkflow.run
+
+    def recording(self: ToyCountWorkflow, config: ToyCountConfig, context: WorkflowContext) -> Any:
+        read.extend(context.dataset(source) for source in context.sources)
+        return count(self, config, context)
+
+    monkeypatch.setattr(ToyCountWorkflow, "run", recording)
+    config = _shuffled_pipeline(
+        workflows=[ToyCountConfig(name="count")], tasks=[TaskConfig(name="t", workflow="count", sources="src")]
+    )
+    result = run_tasks(config)["t"]
+    (dataset,) = read
+    assert result.dataset is not None  # `test.count` leaves it unset, so the run fills it in
+    assert _ids(result.dataset) == _ids(dataset)
+
+
+def test_a_view_that_cannot_be_drawn_fails_the_task_which_still_carries_its_source() -> None:
+    from dataeval_flow.config import DatasetProtocolConfig, ViewOperation
+
+    data = ToyImages()
+    config = PipelineConfig.model_validate(
+        {
+            "datasets": [DatasetProtocolConfig(name="toy", format="maite", dataset=data)],
+            "views": [ViewConfig(name="bad", operations=[ViewOperation(type="Limit", params={"bogus": 1})])],
+            "sources": [SourceConfig(name="src", dataset="toy", view="bad")],
+            "evaluators": [DuplicatesConfig(name="dupes")],
+            "tasks": [TaskConfig(name="t", workflow="dupes", kind="evaluator", sources="src")],
+        }
+    )
+    result = run_tasks(config)["t"]
+    assert not result.success
+    assert result.errors == ["TypeError: Limit.__init__() got an unexpected keyword argument 'bogus'"]
+    assert result.dataset is data
+
+
 def test_the_result_block_limits_a_run_s_tables() -> None:
     """``max_rows`` and ``preview_rows`` reach the tables a real preset's steps build, for that run alone."""
     from dataeval_flow._blocks import Paragraph, Section, Table
