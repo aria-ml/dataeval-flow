@@ -5341,6 +5341,55 @@
       "title": "LoggingConfig",
       "type": "object"
     },
+    "MatrixRange": {
+      "additionalProperties": false,
+      "description": "An inclusive range of numbers, ``{from, to, step}``: ``from + i\u00b7step`` for each ``i`` whose value is at most\n``to``. Integers when all three bounds are, floats otherwise; counted in decimal, so ``0.1`` steps land exactly.",
+      "properties": {
+        "from": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "description": "The first value.",
+          "title": "From"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "description": "The last value allowed. It is a value when a step lands on it.",
+          "title": "To"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "description": "How far each value is from the one before; above 0.",
+          "title": "Step"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "step"
+      ],
+      "title": "MatrixRange",
+      "type": "object"
+    },
     "MetadataPolicyConfig": {
       "additionalProperties": false,
       "description": "A named metadata policy, referenced by the workflows that share it.\n\nA bin edge is a claim about the world \u2014 *below 0 \u00b0C is freezing* \u2014 so where the cuts\nfell, and who chose them, is part of what a result means.  That makes the encoding a\ndecision worth writing down once and pointing several workflows at, rather than a\nsetting each of them spells out again: two workflows over one dataset that cut it\ndifferently produce numbers that merge into one result file and cannot be compared.\n\nDefined once under ``metadata:`` and referenced by name, like ``datasets``, ``views``,\n``sources`` and ``extractors``.\n\nYAML example::\n\n    metadata:\n      - name: standard\n        encoding: policy/factor_bins.json\n        strict: true\n        exclude: [id, filename]\n\n    workflows:\n      - name: coverage_check\n        type: data-coverage\n        metadata: standard",
@@ -8568,6 +8617,52 @@
           "default": null,
           "description": "The extractor this task embeds with, by name. Leave unset when it needs none.",
           "title": "Extractor"
+        },
+        "matrix": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "items": {},
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  {
+                    "$ref": "#/$defs/MatrixRange"
+                  }
+                ]
+              },
+              "minProperties": 1,
+              "type": "object"
+            },
+            {
+              "items": {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "items": {},
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    {
+                      "$ref": "#/$defs/MatrixRange"
+                    }
+                  ]
+                },
+                "minProperties": 1,
+                "type": "object"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run the task once per combination of these values, and compare the runs in one result. One grid (a mapping of key to values) or several (a list of them). A key names a setting: a path into the task's entry, `sources`, `extractor`, or `evaluators.<name>.\u2026`, `workflows.<name>.\u2026`, `extractors.<name>.\u2026`, `steps.<step>.<setting>`. Values are a list, or a range `{from, to, step}`.",
+          "title": "Matrix"
         },
         "evaluator": {
           "description": "The evaluator this task runs, by its name in `evaluators:`. Set this or `workflow`.",
