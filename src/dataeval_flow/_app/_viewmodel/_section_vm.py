@@ -219,6 +219,10 @@ class SectionViewModel:
         if self.section == "tasks" and self.existing:
             field_values.setdefault("enabled", self.existing.get("enabled", True))
 
+        # A matrix is written in YAML or Python only; the form edits the rest of the task and keeps it.
+        if self.section == "tasks" and self.existing and self.existing.get("matrix") is not None:
+            field_values.setdefault("matrix", self.existing["matrix"])
+
         return build_item_dict(self.section, name, variant_value, field_values)
 
     def check_dirty(self, collected: dict[str, Any] | None) -> bool:

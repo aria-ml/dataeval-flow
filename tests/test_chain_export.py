@@ -333,3 +333,75 @@ def test_exporting_a_classification_dataset_fails_before_running(tmp_path: Path)
     config = _config([{"name": "dataset", "transform": "export", "input": "a"}], datasets={"src": ToyImages()})
     with pytest.raises(GraphError, match="`input` takes object_detection"):
         run_tasks(config, output_dir=tmp_path)
+
+
+def test_a_matrix_run_writes_its_export_under_its_run_number(tmp_path: Path) -> None:
+    steps = [
+        {"name": "few", "transform": "view", "input": "a", "operations": [{"type": "Limit", "params": {"size": 3}}]},
+        {"name": "dataset", "transform": "export", "input": "few", "to": "first"},
+    ]
+    config = chain_pipeline(
+        workflows=[{"name": "w", "inputs": ["a"], "steps": steps}],
+        tasks=[
+            {
+                "name": "t",
+                "workflow": "w",
+                "sources": ["src"],
+                "matrix": {
+                    "steps.few.operations": [
+                        [{"type": "Limit", "params": {"size": 2}}],
+                        [{"type": "Limit", "params": {"size": 3}}],
+                    ],
+                },
+            }
+        ],
+        datasets={"src": _DETECTIONS},
+    )
+    run_tasks(config, output_dir=tmp_path)
+    assert len(_instances(tmp_path / "datasets" / "first" / "run-1")["images"]) == 2
+    assert len(_instances(tmp_path / "datasets" / "first" / "run-2")["images"]) == 3
+
+
+def test_another_task_exporting_to_a_matrix_task_s_destination_still_clashes() -> None:
+    steps = [{"name": "dataset", "transform": "export", "input": "a", "to": "shared"}]
+    workflow = {"name": "w", "inputs": ["a"], "steps": steps}
+    with pytest.raises(ValidationError, match="both export to `datasets/shared`"):
+        chain_pipeline(
+            workflows=[workflow, {**workflow, "name": "w2"}],
+            tasks=[
+                {
+                    "name": "t",
+                    "workflow": "w",
+                    "sources": ["src"],
+                    "matrix": {"steps.dataset.mode": ["error", "replace"]},
+                },
+                {"name": "u", "workflow": "w2", "sources": ["src"]},
+            ],
+            datasets={"src": _DETECTIONS},
+        )
+
+
+@pytest.mark.parametrize("key", ["steps.dataset.to", "workflows.w.steps.dataset.to"])
+def test_a_matrix_varying_where_an_export_step_writes_fails_the_load(key: str) -> None:
+    steps = [{"name": "dataset", "transform": "export", "input": "a"}]
+    with pytest.raises(ValidationError, match="each run already writes under `datasets/<to>/run-<n>/`"):
+        chain_pipeline(
+            workflows=[{"name": "w", "inputs": ["a"], "steps": steps}],
+            tasks=[{"name": "t", "workflow": "w", "sources": ["src"], "matrix": {key: ["a", "b"]}}],
+            datasets={"src": _DETECTIONS},
+        )
+
+
+def test_a_matrix_run_writes_a_list_export_under_its_run_then_each_key(tmp_path: Path) -> None:
+    steps = [
+        {"name": "folds", "transform": "kfold", "input": "a", "folds": 2},
+        {"name": "dataset", "transform": "export", "input": "folds.train"},
+    ]
+    config = chain_pipeline(
+        workflows=[{"name": "w", "inputs": ["a"], "steps": steps}],
+        tasks=[{"name": "t", "workflow": "w", "sources": ["src"], "matrix": {"steps.folds.folds": [2]}}],
+        datasets={"src": _DETECTIONS},
+    )
+    run_tasks(config, output_dir=tmp_path)
+    for key in ("0", "1"):
+        assert (tmp_path / "datasets" / "t.dataset" / "run-1" / key / "provenance.json").is_file()

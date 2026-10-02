@@ -110,6 +110,8 @@ class TransformContext:
     element: str | None = None
     """The key of the list element this run is for, where the step runs once per element of a list; ``None`` when
     it runs once."""
+    run: int | None = None
+    """The task-matrix run this is, numbered from 1; ``None`` outside a matrix. An export writes under ``run-<n>/``."""
 
 
 class StepSkipped(Exception):  # noqa: N818 - a step's outcome, not an error

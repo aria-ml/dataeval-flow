@@ -145,5 +145,6 @@ reproduce any finding travel with the finding itself.
 
 - [Cleaning a dataset](../notebooks/data_cleaning.py) — a complete config-driven run,
   end to end
-- [Parameter sweeps](../notebooks/parameter_sweep.py) — repeated evaluation where
-  config-keyed caching reuse is most visible
+- [Tune data cleaning with a matrix](../notebooks/tune_data_cleaning.py) — repeated
+  evaluation where config-keyed caching reuse is most visible: nine runs over one draw
+  of the data, sharing its statistics, embeddings and clusters

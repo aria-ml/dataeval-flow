@@ -67,7 +67,7 @@ Deciding what to label next, and choosing the parameters an evaluation runs with
 :hidden:
 
 ../notebooks/data_prioritization
-../notebooks/parameter_sweep
+../notebooks/tune_data_cleaning
 ```
 
 :::{list-table}
@@ -76,8 +76,8 @@ Deciding what to label next, and choosing the parameters an evaluation runs with
 
 - - {doc}`Prioritize unlabeled data for labeling <../notebooks/data_prioritization>`
   - Rank an abundant unlabeled pool so the most informative samples are annotated first.
-- - {doc}`Parameter Sweep for Data Cleaning <../notebooks/parameter_sweep>`
-  - Run a workflow across a grid of parameters and compare the results side by side.
+- - {doc}`Tune data cleaning with a matrix <../notebooks/tune_data_cleaning>`
+  - Run data cleaning across a grid of thresholds, compare every run's findings in one table, and choose settings.
 
 :::
 

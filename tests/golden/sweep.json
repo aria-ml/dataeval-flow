@@ -1,0 +1,162 @@
+[
+  {
+    "params": {
+      "outlier_method": "zscore",
+      "outlier_threshold": null,
+      "outlier_cluster_threshold": null,
+      "duplicate_cluster_sensitivity": null
+    },
+    "outlier_count": 1,
+    "near_duplicate_groups": 1
+  },
+  {
+    "params": {
+      "outlier_method": "zscore",
+      "outlier_threshold": null,
+      "outlier_cluster_threshold": null,
+      "duplicate_cluster_sensitivity": 1.0
+    },
+    "outlier_count": 1,
+    "near_duplicate_groups": 3
+  },
+  {
+    "params": {
+      "outlier_method": "zscore",
+      "outlier_threshold": null,
+      "outlier_cluster_threshold": 1.0,
+      "duplicate_cluster_sensitivity": null
+    },
+    "outlier_count": 2,
+    "near_duplicate_groups": 1
+  },
+  {
+    "params": {
+      "outlier_method": "zscore",
+      "outlier_threshold": null,
+      "outlier_cluster_threshold": 1.0,
+      "duplicate_cluster_sensitivity": 1.0
+    },
+    "outlier_count": 2,
+    "near_duplicate_groups": 3
+  },
+  {
+    "params": {
+      "outlier_method": "zscore",
+      "outlier_threshold": 2.0,
+      "outlier_cluster_threshold": null,
+      "duplicate_cluster_sensitivity": null
+    },
+    "outlier_count": 2,
+    "near_duplicate_groups": 1
+  },
+  {
+    "params": {
+      "outlier_method": "zscore",
+      "outlier_threshold": 2.0,
+      "outlier_cluster_threshold": null,
+      "duplicate_cluster_sensitivity": 1.0
+    },
+    "outlier_count": 2,
+    "near_duplicate_groups": 3
+  },
+  {
+    "params": {
+      "outlier_method": "zscore",
+      "outlier_threshold": 2.0,
+      "outlier_cluster_threshold": 1.0,
+      "duplicate_cluster_sensitivity": null
+    },
+    "outlier_count": 3,
+    "near_duplicate_groups": 1
+  },
+  {
+    "params": {
+      "outlier_method": "zscore",
+      "outlier_threshold": 2.0,
+      "outlier_cluster_threshold": 1.0,
+      "duplicate_cluster_sensitivity": 1.0
+    },
+    "outlier_count": 3,
+    "near_duplicate_groups": 3
+  },
+  {
+    "params": {
+      "outlier_method": "modzscore",
+      "outlier_threshold": null,
+      "outlier_cluster_threshold": null,
+      "duplicate_cluster_sensitivity": null
+    },
+    "outlier_count": 1,
+    "near_duplicate_groups": 1
+  },
+  {
+    "params": {
+      "outlier_method": "modzscore",
+      "outlier_threshold": null,
+      "outlier_cluster_threshold": null,
+      "duplicate_cluster_sensitivity": 1.0
+    },
+    "outlier_count": 1,
+    "near_duplicate_groups": 3
+  },
+  {
+    "params": {
+      "outlier_method": "modzscore",
+      "outlier_threshold": null,
+      "outlier_cluster_threshold": 1.0,
+      "duplicate_cluster_sensitivity": null
+    },
+    "outlier_count": 2,
+    "near_duplicate_groups": 1
+  },
+  {
+    "params": {
+      "outlier_method": "modzscore",
+      "outlier_threshold": null,
+      "outlier_cluster_threshold": 1.0,
+      "duplicate_cluster_sensitivity": 1.0
+    },
+    "outlier_count": 2,
+    "near_duplicate_groups": 3
+  },
+  {
+    "params": {
+      "outlier_method": "modzscore",
+      "outlier_threshold": 2.0,
+      "outlier_cluster_threshold": null,
+      "duplicate_cluster_sensitivity": null
+    },
+    "outlier_count": 6,
+    "near_duplicate_groups": 1
+  },
+  {
+    "params": {
+      "outlier_method": "modzscore",
+      "outlier_threshold": 2.0,
+      "outlier_cluster_threshold": null,
+      "duplicate_cluster_sensitivity": 1.0
+    },
+    "outlier_count": 6,
+    "near_duplicate_groups": 3
+  },
+  {
+    "params": {
+      "outlier_method": "modzscore",
+      "outlier_threshold": 2.0,
+      "outlier_cluster_threshold": 1.0,
+      "duplicate_cluster_sensitivity": null
+    },
+    "outlier_count": 6,
+    "near_duplicate_groups": 1
+  },
+  {
+    "params": {
+      "outlier_method": "modzscore",
+      "outlier_threshold": 2.0,
+      "outlier_cluster_threshold": 1.0,
+      "duplicate_cluster_sensitivity": 1.0
+    },
+    "outlier_count": 6,
+    "near_duplicate_groups": 3
+  }
+]

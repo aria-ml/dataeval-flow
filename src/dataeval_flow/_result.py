@@ -6,7 +6,7 @@ payload, and :meth:`Result.export` to write JSON or YAML. A new output format be
 once, built from those two.
 """
 
-__all__ = ["LabelSpaceRecord", "LineageRecord", "Result", "ResultMetadata"]
+__all__ = ["LabelSpaceRecord", "LineageRecord", "Result", "ResultKind", "ResultMetadata"]
 
 import math
 from abc import ABC, abstractmethod
@@ -25,7 +25,8 @@ from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH, Frame, render_
 if TYPE_CHECKING:
     from dataeval.protocols import AnnotatedDataset
 
-    from dataeval_flow.config._schemas._task import TaskKind
+ResultKind = Literal["workflow", "evaluator", "matrix"]
+"""Which kind of result a task returns: a workflow's, an evaluator's, or a task matrix's."""
 
 
 class LabelSpaceRecord(BaseModel):
@@ -305,10 +306,10 @@ def _write_result(payload: dict[str, object], path: str | Path | None, *, fmt: L
 
 def results_html(results: Sequence["Result[Any, Any]"], *, detailed: bool = True) -> str:
     """Every result's report on one page, as a run's ``result.html`` holds all of its tasks; *detailed* as `to_html`."""
-    # The runner writes one page for the whole run, from the documents each result draws.
-    documents = [result._document(detailed=detailed) for result in results]  # noqa: SLF001 - one page, many reports
+    # The runner writes one page for the whole run, from the reports each result draws.
+    reports = [report for result in results for report in result._html_reports(detailed=detailed)]  # noqa: SLF001
     title = results[0]._page_title() if len(results) == 1 else "dataeval-flow results"  # noqa: SLF001 - as its report
-    return html_page(title, documents, [result.assets for result in results])
+    return html_page(title, [document for document, _ in reports], [assets for _, assets in reports])
 
 
 def finite_json(value: Any) -> Any:
@@ -330,8 +331,8 @@ class Result(ABC, Generic[TMetadata, TOutput]):
     """One task's result, whichever kind of task ran.
 
     ``kind`` says which: ``"workflow"`` (a :class:`~dataeval_flow.workflows.WorkflowResult`, which judges
-    health) or ``"evaluator"`` (an :class:`~dataeval_flow.evaluators.EvaluatorResult`, which reports DataEval's
-    determinations and judges nothing).
+    health), ``"evaluator"`` (an :class:`~dataeval_flow.evaluators.EvaluatorResult`, which reports DataEval's
+    determinations and judges nothing) or ``"matrix"`` (a :class:`~dataeval_flow.MatrixResult`, a task matrix's runs).
 
     Read :attr:`output` only when ``success`` is true: on a failed run it raises, so a failure can never be read as
     a clean result. :meth:`report`, :meth:`to_dict` and :meth:`export` work either way.
@@ -353,7 +354,7 @@ class Result(ABC, Generic[TMetadata, TOutput]):
 
     Attributes
     ----------
-    kind : {"workflow", "evaluator"}
+    kind : {"workflow", "evaluator", "matrix"}
         Which kind of task made the result; a class variable of each subclass.
     type : str
         The type id of what ran.
@@ -376,8 +377,8 @@ class Result(ABC, Generic[TMetadata, TOutput]):
     -----------
     Do not subclass ``Result`` directly: subclass :class:`~dataeval_flow.workflows.WorkflowResult` for a workflow
     or :class:`~dataeval_flow.evaluators.EvaluatorResult` for an evaluator. Each implements how its kind reports
-    and serializes a successful run, which is all a direct subclass would add, and Flow builds only those two
-    kinds of result.
+    and serializes a successful run, which is all a direct subclass would add. Flow builds those two kinds of
+    result, and a :class:`~dataeval_flow.MatrixResult` holding a task matrix's runs.
 
     Examples
     --------
@@ -388,7 +389,7 @@ class Result(ABC, Generic[TMetadata, TOutput]):
     >>> results["clean"].export("output/clean.json")  # doctest: +SKIP
     """
 
-    kind: "ClassVar[TaskKind]"
+    kind: "ClassVar[ResultKind]"
     metadata_type: ClassVar[type[ResultMetadata]]
 
     def __init__(
@@ -477,8 +478,8 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         str
             A complete HTML document.
         """
-        document = self._document(detailed=detailed)
-        return html_page(self._page_title(), [document], [self.assets])
+        reports = self._html_reports(detailed=detailed)
+        return html_page(self._page_title(), [document for document, _ in reports], [assets for _, assets in reports])
 
     def to_dict(self) -> dict[str, object]:
         """The result as a plain dict: its kind and envelope, then its output — or, for a failed run, its errors.
@@ -521,12 +522,18 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         blocks: list[Block] = [*self._report_envelope(), *self._report_body(detailed=detailed)]
         if self.metadata.resolved_config:
             # As export would write it: a Path or other non-JSON leaf becomes its text, not an error.
-            config = _without_none(
-                to_jsonable_python(self.metadata.resolved_config, fallback=str), keep=self._set_nulls
-            )
+            config = _without_none(to_jsonable_python(self._report_config(), fallback=str), keep=self._set_nulls)
             if config:
                 blocks.append(Section(title="Configuration", reference=True, blocks=[Tree(value=config)]))
         return Section(title=title, blocks=blocks)
+
+    def _report_config(self) -> dict[str, Any]:
+        """The configuration the report's Configuration section shows: ``metadata.resolved_config``."""
+        return self.metadata.resolved_config
+
+    def _html_reports(self, *, detailed: bool) -> list[tuple[Section, list[Asset]]]:
+        """The reports an HTML page draws for this result, each with the thumbnails its image cells show."""
+        return [(self._document(detailed=detailed), self.assets)]
 
     def _report_envelope(self) -> list[Block]:
         """The envelope under the banner: what ran, then the shared items."""

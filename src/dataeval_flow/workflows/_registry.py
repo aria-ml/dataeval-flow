@@ -17,7 +17,6 @@ _BUILTINS = {
     "drift-monitoring": "dataeval_flow.workflows.drift_monitoring._workflow:DriftMonitoringWorkflow",
     "metadata-triage": "dataeval_flow.workflows.metadata_triage._workflow:MetadataTriageWorkflow",
     "ood-detection": "dataeval_flow.workflows.ood_detection._workflow:OODDetectionWorkflow",
-    "parameter-sweep": "dataeval_flow.workflows.parameter_sweep._workflow:ParameterSweepWorkflow",
 }
 
 

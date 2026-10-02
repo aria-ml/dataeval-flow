@@ -73,12 +73,15 @@ class ExportTransform(Transform[ExportStepConfig]):
         return {}
 
     def _where(self, config: ExportStepConfig, context: TransformContext) -> str:
-        """The directory under ``datasets/`` this run writes: ``to``, or ``<task>.<step>``, and an element's key
-        below it where the step runs once per element of a list."""
+        """The directory under ``datasets/`` this run writes: ``to``, or ``<task>.<step>``; then ``run-<n>`` in a task
+        matrix's run; then an element's key where the step runs once per element of a list."""
         (to,) = self.destinations(config, task=context.task, step=context.step)
-        if context.element is None:
-            return to
-        return f"{to}/{one_directory_segment(context.element, what='List key')}"
+        parts = [to]
+        if context.run is not None:
+            parts.append(f"run-{context.run}")
+        if context.element is not None:
+            parts.append(one_directory_segment(context.element, what="List key"))
+        return "/".join(parts)
 
     def run(self, config: ExportStepConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
         """Write the input, or skip when the run writes no files."""

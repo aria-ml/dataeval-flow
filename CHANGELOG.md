@@ -135,6 +135,11 @@
 - `drift`, a check: a warning when a drift evaluator finds drift or, chunked, when `chunk_percent` of the chunks
   drift or `consecutive_chunks` drift in a row
 - The drift evaluators' results have a report section: the verdict's fields, or one row per chunk
+- `matrix:` on a task runs its entry once per combination of the values it lists, as lists, inclusive ranges
+  `{from, to, step}` or several grids, and returns one `MatrixResult` whose report opens with a table comparing every
+  run's findings. It varies the entry's settings, the task's `sources` and `extractor`, and the evaluators, workflows,
+  extractors and steps the task reads. The runs share one draw of each source and the cache; an export writes under
+  `run-<n>/`
 
 ### Changed
 
@@ -324,6 +329,8 @@
 
 ### Removed
 
+- `parameter-sweep`, with `ParameterSweepConfig`, `ParameterSweepResult` and `ParameterSweepWorkflow`: write a
+  data-cleaning entry and a `matrix:` on its task (see Sweep settings with a matrix)
 - The `torch` and `uncertainty` extractors' `device`, and drift-monitoring MMD's; Flow chooses the device for every tool
 - Poetry packaging support; install with uv, pip, or conda instead
 - Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`

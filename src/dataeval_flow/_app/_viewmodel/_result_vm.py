@@ -47,6 +47,7 @@ class ResultViewModel:
     """Transforms a ``WorkflowResult`` into view-ready structures."""
 
     def __init__(self, result: Any) -> None:
+        from dataeval_flow._matrix._result import MatrixResult
         from dataeval_flow.evaluators._result import EvaluatorResult
         from dataeval_flow.steps._result import ChainResult
 
@@ -54,12 +55,14 @@ class ResultViewModel:
         self._is_evaluator = isinstance(result, EvaluatorResult)
         # A custom workflow's result holds its steps, not one report: its findings are its steps'.
         self._is_chain = isinstance(result, ChainResult)
+        # A matrix result holds its runs, not one report: it shows its comparison and each run's report.
+        self._is_matrix = isinstance(result, MatrixResult)
         self._findings = self._extract_findings()
 
     def _extract_findings(self) -> list[Any]:
         if self._is_chain:  # the steps that completed keep their findings, even where another step failed
             return list(self._result.findings)
-        if self._is_evaluator or not self._result.success:
+        if self._is_evaluator or self._is_matrix or not self._result.success:
             return []
         return list(self._result.output.report.findings)
 
@@ -70,7 +73,7 @@ class ResultViewModel:
         An evaluator's result holds determinations only, and a custom workflow's holds its steps, each with its
         status, errors and output.
         """
-        return self._is_evaluator or self._is_chain
+        return self._is_evaluator or self._is_chain or self._is_matrix
 
     def output_text(self) -> str:
         """The rendered output :attr:`shows_output` names, as the text report renders it, every row included.
@@ -83,7 +86,7 @@ class ResultViewModel:
 
         if self._is_evaluator:
             return "\n".join(render_result_body(self._result, detailed=True))
-        if self._is_chain:
+        if self._is_chain or self._is_matrix:
             body = self._result._report_body(detailed=True)  # noqa: SLF001 - the report's body has no public accessor
             return "\n".join(render_text(body, Frame(indent="  ", depth=1)))
         return ""
@@ -120,6 +123,12 @@ class ResultViewModel:
                 parts.append(f"{self._result.metadata.execution_time_s:.1f}s")
             return ", ".join(parts)
 
+        if self._is_matrix:
+            parts = [f"{len(self._result.runs)} runs, {self.warning_count()} warning(s)"]
+            if self._result.metadata.execution_time_s is not None:
+                parts.append(f"{self._result.metadata.execution_time_s:.1f}s")
+            return ", ".join(parts)
+
         findings = self._findings
         n = len(findings)
         warnings = self.warning_count()
@@ -134,7 +143,7 @@ class ResultViewModel:
 
     def report_summary(self) -> str:
         """A workflow type's own summary string (e.g. 'Data Cleaning Report'); empty for any other result."""
-        if self._is_evaluator or self._is_chain or not self._result.success:
+        if self._is_evaluator or self._is_chain or self._is_matrix or not self._result.success:
             return ""
         return self._result.output.report.summary
 

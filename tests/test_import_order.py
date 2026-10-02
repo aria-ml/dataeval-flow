@@ -15,7 +15,6 @@ WORKFLOW_PACKAGES = [
     "drift_monitoring",
     "metadata_triage",
     "ood_detection",
-    "parameter_sweep",
 ]
 PUBLIC = [
     "dataeval_flow",

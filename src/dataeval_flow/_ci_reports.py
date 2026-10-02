@@ -32,40 +32,51 @@ def junit_report(results: Mapping[str, "Result[Any, Any]"]) -> str:
     ``Outliers (2)``, since a CI tells its cases apart by name, and the task's time goes on its first case
     too, since a CI adds up its cases' times.
     """
-    from dataeval_flow.steps._result import ChainResult
-    from dataeval_flow.workflows._result import WorkflowResult
+    from dataeval_flow._matrix._result import MatrixResult
 
     root = ET.Element("testsuites", name="dataeval-flow")
     for task, result in results.items():
-        suite = ET.SubElement(root, "testsuite", name=task)
-        if isinstance(result, ChainResult) and (result.success or result.failed_steps):
-            for step in result.failed_steps:
-                errors = result.steps[step].errors or [f"{step} failed"]
-                error = ET.SubElement(ET.SubElement(suite, "testcase", classname=task, name=f"step: {step}"), "error")
-                error.set("message", errors[0])
-                error.text = "\n".join(errors)
-            _finding_cases(suite, task, result.findings)
-            if not len(suite):
-                ET.SubElement(suite, "testcase", classname=task, name="run")
-        elif not result.success:  # a failed task, a chain refused before any step ran among them
-            error = ET.SubElement(ET.SubElement(suite, "testcase", classname=task, name="run"), "error")
-            error.set("message", result.errors[0] if result.errors else "failed")
-            error.text = "\n".join(result.errors) or None
-        elif isinstance(result, WorkflowResult) and result.findings:
-            _finding_cases(suite, task, result.findings)
-        else:
-            ET.SubElement(suite, "testcase", classname=task, name="run")
-        seconds = getattr(result.metadata, "execution_time_s", None)
-        if isinstance(seconds, int | float):
-            for timed in (suite, suite[0]):
-                timed.set("time", f"{seconds:.3f}")
-        _count(suite, suite)
+        if isinstance(result, MatrixResult):
+            for run in result.runs:
+                _suite(root, f"{task} · run {run.number}", run.result)
+            continue
+        _suite(root, task, result)
     _count(root, *root)
     for element in root.iter():
         element.text = element.text and _NOT_XML.sub("", element.text)
         element.attrib.update({key: _NOT_XML.sub("", value) for key, value in element.attrib.items()})
     ET.indent(root)
     return '<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(root, encoding="unicode") + "\n"
+
+
+def _suite(root: ET.Element, task: str, result: "Result[Any, Any]") -> None:
+    """One result as a test suite named *task*, under *root*."""
+    from dataeval_flow.steps._result import ChainResult
+    from dataeval_flow.workflows._result import WorkflowResult
+
+    suite = ET.SubElement(root, "testsuite", name=task)
+    if isinstance(result, ChainResult) and (result.success or result.failed_steps):
+        for step in result.failed_steps:
+            errors = result.steps[step].errors or [f"{step} failed"]
+            error = ET.SubElement(ET.SubElement(suite, "testcase", classname=task, name=f"step: {step}"), "error")
+            error.set("message", errors[0])
+            error.text = "\n".join(errors)
+        _finding_cases(suite, task, result.findings)
+        if not len(suite):
+            ET.SubElement(suite, "testcase", classname=task, name="run")
+    elif not result.success:  # a failed task, a chain refused before any step ran among them
+        error = ET.SubElement(ET.SubElement(suite, "testcase", classname=task, name="run"), "error")
+        error.set("message", result.errors[0] if result.errors else "failed")
+        error.text = "\n".join(result.errors) or None
+    elif isinstance(result, WorkflowResult) and result.findings:
+        _finding_cases(suite, task, result.findings)
+    else:
+        ET.SubElement(suite, "testcase", classname=task, name="run")
+    seconds = getattr(result.metadata, "execution_time_s", None)
+    if isinstance(seconds, int | float):
+        for timed in (suite, suite[0]):
+            timed.set("time", f"{seconds:.3f}")
+    _count(suite, suite)
 
 
 def _finding_cases(suite: ET.Element, task: str, findings: "Sequence[Finding]") -> None:
@@ -90,11 +101,37 @@ def _count(element: ET.Element, *suites: ET.Element) -> None:
 
 def markdown_summary(results: Mapping[str, "Result[Any, Any]"]) -> str:
     """Each task's findings as a table of severity, finding and result, and each failed task's errors."""
+    from dataeval_flow._matrix._result import MatrixResult
     from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._result import WorkflowResult
 
     lines = ["# dataeval-flow results", ""]
     for task, result in results.items():
+        if isinstance(result, MatrixResult):
+            from dataeval_flow._matrix._table import comparison_table
+
+            health = result.health
+            verdict = (
+                "failed"
+                if health["status"] == "failed"
+                else "ran"  # an evaluator has no findings, so nothing to pass
+                if result.runs[0].result.kind == "evaluator"
+                else "passed"
+                if not health["warnings"]
+                else f"{health['warnings']} warning{'s' if health['warnings'] != 1 else ''}"
+            )
+            table = comparison_table(result)
+            lines += [f"## {_inline(task)}", "", f"**Health:** {verdict}", ""]
+            lines.append("| " + " | ".join(_inline(column.header) for column in table.columns) + " |")
+            lines.append("| " + " | ".join("---" for _ in table.columns) + " |")
+            lines += [
+                "| " + " | ".join(_inline(str(row[column.key])) for column in table.columns) + " |"
+                for row in table.rows
+            ]
+            if result.errors:
+                lines += ["", *_fenced(result.errors)]
+            lines.append("")
+            continue
         if isinstance(result, ChainResult):
             warnings = result.warning_count
             health = (

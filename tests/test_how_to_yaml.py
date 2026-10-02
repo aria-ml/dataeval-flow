@@ -43,6 +43,7 @@ _PAGES: dict[str, dict[str, Any]] = {
     "how_to/evaluator_recipes.md": _BASE,
     "how_to/write_a_custom_workflow.md": _BASE,
     "how_to/reuse_a_workflow.md": _BASE,
+    "how_to/run_a_matrix.md": _BASE,
     "concepts/WorkflowsAsChains.md": _CHAINS_BASE,
     "reference/checks.md": _BASE,
 }

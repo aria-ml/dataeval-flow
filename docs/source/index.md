@@ -25,9 +25,10 @@ modularizes DataEval's analytic capabilities into steps that users chain into
 workflows of their own, and containerizes them so the same pipeline runs
 identically anywhere. Data
 cleaning, dataset analysis, coverage assessment, drift monitoring, OOD
-detection, splitting, prioritization, and parameter-sweep pipelines ship as
+detection, splitting, and prioritization pipelines ship as
 presets built from those steps, behind a single declarative configuration format
-and both headless and interactive CLIs.
+and both headless and interactive CLIs. A matrix on any task runs it once per
+combination of settings and compares the runs.
 
 :::
 ::::
@@ -64,7 +65,7 @@ reproducible orchestration layer with native MAITE interoperability.
 | Monitor operational data for population drift | Drift Detection | Per-batch drift flags and p-values |
 | Flag anomalous individual samples | OOD Detection | Per-sample out-of-distribution scores |
 | Rank abundant/unlabeled data for labeling | Prioritization | Ranked sample ordering |
-| Tune workflow parameters across a grid | Parameter Sweep | Per-configuration result comparison |
+| Tune workflow parameters across a grid | Any workflow, with a task matrix | One table comparing every run's findings |
 
 See the [Tutorials](tutorials/index.md) for end-to-end walkthroughs and the
 [Explanations](concepts/index.md) for the concepts behind each workflow.

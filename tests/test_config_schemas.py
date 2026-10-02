@@ -1523,9 +1523,3 @@ class TestStatsPoolWiring:
             stats="p",
         )
         assert params.stats == "p"
-
-    def test_parameter_sweep_can_name_a_stats_policy(self):
-        from dataeval_flow.config import StatsConfigMixin
-        from dataeval_flow.workflows.parameter_sweep import ParameterSweepConfig
-
-        assert issubclass(ParameterSweepConfig, StatsConfigMixin)

@@ -499,6 +499,37 @@ From Python, an evaluator's `result.output` is DataEval's own output object rath
 [Run a single evaluator](run_a_single_evaluator.md) and the [Evaluator Catalog](../reference/evaluators.md) for what
 each evaluator returns.
 
+## Matrix results
+
+A task with a `matrix:` runs its entry once per combination of values, and its `result.json` entry holds every run's
+result, with a `kind` of `"matrix"`:
+
+```json
+{
+  "kind":     "matrix",
+  "type":     "data-cleaning",
+  "keys":     ["outlier_threshold"],
+  "metadata": { "timestamp": "...", "resolved_config": { "task": {}, "sources": ["train"], "seed": 42 } },
+  "health":   { "status": "warning", "warnings": 9, "failed_runs": [] },
+  "runs":     [ { "number": 1, "label": "outlier_threshold=2.5", "values": { "outlier_threshold": 2.5 },
+                  "result": { "kind": "workflow", "metadata": {}, "health": {}, "steps": {}, "findings": [],
+                              "assets": [] } } ]
+}
+```
+
+`type` is what one run's result would say, and `keys` lists the matrix's keys as written. `health` holds the worst of
+the runs' statuses (`failed`, then `warning`, then `ok`), the sum of their warnings, and the numbers of the runs that
+failed. Each run's `result` is the JSON the task would write run alone with the run's `values`, its `assets` included.
+Each run keeps the thumbnails of the items its own report names, since a chain names an item by its Dataset's address,
+which holds other images in a run that reads another source. The matrix has no `assets` of its own. `errors`, where a
+run failed, holds one line per failed run. The `metadata` records the task as written, matrix included, and the
+sources its runs read; its encoding fields are `null`, since each run records its own. The comparison table is not
+stored, since it reads off the runs.
+
+From Python, the result is a `MatrixResult`, and `result.runs[2].result` is run 3's result, which you narrow with
+`isinstance` as you would a lone task's. {doc}`Sweep settings with a matrix <run_a_matrix>` covers the table and the
+other files.
+
 ## Getting at the raw numbers
 
 The report is a rendering; the numbers behind it live on the result object. `result.output.raw` holds the typed,

@@ -15,6 +15,8 @@ from pydantic import (
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
 
+from dataeval_flow.config._schemas._matrix import Matrix
+
 AutoBinMethod = Literal["uniform_width", "uniform_count", "clusters"]
 FactorSource = Literal["coded", "values", "auto"]
 
@@ -55,6 +57,15 @@ class TaskConfig(BaseModel):
     )
     extractor: str | None = Field(
         default=None, description="The extractor this task embeds with, by name. Leave unset when it needs none."
+    )
+    matrix: Matrix | None = Field(
+        default=None,
+        description=(
+            "Run the task once per combination of these values, and compare the runs in one result. One grid "
+            "(a mapping of key to values) or several (a list of them). A key names a setting: a path into the "
+            "task's entry, `sources`, `extractor`, or `evaluators.<name>.…`, `workflows.<name>.…`, "
+            "`extractors.<name>.…`, `steps.<step>.<setting>`. Values are a list, or a range `{from, to, step}`."
+        ),
     )
 
     @property
@@ -105,6 +116,8 @@ class TaskConfig(BaseModel):
         """Write the task as a config file names it: under ``workflow:`` or ``evaluator:``, with no ``kind``."""
         data = handler(self)
         data.pop("kind", None)
+        if data.get("matrix") is None:
+            data.pop("matrix", None)
         if self.kind == "evaluator" and "workflow" in data:
             data["evaluator"] = data.pop("workflow")
         return data
