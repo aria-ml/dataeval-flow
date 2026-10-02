@@ -228,12 +228,13 @@ class TestRunTask:
             result = _run_single_task(task, config)
 
         assert result.success
-        # Verify selection steps were passed into DatasetContext
+        # The workflow reads the source's Dataset node through its one draw of the view, not the operations.
         context = mock_wf.run.call_args[0][1]
         dc = context.dataset_contexts["src_test"]
-        assert len(dc.view_operations) == 1
-        assert dc.view_operations[0].type == "Limit"
-        assert dc.view_operations[0].params == {"size": 100}
+        assert dc.view_operations is None
+        assert dc.dataset.root is mock_load_ds.return_value
+        ((limit,),) = dc.dataset.operation_groups
+        assert (type(limit).__name__, limit.size) == ("Limit", 100)
 
     @patch("dataeval_flow._dataset.load_dataset")
     def test_run_task_validates_params(self, mock_load_ds: MagicMock):
@@ -875,9 +876,12 @@ class TestSourceNameKeying:
         assert "cifar_sub" in context.dataset_contexts
         assert len(context.dataset_contexts) == 2
 
-        # The sub source should have selection steps, the full should not
-        assert context.dataset_contexts["cifar_full"].view_operations is None
-        assert context.dataset_contexts["cifar_sub"].view_operations is not None
+        # The sub source is read through its view, drawn once; the full one as it is.
+        full, sub = context.dataset_contexts["cifar_full"], context.dataset_contexts["cifar_sub"]
+        assert (full.view_operations, sub.view_operations) == (None, None)
+        assert full.dataset is mock_load_ds.return_value
+        assert sub.dataset is not full.dataset
+        assert sub.dataset.root is mock_load_ds.return_value
 
 
 # ---------------------------------------------------------------------------

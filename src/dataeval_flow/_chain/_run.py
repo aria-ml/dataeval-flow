@@ -660,9 +660,13 @@ def _stats_union(step: StepContext, node: Node, element: str | None) -> "Resolve
 
 
 def _context_for(node: Node, spec: StepSpec, setup: ExtractorSetup | None) -> "DatasetContext":
+    """The context a step reads `node` through: over the node's one draw of its view, where it has one, so every step
+    and thumbnail reads the same items even where the view shuffles unseeded."""
     context = node.context
     if context is None:
         raise RuntimeError(f"Dataset node `{node.address}` has no context")
+    if context.view_operations:
+        context = replace(context, dataset=node.value, view_operations=None)
     if spec.extractor is None or setup is None:
         return context
     return replace(context, extractor=setup.config, transforms=setup.transforms, batch_size=setup.batch_size)
