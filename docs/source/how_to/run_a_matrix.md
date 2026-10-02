@@ -51,37 +51,38 @@ The console prints the matrix's report. Below its banner, on a 1,000-image sampl
 [MilitaryVehicles](../notebooks/tune_data_cleaning.py) dataset with `seed: 42`:
 
 ```text
-  Health: 9 warning(s) [!!] across 3 runs — review flagged findings
+  Health: 9 warnings [!!] across 3 runs — review flagged findings
 
   #  outlier_threshold  Health  Image Outliers  Classwise Outliers  Duplicates  Label Distribution
   -  -----------------  ------  --------------  ------------------  ----------  ------------------
-  1  2.5                warnin  [!!] 157        [!!] worst: 2S19    [!!] 4      [..] 24 classes,
-                        g       images (15.7%)  MSTA (25.0%),       exact       1000 items,
+  1  2.5                [!!]    [!!] 157        [!!] worst: 2S19    [!!] 4      [..] 24 classes,
+                                images (15.7%)  MSTA (25.0%),       exact       1000 items,
                                                 23/24 classes over  (0.4%), 2   imbalance 3.0:1
                                                 3.0%                near
                                                                     (0.2%)
 
-  2  3.5                warnin  [!!] 112        [!!] worst:         [!!] 4      [..] 24 classes,
-                        g       images (11.2%)  Tornado (20.4%),    exact       1000 items,
+  2  3.5                [!!]    [!!] 112        [!!] worst:         [!!] 4      [..] 24 classes,
+                                images (11.2%)  Tornado (20.4%),    exact       1000 items,
                                                 23/24 classes over  (0.4%), 2   imbalance 3.0:1
                                                 3.0%                near
                                                                     (0.2%)
 
-  3  4.5                warnin  [!!] 96 images  [!!] worst:         [!!] 4      [..] 24 classes,
-                        g       (9.6%)          Tornado (16.3%),    exact       1000 items,
+  3  4.5                [!!]    [!!] 96 images  [!!] worst:         [!!] 4      [..] 24 classes,
+                                (9.6%)          Tornado (16.3%),    exact       1000 items,
                                                 23/24 classes over  (0.4%), 2   imbalance 3.0:1
                                                 3.0%                near
                                                                     (0.2%)
 ```
 
-The table has a row per run and a column per finding. It is too wide for the report's 80 columns, so it wraps its
-cells, even the Health column's `warning`; `--report-width 120` gives it room. Raising the threshold from 2.5 to 4.5
-flags 61 fewer images, and changes which class has the most outliers. The duplicates and the label distribution do
-not move, since the threshold does not reach them. Each run has 3 warnings, so the matrix has 9.
+The table has a row per run and a column per finding. Raising the threshold from 2.5 to 4.5 flags 61 fewer images,
+and changes which class has the most outliers. The duplicates and the label distribution do not move, since the
+threshold does not reach them. Each run has 3 warnings, so the matrix has 9.
 
-With `-v`, the console adds each run's full report below the table: the report the task would print run alone with
-those values, headed with the run's number and values, `RUN 1 · OUTLIER_THRESHOLD=2.5`. `out/results/result.txt` and
-the HTML report hold the table and every run's report, or only the table under `result: detail: summary`.
+With `-v`, the console adds each run's full report below the table, under `RUNS`: the report the task would print run
+alone with those values, headed with the run's number and values, `Run 1 · outlier_threshold=2.5`.
+`out/results/result.txt` and the HTML report hold the table and every run's report, or only the table under
+`result: detail: summary`. In the HTML report, each run's report follows the table as a report of its own, with the
+thumbnails of the items it names.
 
 From Python, the task's result is a `MatrixResult`, and each run's result is the one the task would return alone:
 
@@ -100,7 +101,8 @@ for run in result.runs:
 
 ## 2. Write the values
 
-Each key takes a list of values, or a range.
+Each key takes a list of values, or a range. A bare value fails the load: `outlier_threshold: 3.0` says
+`` `outlier_threshold` takes a list of values, such as `[3.0]`, or a range `{from, to, step}`; got 3.0 ``.
 
 **A list** holds one run's value per item, written as the setting would be written, `null` included. To vary a
 setting that is itself a list, write a list of lists: `outlier_flags: [[pixel], [pixel, visual]]` is two runs.
@@ -271,7 +273,7 @@ workflows:
     inputs: [reference, test]
     steps:
       - {name: knn, evaluator: knn, input: [reference, test]}
-      - {name: knn_check, check: ood, input: knn, warning: 10.0}
+      - {name: knn_check, check: ood, input: knn}
 
 tasks:
   - name: novelty_check
@@ -283,8 +285,9 @@ tasks:
       steps.knn_check.warning: [5.0, 10.0]
 ```
 
-`steps.` reaches a setting written on the step, so `knn_check` writes `warning` even at its default, 10.0. Changing
-an entry changes it for every step in the run that reads it: two steps naming `knn` both see the new `k`.
+`steps.` reaches a setting whether the step writes it or leaves it at its default, as `knn_check` leaves `warning` at
+10.0. Changing an entry changes it for every step in the run that reads it: two steps naming `knn` both see the new
+`k`.
 `workflows.<name>.<path>` reaches a `workflows:` entry the same way, such as a `data-cleaning` entry a custom workflow
 runs as a step. `steps.knn_check.warning` and `workflows.novelty.steps.knn_check.warning` are one key.
 
@@ -311,6 +314,7 @@ relies on them. The load refuses:
   `name`: `` `type` varies `type`, which says which entry this is: a matrix varies settings, not identities ``;
 - on a custom workflow's step, its kind (`evaluator`, `workflow`, `transform`, `combine`, `check`), `name`, `input`,
   `by`, `optional` and `extractor`;
+- an `export` step's `to`, since each run already writes under a directory of its own (section 6);
 - `steps.<step>.…` where the step runs an evaluator or workflow entry, with the key to use instead:
   `` `steps.knn.k`: step 'knn' runs the evaluator entry `knn`, whose settings live there: vary `evaluators.knn.k` ``;
 - the settings of an extractor given as a Python object, not by its settings;
@@ -353,7 +357,8 @@ The report opens with the matrix's health and the table:
 
 - **Health.** The worst of the runs: `failed` where a run failed, else `warning` where one warned, else `ok`. The
   warnings add up across the runs.
-- **Rows.** One per run: its number, its value for each key (blank where its grid sets none), and its health.
+- **Rows.** One per run: its number, its value for each key (blank where its grid sets none), and its health: `[ok]`,
+  `[!!]` where it warned, or `failed`.
 - **Columns.** One per finding, in the order the findings first appear across the runs. Where two steps make findings
   with one title, each header adds its step's name; where one step makes two, the second is numbered, `Outliers (2)`.
 - **Cells.** The finding's severity marker and its brief: `[!!]` a warning, `[..]` info and `[ok]` ok. A run that
@@ -364,8 +369,8 @@ as `Run 3 failed: …`, and the matrix fails: the health line names the failed r
 and every run that finished are still printed and written.
 
 **An evaluator's task has no finding columns.** An evaluator measures, and judges nothing, so its table lists the runs,
-their values and whether each ran, and each run's report shows its output. To compare runs by a verdict, vary a
-workflow that judges:
+their values and whether each ran (`[ok]` or `failed`), its health line says the runs ran, and each run's report shows
+its output. To compare runs by a verdict, vary a workflow that judges:
 
 - a preset's settings, such as `detectors.knn.k` on an `ood-detection` task, whose checks judge each detector;
 - or a custom workflow that runs the evaluator and a check on it, varying `evaluators.knn.k` as in section 3.
@@ -416,7 +421,8 @@ tasks:
       workflows.cleaning.outlier_threshold: [3.5, 4.5]
 ```
 
-The runs cannot clash with each other, but another task writing to the same `to` still fails the load.
+The runs cannot clash with each other, but another task writing to the same `to` still fails the load. A matrix may
+not vary `to` itself: `steps.dataset.to` fails the load, since each run already writes under its own `run-<n>/`.
 
 **Gating.** By default a failed run fails the command (exit 1), and warnings do not. `result: fail_on: warning`, or
 `--fail-on-warning`, exits 3 when any run warns. For an exploratory matrix, where most runs are meant to warn,
@@ -427,9 +433,11 @@ result:
   fail_on: never
 ```
 
-**JSON.** In `result.json`, the task's entry holds the matrix. Each run's `result` is its type's JSON, except that
-the thumbnails of every run are written once, in the matrix's `assets`. `errors` is there only where a run failed.
-From the run in section 1, trimmed:
+**JSON.** In `result.json`, the task's entry holds the matrix. Each run's `result` is its type's JSON, its `assets`
+included: each run keeps the thumbnails of the items its own report names, and the matrix has none of its own. A chain
+names an item by its Dataset's address, such as `data` for a preset's input, whichever source the task binds there.
+Where the runs read other sources, or other items through a varied view, one address holds other images in each run.
+`errors` is there only where a run failed. From the run in section 1, trimmed:
 
 ```json
 {
@@ -444,9 +452,8 @@ From the run in section 1, trimmed:
     "health": {"status": "warning", "warnings": 9, "failed_runs": []},
     "runs": [
       {"number": 1, "label": "outlier_threshold=2.5", "values": {"outlier_threshold": 2.5},
-       "result": {"kind": "workflow", "metadata": {}, "health": {}, "steps": {}, "findings": []}}
-    ],
-    "assets": []
+       "result": {"kind": "workflow", "metadata": {}, "health": {}, "steps": {}, "findings": [], "assets": []}}
+    ]
   }
 }
 ```

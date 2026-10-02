@@ -179,9 +179,9 @@ print(type(result).__name__, len(result.runs), "runs")
 #
 # `report(detailed=False)` is the short form the console prints: the matrix's health, then
 # a table with a row per run. Each row gives the run's number, the values it ran with, its
-# health, and a column per finding, each cell the finding's severity marker and brief. The
-# table is wide, so `width=160` gives it room; at the console's 80 columns it wraps its
-# cells further.
+# health (`[!!]` where it warned), and a column per finding, each cell the finding's
+# severity marker and brief. The table is wide, so `width=160` gives it room; at the
+# console's 80 columns it wraps its cells further.
 
 # %%
 print(result.report(detailed=False, width=160))
@@ -238,7 +238,8 @@ print(run.result.steps["dupes"].output.data())
 # 3.0 alike it finds the exact copies and nothing else, so the count does not move.
 #
 # `result.report(detailed=True)`, the default, adds each run's full report under the
-# table, headed with its number and values, as `dataeval-flow -v` prints it.
+# table, in a `Runs` section, each headed with its number and values, as `dataeval-flow -v`
+# prints it.
 
 # %% [markdown]
 # ### Choosing settings
