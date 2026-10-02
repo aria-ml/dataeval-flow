@@ -319,7 +319,7 @@ def _output_blocks(record: "StepResult", *, detailed: bool) -> list[Block]:
     if record.kind == "combine":
         from dataeval_flow.steps._registry import COMBINES
 
-        return list(COMBINES.get(record.type)().section(record)) if record.type in COMBINES.names() else []
+        return list(COMBINES.get(record.type)().section(record) or []) if record.type in COMBINES.names() else []
     return []
 
 

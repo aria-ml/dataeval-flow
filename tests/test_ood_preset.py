@@ -97,6 +97,7 @@ def test_the_agreement_thresholds_are_keyed_by_check_type() -> None:
     check = next(step for step in OODDetectionWorkflow.chain(config).steps if dict(step)["name"] == "agreement-check")
     assert dict(check)["warning"] == 50.0
     assert config.health_thresholds.ood_agreement.warning == 50.0
+    assert config.health_thresholds.model_dump() == {"ood": _LIMITS, "ood-agreement": {**_LIMITS, "warning": 50.0}}
 
 
 def test_a_detector_s_extractor_goes_on_its_step_not_its_evaluator_entry() -> None:

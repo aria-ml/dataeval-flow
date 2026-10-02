@@ -73,7 +73,7 @@ OODDetector = Annotated[
 class OODDetectionThresholds(BaseModel):
     """When ood-detection's findings warn: each check's fields, keyed by check type."""
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
     ood: OODThresholds = Field(
         default_factory=OODThresholds, description="The `ood` check's thresholds, applied to each detector's check."

@@ -242,7 +242,8 @@ def _task_graph_problems(
     task: "TaskConfig", graph: ChainGraph, owners: dict[str, str], extractors: Mapping[str, Any]
 ) -> list[str]:
     """A task's problems running one workflow graph: missing extractors, a model extractor on a step that reads one
-    row per item, and export destinations already claimed."""
+    row per item or whose settings cannot read its rows, `by: predicted` without a model, and export destinations
+    already claimed."""
     from dataeval_flow._predictions import runs_model
 
     problems: list[str] = []

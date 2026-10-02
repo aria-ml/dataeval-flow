@@ -1,5 +1,6 @@
-"""Drift over rows that are detections: chunks of whole images, chunks without detections left out, and what was
-compared (uncertainty-drift spec §4.3, §4.4, §7)."""
+"""Drift and OOD over rows that are detections: drift's chunks of whole images, chunks without detections left out,
+OOD's flags and scores reduced to each test image, and what was compared (uncertainty-drift spec §4.3, §4.4, §7;
+ood-detection spec §7)."""
 
 __all__ = ["DriftRowsOutput", "OODRowsOutput", "detect_drift_by_image", "detect_ood_by_image", "image_chunks"]
 
