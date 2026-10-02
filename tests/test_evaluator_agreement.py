@@ -15,16 +15,9 @@ from dataeval_flow import PipelineConfig, Result, run_task
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.bias import BalanceConfig, DiversityConfig
 from dataeval_flow.evaluators.scope import CoverageConfig, RepresentationConfig
-from dataeval_flow.evaluators.shift import OODDomainClassifierConfig, OODKNeighborsConfig
 from dataeval_flow.workflows.data_analysis import DataAnalysisConfig, DataAnalysisResult
 from dataeval_flow.workflows.data_coverage import DataCoverageConfig, DataCoverageResult
-from dataeval_flow.workflows.ood_detection import (
-    OODDetectionConfig,
-    OODDetectionResult,
-    OODDetectorDomainClassifier,
-    OODDetectorKNeighbors,
-)
-from tests.evaluator_toys import ToyFactors, ToyImages, output_json, shifted_sources, toy_pipeline
+from tests.evaluator_toys import ToyFactors, ToyImages, output_json, toy_pipeline
 
 
 def _run(config: PipelineConfig, task: TaskConfig) -> "Result[Any, Any]":
@@ -123,38 +116,3 @@ def test_representation_agrees_with_data_coverage():
     assert table["extras"]["total_deficit"] == representation.total_deficit
     assert table["extras"]["violations"]["rows"] == _json([row.model_dump() for row in representation.violations])
     assert table["extras"]["dark_branches"]["rows"] == _json([row.model_dump() for row in representation.dark_branches])
-
-
-@pytest.mark.parametrize(
-    ("detector", "evaluator", "key"),
-    [
-        (
-            OODDetectorKNeighbors(k=5, distance_metric="euclidean", threshold_perc=95.0),
-            OODKNeighborsConfig(name="ev", k=5, distance_metric="euclidean", threshold_perc=95.0),
-            "kneighbors",
-        ),
-        (
-            OODDetectorDomainClassifier(n_folds=3, n_repeats=2, n_std=2.0, threshold_perc=95.0),
-            OODDomainClassifierConfig(name="ev", n_folds=3, n_repeats=2, n_std=2.0, threshold_perc=95.0),
-            "domain_classifier",
-        ),
-    ],
-)
-def test_ood_agrees_with_ood_detection(detector: Any, evaluator: Any, key: str):
-    tasks = _tasks("wf", "ev", ["reference", "test"], extractor=True)
-    config = toy_pipeline(
-        workflows=[OODDetectionConfig(name="wf", detectors=[detector])],
-        evaluators=[evaluator],
-        tasks=tasks,
-        datasets=shifted_sources(),
-        extractor=True,
-    )
-    workflow_result, evaluator_result = _run(config, tasks[0]), _run(config, tasks[1])
-    assert isinstance(workflow_result, OODDetectionResult)
-    samples = sorted(
-        workflow_result.output.raw.detectors[key]["samples"],  # type: ignore[reportTypedDictNotRequiredAccess]
-        key=lambda sample: sample["index"],
-    )
-    data = output_json(evaluator_result)["data"]
-    assert data["is_ood"] == [sample["is_ood"] for sample in samples]
-    assert data["instance_score"] == pytest.approx([sample["score"] for sample in samples])

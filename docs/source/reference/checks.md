@@ -6,8 +6,9 @@ findings: each `ok`, `info` or `warning`, rolled up into the task's health, wher
 reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and the
 [Transform Catalog](transforms.md) for the steps that make Datasets.
 
-The built-in checks are the ones `data-cleaning` runs, whose findings are theirs, `metadata-issues`, which makes
-`metadata-triage`'s, and `drift`, which judges `drift-monitoring`'s detectors. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
+The built-in checks are the ones `data-cleaning` runs, whose findings are theirs; `metadata-issues`, which makes
+`metadata-triage`'s; `drift`, which judges `drift-monitoring`'s detectors; and `ood`, which judges `ood-detection`'s
+detectors. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
 
@@ -19,8 +20,13 @@ The built-in checks are the ones `data-cleaning` runs, whose findings are theirs
 | `duplicate-rate` | check | `input`: a `duplicates` Output | Duplicates |
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
 | `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
+| `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
+| `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
 | `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
+| `ood-union` | combine | `input`: the OOD Outputs of one comparison of a test source with a reference | each flagged image as mutual, partial or unique, with its agreement score |
+| `factor-predictors` | combine | `ood`: an `ood-union` or OOD Output; `reference`, `input`: the Datasets it was computed on | each factor's association with being flagged |
+| `factor-deviation` | combine | the same | the factors setting each of the most out-of-distribution agreed images apart |
 
 ## How thresholds work
 
@@ -134,6 +140,33 @@ not a chunk drifted.
 | `chunk_percent` | a percentage, or `null` | `10.0` | Chunked: the share of drifted chunks at which the finding warns |
 | `consecutive_chunks` | an integer of at least 1, or `null` | `3` | Chunked: the longest run of drifted chunks at which the finding warns |
 
+### `ood`
+
+How much of a test source an OOD detector flagged, as a percent of the images it assessed. On a detector's
+`uncertainty` rows, an image with no detection at the confidence is not assessed, and the brief also counts the
+detections flagged. Configured by {py:class}`~dataeval_flow.steps.checks.OODCheckConfig`. The finding warns from
+`warning` percent, is `info` from `info` percent, and is `ok` below both; a `null` threshold judges nothing at its
+level, and with both `null` the finding is `info`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | An OOD evaluator's Output |
+| `subject` | text, or `null` | `null` | The finding's title; unset, the evaluator's title, followed by its entry's name where that differs from its type |
+| `warning` | a percentage, or `null` | `10.0` | The percent of assessed test images flagged at which the finding warns |
+| `info` | a percentage, or `null` | `1.0` | The percent at which the finding is `info`, below which it is `ok` |
+
+### `ood-agreement`
+
+Whether OOD detectors agree. The aggregate finding judges the percent of assessed test images every detector flagged,
+as `ood` judges its percent, and a second, `info` finding counts the images one detector alone flagged, where any
+did. Configured by {py:class}`~dataeval_flow.steps.checks.OODAgreementConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | An `ood-union` Output |
+| `warning` | a percentage, or `null` | `10.0` | The percent of assessed test images every detector flagged at which the finding warns |
+| `info` | a percentage, or `null` | `1.0` | The percent at which the finding is `info`, below which it is `ok` |
+
 ## Combines
 
 ### `classwise-outliers`
@@ -151,6 +184,55 @@ and a share of the class, most flagged first, and the total. Configured by
 On a detection Dataset it refuses outliers not computed per box (`per_target: true`), rather than report none.
 
 The config refuses an `outliers` computed on another Dataset when it loads, as `remove` does.
+
+### `ood-union`
+
+The OOD Outputs of one test source's comparison with one reference, combined. Each flagged image falls in one group:
+flagged by every detector, by more than one but not every one (partial), or by one alone. Its agreement score is the
+mean, over the detectors that scored it, of its score over the detector's threshold, which is derived from the
+detector's flags. A detector whose derived threshold is not positive is left out, and the section names it. The
+section pictures each flagged image once, most out of distribution first. Load refuses Outputs computed on different
+Datasets. Configured by {py:class}`~dataeval_flow.steps.combines.OODUnionConfig`; makes an
+{py:class}`~dataeval_flow.steps.combines.OODUnion`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address, or a list of them | required | Each detector's OOD Output, every one computed on the same reference and test source |
+
+### `factor-predictors`
+
+How strongly each metadata factor goes with being flagged: DataEval's `factor_predictors`, normalized mutual
+information from 0 to 1, strongest first, over the test images the detectors assessed. Factors are the item-level
+metadata factors, without `id`, with `class_label` where there is one label per item, and the per-image statistics
+named `f_<statistic>`; a factor counts where both Datasets have it, numeric, one-dimensional, finite in both, and not
+constant in the test. Where a Dataset's metadata or statistics cannot be read, the rest is read without it, and the
+section says so. Load refuses an `ood` Output computed on other Datasets than `reference` and `input`. Configured by
+{py:class}`~dataeval_flow.steps.combines.FactorPredictorsConfig`; makes a
+{py:class}`~dataeval_flow.steps.combines.FactorPredictors`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `ood` | an address | required | An `ood-union` Output, or one OOD evaluator's Output, computed on `reference` and `input` |
+| `reference` | an address | required | The reference Dataset the detectors fitted on |
+| `input` | an address | required | The test Dataset whose images were flagged |
+| `metadata` | a policy name, or `null` | `null` | The metadata policy the factors are read under |
+| `stats` | a policy name, or `null` | `null` | The stats policy the statistics are measured under; unset, every statistic |
+
+### `factor-deviation`
+
+The factors that set each of the most out-of-distribution agreed images apart from the reference: DataEval's
+`factor_deviation`, each factor's scaled distance from the reference's median, most deviating first. It reads the
+factors `factor-predictors` reads. Configured by {py:class}`~dataeval_flow.steps.combines.FactorDeviationConfig`; makes
+a {py:class}`~dataeval_flow.steps.combines.FactorDeviations`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `ood` | an address | required | An `ood-union` Output, or one OOD evaluator's Output, computed on `reference` and `input` |
+| `reference` | an address | required | The reference Dataset the detectors fitted on |
+| `input` | an address | required | The test Dataset whose images were flagged |
+| `max_items` | an integer of at least 1 | `50` | The most out-of-distribution agreed images explained, at most |
+| `metadata` | a policy name, or `null` | `null` | The metadata policy the factors are read under |
+| `stats` | a policy name, or `null` | `null` | The stats policy the statistics are measured under; unset, every statistic |
 
 ## data-cleaning is this chain
 

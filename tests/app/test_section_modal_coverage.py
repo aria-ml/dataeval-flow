@@ -10,6 +10,7 @@ from textual.widgets import Button, Input, Select
 
 from dataeval_flow._app._model._state import ConfigState
 from dataeval_flow._app._screens._section import SectionModal
+from tests.workflow_toys import register_union
 
 from .conftest import _MinimalApp, _state_with_datasets
 
@@ -424,24 +425,25 @@ class TestSectionModalPopulateFields:
 
 
 # ---------------------------------------------------------------------------
-# Editing workflow with union list (ood-detection detectors)
+# Editing workflow with union list (test.union detectors)
 # ---------------------------------------------------------------------------
 
 
 class TestSectionModalVariantEditWithListItems:
-    async def test_variant_edit_vm_state(self) -> None:
-        """Edit an ood-detection workflow — verify VM state without Textual Select timing."""
+    async def test_variant_edit_vm_state(self, plugins) -> None:
+        """Edit a test.union workflow — verify VM state without Textual Select timing."""
+        register_union(plugins)
         from dataeval_flow._app._viewmodel._section_vm import SectionViewModel
 
         existing = {
             "name": "wf1",
-            "type": "ood-detection",
-            "detectors": [{"method": "kneighbors", "k": 5}],
-            "health_thresholds": {"ood_pct_warning": 5.0},
+            "type": "test.union",
+            "detectors": [{"method": "near", "k": 5}],
+            "health_thresholds": {"warning": 5.0},
         }
         # Test the VM directly — avoids Textual Select compose timing
         vm = SectionViewModel("workflows", existing=existing)
-        vm.load_fields("ood-detection")
+        vm.load_fields("test.union")
         # populate list_items from existing
         for desc in vm.descriptors:
             if desc.name in existing and desc.union_variants and isinstance(existing[desc.name], list):
@@ -449,17 +451,18 @@ class TestSectionModalVariantEditWithListItems:
         assert "detectors" in vm.list_items
         assert len(vm.list_items["detectors"]) == 1
 
-    async def test_edit_workflow_with_nested_json_field(self) -> None:
+    async def test_edit_workflow_with_nested_json_field(self, plugins) -> None:
         """Edit a workflow with a NESTED field (health_thresholds) populated as JSON."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             existing = {
                 "name": "wf2",
-                "type": "ood-detection",
-                "detectors": [{"method": "domain_classifier", "n_folds": 3}],
+                "type": "test.union",
+                "detectors": [{"method": "far", "n_folds": 3}],
                 "health_thresholds": {
-                    "ood_pct_warning": 5.0,
-                    "ood_pct_info": 1.0,
+                    "warning": 5.0,
+                    "info": 1.0,
                 },
             }
             modal = SectionModal("workflows", existing=existing)
@@ -476,17 +479,18 @@ class TestSectionModalVariantEditWithListItems:
 
 
 class TestSectionModalNestedUnionField:
-    async def test_mount_nested_union_field_via_rebuild(self) -> None:
+    async def test_mount_nested_union_field_via_rebuild(self, plugins) -> None:
         """Selecting a variant with a nested union field should mount a Select for it."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
             await app.push_screen(modal)
             await pilot.pause()
             await pilot.pause()
-            # Select ood-detection to trigger rebuild with detectors (union list)
+            # Select test.union to trigger rebuild with detectors (union list)
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             # Fields container should have been populated
@@ -609,17 +613,18 @@ class TestSectionModalAddStep:
 
 
 class TestSectionModalRebuildVariantParams:
-    async def test_rebuild_variant_params_ood_detection(self) -> None:
+    async def test_rebuild_variant_params_for_a_union_variant(self, plugins) -> None:
         """_rebuild_variant_params builds params form for a union variant."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
             await app.push_screen(modal)
             await pilot.pause()
             await pilot.pause()
-            # Select ood-detection
+            # Select test.union
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             # Find the detectors picker and select a variant
@@ -627,7 +632,7 @@ class TestSectionModalRebuildVariantParams:
             picker_id = f"md-{gen}-detectors-picker"
             try:
                 picker = modal.query_one(f"#{picker_id}", Select)
-                picker.value = "kneighbors"
+                picker.value = "near"
                 await pilot.pause()
                 await pilot.pause()
                 # Variant params should be rebuilt
@@ -639,8 +644,9 @@ class TestSectionModalRebuildVariantParams:
             except NoMatches:
                 pass  # picker not found — variant may use different naming
 
-    async def test_rebuild_variant_params_empty_picker(self) -> None:
+    async def test_rebuild_variant_params_empty_picker(self, plugins) -> None:
         """_rebuild_variant_params with no picker value returns early."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
@@ -648,15 +654,16 @@ class TestSectionModalRebuildVariantParams:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             # Call _rebuild_variant_params with the picker still blank
             modal._rebuild_variant_params("detectors")
             await pilot.pause()
 
-    async def test_on_select_changed_picker_triggers_rebuild_variant(self) -> None:
+    async def test_on_select_changed_picker_triggers_rebuild_variant(self, plugins) -> None:
         """Changing a picker select triggers _rebuild_variant_params."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
@@ -664,7 +671,7 @@ class TestSectionModalRebuildVariantParams:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             gen = modal._gen
@@ -672,7 +679,7 @@ class TestSectionModalRebuildVariantParams:
             try:
                 picker = modal.query_one(f"#{picker_id}", Select)
                 with patch.object(modal, "_rebuild_variant_params") as mock_rebuild:
-                    event = Select.Changed(picker, "kneighbors")
+                    event = Select.Changed(picker, "near")
                     modal.on_select_changed(event)
                     mock_rebuild.assert_called_once_with("detectors")
             except NoMatches:
@@ -685,24 +692,25 @@ class TestSectionModalRebuildVariantParams:
 
 
 class TestSectionModalAddListItem:
-    async def test_add_list_item_workflow_detector(self) -> None:
-        """Add a union list item (detector) to an ood-detection workflow."""
+    async def test_add_list_item_workflow_detector(self, plugins) -> None:
+        """Add a union list item (detector) to a test.union workflow."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
             await app.push_screen(modal)
             await pilot.pause()
             await pilot.pause()
-            # Select ood-detection type
+            # Select test.union type
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             gen = modal._gen
             picker_id = f"md-{gen}-detectors-picker"
             try:
                 picker = modal.query_one(f"#{picker_id}", Select)
-                picker.value = "kneighbors"
+                picker.value = "near"
                 await pilot.pause()
                 await pilot.pause()
                 # Rebuild variant params to populate the form
@@ -717,8 +725,9 @@ class TestSectionModalAddListItem:
             except NoMatches:
                 pass
 
-    async def test_add_list_item_no_picker_value(self) -> None:
+    async def test_add_list_item_no_picker_value(self, plugins) -> None:
         """_add_list_item without selecting a variant shows error notification."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
@@ -726,15 +735,16 @@ class TestSectionModalAddListItem:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             # Call _add_list_item without selecting a variant
             modal._add_list_item("detectors")
             await pilot.pause()
 
-    async def test_add_list_item_no_descriptor(self) -> None:
+    async def test_add_list_item_no_descriptor(self, plugins) -> None:
         """_add_list_item with unknown field name returns early."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
@@ -742,15 +752,16 @@ class TestSectionModalAddListItem:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             # Call with unknown field name
             modal._add_list_item("nonexistent")
             await pilot.pause()
 
-    async def test_on_button_add_dispatches_to_add_list_item(self) -> None:
+    async def test_on_button_add_dispatches_to_add_list_item(self, plugins) -> None:
         """Pressing the add button for a union list field dispatches to _add_list_item."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
@@ -758,7 +769,7 @@ class TestSectionModalAddListItem:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             gen = modal._gen
@@ -777,8 +788,9 @@ class TestSectionModalAddListItem:
 
 
 class TestSectionModalRefreshListItems:
-    async def test_refresh_list_items_with_items(self) -> None:
+    async def test_refresh_list_items_with_items(self, plugins) -> None:
         """_refresh_list_items renders items when list_items is populated."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
@@ -786,11 +798,11 @@ class TestSectionModalRefreshListItems:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             # Manually populate list_items
-            modal._vm.list_items["detectors"] = [{"method": "kneighbors", "k": 10}]
+            modal._vm.list_items["detectors"] = [{"method": "near", "k": 10}]
             modal._refresh_list_items("detectors")
             await pilot.pause()
             # Verify items are rendered - the list container should have content
@@ -804,8 +816,9 @@ class TestSectionModalRefreshListItems:
             except NoMatches:
                 pass
 
-    async def test_refresh_list_items_empty(self) -> None:
+    async def test_refresh_list_items_empty(self, plugins) -> None:
         """_refresh_list_items with no items shows placeholder text."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
@@ -813,7 +826,7 @@ class TestSectionModalRefreshListItems:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             modal._vm.list_items["detectors"] = []
@@ -827,8 +840,9 @@ class TestSectionModalRefreshListItems:
 
 
 class TestSectionModalHandleListRemoveSuccess:
-    async def test_handle_list_remove_valid_with_items(self) -> None:
+    async def test_handle_list_remove_valid_with_items(self, plugins) -> None:
         """_handle_list_remove successfully removes an item and refreshes."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
@@ -836,11 +850,11 @@ class TestSectionModalHandleListRemoveSuccess:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             # Add an item to list_items
-            modal._vm.list_items["detectors"] = [{"method": "kneighbors", "k": 10}]
+            modal._vm.list_items["detectors"] = [{"method": "near", "k": 10}]
             modal._refresh_list_items("detectors")
             await pilot.pause()
             # Now remove it
@@ -911,8 +925,9 @@ class TestSectionModalCollectAllFieldsTask:
 
 
 class TestSectionModalReadRawFieldUnionList:
-    async def test_read_raw_field_union_list_returns_none(self) -> None:
+    async def test_read_raw_field_union_list_returns_none(self, plugins) -> None:
         """_read_raw_field for a LIST+union field returns None (data from vm.list_items)."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
@@ -920,7 +935,7 @@ class TestSectionModalReadRawFieldUnionList:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             # Find the detectors descriptor
@@ -932,8 +947,9 @@ class TestSectionModalReadRawFieldUnionList:
                     assert result is None
                     break
 
-    async def test_read_raw_field_json_list(self) -> None:
+    async def test_read_raw_field_json_list(self, plugins) -> None:
         """_read_raw_field for a plain LIST or NESTED field returns the input value."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
@@ -941,7 +957,7 @@ class TestSectionModalReadRawFieldUnionList:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             from dataeval_flow._app._model._introspect import FieldKind
@@ -987,8 +1003,9 @@ class TestSectionModalTryCollectOne:
 
 
 class TestSectionModalReadVariantWidget:
-    async def test_read_variant_widget_select(self) -> None:
+    async def test_read_variant_widget_select(self, plugins) -> None:
         """_read_variant_widget for SELECT kind reads a Select widget."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
@@ -996,14 +1013,14 @@ class TestSectionModalReadVariantWidget:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
             gen = modal._gen
             picker_id = f"md-{gen}-detectors-picker"
             try:
                 picker = modal.query_one(f"#{picker_id}", Select)
-                picker.value = "kneighbors"
+                picker.value = "near"
                 await pilot.pause()
                 await pilot.pause()
                 modal._rebuild_variant_params("detectors")
@@ -1013,7 +1030,7 @@ class TestSectionModalReadVariantWidget:
                 from textual.containers import Vertical
 
                 params_container = modal.query_one(f"#{params_id}", Vertical)
-                variant_descs = modal._vm.get_variant_descriptors("detectors", "kneighbors")
+                variant_descs = modal._vm.get_variant_descriptors("detectors", "near")
                 vpg = modal._variant_param_gen
                 from dataeval_flow._app._model._introspect import FieldKind
 
@@ -1036,8 +1053,9 @@ class TestSectionModalReadVariantWidget:
 
 
 class TestSectionModalMountUnionListField:
-    async def test_mount_union_list_field_initializes_list(self) -> None:
+    async def test_mount_union_list_field_initializes_list(self, plugins) -> None:
         """Mounting a union list field should initialize list_items for that field."""
+        register_union(plugins)
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             modal = SectionModal("workflows")
@@ -1045,10 +1063,10 @@ class TestSectionModalMountUnionListField:
             await pilot.pause()
             await pilot.pause()
             disc = modal.query_one("#md-disc", Select)
-            disc.value = "ood-detection"
+            disc.value = "test.union"
             await pilot.pause()
             await pilot.pause()
-            # After selecting ood-detection, detectors should be in list_items
+            # After selecting test.union, detectors should be in list_items
             assert "detectors" in modal._vm.list_items
 
 

@@ -1,19 +1,6 @@
-"""OOD detection workflow."""
+"""The ``ood-detection`` preset."""
 
-__all__ = [
-    "OODDetectionConfig",
-    "OODDetectionHealthThresholds",
-    "OODDetectionResult",
-    "OODDetectionWorkflow",
-    "OODDetectorDomainClassifier",
-    "OODDetectorKNeighbors",
-]
+__all__ = ["OODDetectionConfig", "OODDetectionThresholds", "OODDetectionWorkflow"]
 
-from dataeval_flow.workflows.ood_detection._config import (
-    OODDetectionConfig,
-    OODDetectionHealthThresholds,
-    OODDetectorDomainClassifier,
-    OODDetectorKNeighbors,
-)
-from dataeval_flow.workflows.ood_detection._outputs import OODDetectionResult
+from dataeval_flow.workflows.ood_detection._config import OODDetectionConfig, OODDetectionThresholds
 from dataeval_flow.workflows.ood_detection._workflow import OODDetectionWorkflow

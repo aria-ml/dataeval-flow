@@ -155,7 +155,13 @@ class DriftDomainClassifierEvaluator(Evaluator[DriftDomainClassifierConfig, Drif
 
 
 def detect_ood(detector: Any, inputs: Sequence[EvaluatorInputs]) -> OODOutput:
-    """Fit `detector` on the first source's embeddings, and flag the second source's items."""
+    """Fit `detector` on the first source's embeddings, and flag the second source's items. Rows that are detections,
+    from a detector's predictions, are judged per test image instead (``_rows``)."""
+    made = inputs[0].predictions
+    if made is not None and made.rows is not None:
+        from dataeval_flow.evaluators.shift._rows import detect_ood_by_image
+
+        return detect_ood_by_image(detector, inputs)
     reference, test = (require(i.embeddings, "embeddings", i.source) for i in inputs)
     return detector.fit(reference).predict(test)
 

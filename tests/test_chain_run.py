@@ -157,6 +157,22 @@ def test_two_steps_reading_one_node_derive_its_statistics_once() -> None:
     assert compute.call_count == 1
 
 
+def test_two_steps_reading_one_node_through_an_unseeded_shuffle_read_one_draw() -> None:
+    from dataeval_flow.config import SourceConfig
+
+    run = _run(
+        [{"name": "d1", "evaluator": "dupes", "input": "a"}, {"name": "d2", "evaluator": "dupes", "input": "a"}],
+        datasets={"src": ToyImages(count=40, near_duplicate=True)},
+        extra={
+            "views": [{"name": "shuffled", "operations": [{"type": "Shuffle", "params": {}}]}],
+            "sources": [SourceConfig(name="src", dataset="src_data", view="shuffled")],
+        },
+    )
+    first, second = run.steps["d1"].output, run.steps["d2"].output
+    assert first.data().height > 0
+    assert first.data().equals(second.data())
+
+
 def test_a_workflow_type_runs_as_a_step_on_an_intermediate_dataset() -> None:
     clean = ToyCountConfig(name="clean")
     run = _run(

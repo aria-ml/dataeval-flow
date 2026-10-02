@@ -1105,7 +1105,7 @@ class TestTheMixins:
         assert set(MetadataConfigMixin.model_fields) == {"metadata"}
         assert set(StatsConfigMixin.model_fields) == {"stats"}
 
-    @pytest.mark.parametrize("workflow", ["data-analysis", "data-coverage", "ood-detection"])
+    @pytest.mark.parametrize("workflow", ["data-analysis", "data-coverage"])
     def test_the_workflows_that_took_the_older_fields_still_do(self, workflow: str):
         from dataeval_flow.workflows import get_workflow
 

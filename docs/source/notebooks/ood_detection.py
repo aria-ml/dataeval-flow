@@ -14,18 +14,18 @@
 # ---
 
 # %% [markdown]
-# # Detect out-of-distribution samples
+# # Detect out-of-distribution images
 #
-# Find individual samples in incoming data that fall outside the reference
+# Find individual images in incoming data that fall outside the reference
 # distribution using the config-driven `ood-detection` workflow.
 
 # %% [markdown]
 # **Target audience**: You are a T&E engineer who needs to flag individual incoming
-# samples that fall outside the operational reference distribution.
+# images that fall outside the operational reference distribution.
 #
 # **Workflow role**: OOD detection complements {doc}`Monitor incoming data for drift <drift_monitoring>`.
 # While drift monitoring evaluates aggregate distribution shift, OOD detection
-# identifies anomalous individual samples for quarantine or routing before model
+# identifies anomalous individual images for quarantine or routing before model
 # inference. See [Distribution shift](../concepts/DistributionShift.md) for conceptual
 # details.
 
@@ -36,7 +36,7 @@
 # - Synthesize incoming test data containing misaligned imagery: ship images inserted under vehicle labels.
 # - Configure the `ood-detection` workflow with K-Neighbors and Domain Classifier detectors using ResNet-18 embeddings.
 # - Enable metadata insights to identify factors correlated with OOD status.
-# - Inspect the OOD report, score distributions, and flagged samples.
+# - Inspect the OOD report, score distributions, and flagged images.
 # - Evaluate detector performance on Gaussian noise sensor corruption.
 
 # %% [markdown]
@@ -47,7 +47,7 @@
 # - How feature representations influence OOD boundaries.
 # - How metadata insights (`factor_deviation`, `factor_predictors`) explain OOD flags.
 # - How to pass in-memory datasets via `DatasetProtocolConfig`.
-# - How to interpret per-sample OOD scores and evaluation reports.
+# - How to interpret per-image OOD scores and evaluation reports.
 
 # %% [markdown]
 # ## Prerequisites
@@ -67,7 +67,7 @@
 # contains 9,444 images across 24 vehicle types. Setting `as_datamaite=True` writes
 # the dataset in class-per-directory ImageFolder format.
 #
-# You will apply a seeded shuffle to draw reference and incoming samples evenly across
+# You will apply a seeded shuffle to draw reference and incoming images evenly across
 # all vehicle classes.
 
 # %% tags=["remove_output"]
@@ -103,7 +103,7 @@ print(f"Sample shape: image={ref_maite[0][0].shape}, dtype={ref_maite[0][0].dtyp
 # %% [markdown]
 # ### Build the incoming dataset: right label, wrong image
 #
-# You will create an incoming dataset where a subset of samples contains satellite
+# You will create an incoming dataset where a subset of images contains satellite
 # imagery of ships paired with vehicle labels.
 #
 # This setup simulates data ingestion errors where labels remain syntactically valid
@@ -199,7 +199,7 @@ plt.show()
 #
 # | Detector | How it works | Strengths |
 # |---|---|---|
-# | **K-Neighbors** | Flags samples whose k nearest reference neighbors are unusually distant | Fast, non-parametric, effective in high dimensions |
+# | **K-Neighbors** | Flags images whose k nearest reference neighbors are unusually distant | Fast, non-parametric, effective in high dimensions |
 # | **Domain Classifier** | Trains a LightGBM model to separate reference from incoming data | Captures complex non-linear decision boundaries |
 
 # %%
@@ -264,20 +264,19 @@ extractor_config = TorchExtractorConfig(
 # 99th percentile of reference baseline distances.
 #
 # **Domain Classifier** uses LightGBM with 3-fold cross-validation repeated 3 times.
-# Samples consistently predicted as incoming data receive high OOD probabilities.
+# Images consistently predicted as incoming data receive high OOD probabilities.
 #
 # Setting `metadata_insights=True` directs the workflow to analyze metadata factors
-# that correlate with flagged OOD samples.
+# that correlate with flagged OOD images.
+#
+# Each detector is an evaluator entry, which becomes a step, and the preset adds a check
+# per detector, an `agreement` step combining their flags, and two steps explaining the
+# flagged images by their metadata.
 
 # %%
 from dataeval_flow import run_task
 from dataeval_flow.config import TaskConfig
-from dataeval_flow.workflows.ood_detection import (
-    OODDetectionConfig,
-    OODDetectionHealthThresholds,
-    OODDetectorDomainClassifier,
-    OODDetectorKNeighbors,
-)
+from dataeval_flow.workflows.ood_detection import OODDetectionConfig
 
 task = TaskConfig(
     name="vehicles-ood-check",
@@ -295,26 +294,20 @@ config = PipelineConfig(
     preprocessors=[preprocessor_config],
     extractors=[extractor_config],
     workflows=[
-        OODDetectionConfig(
-            name="vehicles-ood",
-            detectors=[
-                OODDetectorKNeighbors(
-                    k=10,
-                    distance_metric="cosine",
-                    threshold_perc=99.0,
-                ),
-                OODDetectorDomainClassifier(
-                    n_folds=3,
-                    n_repeats=3,
-                    threshold_perc=99.0,
-                ),
-            ],
-            health_thresholds=OODDetectionHealthThresholds(
-                ood_pct_warning=5.0,  # warn if >5% of samples are OOD
-                ood_pct_info=1.0,  # info if >1% of samples are OOD
-            ),
-            metadata_insights=True,
-            max_ood_insights=50,
+        OODDetectionConfig.model_validate(
+            {
+                "name": "vehicles-ood",
+                "detectors": [
+                    {"type": "ood-kneighbors", "k": 10, "distance_metric": "cosine", "threshold_perc": 99.0},
+                    {"type": "ood-domain-classifier", "n_folds": 3, "n_repeats": 3, "threshold_perc": 99.0},
+                ],
+                "health_thresholds": {
+                    "ood": {"warning": 5.0, "info": 1.0},  # warn when 5% of a source's images are OOD
+                    "ood-agreement": {"warning": 5.0, "info": 1.0},
+                },
+                "metadata_insights": True,
+                "factor_deviation": {"max_items": 50},
+            }
         ),
     ],
 )
@@ -328,7 +321,7 @@ result = run_task(task, config, cache_dir=Path("./cache"))
 # %% [markdown]
 # ## Results Exploration: OOD report
 #
-# Call `result.report()` to view OOD sample counts, detector summaries, and
+# Call `result.report()` to view OOD image counts, detector summaries, and
 # metadata factor correlations.
 
 # %%
@@ -337,34 +330,44 @@ print(result.report())
 # %% [markdown]
 # ## Understanding the results
 #
-# You can evaluate detection performance by comparing flagged samples against
+# You can evaluate detection performance by comparing flagged images against
 # ground truth and analyzing score distributions.
 
 # %% [markdown]
 # ### Per-detector summary
 #
-# Each detector scores incoming samples independently. Samples with scores
-# exceeding reference thresholds are flagged as OOD.
+# Each detector scores incoming images independently and flags those scoring above
+# a threshold set from the reference. The `agreement` step reports each threshold as
+# derived from the flags: the highest score the detector did not flag.
 
 # %%
-raw = result.output.raw
+DETECTORS = ("ood-kneighbors", "ood-domain-classifier")
 
-print(f"Reference size:  {raw.reference_size}")
-print(f"Test size:       {raw.test_size}")
-print(f"OOD samples:     {len(raw.ood_indices)} (union across all detectors)")
+
+def output(step: str) -> Any:
+    """What `step` gave the incoming source."""
+    return result.steps[step].elements["inc_src"].output
+
+
+union = output("agreement")
+print(f"Test images:  {union.images}")
+print(f"OOD images:   {len(union.union)} (union across all detectors), {len(union.mutual)} flagged by every one")
 print()
 
-for method, det_result in raw.detectors.items():
-    print(f"-- {method} --")
-    print(f"  OOD count:     {det_result['ood_count']} / {det_result['total_count']}")
-    print(f"  OOD percentage: {det_result['ood_percentage']:.1f}%")
-    print(f"  Threshold:     {det_result['threshold_score']:.4f}")
+for name in DETECTORS:
+    det = output(name)
+    n_ood = int(np.sum(det.is_ood))
+    print(f"-- {name} --")
+    print(f"  OOD count:     {n_ood} / {len(det.is_ood)}")
+    print(f"  OOD percentage: {n_ood / len(det.is_ood) * 100:.1f}%")
+    thr = union.thresholds[name]
+    print(f"  Threshold:      {thr:.4f}" if thr is not None else "  Threshold:      none")
     print()
 
 # %% [markdown]
 # ### Benchmark detector recall and precision
 #
-# Because sample replacement positions are known, you can evaluate detector
+# Because image replacement positions are known, you can evaluate detector
 # recall and precision directly against ground-truth labels.
 #
 # **Recall** is the share of planted frames a detector flagged; **precision** is the
@@ -374,8 +377,8 @@ for method, det_result in raw.detectors.items():
 truth = [incoming_dataset.swapped(i) for i in range(len(incoming_dataset))]
 planted = sum(truth)
 
-for method, det_result in raw.detectors.items():
-    flagged = [sample["index"] for sample in det_result.get("samples", []) if sample.get("is_ood")]
+for method in DETECTORS:
+    flagged = [int(i) for i in np.flatnonzero(output(method).is_ood)]
     hits = sum(1 for i in flagged if truth[i])
     recall = hits / planted * 100 if planted else 0.0
     precision = hits / len(flagged) * 100 if flagged else 0.0
@@ -387,26 +390,22 @@ for method, det_result in raw.detectors.items():
 # ### Visualize OOD scores
 #
 # You can plot score histograms to evaluate separation between in-distribution
-# and out-of-distribution samples relative to the threshold.
+# and out-of-distribution images relative to the threshold, drawn dashed as the
+# `agreement` step derives it from the flags (the highest score not flagged).
 
 # %%
-fig, axes = plt.subplots(1, len(raw.detectors), figsize=(6 * len(raw.detectors), 4))
-if len(raw.detectors) == 1:
-    axes = [axes]
+fig, axes = plt.subplots(1, len(DETECTORS), figsize=(6 * len(DETECTORS), 4))
 
-ood_set = set(raw.ood_indices)
-
-for ax, (method, det_result) in zip(axes, raw.detectors.items(), strict=True):
-    samples = det_result.get("samples", [])
-    if not samples:
-        continue
-
-    in_scores = [s["score"] for s in samples if not s["is_ood"]]
-    ood_scores = [s["score"] for s in samples if s["is_ood"]]
+for ax, method in zip(axes, DETECTORS, strict=True):
+    det = output(method)
+    in_scores = np.asarray(det.instance_score)[~np.asarray(det.is_ood)]
+    ood_scores = np.asarray(det.instance_score)[np.asarray(det.is_ood)]
 
     ax.hist(in_scores, bins=30, alpha=0.6, label=f"In-dist ({len(in_scores)})", color="#2ecc71")
     ax.hist(ood_scores, bins=30, alpha=0.6, label=f"OOD ({len(ood_scores)})", color="#e74c3c")
-    ax.axvline(x=det_result["threshold_score"], color="orange", linestyle="--", label="Threshold")
+    thr = union.thresholds[method]
+    if thr is not None:
+        ax.axvline(thr, color="black", linestyle="--", linewidth=1.5, label=f"Threshold ({thr:.3f})")
     ax.set_xlabel("OOD Score")
     ax.set_ylabel("Count")
     ax.set_title(method, fontsize=12, fontweight="bold")
@@ -417,18 +416,18 @@ plt.tight_layout()
 plt.show()
 
 # %% [markdown]
-# ### Inspect OOD samples by score
+# ### Inspect OOD images by score
 #
-# You can display samples with the highest OOD scores alongside borderline samples
+# You can display images with the highest OOD scores alongside borderline images
 # closest to the threshold.
 
 # %%
 cols = 4
 
-for method, det_result in raw.detectors.items():
-    samples = det_result.get("samples", [])
+for method in DETECTORS:
+    det = output(method)
     ood_samples = sorted(
-        [(s["index"], s["score"]) for s in samples if s["is_ood"]],
+        [(int(i), float(det.instance_score[i])) for i in np.flatnonzero(det.is_ood)],
         key=lambda x: -x[1],
     )
     if not ood_samples:
@@ -463,24 +462,26 @@ for method, det_result in raw.detectors.items():
 # When metadata insights are enabled, the workflow computes correlations between
 # metadata factors and OOD status. **Factor predictors** report mutual information
 # with OOD flags. **Factor deviations** show per-factor metric deviations for individual
-# OOD samples.
+# OOD images.
 
 # %%
-if raw.factor_predictors:
+predictors = output("factor-predictors").factors
+if predictors:
     print("Factor Predictors (mutual information with OOD status):")
     print("-" * 50)
-    for factor, mi in raw.factor_predictors.items():
+    for factor, mi in predictors.items():
         bar = "#" * int(mi * 20)
         print(f"  {factor:20s}  {mi:.4f} bits  {bar}")
     print()
 
-if raw.factor_deviations:
-    print(f"Factor Deviations (top {min(10, len(raw.factor_deviations))} OOD samples):")
+deviations = output("factor-deviation").items
+if deviations:
+    print(f"Factor Deviations (top {min(10, len(deviations))} OOD images):")
     print("-" * 50)
-    for dev in raw.factor_deviations[:10]:
-        top_factors = list(dev["deviations"].items())[:3]
+    for dev in deviations[:10]:
+        top_factors = list(dev.deviations.items())[:3]
         factors_str = ", ".join(f"{k}={v:.2f}" for k, v in top_factors)
-        print(f"  Sample {dev['index']:4d}: {factors_str}")
+        print(f"  Image {dev.index:4d}: {factors_str}")
 
 # %% [markdown]
 # ## A second failure: Corrupted imagery and detector differences
@@ -543,8 +544,8 @@ noisy_result = run_task(noisy_task, noisy_config, cache_dir=Path("./cache"))
 noisy_truth = [noisy_dataset.corrupted(i) for i in range(len(noisy_dataset))]
 noisy_planted = sum(noisy_truth)
 
-for method, det_result in noisy_result.output.raw.detectors.items():
-    flagged = [sample["index"] for sample in det_result.get("samples", []) if sample.get("is_ood")]
+for method in DETECTORS:
+    flagged = [int(i) for i in np.flatnonzero(noisy_result.steps[method].elements["noisy_src"].output.is_ood)]
     hits = sum(1 for i in flagged if noisy_truth[i])
     recall = hits / noisy_planted * 100 if noisy_planted else 0.0
     precision = hits / len(flagged) * 100 if flagged else 0.0
@@ -557,10 +558,10 @@ for method, det_result in noisy_result.output.raw.detectors.items():
 #
 # On misaligned images, both detectors showed high recall. Under sensor noise, the
 # Domain Classifier maintains high recall, whereas K-Neighbors detects fewer corrupted
-# samples.
+# images.
 #
-# K-Neighbors flags samples that fall outside reference embedding clusters. When
-# noise moves samples along dimensions where reference embeddings already have broad
+# K-Neighbors flags images that fall outside reference embedding clusters. When
+# noise moves images along dimensions where reference embeddings already have broad
 # variance, K-Neighbors may not exceed distance thresholds. In contrast, the Domain
 # Classifier trains a supervised model to separate reference and incoming distributions,
 # capturing consistent feature patterns induced by noise.
@@ -571,7 +572,7 @@ for method, det_result in noisy_result.output.raw.detectors.items():
 # %% [markdown]
 # ## Results Exploration: Export results
 #
-# You can export raw detector outputs, per-sample scores, and metadata insights
+# You can export raw detector outputs, per-image scores, and metadata insights
 # to JSON format.
 
 # %%
@@ -588,7 +589,7 @@ print(json_str[:600] + "\n...")
 # - Extract embedding features using pretrained ResNet-18 models.
 # - Execute OOD detection workflows and inspect formatted reports.
 # - Score detector precision and recall against known anomaly labels.
-# - Visualize per-sample OOD score distributions and identify boundary samples.
+# - Visualize per-image OOD score distributions and identify boundary images.
 # - Use metadata insights to identify factors correlated with OOD status.
 # - Export structured OOD findings to JSON format.
 
@@ -606,7 +607,7 @@ print(json_str[:600] + "\n...")
 # - **Concept**: [Distribution shift](../concepts/DistributionShift.md) explains
 #   relationships between OOD detection and drift monitoring.
 # - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) details
-#   how to parse per-sample OOD scores and export envelopes.
+#   how to parse per-image OOD scores and export envelopes.
 # - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) explains
 #   how to schedule OOD monitoring tasks in Docker.
 # - **Guide**: [Use an ONNX model for embeddings](onnx_embeddings) shows how to configure

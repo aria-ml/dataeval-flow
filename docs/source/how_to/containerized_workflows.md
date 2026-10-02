@@ -299,7 +299,7 @@ workflows:
 ```
 ````
 ````{tab-item} ood-detection
-Identify out-of-distribution samples.
+Identify out-of-distribution images, by each detector and by their agreement.
 See the {doc}`OOD Detection tutorial <../notebooks/ood_detection>` for a full walkthrough.
 
 ```yaml
@@ -307,7 +307,7 @@ workflows:
   - name: ood_knn
     type: ood-detection
     detectors:
-      - method: kneighbors         # kneighbors | domain_classifier
+      - type: ood-kneighbors       # ood-kneighbors | ood-domain-classifier
         k: 5
         distance_metric: cosine    # cosine | euclidean
         threshold_perc: 95

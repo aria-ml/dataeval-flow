@@ -141,22 +141,26 @@ def run_uncertainty(
     task_extractor: str = "unc",
     extractors: Sequence[Any] = (),
     extra: Mapping[str, Any] | None = None,
+    tasks: bool = False,
 ) -> ChainResult:
     """Run `workflow` over `datasets`, in order, with the stub model's uncertainty as extractor `unc`.
 
     The model files must already be in `tmp_path`, which is the data root. `extractor` overrides `unc`'s fields, and
-    `extractors` adds more entries. A detector keeps boxes at confidence 0.3 and reads sigmoid scores.
+    `extractors` adds more entries. With `tasks`, the task is part of the pipeline, so load checks it. A detector
+    keeps boxes at confidence 0.3 and reads sigmoid scores.
     """
     fields: dict[str, Any] = {"name": "unc", "model_path": "model.onnx", "metadata_path": "model.json", "batch_size": 8}
     fields |= {"preds_type": "sigmoid", "confidence": 0.3} if detector else {"preds_type": "logits"}
     uncertainty = UncertaintyExtractorConfig.model_validate(fields | dict(extractor or {}))
+    task_dict = {"name": "t", "workflow": workflow["name"], "sources": list(datasets), "extractor": task_extractor}
     config = chain_pipeline(
         workflows=[workflow],
         evaluators=evaluators,
         datasets=datasets,
+        tasks=[task_dict] if tasks else [],
         extra={"extractors": [uncertainty, *extractors], **(extra or {})},
     )
-    task = TaskConfig(name="t", workflow=workflow["name"], sources=list(datasets), extractor=task_extractor)
+    task = TaskConfig.model_validate(task_dict)
     result = run_task(task, config, data_dir=tmp_path, cache_dir=tmp_path / "cache" if cache else None)
     assert isinstance(result, ChainResult)
     return result

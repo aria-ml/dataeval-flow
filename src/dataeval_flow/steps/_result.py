@@ -4,13 +4,13 @@ __all__ = ["ChainMetadata", "ChainOutput", "ChainResult", "StepResult"]
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import Field
 
 from dataeval_flow._binning_report import binning_blocks
 from dataeval_flow._blocks import Block, Scalar
-from dataeval_flow._result import LineageRecord, ResultMetadata, failure_section
+from dataeval_flow._result import LineageRecord, ResultMetadata, failure_section, finite_json
 from dataeval_flow.steps._step import StepKind
 from dataeval_flow.workflows._base import Finding
 from dataeval_flow.workflows._result import WorkflowResult
@@ -201,7 +201,9 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         return {"status": status, "warnings": warnings, "findings": len(findings), "failed_steps": self.failed_steps}
 
     def to_dict(self) -> dict[str, object]:
-        """Kind, envelope, health and every step, then any errors and thumbnails, whether or not a step failed."""
+        """Kind, envelope, health and every step, then any errors and thumbnails, whether or not a step failed.
+        Non-finite floats are written as ``null``.
+        """
         payload: dict[str, object] = {
             "kind": self.kind,
             "metadata": self.metadata.model_dump(mode="json"),
@@ -213,7 +215,7 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
             payload["errors"] = list(self.errors)
         if self.assets:
             payload["assets"] = [asset.model_dump(mode="json") for asset in self.assets]
-        return payload
+        return cast("dict[str, object]", finite_json(payload))
 
     def _report_title(self) -> str:
         return super()._report_title() if self._preset else self.metadata.workflow or self.type

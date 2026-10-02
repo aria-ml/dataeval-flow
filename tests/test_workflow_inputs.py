@@ -16,7 +16,7 @@ SPECS = {
     "data-splitting": (SourceCount.ONE, {InputKind.METADATA}, {InputKind.EMBEDDINGS}),
     "drift-monitoring": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.LABELS}),
     "metadata-triage": (SourceCount.ONE, {InputKind.METADATA}, set()),
-    "ood-detection": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS, InputKind.STATS, InputKind.METADATA}, set()),
+    "ood-detection": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.METADATA, InputKind.STATS}),
     "parameter-sweep": (SourceCount.ONE, {InputKind.STATS}, {InputKind.CLUSTERS}),
 }
 

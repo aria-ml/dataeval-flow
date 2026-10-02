@@ -124,7 +124,7 @@ class TestOOD:
         assert sum(euclidean["data"]["is_ood"]) > sum(cosine["data"]["is_ood"])
         assert sum(euclidean["data"]["is_ood"]) >= 30
 
-    def test_the_console_report_cuts_the_per_item_lists(self):
-        result = run(OODKNeighborsConfig(), shifted_sources(), extractor=FLAT)
-        assert "… and 30 more" in result.report(detailed=False)
-        assert "… and 30 more" not in result.report(detailed=True)
+    def test_the_console_report_shows_the_score_histogram_and_the_counts(self):
+        report = run(OODKNeighborsConfig(), shifted_sources(), extractor=FLAT).report(detailed=False)
+        assert "Assessed" in report
+        assert "Threshold" in report

@@ -33,6 +33,9 @@ _BUILTINS: dict[str, str] = {
 }
 _COMBINE_BUILTINS: dict[str, str] = {
     "classwise-outliers": "dataeval_flow.steps.combines._classwise:ClasswiseOutliersCombine",
+    "factor-deviation": "dataeval_flow.steps.combines._factors:FactorDeviationCombine",
+    "factor-predictors": "dataeval_flow.steps.combines._factors:FactorPredictorsCombine",
+    "ood-union": "dataeval_flow.steps.combines._ood:OODUnionCombine",
 }
 _CHECK_BUILTINS: dict[str, str] = {
     "class-imbalance": "dataeval_flow.steps.checks._labels:ClassImbalanceCheck",
@@ -40,6 +43,8 @@ _CHECK_BUILTINS: dict[str, str] = {
     "drift": "dataeval_flow.steps.checks._drift:DriftCheck",
     "duplicate-rate": "dataeval_flow.steps.checks._duplicates:DuplicateRateCheck",
     "metadata-issues": "dataeval_flow.steps.checks._triage:MetadataIssuesCheck",
+    "ood": "dataeval_flow.steps.checks._ood:OODCheck",
+    "ood-agreement": "dataeval_flow.steps.checks._ood:OODAgreementCheck",
     "outlier-rate": "dataeval_flow.steps.checks._outliers:OutlierRateCheck",
     "target-outlier-rate": "dataeval_flow.steps.checks._outliers:TargetOutlierRateCheck",
 }

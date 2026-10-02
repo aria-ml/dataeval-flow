@@ -238,6 +238,15 @@ class DriftKNeighborsConfig(EvaluatorConfig[DriftKNeighborsResult]):
     )
     chunking: ChunkedDriftConfig | None = Field(default=None, description=_CHUNKING_DESCRIPTION)
 
+    def model_rows_problem(self) -> str | None:
+        """Cosine distance cannot rank one number, so on a model extractor's rows a written `cosine` is refused."""
+        if self.distance_metric != "cosine":
+            return None
+        return (
+            "cannot rank the one number per row an uncertainty extractor gives by cosine distance: set "
+            "`distance_metric: euclidean`, its default."
+        )
+
 
 class DriftWassersteinConfig(EvaluatorConfig[DriftWassersteinResult]):
     """Config for ``drift-wasserstein``, DataEval's DriftWasserstein.
@@ -331,6 +340,9 @@ class OODKNeighborsConfig(EvaluatorConfig[OODKNeighborsResult]):
     farther than ``threshold_perc`` percent of the reference is. Needs an extractor on the task, and two sources: the
     reference, then the data to test.
 
+    On the `uncertainty` extractor's rows from a detector, it judges each test image by its detections (ood-detection
+    spec §7).
+
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
     (``reference/evaluators``), and ``dataeval-flow evaluators ood-kneighbors`` prints the JSON Schema.
 
@@ -345,7 +357,9 @@ class OODKNeighborsConfig(EvaluatorConfig[OODKNeighborsResult]):
     type: str = Field(
         default="ood-kneighbors", description="The evaluator type this entry configures: `ood-kneighbors`."
     )
-    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
+    inputs: ClassVar[InputSpec] = InputSpec(
+        required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO, detection_rows=True
+    )
 
     k: int | None = Field(
         default=None,
@@ -365,12 +379,25 @@ class OODKNeighborsConfig(EvaluatorConfig[OODKNeighborsResult]):
         ),
     )
 
+    def model_rows_problem(self) -> str | None:
+        """Cosine distance cannot rank one number, so on a model extractor's rows the distance must be euclidean."""
+        if self.distance_metric == "euclidean":
+            return None
+        default = ", DataEval's default" if self.distance_metric is None else ""
+        return (
+            f"cannot rank the one number per row an uncertainty extractor gives by cosine distance{default}: set "
+            "`distance_metric: euclidean`."
+        )
+
 
 class OODDomainClassifierConfig(EvaluatorConfig[OODDomainClassifierResult]):
     """Config for ``ood-domain-classifier``, DataEval's OODDomainClassifier.
 
     Trains a classifier to tell each test item from the reference under repeated cross-validation, and flags the
     items it separates well. Needs an extractor on the task, and two sources: the reference, then the data to test.
+
+    On the `uncertainty` extractor's rows from a detector, it judges each test image by its detections (ood-detection
+    spec §7).
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
     (``reference/evaluators``), and ``dataeval-flow evaluators ood-domain-classifier`` prints the JSON Schema.
@@ -387,7 +414,9 @@ class OODDomainClassifierConfig(EvaluatorConfig[OODDomainClassifierResult]):
         default="ood-domain-classifier",
         description="The evaluator type this entry configures: `ood-domain-classifier`.",
     )
-    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
+    inputs: ClassVar[InputSpec] = InputSpec(
+        required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO, detection_rows=True
+    )
 
     n_folds: int | None = Field(
         default=None, ge=2, description="Cross-validation folds per repeat. Unset uses DataEval's default (5)."

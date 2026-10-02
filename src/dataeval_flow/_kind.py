@@ -216,6 +216,21 @@ class KindConfig(BaseModel):
         """
         return None
 
+    def model_rows_problem(self) -> str | None:
+        """A rule these values place on rows from a model extractor, such as `uncertainty`'s: one number per row, each
+        row an item or a detection.
+
+        Override it when a field cannot read such rows, as cosine distance cannot rank one number. Only configs whose
+        ``inputs`` declare ``detection_rows`` are asked.
+
+        Returns
+        -------
+        str or None
+            ``None`` when these values read such rows. Otherwise the problem, as a phrase that completes "Task 't' runs
+            <entry>, which ...". The default returns ``None``.
+        """
+        return None
+
     @model_validator(mode="before")
     @classmethod
     def _default_name(cls, data: Any) -> Any:
@@ -272,6 +287,8 @@ def input_problem(
     if model_extractor is not None and config.requires_extractor() and not spec.detection_rows:
         return (
             f"needs one embeddings row per item, and extractor `{model_extractor}` runs a model whose rows may be "
-            "detections: only drift evaluators read it."
+            "detections: only drift and OOD evaluators read it."
         )
+    if model_extractor is not None and config.requires_extractor() and (problem := config.model_rows_problem()):
+        return problem
     return None

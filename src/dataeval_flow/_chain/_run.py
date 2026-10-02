@@ -493,6 +493,7 @@ def _combine(
         task=settings.task,
         step=spec.name,
         derive_metadata=lambda node: _metadata(node, step.metadata_policy, _policy_name(spec)),
+        derive_stats=lambda node: _stats(node, step.stats_policy),
     )
     made = impl.run(spec.config, inputs, context)
     missing = [port.name for port in spec.outputs if port.name not in made]
@@ -659,9 +660,13 @@ def _stats_union(step: StepContext, node: Node, element: str | None) -> "Resolve
 
 
 def _context_for(node: Node, spec: StepSpec, setup: ExtractorSetup | None) -> "DatasetContext":
+    """The context a step reads `node` through: over the node's one draw of its view, where it has one, so every step
+    and thumbnail reads the same items even where the view shuffles unseeded."""
     context = node.context
     if context is None:
         raise RuntimeError(f"Dataset node `{node.address}` has no context")
+    if context.view_operations:
+        context = replace(context, dataset=node.value, view_operations=None)
     if spec.extractor is None or setup is None:
         return context
     return replace(context, extractor=setup.config, transforms=setup.transforms, batch_size=setup.batch_size)
@@ -821,6 +826,27 @@ def _metadata(node: Node, policy: Any, policy_name: str | None) -> Any:
         metadata = get_or_compute_metadata(dataset, policy)
     note_read(node.address, policy_name, policy, metadata)
     return metadata
+
+
+def _stats(node: Node, policy: "ResolvedStatsPolicy | None") -> Any:
+    """`node`'s per-image statistics under `policy`, every statistic where the step names none, cached on the node."""
+    from dataeval.flags import ImageStats
+
+    from dataeval_flow._cache import active_cache, get_or_compute_stats, selection_repr
+    from dataeval_flow._stats import ResolvedStatsPolicy, columns_for, restrict_columns
+
+    dataset = node.value
+    cache = node.context.cache if node.context is not None else None
+    value_range = node.context.value_range if node.context is not None else None
+    scope = active_cache(cache, selection_repr(dataset)) if cache is not None else contextlib.nullcontext()
+    policy = policy if policy is not None else ResolvedStatsPolicy.of_flags(ImageStats.ALL)
+    with scope:
+        result = get_or_compute_stats(
+            policy, dataset=dataset, per_image=True, per_target=False, value_range=value_range
+        )
+    # The cache holds the union of everything computed under the scope: keep only the request's columns.
+    allowed = set().union(*(columns_for([view], flags) for view, flags in policy.request.items()))
+    return restrict_columns(result, allowed)
 
 
 def _datasets(values: Iterable[Any]) -> list[Node]:

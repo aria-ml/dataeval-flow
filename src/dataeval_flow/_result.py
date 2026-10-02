@@ -8,6 +8,7 @@ once, built from those two.
 
 __all__ = ["LabelSpaceRecord", "LineageRecord", "Result", "ResultMetadata"]
 
+import math
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
@@ -310,6 +311,21 @@ def results_html(results: Sequence["Result[Any, Any]"], *, detailed: bool = True
     return html_page(title, documents, [result.assets for result in results])
 
 
+def finite_json(value: Any) -> Any:
+    """`value` with every non-finite float, NaN or an infinity, as ``None``, through dicts, lists and tuples.
+
+    JSON has no NaN: ``json.dumps`` writes a literal ``NaN`` by default, which strict parsers refuse. A result's JSON
+    goes through this; its report sections read the values as they came.
+    """
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {key: finite_json(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [finite_json(item) for item in value]
+    return value
+
+
 class Result(ABC, Generic[TMetadata, TOutput]):
     """One task's result, whichever kind of task ran.
 
@@ -468,12 +484,13 @@ class Result(ABC, Generic[TMetadata, TOutput]):
         """The result as a plain dict: its kind and envelope, then its output — or, for a failed run, its errors.
 
         The thumbnails of the items its report names close it, as ``assets``, where it has any.
+        Non-finite floats are written as ``null``.
         """
         body = self._dict_body() if self.success else {"errors": list(self.errors)}
         payload: dict[str, object] = {"kind": self.kind, "metadata": self.metadata.model_dump(mode="json"), **body}
         if self.assets:
             payload["assets"] = [asset.model_dump(mode="json") for asset in self.assets]
-        return payload
+        return cast("dict[str, object]", finite_json(payload))
 
     @overload
     def export(self, path: str | Path, *, fmt: Literal["json", "yaml"] = "json") -> Path: ...

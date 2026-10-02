@@ -303,7 +303,7 @@ def _step(record: "StepResult", *, detailed: bool, skip: Collection[str] = ()) -
 
 def _output_blocks(record: "StepResult", *, detailed: bool) -> list[Block]:
     """What a completed step made: an evaluator's or workflow's report, or a transform's section. A check's findings
-    have sections of their own, and a combine shows nothing."""
+    have sections of their own, and a combine shows its section where it draws one."""
     from dataeval_flow.evaluators._result import EvaluatorResult
     from dataeval_flow.steps._registry import TRANSFORMS
     from dataeval_flow.workflows._result import WorkflowResult
@@ -316,6 +316,10 @@ def _output_blocks(record: "StepResult", *, detailed: bool) -> list[Block]:
     if record.kind == "transform":
         section = TRANSFORMS.get(record.type)().section(record) if record.type in TRANSFORMS.names() else []
         return list(section or [Fields(items=_dataset_fields(record.summary))])
+    if record.kind == "combine":
+        from dataeval_flow.steps._registry import COMBINES
+
+        return list(COMBINES.get(record.type)().section(record) or []) if record.type in COMBINES.names() else []
     return []
 
 

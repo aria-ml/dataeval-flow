@@ -14,6 +14,8 @@ from dataeval_flow.steps._step import InlineStep, StepConfig, StepKind
 if TYPE_CHECKING:
     from dataeval import Metadata
 
+    from dataeval_flow._blocks import Block
+
 
 class CombineConfig(StepConfig):
     """A combine step's settings: the addresses its ports read, and its own arguments."""
@@ -32,6 +34,11 @@ class CombineContext:
     """This step's name."""
     derive_metadata: "Callable[[Any], Metadata]"
     """Metadata of a Dataset node under this step's metadata policy, cached on the node."""
+    derive_stats: "Callable[[Any], Any]"
+    """Image statistics of a Dataset node, per image and not per target, under this step's stats policy, or every
+    statistic where it names none, at the Dataset's value range: DataEval's stats result, whose ``stats`` maps each
+    statistic to one value per image, beside ``image_count``. Cached as evaluators' statistics are. Only the
+    requested statistics are returned, whatever else the cache holds."""
 
 
 class Combine(InlineStep, ABC, Generic[CombineConfigT]):
@@ -51,6 +58,7 @@ class Combine(InlineStep, ABC, Generic[CombineConfigT]):
       input may be a Dataset port with ``derives``, for a combine that reads a node's derived data, such as its
       labels; :attr:`CombineContext.derive_metadata` reads it.
     - :meth:`run`.
+    - optionally :meth:`section`, the step's report section.
 
     ``same_node`` and :meth:`bound_problem` work as they do for a :class:`~dataeval_flow.steps.Transform`. Register
     the class under the ``dataeval_flow.combines`` entry-point group, named by ``name``.
@@ -111,3 +119,9 @@ class Combine(InlineStep, ABC, Generic[CombineConfigT]):
         Mapping[str, Any]
             Each Output, by output port name.
         """
+
+    def section(self, record: Any) -> list["Block"]:  # noqa: ARG002
+        """This step's report section body, given one run's :class:`~dataeval_flow.steps.StepResult`, whose
+        ``output`` is the Output made. The chain report shows it, and captures thumbnails of the items it names. By
+        default, nothing."""
+        return []

@@ -7,7 +7,7 @@ plugin workflow type) are picked up automatically.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Annotated, Any, Literal, Self, Union, get_args, get_origin
 
 from pydantic import BaseModel, model_validator
@@ -136,9 +136,29 @@ class TaskFormModel(BaseModel):
         return self
 
 
-def _build_registries() -> tuple[dict[str, tuple[str, dict[str, type[BaseModel]]]], dict[str, type[BaseModel]]]:
+class _Registered(Mapping[str, type[BaseModel]]):
+    """A registry's types by name, each with its config, read at each lookup as the registry itself is read, so a type
+    served after this module's import is offered too."""
+
+    def __init__(self, listing: Callable[[], Sequence[Any]]) -> None:
+        self._listing = listing
+
+    def _types(self) -> dict[str, type[BaseModel]]:
+        return {cls.name: cls.config_type for cls in self._listing()}
+
+    def __getitem__(self, name: str) -> type[BaseModel]:
+        return self._types()[name]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._types())
+
+    def __len__(self) -> int:
+        return len(self._types())
+
+
+def _build_registries() -> tuple[dict[str, tuple[str, Mapping[str, type[BaseModel]]]], dict[str, type[BaseModel]]]:
     """Introspect :class:`PipelineConfig` to derive the variant and section-model registries."""
-    variant_registry: dict[str, tuple[str, dict[str, type[BaseModel]]]] = {}
+    variant_registry: dict[str, tuple[str, Mapping[str, type[BaseModel]]]] = {}
     section_models: dict[str, type[BaseModel]] = {}
 
     for name, field_info in PipelineConfig.model_fields.items():
@@ -153,9 +173,9 @@ def _build_registries() -> tuple[dict[str, tuple[str, dict[str, type[BaseModel]]
 
     # Workflows, evaluators and extractors are validated through their registries, not a fixed union, so their
     # variants are every registered type, plugins included.
-    variant_registry["workflows"] = ("type", {cls.name: cls.config_type for cls in list_workflows()})
-    variant_registry["evaluators"] = ("type", {cls.name: cls.config_type for cls in list_evaluators()})
-    variant_registry["extractors"] = ("model", {cls.name: cls.config_type for cls in list_extractors()})
+    variant_registry["workflows"] = ("type", _Registered(list_workflows))
+    variant_registry["evaluators"] = ("type", _Registered(list_evaluators))
+    variant_registry["extractors"] = ("model", _Registered(list_extractors))
     # `tasks` is a union told apart by key, which the loop above cannot introspect.
     section_models["tasks"] = TaskFormModel
 

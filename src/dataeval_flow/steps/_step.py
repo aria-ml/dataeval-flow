@@ -130,12 +130,17 @@ class InlineStep(Step):
     ``same_node`` names the input ports whose Outputs must have been computed on exactly the ``input`` Dataset. Set
     ``same_node_first_input`` when their producer may also read a reference set after that Dataset, as Prioritize
     does, so only its first input is compared.
+    ``shared_datasets`` names the input ports whose Outputs must all have been computed on the same Datasets, as the
+    detectors an agreement compares are. ``computed_on`` maps an Output input port to the Dataset ports, in order,
+    whose Datasets it must have been computed on. Load refuses settings that break either.
     """
 
     inputs: ClassVar[tuple[Port, ...]]
     outputs: ClassVar[tuple[Port, ...]]
     same_node: ClassVar[tuple[str, ...]] = ()
     same_node_first_input: ClassVar[bool] = False
+    shared_datasets: ClassVar[tuple[str, ...]] = ()
+    computed_on: ClassVar[Mapping[str, tuple[str, ...]]] = {}
 
     @classmethod
     def resolved(cls, config: Any, pipeline: "PipelineConfig") -> Any:  # noqa: ARG003
