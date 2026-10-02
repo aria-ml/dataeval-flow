@@ -336,8 +336,9 @@ print(result.report())
 # %% [markdown]
 # ### Per-detector summary
 #
-# Each detector scores incoming images independently. Images with scores
-# exceeding reference thresholds are flagged as OOD.
+# Each detector scores incoming images independently and flags those scoring above
+# a threshold set from the reference. The `agreement` step reports each threshold as
+# derived from the flags: the highest score the detector did not flag.
 
 # %%
 DETECTORS = ("ood-kneighbors", "ood-domain-classifier")
@@ -359,6 +360,8 @@ for name in DETECTORS:
     print(f"-- {name} --")
     print(f"  OOD count:     {n_ood} / {len(det.is_ood)}")
     print(f"  OOD percentage: {n_ood / len(det.is_ood) * 100:.1f}%")
+    thr = union.thresholds[name]
+    print(f"  Threshold:      {thr:.4f}" if thr is not None else "  Threshold:      none")
     print()
 
 # %% [markdown]
@@ -387,7 +390,8 @@ for method in DETECTORS:
 # ### Visualize OOD scores
 #
 # You can plot score histograms to evaluate separation between in-distribution
-# and out-of-distribution images relative to the threshold.
+# and out-of-distribution images relative to the threshold, drawn dashed as the
+# `agreement` step derives it from the flags (the highest score not flagged).
 
 # %%
 fig, axes = plt.subplots(1, len(DETECTORS), figsize=(6 * len(DETECTORS), 4))
@@ -399,6 +403,9 @@ for ax, method in zip(axes, DETECTORS, strict=True):
 
     ax.hist(in_scores, bins=30, alpha=0.6, label=f"In-dist ({len(in_scores)})", color="#2ecc71")
     ax.hist(ood_scores, bins=30, alpha=0.6, label=f"OOD ({len(ood_scores)})", color="#e74c3c")
+    thr = union.thresholds[method]
+    if thr is not None:
+        ax.axvline(thr, color="black", linestyle="--", linewidth=1.5, label=f"Threshold ({thr:.3f})")
     ax.set_xlabel("OOD Score")
     ax.set_ylabel("Count")
     ax.set_title(method, fontsize=12, fontweight="bold")
