@@ -19,10 +19,10 @@ The three `metadata_*` settings are accepted by every workflow that builds metad
 | `data-analysis` | balance, diversity, per-factor summaries |
 | `data-coverage` | class balance, factor gap analysis, factor-to-class mutual information |
 
-`data-cleaning` and `ood-detection` take a policy's name, `metadata:`, but none of the `metadata_*` settings. A custom workflow's or
-preset's result records the encodings its steps read in `metadata_binning`: one record, or `per_split` keyed by Dataset
-address where the steps read several Datasets or one Dataset two ways. A chain whose steps read no metadata records
-none, and its `metadata_binning` and `encoding_digest` are `null`.
+`data-cleaning` and `ood-detection` take a policy's name, `metadata:`, but none of the `metadata_*` settings. A custom
+workflow's or preset's result records the encodings its steps read in `metadata_binning`: one record, or `per_split`
+keyed by Dataset address where the steps read several Datasets or one Dataset two ways. A chain whose steps read no
+metadata records none, and its `metadata_binning` and `encoding_digest` are `null`.
 
 ## Define the policy once and share it
 

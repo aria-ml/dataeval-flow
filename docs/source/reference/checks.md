@@ -6,8 +6,9 @@ findings: each `ok`, `info` or `warning`, rolled up into the task's health, wher
 reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and the
 [Transform Catalog](transforms.md) for the steps that make Datasets.
 
-The built-in checks are the ones `data-cleaning` runs, whose findings are theirs, `metadata-issues`, which makes
-`metadata-triage`'s, and `drift`, which judges `drift-monitoring`'s detectors, and `ood`, which judges `ood-detection`'s detectors. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
+The built-in checks are the ones `data-cleaning` runs, whose findings are theirs; `metadata-issues`, which makes
+`metadata-triage`'s; `drift`, which judges `drift-monitoring`'s detectors; and `ood`, which judges `ood-detection`'s
+detectors. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
 

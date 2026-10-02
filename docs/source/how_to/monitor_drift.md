@@ -257,8 +257,8 @@ workflows:
 - **A classifier gives one row per image. A detector gives one row per box** whose top score is at least `confidence`.
   The model returns a fixed number of boxes per image, padding included, so a detector needs `confidence`; `0` keeps
   every box, and caches every one.
-- **Drift and OOD detection read it.** A detector's rows are detections, not images, so load refuses the extractor on any other
-  evaluator. A detector entry's own `extractor:` lets one task mix it with the task's embeddings.
+- **Drift and OOD detection read it.** A detector's rows are detections, not images, so load refuses the extractor on
+  any other evaluator. A detector entry's own `extractor:` lets one task mix it with the task's embeddings.
 - **Chunks hold whole images.** `chunk_size` and `chunk_count` count images, and a chunk whose images hold no
   detections is listed as not assessed. The section says how many detections each source held, in how many images.
 - **`by: predicted`** keys rows by the class the model predicts, which unlabelled data allows. A detection counts toward
@@ -316,4 +316,4 @@ workflows:
 - [Distribution Shift](../concepts/DistributionShift.md) — what drift and out-of-distribution detection ask
 - [Check and Combine Catalog](../reference/checks.md) — the `drift` check's fields, and `by: class`
 - [Evaluator Catalog](../reference/evaluators.md) — each drift evaluator's fields
-- [OOD detection tutorial](../notebooks/ood_detection) — the `ood-detection` preset on embeddings
+- [OOD detection tutorial](../notebooks/ood_detection.py) — the `ood-detection` preset on embeddings
