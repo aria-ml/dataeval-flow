@@ -381,6 +381,17 @@ def test_another_task_exporting_to_a_matrix_task_s_destination_still_clashes() -
         )
 
 
+@pytest.mark.parametrize("key", ["steps.dataset.to", "workflows.w.steps.dataset.to"])
+def test_a_matrix_varying_where_an_export_step_writes_fails_the_load(key: str) -> None:
+    steps = [{"name": "dataset", "transform": "export", "input": "a"}]
+    with pytest.raises(ValidationError, match="each run already writes under `datasets/<to>/run-<n>/`"):
+        chain_pipeline(
+            workflows=[{"name": "w", "inputs": ["a"], "steps": steps}],
+            tasks=[{"name": "t", "workflow": "w", "sources": ["src"], "matrix": {key: ["a", "b"]}}],
+            datasets={"src": _DETECTIONS},
+        )
+
+
 def test_a_matrix_run_writes_a_list_export_under_its_run_then_each_key(tmp_path: Path) -> None:
     steps = [
         {"name": "folds", "transform": "kfold", "input": "a", "folds": 2},

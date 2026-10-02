@@ -8,7 +8,16 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import Annotated, Any, ClassVar, Self, TypeAlias
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 _KEY = re.compile(r"^[^.\s]+(\.[^.\s]+)*$")
 
@@ -61,9 +70,39 @@ def _dotted_keys(grid: dict[str, Any]) -> dict[str, Any]:
     return grid
 
 
+_RANGE_KEYS = {"from", "from_", "to", "step"}
+
+
+def _reason(detail: Any) -> str:
+    message = str(detail["msg"]).removeprefix("Value error, ")
+    return f"`{'.'.join(map(str, detail['loc']))}`: {message}" if detail["loc"] else message
+
+
+def _lists_or_ranges(matrix: Any) -> Any:
+    """Refuse, in one message, a grid value that is neither a list nor a range that counts: the union's own errors
+    would name every shape it tried, by its validators' names."""
+    for grid in matrix if isinstance(matrix, list) else [matrix]:
+        for key, values in grid.items() if isinstance(grid, Mapping) else ():
+            if isinstance(values, Mapping) and set(values) & _RANGE_KEYS:
+                try:
+                    MatrixRange.model_validate(values)
+                except ValidationError as error:
+                    reasons = "; ".join(_reason(detail) for detail in error.errors())
+                    raise ValueError(f"`{key}` has a range that can't count, {show_value(values)}: {reasons}") from None
+                continue
+            if isinstance(values, Mapping) or values is None or isinstance(values, str | int | float):
+                shown = show_value(values)
+                raise ValueError(
+                    f"`{key}` takes a list of values, such as `[{shown}]`, or a range `{{from, to, step}}`; got {shown}"
+                )
+    return matrix
+
+
 MatrixValues: TypeAlias = Annotated[list[Any], Field(min_length=1)] | MatrixRange
 MatrixGrid: TypeAlias = Annotated[dict[str, MatrixValues], Field(min_length=1), AfterValidator(_dotted_keys)]
-Matrix: TypeAlias = MatrixGrid | Annotated[list[MatrixGrid], Field(min_length=1)]
+Matrix: TypeAlias = Annotated[
+    MatrixGrid | Annotated[list[MatrixGrid], Field(min_length=1)], BeforeValidator(_lists_or_ranges)
+]
 
 
 def grid_runs(matrix: "Matrix") -> list[tuple[int, list[tuple[str, Any]]]]:

@@ -92,6 +92,11 @@ def _refuse_structural(key: str, target: Target, pipeline: "PipelineConfig") -> 
             )
         if target.path[2] in _WIRING:
             raise ValueError(f"`{key}` varies a step's `{target.path[2]}`, which wires the chain every run shares")
+        if step.kind == "transform" and step.target == "export" and target.path[2] == "to":
+            raise ValueError(
+                f"`{key}` varies where export step '{step.name}' writes, which a matrix may not: each run already "
+                "writes under `datasets/<to>/run-<n>/`"
+            )
         return
     if head in _IDENTITY[target.pool]:
         raise ValueError(

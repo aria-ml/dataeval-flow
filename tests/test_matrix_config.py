@@ -12,6 +12,12 @@ def _task(matrix: object) -> TaskConfig:
     return TaskConfig.model_validate({"name": "t", "workflow": "w", "sources": "src", "matrix": matrix})
 
 
+def _runs(matrix: object) -> list[tuple[int, list[tuple[str, object]]]]:
+    task = _task(matrix)
+    assert task.matrix is not None
+    return grid_runs(task.matrix)
+
+
 @pytest.mark.parametrize(
     ("bounds", "values"),
     [
@@ -49,8 +55,7 @@ def test_a_range_that_cannot_count_is_refused(bounds: dict) -> None:
 
 
 def test_one_grid_crosses_its_keys_last_key_fastest() -> None:
-    task = _task({"a": [1, 2], "b": {"from": 10, "to": 20, "step": 10}})
-    assert [pairs for _, pairs in grid_runs(task.matrix)] == [
+    assert [pairs for _, pairs in _runs({"a": [1, 2], "b": {"from": 10, "to": 20, "step": 10}})] == [
         [("a", 1), ("b", 10)],
         [("a", 1), ("b", 20)],
         [("a", 2), ("b", 10)],
@@ -59,15 +64,13 @@ def test_one_grid_crosses_its_keys_last_key_fastest() -> None:
 
 
 def test_several_grids_run_in_order_each_crossed_alone() -> None:
-    task = _task([{"m": ["zscore", "modzscore"], "t": [2, 3]}, {"m": ["iqr"], "t": [1.5]}])
-    runs = grid_runs(task.matrix)
+    runs = _runs([{"m": ["zscore", "modzscore"], "t": [2, 3]}, {"m": ["iqr"], "t": [1.5]}])
     assert [grid for grid, _ in runs] == [0, 0, 0, 0, 1]
     assert runs[-1][1] == [("m", "iqr"), ("t", 1.5)]
 
 
 def test_a_list_of_lists_varies_a_list_setting() -> None:
-    task = _task({"outlier_flags": [["pixel"], ["pixel", "visual"]]})
-    assert [pairs for _, pairs in grid_runs(task.matrix)] == [
+    assert [pairs for _, pairs in _runs({"outlier_flags": [["pixel"], ["pixel", "visual"]]})] == [
         [("outlier_flags", ["pixel"])],
         [("outlier_flags", ["pixel", "visual"])],
     ]
@@ -77,6 +80,45 @@ def test_a_list_of_lists_varies_a_list_setting() -> None:
 def test_an_empty_or_malformed_matrix_is_refused(matrix: object) -> None:
     with pytest.raises(ValidationError):
         _task(matrix)
+
+
+@pytest.mark.parametrize(
+    ("matrix", "key", "value"),
+    [
+        ({"outlier_threshold": 3.0}, "outlier_threshold", "3.0"),
+        ([{"outlier_method": "iqr"}], "outlier_method", "iqr"),
+        ({"outlier_threshold": {"a": 1}}, "outlier_threshold", "{a: 1}"),
+        ({"outlier_threshold": None}, "outlier_threshold", "null"),
+    ],
+)
+def test_a_value_neither_a_list_nor_a_range_is_refused_in_one_plain_message(
+    matrix: object, key: str, value: str
+) -> None:
+    with pytest.raises(ValidationError) as caught:
+        _task(matrix)
+    (error,) = caught.value.errors()
+    assert error["msg"] == (
+        f"Value error, `{key}` takes a list of values, such as `[{value}]`, or a range `{{from, to, step}}`; "
+        f"got {value}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("bounds", "reason"),
+    [
+        ({"from": 1, "to": 3}, "{from: 1, to: 3}: `step`: Field required"),
+        (
+            {"from": 1, "to": 2, "step": 1, "by": 2},
+            "{from: 1, to: 2, step: 1, by: 2}: `by`: Extra inputs are not permitted",
+        ),
+        ({"from": 3, "to": 2, "step": 1}, "{from: 3, to: 2, step: 1}: a range's `from` (3) is past its `to` (2)"),
+    ],
+)
+def test_a_range_that_cannot_count_is_refused_in_one_plain_message(bounds: dict, reason: str) -> None:
+    with pytest.raises(ValidationError) as caught:
+        _task({"a": bounds})
+    (error,) = caught.value.errors()
+    assert error["msg"] == f"Value error, `a` has a range that can't count, {reason}"
 
 
 def test_a_label_writes_keys_as_written_and_values_as_yaml_does() -> None:
