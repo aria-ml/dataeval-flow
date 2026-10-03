@@ -155,6 +155,8 @@ class CoverageEvaluator(Evaluator[CoverageConfig, CoverageOutput]):
         name each uncovered item's class (coverage spec §5.3)."""
         (source,) = inputs
         embeddings = require(source.embeddings, "embeddings", source.source)
+        if len(embeddings) == 0:
+            raise ValueError(f"`coverage` has no items to embed; the source has {len(embeddings)}.")
         labels = usable_labels(source, len(embeddings), self.name)
         names = dict(source.index2label or {})
         classes = (
