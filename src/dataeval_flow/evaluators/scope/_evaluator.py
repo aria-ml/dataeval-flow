@@ -136,20 +136,30 @@ class CoverageEvaluator(Evaluator[CoverageConfig, CoverageOutput]):
         InputKind.EMBEDDINGS: "evaluate",
         InputKind.LABELS: "evaluate",
     }
-    output_extras: ClassVar[tuple[str, ...]] = ("uncovered_indices", "coverage_radius", "critical_value_radii")
+    output_extras: ClassVar[tuple[str, ...]] = (
+        "uncovered_indices",
+        "coverage_radius",
+        "critical_value_radii",
+        "uncovered_classes",
+    )
     reads_factors: ClassVar[bool] = False
 
     def run(self, config: CoverageConfig, inputs: Sequence[EvaluatorInputs]) -> CoverageOutput:
-        """Measure the source's coverage, broken down by class where its labels allow, else as one class, ``0``."""
+        """Measure the source's coverage, broken down by class where its labels allow, else as one class, ``0``, and
+        name each uncovered item's class (coverage spec §5.3)."""
         (source,) = inputs
         embeddings = require(source.embeddings, "embeddings", source.source)
         labels = usable_labels(source, len(embeddings), self.name)
+        names = dict(source.index2label or {})
         classes = (
-            _Labels(labels, dict(source.index2label or {}))
-            if labels is not None
-            else _Labels(np.zeros(len(embeddings), dtype=np.intp), {})
+            _Labels(labels, names) if labels is not None else _Labels(np.zeros(len(embeddings), dtype=np.intp), {})
         )
-        return Coverage(**dataeval_arguments(config)).evaluate(classes, embeddings=embeddings)
+        output = Coverage(**dataeval_arguments(config)).evaluate(classes, embeddings=embeddings)
+        output.uncovered_classes = [  # pyright: ignore[reportAttributeAccessIssue]
+            None if labels is None else names.get(int(labels[index]), str(int(labels[index])))
+            for index in output.uncovered_indices
+        ]
+        return output
 
 
 class PrioritizeEvaluator(Evaluator[PrioritizeConfig, PrioritizeOutput]):

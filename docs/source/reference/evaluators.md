@@ -225,7 +225,7 @@ Output: a table, the worklist, with one row per concept short of its target (`co
 
 Which items sit in sparse regions of the embedding space, uncovered by the rest of the data, broken down by class.
 With no label per item (a dataset without labels, or a detection dataset's labels per target), it runs over every
-item as one class, `0`, and logs a warning. `data-coverage` crops detections first; this evaluator does not.
+item as one class, `0`, and logs a warning. Crop detections first with a `wrap` step, as `data-coverage` does.
 Configured by {py:class}`~dataeval_flow.evaluators.scope.CoverageConfig`; runs `dataeval.scope.Coverage`.
 
 | Parameter | DataEval argument | Left unset |
@@ -238,8 +238,8 @@ Configured by {py:class}`~dataeval_flow.evaluators.scope.CoverageConfig`; runs `
 | `near_duplicate_factor` | `near_duplicate_factor` | DataEval's default (`0.5`) |
 
 Output: a table with one row per class (`class`, `count`, `uncovered`, `uncovered_fraction`, `dispersion`,
-`isotropy`, `near_duplicate_fraction`, `assessable`). `extras` holds `uncovered_indices`, `coverage_radius` and
-`critical_value_radii`.
+`isotropy`, `near_duplicate_fraction`, `assessable`). `extras` holds `uncovered_indices`, `coverage_radius`,
+`critical_value_radii` and `uncovered_classes` (each uncovered item's class, `None` without a class breakdown).
 
 ### `prioritize`
 

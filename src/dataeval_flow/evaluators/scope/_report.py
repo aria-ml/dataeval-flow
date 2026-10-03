@@ -61,14 +61,21 @@ def uncovered_blocks(
 
 
 def coverage_section(output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block]:
-    """A Coverage Output's report: the items in sparse regions, pictured, then the per-class table and the rest."""
+    """A Coverage Output's report: the uncovered items, pictured with their class and distance, then the per-class
+    table and the rest (coverage spec §5.3). Every item's distance stays in the JSON; the report shows the uncovered
+    items' own."""
     from dataeval_flow.evaluators._report import output_blocks
 
     extras = dict(output.get("extras") or {})
-    uncovered = extras.pop("uncovered_indices", None) or []
-    refs = [(ItemRef(source=sources[0], index=int(index)), None, None) for index in uncovered]
+    uncovered = [int(index) for index in extras.pop("uncovered_indices", None) or []]
+    classes = extras.pop("uncovered_classes", None) or [None] * len(uncovered)
+    radii = extras.pop("critical_value_radii", None) or []
+    refs = [
+        (ItemRef(source=sources[0], index=index), name, float(radii[index]) if index < len(radii) else None)
+        for index, name in zip(uncovered, classes, strict=True)
+    ]
     return [
-        *uncovered_blocks(refs, "images", listed_in="output.extras.uncovered_indices"),
+        *uncovered_blocks(refs, "items", listed_in="output.extras.uncovered_indices"),
         *output_blocks({**output, "extras": extras}, detailed=detailed),
     ]
 
