@@ -182,6 +182,8 @@ dataeval_flow.steps.checks:StratificationConfig
 dataeval_flow.steps.checks:StratificationThresholds
 dataeval_flow.steps.checks:TargetOutlierRateCheck
 dataeval_flow.steps.checks:TargetOutlierRateConfig
+dataeval_flow.steps.checks:UncoveredRateCheck
+dataeval_flow.steps.checks:UncoveredRateConfig
 dataeval_flow.steps.combines:ClasswiseOutliers
 dataeval_flow.steps.combines:ClasswiseOutliersCombine
 dataeval_flow.steps.combines:ClasswiseOutliersConfig

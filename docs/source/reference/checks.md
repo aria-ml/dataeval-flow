@@ -20,6 +20,7 @@ detectors. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 | `duplicate-rate` | check | `input`: a `duplicates` Output | Duplicates |
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
 | `stratification` | check | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
+| `uncovered-rate` | check | `input`: a `coverage` Output | Uncovered Rate |
 | `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
 | `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
@@ -120,6 +121,17 @@ table of counts across the parts is its evidence. Run once per fold over `kfold`
 | `shown` | one address or several, or `null` | `null` | `label-health` Outputs shown in the table but not judged, such as a rebalanced train |
 | `info` | percentage points, or `null` | `2.0` | The largest deviation above which the finding is `info`; `null` has no `info` band |
 | `warning` | percentage points, or `null` | `10.0` | The largest deviation above which the finding warns; `null` never warns |
+
+### `uncovered-rate`
+
+How much of a Dataset coverage left uncovered, as a share of its items. Judge only `naive` coverage: adaptive
+coverage, DataEval's default, marks the sparsest `percent` of the items uncovered by construction, so its share says
+nothing about the data. Configured by {py:class}`~dataeval_flow.steps.checks.UncoveredRateConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `coverage` Output |
+| `rate` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
 
 ### `metadata-issues`
 

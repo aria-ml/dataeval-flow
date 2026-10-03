@@ -24,8 +24,11 @@ __all__ = [
     "StratificationThresholds",
     "TargetOutlierRateCheck",
     "TargetOutlierRateConfig",
+    "UncoveredRateCheck",
+    "UncoveredRateConfig",
 ]
 
+from dataeval_flow.steps.checks._coverage import UncoveredRateCheck, UncoveredRateConfig
 from dataeval_flow.steps.checks._drift import DriftCheck, DriftCheckConfig, DriftThresholds
 from dataeval_flow.steps.checks._duplicates import DuplicateRateCheck, DuplicateRateConfig
 from dataeval_flow.steps.checks._labels import ClassImbalanceCheck, ClassImbalanceConfig
