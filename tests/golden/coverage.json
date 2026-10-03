@@ -1,0 +1,2077 @@
+{
+ "adaptive": {
+  "completeness": {
+   "pairs": 73,
+   "score": 0.36780872069657056
+  },
+  "coverage": {
+   "dropped": 0,
+   "observations": 90,
+   "per_class": [
+    {
+     "assessable": true,
+     "class_name": "dog",
+     "count": 27,
+     "dispersion": 0.9987312127549429,
+     "isotropy": null,
+     "near_duplicate_fraction": 0.0,
+     "uncovered": 1,
+     "uncovered_fraction": 0.037037037037037035
+    },
+    {
+     "assessable": true,
+     "class_name": "cat",
+     "count": 45,
+     "dispersion": 1.0012687872450572,
+     "isotropy": null,
+     "near_duplicate_fraction": 0.0,
+     "uncovered": 0,
+     "uncovered_fraction": 0.0
+    },
+    {
+     "assessable": false,
+     "class_name": "bird",
+     "count": 18,
+     "dispersion": null,
+     "isotropy": null,
+     "near_duplicate_fraction": null,
+     "uncovered": 0,
+     "uncovered_fraction": 0.0
+    }
+   ],
+   "radius": 5.992344379425049,
+   "uncovered": [
+    [
+     57,
+     null,
+     "dog",
+     6.009321212768555
+    ]
+   ]
+  },
+  "findings": [
+   [
+    "info",
+    "Embedding Coverage",
+    "1 uncovered (1.1%)",
+    "1 of 90 images uncovered in embedding space."
+   ],
+   [
+    "warning",
+    "Dimensional Completeness",
+    "Completeness: 0.368",
+    "Dimensional completeness score is 0.368 (threshold: 0.5)."
+   ],
+   [
+    "warning",
+    "Label Distribution",
+    "3 classes, ratio 2.5:1, 1 with no samples",
+    "3 classes with imbalance ratio 2.5:1. 0 images have no labels."
+   ],
+   [
+    "info",
+    "Metadata Distribution",
+    "2 factors, balance computed, diversity computed",
+    "2 metadata factors analyzed."
+   ],
+   [
+    "warning",
+    "Metadata Coverage Gaps",
+    "5 gaps identified",
+    "5 class-factor-value combinations are under-represented. These represent gaps in data collection that may affect model performance."
+   ],
+   [
+    "info",
+    "Class Balance Worklist",
+    "2 classes short \u00b7 deficit 26",
+    "2 class(es) fall short of an even spread, by 26 labels in total. Targets come from a uniform expectation over the classes the dataset itself declares \u2014 configure an `ontology` to measure coverage of a sanctioned label space instead, which is what reveals classes that were never collected at all."
+   ]
+  ],
+  "gaps": {
+   "gaps": [
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "angle",
+     "factor_value": "3"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "angle",
+     "factor_value": "4"
+    },
+    {
+     "class_count": 0,
+     "class_name": "cat",
+     "deficit": 1.0,
+     "expected_count": 13.5,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 16.2,
+     "factor_name": "site",
+     "factor_value": "site-0"
+    },
+    {
+     "class_count": 0,
+     "class_name": "bird",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    }
+   ],
+   "mutual_information": {
+    "angle": 0.2943358667280947,
+    "site": 0.731140035209784
+   }
+  },
+  "labels": {
+   "counts": {
+    "bird": 18,
+    "cat": 45,
+    "dog": 27,
+    "owl": 0
+   },
+   "empty_images": [],
+   "missing": [
+    "owl"
+   ]
+  },
+  "summary": {
+   "angle": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "0": 18,
+     "1": 18,
+     "2": 18,
+     "3": 18,
+     "4": 18
+    },
+    "type": "discrete",
+    "unique_values": 5
+   },
+   "site": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "site-0": 54,
+     "site-1": 27,
+     "site-2": 9
+    },
+    "type": "categorical",
+    "unique_values": 3
+   }
+  },
+  "worklist": [
+   {
+    "action": "acquire",
+    "concept": "owl",
+    "count": 0,
+    "deficit": 22,
+    "label": "owl",
+    "parent": "",
+    "target": 22
+   },
+   {
+    "action": "augment",
+    "concept": "bird",
+    "count": 18,
+    "deficit": 4,
+    "label": "bird",
+    "parent": "",
+    "target": 22
+   }
+  ]
+ },
+ "detection": {
+  "completeness": {
+   "pairs": 22,
+   "score": 0.09252785421914689
+  },
+  "coverage": {
+   "dropped": 30,
+   "observations": 30,
+   "per_class": [
+    {
+     "assessable": true,
+     "class_name": "car",
+     "count": 10,
+     "dispersion": 0.9903920184351106,
+     "isotropy": null,
+     "near_duplicate_fraction": 0.0,
+     "uncovered": 0,
+     "uncovered_fraction": 0.0
+    },
+    {
+     "assessable": true,
+     "class_name": "van",
+     "count": 20,
+     "dispersion": 1.0096079815648895,
+     "isotropy": null,
+     "near_duplicate_fraction": 0.0,
+     "uncovered": 1,
+     "uncovered_fraction": 0.05
+    }
+   ],
+   "radius": 7.183943748474121,
+   "uncovered": [
+    [
+     6,
+     1,
+     "van",
+     7.229146480560303
+    ]
+   ]
+  },
+  "findings": [
+   [
+    "info",
+    "Embedding Coverage",
+    "1 uncovered (3.3%)",
+    "1 of 30 detection crops uncovered in embedding space."
+   ],
+   [
+    "warning",
+    "Dimensional Completeness",
+    "Completeness: 0.093",
+    "Dimensional completeness score is 0.093 (threshold: 0.5)."
+   ],
+   [
+    "warning",
+    "Label Distribution",
+    "2 classes, ratio 1.0:1, 1 with no samples, 10 empty images",
+    "2 classes with imbalance ratio 1.0:1. 10 images have no labels."
+   ],
+   [
+    "info",
+    "Metadata Distribution",
+    "1 factors, balance computed, diversity computed",
+    "1 metadata factors analyzed."
+   ],
+   [
+    "ok",
+    "Metadata Coverage Gaps",
+    "No significant gaps detected",
+    "No class-factor-value combinations are significantly under-represented."
+   ],
+   [
+    "info",
+    "Class Balance Worklist",
+    "1 classes short \u00b7 deficit 20",
+    "1 class(es) fall short of an even spread, by 20 labels in total. Targets come from a uniform expectation over the classes the dataset itself declares \u2014 configure an `ontology` to measure coverage of a sanctioned label space instead, which is what reveals classes that were never collected at all."
+   ]
+  ],
+  "gaps": {
+   "gaps": [],
+   "mutual_information": {
+    "site": 0.0
+   }
+  },
+  "labels": {
+   "counts": {
+    "bus": 0,
+    "car": 30,
+    "van": 30
+   },
+   "empty_images": [
+    3,
+    7,
+    11,
+    15,
+    19,
+    23,
+    27,
+    31,
+    35,
+    39
+   ],
+   "missing": [
+    "bus"
+   ]
+  },
+  "summary": {
+   "site": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "north": 20,
+     "south": 20
+    },
+    "type": "categorical",
+    "unique_values": 2
+   }
+  },
+  "worklist": [
+   {
+    "action": "acquire",
+    "concept": "bus",
+    "count": 0,
+    "deficit": 20,
+    "label": "bus",
+    "parent": "",
+    "target": 20
+   }
+  ]
+ },
+ "expected": {
+  "completeness": null,
+  "coverage": null,
+  "findings": [
+   [
+    "warning",
+    "Label Distribution",
+    "3 classes, ratio 2.5:1, 1 with no samples",
+    "3 classes with imbalance ratio 2.5:1. 0 images have no labels."
+   ],
+   [
+    "info",
+    "Metadata Distribution",
+    "2 factors, balance computed, diversity computed",
+    "2 metadata factors analyzed."
+   ],
+   [
+    "warning",
+    "Metadata Coverage Gaps",
+    "5 gaps identified",
+    "5 class-factor-value combinations are under-represented. These represent gaps in data collection that may affect model performance."
+   ],
+   [
+    "warning",
+    "Class Balance Worklist",
+    "2 classes short \u00b7 deficit 40",
+    "2 class(es) fall short of an even spread, by 40 labels in total. Targets come from a uniform expectation over the classes the dataset itself declares \u2014 configure an `ontology` to measure coverage of a sanctioned label space instead, which is what reveals classes that were never collected at all."
+   ]
+  ],
+  "gaps": {
+   "gaps": [
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "angle",
+     "factor_value": "4"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "angle",
+     "factor_value": "3"
+    },
+    {
+     "class_count": 0,
+     "class_name": "cat",
+     "deficit": 1.0,
+     "expected_count": 13.5,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 16.2,
+     "factor_name": "site",
+     "factor_value": "site-0"
+    },
+    {
+     "class_count": 0,
+     "class_name": "bird",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    }
+   ],
+   "mutual_information": {
+    "angle": 0.2943358667280947,
+    "site": 0.731140035209784
+   }
+  },
+  "labels": {
+   "counts": {
+    "bird": 18,
+    "cat": 45,
+    "dog": 27,
+    "owl": 0
+   },
+   "empty_images": [],
+   "missing": [
+    "owl"
+   ]
+  },
+  "summary": {
+   "angle": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "0": 18,
+     "1": 18,
+     "2": 18,
+     "3": 18,
+     "4": 18
+    },
+    "type": "discrete",
+    "unique_values": 5
+   },
+   "site": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "site-0": 54,
+     "site-1": 27,
+     "site-2": 9
+    },
+    "type": "categorical",
+    "unique_values": 3
+   }
+  },
+  "worklist": [
+   {
+    "action": "acquire",
+    "concept": "owl",
+    "count": 0,
+    "deficit": 22,
+    "label": "owl",
+    "parent": "",
+    "target": 22
+   },
+   {
+    "action": "augment",
+    "concept": "bird",
+    "count": 18,
+    "deficit": 18,
+    "label": "bird",
+    "parent": "",
+    "target": 36
+   }
+  ]
+ },
+ "few": {
+  "completeness": {
+   "pairs": 34,
+   "score": 0.18360682746073273
+  },
+  "coverage": null,
+  "findings": [
+   [
+    "info",
+    "Embedding Coverage",
+    "skipped",
+    "Embedding coverage was skipped: needs more than num_observations=50 samples, but the dataset has 40 images."
+   ],
+   [
+    "warning",
+    "Dimensional Completeness",
+    "Completeness: 0.184",
+    "Dimensional completeness score is 0.184 (threshold: 0.5)."
+   ],
+   [
+    "warning",
+    "Label Distribution",
+    "3 classes, ratio 2.5:1, 1 with no samples",
+    "3 classes with imbalance ratio 2.5:1. 0 images have no labels."
+   ],
+   [
+    "info",
+    "Metadata Distribution",
+    "2 factors, balance computed, diversity computed",
+    "2 metadata factors analyzed."
+   ],
+   [
+    "info",
+    "Metadata Coverage Gaps",
+    "2 gaps identified",
+    "2 class-factor-value combinations are under-represented. These represent gaps in data collection that may affect model performance."
+   ],
+   [
+    "info",
+    "Class Balance Worklist",
+    "2 classes short \u00b7 deficit 12",
+    "2 class(es) fall short of an even spread, by 12 labels in total. Targets come from a uniform expectation over the classes the dataset itself declares \u2014 configure an `ontology` to measure coverage of a sanctioned label space instead, which is what reveals classes that were never collected at all."
+   ]
+  ],
+  "gaps": {
+   "gaps": [
+    {
+     "class_count": 0,
+     "class_name": "cat",
+     "deficit": 1.0,
+     "expected_count": 6.0,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 7.2,
+     "factor_name": "site",
+     "factor_value": "site-0"
+    }
+   ],
+   "mutual_information": {
+    "angle": 0.23921509301136518,
+    "site": 0.7215268355351088
+   }
+  },
+  "labels": {
+   "counts": {
+    "bird": 8,
+    "cat": 20,
+    "dog": 12,
+    "owl": 0
+   },
+   "empty_images": [],
+   "missing": [
+    "owl"
+   ]
+  },
+  "summary": {
+   "angle": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "0": 8,
+     "1": 8,
+     "2": 8,
+     "3": 8,
+     "4": 8
+    },
+    "type": "discrete",
+    "unique_values": 5
+   },
+   "site": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "site-0": 24,
+     "site-1": 12,
+     "site-2": 4
+    },
+    "type": "categorical",
+    "unique_values": 3
+   }
+  },
+  "worklist": [
+   {
+    "action": "acquire",
+    "concept": "owl",
+    "count": 0,
+    "deficit": 10,
+    "label": "owl",
+    "parent": "",
+    "target": 10
+   },
+   {
+    "action": "augment",
+    "concept": "bird",
+    "count": 8,
+    "deficit": 2,
+    "label": "bird",
+    "parent": "",
+    "target": 10
+   }
+  ]
+ },
+ "gaps_off": {
+  "completeness": null,
+  "coverage": null,
+  "findings": [
+   [
+    "warning",
+    "Label Distribution",
+    "3 classes, ratio 2.5:1, 1 with no samples",
+    "3 classes with imbalance ratio 2.5:1. 0 images have no labels."
+   ],
+   [
+    "info",
+    "Metadata Distribution",
+    "2 factors, balance computed, diversity computed",
+    "2 metadata factors analyzed."
+   ],
+   [
+    "info",
+    "Class Balance Worklist",
+    "2 classes short \u00b7 deficit 26",
+    "2 class(es) fall short of an even spread, by 26 labels in total. Targets come from a uniform expectation over the classes the dataset itself declares \u2014 configure an `ontology` to measure coverage of a sanctioned label space instead, which is what reveals classes that were never collected at all."
+   ]
+  ],
+  "gaps": null,
+  "labels": {
+   "counts": {
+    "bird": 18,
+    "cat": 45,
+    "dog": 27,
+    "owl": 0
+   },
+   "empty_images": [],
+   "missing": [
+    "owl"
+   ]
+  },
+  "summary": {
+   "angle": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "0": 18,
+     "1": 18,
+     "2": 18,
+     "3": 18,
+     "4": 18
+    },
+    "type": "discrete",
+    "unique_values": 5
+   },
+   "site": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "site-0": 54,
+     "site-1": 27,
+     "site-2": 9
+    },
+    "type": "categorical",
+    "unique_values": 3
+   }
+  },
+  "worklist": [
+   {
+    "action": "acquire",
+    "concept": "owl",
+    "count": 0,
+    "deficit": 22,
+    "label": "owl",
+    "parent": "",
+    "target": 22
+   },
+   {
+    "action": "augment",
+    "concept": "bird",
+    "count": 18,
+    "deficit": 4,
+    "label": "bird",
+    "parent": "",
+    "target": 22
+   }
+  ]
+ },
+ "naive": {
+  "completeness": {
+   "pairs": 73,
+   "score": 0.36780872069657056
+  },
+  "coverage": {
+   "dropped": 0,
+   "observations": 90,
+   "per_class": [
+    {
+     "assessable": true,
+     "class_name": "dog",
+     "count": 27,
+     "dispersion": 0.9987312127549429,
+     "isotropy": null,
+     "near_duplicate_fraction": 0.0,
+     "uncovered": 27,
+     "uncovered_fraction": 1.0
+    },
+    {
+     "assessable": true,
+     "class_name": "cat",
+     "count": 45,
+     "dispersion": 1.0012687872450572,
+     "isotropy": null,
+     "near_duplicate_fraction": 0.0,
+     "uncovered": 45,
+     "uncovered_fraction": 1.0
+    },
+    {
+     "assessable": false,
+     "class_name": "bird",
+     "count": 18,
+     "dispersion": null,
+     "isotropy": null,
+     "near_duplicate_fraction": null,
+     "uncovered": 18,
+     "uncovered_fraction": 1.0
+    }
+   ],
+   "radius": 3.4111002329361386,
+   "uncovered": [
+    [
+     0,
+     null,
+     "cat",
+     5.7787885665893555
+    ],
+    [
+     1,
+     null,
+     "cat",
+     5.718830108642578
+    ],
+    [
+     2,
+     null,
+     "cat",
+     5.735955715179443
+    ],
+    [
+     3,
+     null,
+     "cat",
+     5.949610710144043
+    ],
+    [
+     4,
+     null,
+     "cat",
+     5.855870246887207
+    ],
+    [
+     5,
+     null,
+     "dog",
+     5.785577297210693
+    ],
+    [
+     6,
+     null,
+     "dog",
+     5.8567423820495605
+    ],
+    [
+     7,
+     null,
+     "dog",
+     5.765003204345703
+    ],
+    [
+     8,
+     null,
+     "bird",
+     5.646066188812256
+    ],
+    [
+     9,
+     null,
+     "bird",
+     5.850063800811768
+    ],
+    [
+     10,
+     null,
+     "cat",
+     5.819747447967529
+    ],
+    [
+     11,
+     null,
+     "cat",
+     5.845202445983887
+    ],
+    [
+     12,
+     null,
+     "cat",
+     5.752593517303467
+    ],
+    [
+     13,
+     null,
+     "cat",
+     5.772095203399658
+    ],
+    [
+     14,
+     null,
+     "cat",
+     5.859108924865723
+    ],
+    [
+     15,
+     null,
+     "dog",
+     5.648853302001953
+    ],
+    [
+     16,
+     null,
+     "dog",
+     5.874085903167725
+    ],
+    [
+     17,
+     null,
+     "dog",
+     5.679215431213379
+    ],
+    [
+     18,
+     null,
+     "bird",
+     5.54689884185791
+    ],
+    [
+     19,
+     null,
+     "bird",
+     5.68220329284668
+    ],
+    [
+     20,
+     null,
+     "cat",
+     5.74153995513916
+    ],
+    [
+     21,
+     null,
+     "cat",
+     5.645781993865967
+    ],
+    [
+     22,
+     null,
+     "cat",
+     5.684937000274658
+    ],
+    [
+     23,
+     null,
+     "cat",
+     5.797677993774414
+    ],
+    [
+     24,
+     null,
+     "cat",
+     5.544602870941162
+    ],
+    [
+     25,
+     null,
+     "dog",
+     5.8520731925964355
+    ],
+    [
+     26,
+     null,
+     "dog",
+     5.717370510101318
+    ],
+    [
+     27,
+     null,
+     "dog",
+     5.608530044555664
+    ],
+    [
+     28,
+     null,
+     "bird",
+     5.761068344116211
+    ],
+    [
+     29,
+     null,
+     "bird",
+     5.739060878753662
+    ],
+    [
+     30,
+     null,
+     "cat",
+     5.618496417999268
+    ],
+    [
+     31,
+     null,
+     "cat",
+     5.727875709533691
+    ],
+    [
+     32,
+     null,
+     "cat",
+     5.606228828430176
+    ],
+    [
+     33,
+     null,
+     "cat",
+     5.622196197509766
+    ],
+    [
+     34,
+     null,
+     "cat",
+     5.705240726470947
+    ],
+    [
+     35,
+     null,
+     "dog",
+     5.529221534729004
+    ],
+    [
+     36,
+     null,
+     "dog",
+     5.775722026824951
+    ],
+    [
+     37,
+     null,
+     "dog",
+     5.780872344970703
+    ],
+    [
+     38,
+     null,
+     "bird",
+     5.727937698364258
+    ],
+    [
+     39,
+     null,
+     "bird",
+     5.877910614013672
+    ],
+    [
+     40,
+     null,
+     "cat",
+     5.754720687866211
+    ],
+    [
+     41,
+     null,
+     "cat",
+     5.902366638183594
+    ],
+    [
+     42,
+     null,
+     "cat",
+     5.759510040283203
+    ],
+    [
+     43,
+     null,
+     "cat",
+     5.680715084075928
+    ],
+    [
+     44,
+     null,
+     "cat",
+     5.777326583862305
+    ],
+    [
+     45,
+     null,
+     "dog",
+     5.861189365386963
+    ],
+    [
+     46,
+     null,
+     "dog",
+     5.82979679107666
+    ],
+    [
+     47,
+     null,
+     "dog",
+     5.889150619506836
+    ],
+    [
+     48,
+     null,
+     "bird",
+     5.847202777862549
+    ],
+    [
+     49,
+     null,
+     "bird",
+     5.825131416320801
+    ],
+    [
+     50,
+     null,
+     "cat",
+     5.596362113952637
+    ],
+    [
+     51,
+     null,
+     "cat",
+     5.8889994621276855
+    ],
+    [
+     52,
+     null,
+     "cat",
+     5.788199424743652
+    ],
+    [
+     53,
+     null,
+     "cat",
+     5.669109344482422
+    ],
+    [
+     54,
+     null,
+     "cat",
+     5.669957160949707
+    ],
+    [
+     55,
+     null,
+     "dog",
+     5.842710494995117
+    ],
+    [
+     56,
+     null,
+     "dog",
+     5.704373836517334
+    ],
+    [
+     57,
+     null,
+     "dog",
+     6.009321212768555
+    ],
+    [
+     58,
+     null,
+     "bird",
+     5.817127227783203
+    ],
+    [
+     59,
+     null,
+     "bird",
+     5.788777828216553
+    ],
+    [
+     60,
+     null,
+     "cat",
+     5.869462013244629
+    ],
+    [
+     61,
+     null,
+     "cat",
+     5.926737308502197
+    ],
+    [
+     62,
+     null,
+     "cat",
+     5.8236212730407715
+    ],
+    [
+     63,
+     null,
+     "cat",
+     5.7328267097473145
+    ],
+    [
+     64,
+     null,
+     "cat",
+     5.812249183654785
+    ],
+    [
+     65,
+     null,
+     "dog",
+     5.822214603424072
+    ],
+    [
+     66,
+     null,
+     "dog",
+     5.708804130554199
+    ],
+    [
+     67,
+     null,
+     "dog",
+     5.7564873695373535
+    ],
+    [
+     68,
+     null,
+     "bird",
+     5.9733686447143555
+    ],
+    [
+     69,
+     null,
+     "bird",
+     5.85798454284668
+    ],
+    [
+     70,
+     null,
+     "cat",
+     5.7184157371521
+    ],
+    [
+     71,
+     null,
+     "cat",
+     5.822781562805176
+    ],
+    [
+     72,
+     null,
+     "cat",
+     5.7189154624938965
+    ],
+    [
+     73,
+     null,
+     "cat",
+     5.714211463928223
+    ],
+    [
+     74,
+     null,
+     "cat",
+     5.7795209884643555
+    ],
+    [
+     75,
+     null,
+     "dog",
+     5.72666597366333
+    ],
+    [
+     76,
+     null,
+     "dog",
+     5.752054691314697
+    ],
+    [
+     77,
+     null,
+     "dog",
+     5.691583156585693
+    ],
+    [
+     78,
+     null,
+     "bird",
+     5.975367546081543
+    ],
+    [
+     79,
+     null,
+     "bird",
+     5.732298374176025
+    ],
+    [
+     80,
+     null,
+     "cat",
+     5.8073883056640625
+    ],
+    [
+     81,
+     null,
+     "cat",
+     5.678407669067383
+    ],
+    [
+     82,
+     null,
+     "cat",
+     5.772334098815918
+    ],
+    [
+     83,
+     null,
+     "cat",
+     5.829984188079834
+    ],
+    [
+     84,
+     null,
+     "cat",
+     5.811789035797119
+    ],
+    [
+     85,
+     null,
+     "dog",
+     5.721401691436768
+    ],
+    [
+     86,
+     null,
+     "dog",
+     5.875932693481445
+    ],
+    [
+     87,
+     null,
+     "dog",
+     5.805056571960449
+    ],
+    [
+     88,
+     null,
+     "bird",
+     5.864063262939453
+    ],
+    [
+     89,
+     null,
+     "bird",
+     5.716865062713623
+    ]
+   ]
+  },
+  "findings": [
+   [
+    "warning",
+    "Embedding Coverage",
+    "90 uncovered (100.0%)",
+    "90 of 90 images uncovered in embedding space."
+   ],
+   [
+    "warning",
+    "Dimensional Completeness",
+    "Completeness: 0.368",
+    "Dimensional completeness score is 0.368 (threshold: 0.5)."
+   ],
+   [
+    "warning",
+    "Label Distribution",
+    "3 classes, ratio 2.5:1, 1 with no samples",
+    "3 classes with imbalance ratio 2.5:1. 0 images have no labels."
+   ],
+   [
+    "info",
+    "Metadata Distribution",
+    "2 factors, balance computed, diversity computed",
+    "2 metadata factors analyzed."
+   ],
+   [
+    "warning",
+    "Metadata Coverage Gaps",
+    "5 gaps identified",
+    "5 class-factor-value combinations are under-represented. These represent gaps in data collection that may affect model performance."
+   ],
+   [
+    "info",
+    "Class Balance Worklist",
+    "2 classes short \u00b7 deficit 26",
+    "2 class(es) fall short of an even spread, by 26 labels in total. Targets come from a uniform expectation over the classes the dataset itself declares \u2014 configure an `ontology` to measure coverage of a sanctioned label space instead, which is what reveals classes that were never collected at all."
+   ]
+  ],
+  "gaps": {
+   "gaps": [
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "angle",
+     "factor_value": "3"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "angle",
+     "factor_value": "4"
+    },
+    {
+     "class_count": 0,
+     "class_name": "cat",
+     "deficit": 1.0,
+     "expected_count": 13.5,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 16.2,
+     "factor_name": "site",
+     "factor_value": "site-0"
+    },
+    {
+     "class_count": 0,
+     "class_name": "bird",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    }
+   ],
+   "mutual_information": {
+    "angle": 0.2943358667280947,
+    "site": 0.731140035209784
+   }
+  },
+  "labels": {
+   "counts": {
+    "bird": 18,
+    "cat": 45,
+    "dog": 27,
+    "owl": 0
+   },
+   "empty_images": [],
+   "missing": [
+    "owl"
+   ]
+  },
+  "summary": {
+   "angle": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "0": 18,
+     "1": 18,
+     "2": 18,
+     "3": 18,
+     "4": 18
+    },
+    "type": "discrete",
+    "unique_values": 5
+   },
+   "site": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "site-0": 54,
+     "site-1": 27,
+     "site-2": 9
+    },
+    "type": "categorical",
+    "unique_values": 3
+   }
+  },
+  "worklist": [
+   {
+    "action": "acquire",
+    "concept": "owl",
+    "count": 0,
+    "deficit": 22,
+    "label": "owl",
+    "parent": "",
+    "target": 22
+   },
+   {
+    "action": "augment",
+    "concept": "bird",
+    "count": 18,
+    "deficit": 4,
+    "label": "bird",
+    "parent": "",
+    "target": 22
+   }
+  ]
+ },
+ "no_extractor": {
+  "completeness": null,
+  "coverage": null,
+  "findings": [
+   [
+    "warning",
+    "Label Distribution",
+    "3 classes, ratio 2.5:1, 1 with no samples",
+    "3 classes with imbalance ratio 2.5:1. 0 images have no labels."
+   ],
+   [
+    "info",
+    "Metadata Distribution",
+    "2 factors, balance computed, diversity computed",
+    "2 metadata factors analyzed."
+   ],
+   [
+    "warning",
+    "Metadata Coverage Gaps",
+    "5 gaps identified",
+    "5 class-factor-value combinations are under-represented. These represent gaps in data collection that may affect model performance."
+   ],
+   [
+    "info",
+    "Class Balance Worklist",
+    "2 classes short \u00b7 deficit 26",
+    "2 class(es) fall short of an even spread, by 26 labels in total. Targets come from a uniform expectation over the classes the dataset itself declares \u2014 configure an `ontology` to measure coverage of a sanctioned label space instead, which is what reveals classes that were never collected at all."
+   ]
+  ],
+  "gaps": {
+   "gaps": [
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "angle",
+     "factor_value": "3"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "angle",
+     "factor_value": "4"
+    },
+    {
+     "class_count": 0,
+     "class_name": "cat",
+     "deficit": 1.0,
+     "expected_count": 13.5,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 16.2,
+     "factor_name": "site",
+     "factor_value": "site-0"
+    },
+    {
+     "class_count": 0,
+     "class_name": "bird",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    }
+   ],
+   "mutual_information": {
+    "angle": 0.2943358667280947,
+    "site": 0.731140035209784
+   }
+  },
+  "labels": {
+   "counts": {
+    "bird": 18,
+    "cat": 45,
+    "dog": 27,
+    "owl": 0
+   },
+   "empty_images": [],
+   "missing": [
+    "owl"
+   ]
+  },
+  "summary": {
+   "angle": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "0": 18,
+     "1": 18,
+     "2": 18,
+     "3": 18,
+     "4": 18
+    },
+    "type": "discrete",
+    "unique_values": 5
+   },
+   "site": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "site-0": 54,
+     "site-1": 27,
+     "site-2": 9
+    },
+    "type": "categorical",
+    "unique_values": 3
+   }
+  },
+  "worklist": [
+   {
+    "action": "acquire",
+    "concept": "owl",
+    "count": 0,
+    "deficit": 22,
+    "label": "owl",
+    "parent": "",
+    "target": 22
+   },
+   {
+    "action": "augment",
+    "concept": "bird",
+    "count": 18,
+    "deficit": 4,
+    "label": "bird",
+    "parent": "",
+    "target": 22
+   }
+  ]
+ },
+ "no_factors": {
+  "completeness": null,
+  "coverage": null,
+  "findings": [
+   [
+    "warning",
+    "Label Distribution",
+    "3 classes, ratio 2.5:1, 1 with no samples",
+    "3 classes with imbalance ratio 2.5:1. 0 images have no labels."
+   ],
+   [
+    "info",
+    "Metadata Distribution",
+    "No metadata factors available",
+    "No metadata factors were extracted from the dataset."
+   ],
+   [
+    "info",
+    "Class Balance Worklist",
+    "2 classes short \u00b7 deficit 26",
+    "2 class(es) fall short of an even spread, by 26 labels in total. Targets come from a uniform expectation over the classes the dataset itself declares \u2014 configure an `ontology` to measure coverage of a sanctioned label space instead, which is what reveals classes that were never collected at all."
+   ]
+  ],
+  "gaps": null,
+  "labels": {
+   "counts": {
+    "bird": 18,
+    "cat": 45,
+    "dog": 27,
+    "owl": 0
+   },
+   "empty_images": [],
+   "missing": [
+    "owl"
+   ]
+  },
+  "summary": {},
+  "worklist": [
+   {
+    "action": "acquire",
+    "concept": "owl",
+    "count": 0,
+    "deficit": 22,
+    "label": "owl",
+    "parent": "",
+    "target": 22
+   },
+   {
+    "action": "augment",
+    "concept": "bird",
+    "count": 18,
+    "deficit": 4,
+    "label": "bird",
+    "parent": "",
+    "target": 22
+   }
+  ]
+ },
+ "shannon": {
+  "completeness": null,
+  "coverage": null,
+  "findings": [
+   [
+    "warning",
+    "Label Distribution",
+    "3 classes, ratio 2.5:1, 1 with no samples",
+    "3 classes with imbalance ratio 2.5:1. 0 images have no labels."
+   ],
+   [
+    "info",
+    "Metadata Distribution",
+    "2 factors, balance computed, diversity computed",
+    "2 metadata factors analyzed."
+   ],
+   [
+    "warning",
+    "Metadata Coverage Gaps",
+    "5 gaps identified",
+    "5 class-factor-value combinations are under-represented. These represent gaps in data collection that may affect model performance."
+   ],
+   [
+    "info",
+    "Class Balance Worklist",
+    "2 classes short \u00b7 deficit 26",
+    "2 class(es) fall short of an even spread, by 26 labels in total. Targets come from a uniform expectation over the classes the dataset itself declares \u2014 configure an `ontology` to measure coverage of a sanctioned label space instead, which is what reveals classes that were never collected at all."
+   ]
+  ],
+  "gaps": {
+   "gaps": [
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "angle",
+     "factor_value": "3"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "angle",
+     "factor_value": "4"
+    },
+    {
+     "class_count": 0,
+     "class_name": "cat",
+     "deficit": 1.0,
+     "expected_count": 13.5,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 16.2,
+     "factor_name": "site",
+     "factor_value": "site-0"
+    },
+    {
+     "class_count": 0,
+     "class_name": "bird",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    }
+   ],
+   "mutual_information": {
+    "angle": 0.2943358667280947,
+    "site": 0.731140035209784
+   }
+  },
+  "labels": {
+   "counts": {
+    "bird": 18,
+    "cat": 45,
+    "dog": 27,
+    "owl": 0
+   },
+   "empty_images": [],
+   "missing": [
+    "owl"
+   ]
+  },
+  "summary": {
+   "angle": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "0": 18,
+     "1": 18,
+     "2": 18,
+     "3": 18,
+     "4": 18
+    },
+    "type": "discrete",
+    "unique_values": 5
+   },
+   "site": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "site-0": 54,
+     "site-1": 27,
+     "site-2": 9
+    },
+    "type": "categorical",
+    "unique_values": 3
+   }
+  },
+  "worklist": [
+   {
+    "action": "acquire",
+    "concept": "owl",
+    "count": 0,
+    "deficit": 22,
+    "label": "owl",
+    "parent": "",
+    "target": 22
+   },
+   {
+    "action": "augment",
+    "concept": "bird",
+    "count": 18,
+    "deficit": 4,
+    "label": "bird",
+    "parent": "",
+    "target": 22
+   }
+  ]
+ },
+ "strict": {
+  "completeness": {
+   "pairs": 73,
+   "score": 0.36780872069657056
+  },
+  "coverage": {
+   "dropped": 0,
+   "observations": 90,
+   "per_class": [
+    {
+     "assessable": true,
+     "class_name": "dog",
+     "count": 27,
+     "dispersion": 0.9987312127549429,
+     "isotropy": null,
+     "near_duplicate_fraction": 0.0,
+     "uncovered": 1,
+     "uncovered_fraction": 0.037037037037037035
+    },
+    {
+     "assessable": true,
+     "class_name": "cat",
+     "count": 45,
+     "dispersion": 1.0012687872450572,
+     "isotropy": null,
+     "near_duplicate_fraction": 0.0,
+     "uncovered": 0,
+     "uncovered_fraction": 0.0
+    },
+    {
+     "assessable": false,
+     "class_name": "bird",
+     "count": 18,
+     "dispersion": null,
+     "isotropy": null,
+     "near_duplicate_fraction": null,
+     "uncovered": 0,
+     "uncovered_fraction": 0.0
+    }
+   ],
+   "radius": 5.992344379425049,
+   "uncovered": [
+    [
+     57,
+     null,
+     "dog",
+     6.009321212768555
+    ]
+   ]
+  },
+  "findings": [
+   [
+    "warning",
+    "Embedding Coverage",
+    "1 uncovered (1.1%) \u00b7 2 clustered",
+    "1 of 90 images uncovered in embedding space."
+   ],
+   [
+    "warning",
+    "Dimensional Completeness",
+    "Completeness: 0.368",
+    "Dimensional completeness score is 0.368 (threshold: 0.9)."
+   ],
+   [
+    "warning",
+    "Label Distribution",
+    "3 classes, ratio 2.5:1, 1 with no samples",
+    "3 classes with imbalance ratio 2.5:1. 0 images have no labels."
+   ],
+   [
+    "info",
+    "Metadata Distribution",
+    "2 factors, balance computed, diversity computed",
+    "2 metadata factors analyzed."
+   ],
+   [
+    "warning",
+    "Metadata Coverage Gaps",
+    "5 gaps identified",
+    "5 class-factor-value combinations are under-represented. These represent gaps in data collection that may affect model performance."
+   ],
+   [
+    "info",
+    "Class Balance Worklist",
+    "2 classes short \u00b7 deficit 26",
+    "2 class(es) fall short of an even spread, by 26 labels in total. Targets come from a uniform expectation over the classes the dataset itself declares \u2014 configure an `ontology` to measure coverage of a sanctioned label space instead, which is what reveals classes that were never collected at all."
+   ]
+  ],
+  "gaps": {
+   "gaps": [
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "angle",
+     "factor_value": "3"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "angle",
+     "factor_value": "4"
+    },
+    {
+     "class_count": 0,
+     "class_name": "cat",
+     "deficit": 1.0,
+     "expected_count": 13.5,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    },
+    {
+     "class_count": 0,
+     "class_name": "dog",
+     "deficit": 1.0,
+     "expected_count": 16.2,
+     "factor_name": "site",
+     "factor_value": "site-0"
+    },
+    {
+     "class_count": 0,
+     "class_name": "bird",
+     "deficit": 1.0,
+     "expected_count": 5.4,
+     "factor_name": "site",
+     "factor_value": "site-1"
+    }
+   ],
+   "mutual_information": {
+    "angle": 0.2943358667280947,
+    "site": 0.731140035209784
+   }
+  },
+  "labels": {
+   "counts": {
+    "bird": 18,
+    "cat": 45,
+    "dog": 27,
+    "owl": 0
+   },
+   "empty_images": [],
+   "missing": [
+    "owl"
+   ]
+  },
+  "summary": {
+   "angle": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "0": 18,
+     "1": 18,
+     "2": 18,
+     "3": 18,
+     "4": 18
+    },
+    "type": "discrete",
+    "unique_values": 5
+   },
+   "site": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "site-0": 54,
+     "site-1": 27,
+     "site-2": 9
+    },
+    "type": "categorical",
+    "unique_values": 3
+   }
+  },
+  "worklist": [
+   {
+    "action": "acquire",
+    "concept": "owl",
+    "count": 0,
+    "deficit": 22,
+    "label": "owl",
+    "parent": "",
+    "target": 22
+   },
+   {
+    "action": "augment",
+    "concept": "bird",
+    "count": 18,
+    "deficit": 4,
+    "label": "bird",
+    "parent": "",
+    "target": 22
+   }
+  ]
+ },
+ "unlabelled": {
+  "completeness": null,
+  "coverage": null,
+  "findings": [
+   [
+    "warning",
+    "Label Distribution",
+    "0 classes, ratio 0.0:1, 4 with no samples, 90 empty images",
+    "0 classes with imbalance ratio 0.0:1. 90 images have no labels."
+   ],
+   [
+    "info",
+    "Metadata Distribution",
+    "No metadata factors available",
+    "No metadata factors were extracted from the dataset."
+   ],
+   [
+    "ok",
+    "Class Balance Worklist",
+    "0 classes short \u00b7 deficit 0",
+    "0 class(es) fall short of an even spread, by 0 labels in total. Targets come from a uniform expectation over the classes the dataset itself declares \u2014 configure an `ontology` to measure coverage of a sanctioned label space instead, which is what reveals classes that were never collected at all."
+   ]
+  ],
+  "gaps": null,
+  "labels": {
+   "counts": {
+    "bird": 0,
+    "cat": 0,
+    "dog": 0,
+    "owl": 0
+   },
+   "empty_images": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89
+   ],
+   "missing": [
+    "cat",
+    "dog",
+    "bird",
+    "owl"
+   ]
+  },
+  "summary": {},
+  "worklist": []
+ }
+}
