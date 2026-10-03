@@ -127,7 +127,9 @@ table of counts across the parts is its evidence. Run once per fold over `kfold`
 
 How much of a Dataset coverage left uncovered, as a share of its items. Judge only `naive` coverage: adaptive
 coverage, DataEval's default, marks the sparsest `percent` of the items uncovered by construction, so its share says
-nothing about the data. Configured by {py:class}`~dataeval_flow.steps.checks.UncoveredRateConfig`.
+nothing about the data. DataEval's naive radius overflows past about 340 embedding dimensions, so `naive` suits
+low-dimensional embeddings: with a wide CNN or ONNX extractor, the coverage steps are skipped with "failed:
+OverflowError". Configured by {py:class}`~dataeval_flow.steps.checks.UncoveredRateConfig`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |

@@ -166,10 +166,11 @@ its own, named by its key.
 
 ## Workflow types as presets
 
-A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning`, `data-prioritization`
-and `metadata-triage` are presets. Data-cleaning's evaluators find outliers and duplicates, its checks judge them
-against `health_thresholds`, and its `clean` step removes what they flagged. The [Check and Combine
-Catalog](../reference/checks.md#data-cleaning-is-this-chain) lists the chain. The other workflow types will follow.
+A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning`, `data-prioritization`,
+`metadata-triage`, `drift-monitoring`, `ood-detection` and `data-splitting` are presets. Data-cleaning's evaluators find
+outliers and duplicates, its checks judge them against `health_thresholds`, and its `clean` step removes what they
+flagged. The [Check and Combine Catalog](../reference/checks.md#data-cleaning-is-this-chain) lists the chain. The other
+workflow types will follow.
 Until then, each runs as one step that makes its result, and its findings stay in that step.
 
 Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of
@@ -188,7 +189,9 @@ data-prioritization's `pools` is, and a step running it binds that input to a li
 
 Evaluators read statistics, metadata and embeddings. In a chain, Flow derives them from the Dataset each step reads,
 as it does from a source. Each Dataset derives its own, so a `balance` step on `clean` reads the metadata of the
-cleaned dataset. Removing items makes a new Dataset, and everything is derived again from it.
+cleaned dataset. Removing items makes a new Dataset, and everything is derived again from it. A Dataset made by
+viewing another without changing pixels, as a split's parts are, reads the embeddings the run already extracted for its
+parent rather than extracting again.
 
 The same Dataset under the same policy is derived once. Two steps that read `merged`'s statistics share one
 computation. With a disk cache (`--cache`), a Dataset a chain made is cached under its own key, as a source is, so a

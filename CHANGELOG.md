@@ -294,8 +294,9 @@
   train rebalanced where `rebalance:` is set, and each part's labels, stratification and coverage. Run as a step of a
   custom workflow, it exposes `train` (rebalanced where set), `val` and `test`, as lists keyed by fold under
   `folds` of 2 or more. It returns a `ChainResult`: each part's indices are in
-  `result.steps["split"].details["indices"]`, and the rebalanced train's in
-  `result.steps["rebalance"].details["indices"]`.
+  `result.steps["split"].details["indices"]`. Under `folds` of 2 or more, each fold's rebalanced train is in
+  `result.steps["rebalance"].elements["<k>"].details["indices"]`; where rebalancing kept the train as it was,
+  `details` is `None` and the train's indices from `split` apply.
   Its findings are Label Distribution, Stratification for each fold, and Uncovered Rate under `naive` coverage;
   balance and diversity are report sections, and the split's sizes are in the `split` step's section and the
   `lineage`. Only object-detection Datasets can be exported, so a classification split's parts can be read but not yet

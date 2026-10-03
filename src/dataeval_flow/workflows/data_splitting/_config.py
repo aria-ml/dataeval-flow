@@ -24,7 +24,9 @@ class SplittingCoverage(BaseModel):
         description=(
             "How the coverage radius is set: `naive`, a fixed analytic radius, or `adaptive`, a cutoff on the "
             "`percent` most sparsely neighbored items. Unset uses DataEval's default (`adaptive`). Only `naive` "
-            "coverage is judged, by `uncovered-rate` steps."
+            "coverage is judged, by `uncovered-rate` steps. DataEval's naive radius overflows past about 340 embedding "
+            "dimensions, so `naive` suits low-dimensional embeddings; with a wide extractor its coverage steps are "
+            "skipped with `failed: OverflowError`."
         ),
     )
     num_observations: int = Field(
