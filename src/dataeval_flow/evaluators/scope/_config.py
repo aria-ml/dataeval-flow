@@ -8,6 +8,7 @@ __all__ = [
     "LabelAlignmentConfig",
     "LabelAlignmentResult",
     "LabelReconciliationConfig",
+    "OntologyValidationConfig",
     "PrioritizeConfig",
     "RepresentationConfig",
 ]
@@ -25,6 +26,7 @@ from dataeval_flow.evaluators._result import EvaluatorResult
 from dataeval_flow.evaluators.scope._result import (
     CoverageResult,
     LabelReconciliationResult,
+    OntologyValidationResult,
     PrioritizeResult,
     RepresentationResult,
 )
@@ -294,4 +296,33 @@ class LabelReconciliationConfig(EvaluatorConfig[LabelReconciliationResult]):
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
     ontology: dict[str, Any] | str = Field(
         description="The ontology to reconcile against: a name from `ontologies:`, a path, or an inline hierarchy."
+    )
+
+
+class OntologyValidationConfig(EvaluatorConfig[OntologyValidationResult]):
+    """Config for ``ontology-validation``: an ontology's structural and naming facts.
+
+    Wraps ``dataeval.core.ontology_validation``. It reads only the ontology; it takes a Dataset so its report sits
+    beside the dataset the ontology judges.
+
+    Example YAML::
+
+        evaluators:
+          - name: structure
+            type: ontology-validation
+            ontology: vehicles
+            label_pattern: '^[a-z0-9_]+$'
+    """
+
+    type: str = Field(
+        default="ontology-validation",
+        description="The evaluator type this entry configures: `ontology-validation`.",
+    )
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
+    ontology: dict[str, Any] | str = Field(
+        description="The ontology to validate: a name from `ontologies:`, a path, or an inline hierarchy."
+    )
+    label_pattern: str | None = Field(
+        default=None,
+        description="DataEval's `label_pattern`: a regex every concept label should match. Unset checks no naming.",
     )

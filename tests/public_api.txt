@@ -100,6 +100,10 @@ dataeval_flow.evaluators.scope:LabelReconciliationConfig
 dataeval_flow.evaluators.scope:LabelReconciliationEvaluator
 dataeval_flow.evaluators.scope:LabelReconciliationOutput
 dataeval_flow.evaluators.scope:LabelReconciliationResult
+dataeval_flow.evaluators.scope:OntologyValidationConfig
+dataeval_flow.evaluators.scope:OntologyValidationEvaluator
+dataeval_flow.evaluators.scope:OntologyValidationOutput
+dataeval_flow.evaluators.scope:OntologyValidationResult
 dataeval_flow.evaluators.scope:PrioritizeConfig
 dataeval_flow.evaluators.scope:PrioritizeEvaluator
 dataeval_flow.evaluators.scope:PrioritizeResult

@@ -7,6 +7,7 @@ __all__ = [
     "CoverageEvaluator",
     "LabelAlignmentEvaluator",
     "LabelReconciliationEvaluator",
+    "OntologyValidationEvaluator",
     "PrioritizeEvaluator",
     "RepresentationEvaluator",
     "usable_labels",
@@ -20,7 +21,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from dataeval.core import RankResult, label_alignment, label_reconciliation
+from dataeval.core import RankResult, label_alignment, label_reconciliation, ontology_validation
 from dataeval.scope import (
     Coverage,
     CoverageOutput,
@@ -40,10 +41,11 @@ from dataeval_flow.evaluators.scope._config import (
     CoverageConfig,
     LabelAlignmentConfig,
     LabelReconciliationConfig,
+    OntologyValidationConfig,
     PrioritizeConfig,
     RepresentationConfig,
 )
-from dataeval_flow.evaluators.scope._result import LabelReconciliationOutput
+from dataeval_flow.evaluators.scope._result import LabelReconciliationOutput, OntologyValidationOutput
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -238,3 +240,45 @@ class LabelReconciliationEvaluator(Evaluator[LabelReconciliationConfig, LabelRec
             "ambiguous": ambiguous,
         }
         return LabelReconciliationOutput(data, meta)
+
+
+class OntologyValidationEvaluator(Evaluator[OntologyValidationConfig, OntologyValidationOutput]):
+    """``ontology-validation``: an ontology's structural and naming facts, per DataEval's ontology_validation."""
+
+    name: ClassVar[str] = "ontology-validation"
+    title: ClassVar[str] = "Ontology Validation"
+    description: ClassVar[str] = "An ontology's structural and naming facts: depth, roots, collisions, and more"
+    dataeval_class: ClassVar[Any] = ontology_validation
+    dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "__call__"}
+    reads_factors: ClassVar[bool] = False
+
+    def run(self, config: OntologyValidationConfig, inputs: Sequence[EvaluatorInputs]) -> OntologyValidationOutput:
+        """Validate the task's ontology; the source is read only for its ontology."""
+        (source,) = inputs
+        ontology = source.ontology
+        if ontology is None:
+            raise ValueError("`ontology-validation` needs its `ontology:` to load.")
+        started, clock = datetime.now(UTC), time.monotonic()
+        result = ontology_validation(ontology, label_pattern=config.label_pattern)
+        meta = execution(
+            "dataeval.core.ontology_validation",
+            started,
+            time.monotonic() - clock,
+            {"label_pattern": config.label_pattern},
+        )
+        depths = result["depth"]
+        data = {
+            "concept_count": len(ontology.ids),
+            "leaf_count": len(result["leaves"]),
+            "max_depth": max(depths.values()) if depths else 0,
+            "roots": list(result["roots"]),
+            "isolated": list(result["isolated"]),
+            "external_ancestors": {cid: list(ids) for cid, ids in result["external_ancestors"].items()},
+            # DataEval returns tuples; JSON has none, so each pair is a two-element list.
+            "redundant_edges": [list(edge) for edge in result["redundant_edges"]],
+            "ancestor_siblings": [list(pair) for pair in result["ancestor_siblings"]],
+            "unary_parents": list(result["unary_parents"]),
+            "label_collisions": {name: list(ids) for name, ids in result["label_collisions"].items()},
+            "nonconforming_labels": dict(result["nonconforming_labels"]),
+        }
+        return OntologyValidationOutput(data, meta)

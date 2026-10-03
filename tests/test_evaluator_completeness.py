@@ -81,6 +81,7 @@ _ECHOES: dict[str, frozenset[str]] = {
     # serialized: `conform` reaches both off the result.
     "label-alignment": frozenset({"ontology", "ontology_source"}),
     "label-reconciliation": frozenset(),
+    "ontology-validation": frozenset(),
 }
 
 

@@ -31,6 +31,7 @@ _TITLES = {
     "coverage": "Coverage",
     "label-alignment": "Label Alignment",
     "label-reconciliation": "Label Reconciliation",
+    "ontology-validation": "Ontology Validation",
     "prioritize": "Prioritization",
     "representation": "Representation",
     "drift-domain-classifier": "Drift (Domain Classifier)",

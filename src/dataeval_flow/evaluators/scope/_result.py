@@ -13,6 +13,8 @@ __all__ = [
     "CoverageResult",
     "LabelReconciliationOutput",
     "LabelReconciliationResult",
+    "OntologyValidationOutput",
+    "OntologyValidationResult",
     "PrioritizeResult",
     "RepresentationResult",
 ]
@@ -140,6 +142,50 @@ class LabelReconciliationResult(EvaluatorResult[LabelReconciliationOutput]):
                     ("Matched", len(data.get("matched") or {})),
                     ("Unmatched", len(data.get("unmatched") or [])),
                     ("Ambiguous", len(data.get("ambiguous") or {})),
+                ]
+            )
+        ]
+
+
+class OntologyValidationOutput(CoreOutput):
+    """``ontology-validation``'s output: ``data()`` holds the ontology's structural and naming facts, as legacy
+    data-coverage's ``OntologyStructure`` held them (coverage spec §3.3)."""
+
+
+class OntologyValidationResult(EvaluatorResult[OntologyValidationOutput]):
+    """The result of an ``ontology-validation`` run; ``output`` is a
+    :class:`~dataeval_flow.evaluators.scope.OntologyValidationOutput`.
+
+    ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
+    fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
+    fields of :class:`~dataeval_flow.ResultMetadata`.
+
+    Fields
+    ------
+    output
+        ``data()`` holds ``concept_count``, ``leaf_count``, ``max_depth``, ``roots``, ``isolated``,
+        ``external_ancestors``, ``redundant_edges``, ``ancestor_siblings``, ``unary_parents``, ``label_collisions``
+        (each label to the ids of the concepts sharing it) and ``nonconforming_labels`` (against ``label_pattern``).
+    metadata.evaluator
+        The evaluator type, e.g. ``duplicates``.
+    metadata.dataeval
+        DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
+        parameters as written are in ``resolved_config``.
+    """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """The ontology's size, depth, roots and collisions."""
+        from dataeval_flow._blocks import Fields
+
+        data = output.get("data") or {}
+        return [
+            Fields(
+                items=[
+                    ("Concepts", data.get("concept_count")),
+                    ("Leaves", data.get("leaf_count")),
+                    ("Max Depth", data.get("max_depth")),
+                    ("Roots", len(data.get("roots") or [])),
+                    ("Label Collisions", len(data.get("label_collisions") or {})),
                 ]
             )
         ]

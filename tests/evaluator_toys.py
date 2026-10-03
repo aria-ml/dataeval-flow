@@ -158,6 +158,7 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "ood-kneighbors": lambda count: (shifted_sources(count), FLAT),
     "label-alignment": lambda count: (ToyImages(count=count), None),
     "label-reconciliation": lambda count: (ToyImages(count=count), None),
+    "ontology-validation": lambda count: (ToyImages(count=count), None),
 }
 
 # Config values a bare `config_type()` cannot supply, because the field has no default. `label-alignment`
@@ -165,6 +166,7 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
 _EXTRA_CONFIG: "dict[str, dict[str, Any]]" = {
     "label-alignment": {"ontology": {"a": None, "b": None}},
     "label-reconciliation": {"ontology": {"a": None, "b": None}},
+    "ontology-validation": {"ontology": {"a": None, "b": None}},
 }
 
 
