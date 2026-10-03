@@ -1,0 +1,84 @@
+"""The `coverage-gaps` check: legacy data-coverage's Metadata Coverage Gaps finding (coverage spec §6.2)."""
+
+__all__ = ["CoverageGapsCheck", "CoverageGapsConfig"]
+
+from collections.abc import Mapping
+from typing import Any, ClassVar
+
+from pydantic import Field
+
+from dataeval_flow._blocks import Block, Cell, Column, Table
+from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
+from dataeval_flow.steps._port import DataType, Port
+from dataeval_flow.steps.checks._limits import Severity
+from dataeval_flow.steps.combines._gaps import FactorGapsOutput
+from dataeval_flow.workflows._base import Finding
+
+
+class CoverageGapsConfig(CheckConfig):
+    """A `coverage-gaps` step's input, and how many gaps make a warning."""
+
+    input: str = Field(description="A `factor-gaps` Output.")
+    count: int | None = Field(
+        default=3,
+        ge=0,
+        description=(
+            "The number of gaps at which the finding warns: this many or more (legacy's `>=`); `null` judges "
+            "nothing. Legacy `gap_count`."
+        ),
+    )
+
+
+class CoverageGapsCheck(Check[CoverageGapsConfig]):
+    """``coverage-gaps``: warns at `count` gaps or more, informs with fewer, and is ok with none."""
+
+    name: ClassVar[str] = "coverage-gaps"
+    description: ClassVar[str] = "Warns when enough class-factor-value combinations are under-represented."
+    title: ClassVar[str] = "Metadata Coverage Gaps"
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(FactorGapsOutput,)),)
+
+    def run(self, config: CoverageGapsConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+        """The gaps' count against `count`, with the gaps as a table."""
+        gaps = inputs["input"].value.gaps
+        if not gaps:
+            return [
+                Finding(
+                    severity="ok",
+                    title=self.title,
+                    brief="No significant gaps detected",
+                    description="No class-factor-value combinations are significantly under-represented.",
+                )
+            ]
+        severity: Severity = "warning" if config.count is not None and len(gaps) >= config.count else "info"
+        rows: list[dict[str, Cell]] = [
+            {
+                "class": gap.class_name,
+                "factor": gap.factor_name,
+                "value": gap.factor_value,
+                "count": gap.class_count,
+                "expected": round(gap.expected_count, 1),
+                "deficit": round(gap.deficit * 100, 1),
+            }
+            for gap in gaps
+        ]
+        columns = [
+            Column(key="class", header="Class"),
+            Column(key="factor", header="Factor"),
+            Column(key="value", header="Value"),
+            Column(key="count", header="Count"),
+            Column(key="expected", header="Expected"),
+            Column(key="deficit", header="Deficit", format="{:.1f}%"),
+        ]
+        blocks: list[Block] = [Table(columns=columns, rows=rows)]
+        return [
+            Finding(
+                severity=severity,
+                title=self.title,
+                brief=f"{len(gaps)} gaps identified",
+                description=(
+                    f"{len(gaps)} class-factor-value combinations are under-represented. "
+                    "These represent gaps in data collection that may affect model performance."
+                ),
+                blocks=blocks,
+            )
+        ]

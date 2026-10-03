@@ -55,6 +55,7 @@ _TITLES = {
     "classwise-outliers": "Outliers by Class",
     "ood-union": "OOD Agreement",
     "factor-deviation": "OOD Sample Metadata Deviations",
+    "factor-gaps": "Factor Gaps",
     "factor-predictors": "OOD Factor Predictors",
     "data-analysis": "Data Analysis",
     "data-cleaning": "Data Cleaning",

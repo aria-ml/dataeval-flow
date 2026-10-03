@@ -7,6 +7,8 @@ __all__ = [
     "ClasswiseOutlierRateConfig",
     "CompletenessScoreCheck",
     "CompletenessScoreConfig",
+    "CoverageGapsCheck",
+    "CoverageGapsConfig",
     "DriftCheck",
     "DriftCheckConfig",
     "DriftThresholds",
@@ -47,6 +49,7 @@ from dataeval_flow.steps.checks._coverage import (
 )
 from dataeval_flow.steps.checks._drift import DriftCheck, DriftCheckConfig, DriftThresholds
 from dataeval_flow.steps.checks._duplicates import DuplicateRateCheck, DuplicateRateConfig
+from dataeval_flow.steps.checks._gaps import CoverageGapsCheck, CoverageGapsConfig
 from dataeval_flow.steps.checks._label_space import (
     LabelConformanceCheck,
     LabelConformanceConfig,

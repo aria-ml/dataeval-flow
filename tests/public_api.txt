@@ -181,6 +181,8 @@ dataeval_flow.steps.checks:ClasswiseOutlierRateCheck
 dataeval_flow.steps.checks:ClasswiseOutlierRateConfig
 dataeval_flow.steps.checks:CompletenessScoreCheck
 dataeval_flow.steps.checks:CompletenessScoreConfig
+dataeval_flow.steps.checks:CoverageGapsCheck
+dataeval_flow.steps.checks:CoverageGapsConfig
 dataeval_flow.steps.checks:DriftCheck
 dataeval_flow.steps.checks:DriftCheckConfig
 dataeval_flow.steps.checks:DriftThresholds
@@ -218,6 +220,10 @@ dataeval_flow.steps.combines:FactorDeviation
 dataeval_flow.steps.combines:FactorDeviationCombine
 dataeval_flow.steps.combines:FactorDeviationConfig
 dataeval_flow.steps.combines:FactorDeviations
+dataeval_flow.steps.combines:FactorGap
+dataeval_flow.steps.combines:FactorGapsCombine
+dataeval_flow.steps.combines:FactorGapsConfig
+dataeval_flow.steps.combines:FactorGapsOutput
 dataeval_flow.steps.combines:FactorPredictors
 dataeval_flow.steps.combines:FactorPredictorsCombine
 dataeval_flow.steps.combines:FactorPredictorsConfig

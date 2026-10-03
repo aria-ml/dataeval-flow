@@ -23,6 +23,7 @@ detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
 | `stratification` | check | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
 | `uncovered-rate` | check | `input`: a `coverage` Output | Uncovered Rate |
+| `coverage-gaps` | check | `input`: a `factor-gaps` Output | Metadata Coverage Gaps |
 | `completeness-score` | check | `input`: a `completeness` Output | Dimensional Completeness |
 | `leaf-coverage` | check | `input`: a `representation` Output against a declared ontology | Label Space Coverage |
 | `label-conformance` | check | `input`: a `label-reconciliation` Output | Label Conformance |
@@ -32,6 +33,7 @@ detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s
 | `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
 | `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
+| `factor-gaps` | combine | `input`: a Dataset; `balance`: a `balance` Output computed on it | each factor's MI with the class, and the under-represented combinations |
 | `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
 | `ood-union` | combine | `input`: the OOD Outputs of one comparison of a test source with a reference | each flagged image as mutual, partial or unique, with its agreement score |
 | `factor-predictors` | combine | `ood`: an `ood-union` or OOD Output; `reference`, `input`: the Datasets it was computed on | each factor's association with being flagged |
@@ -92,6 +94,17 @@ Configured by {py:class}`~dataeval_flow.steps.checks.ClasswiseOutlierRateConfig`
 | --- | --- | --- | --- |
 | `input` | an address | required | A `classwise-outliers` Output |
 | `total` | a percentage, or `null` | `3.0` | Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too |
+
+### `coverage-gaps`
+
+Whether class-factor-value combinations are under-represented: a warning at `count` gaps or more, `info` with fewer,
+`ok` with none, and the gaps as a table, largest deficit first. Configured by
+{py:class}`~dataeval_flow.steps.checks.CoverageGapsConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `factor-gaps` Output |
+| `count` | a count, or `null` | `3` | The number of gaps at which the finding warns, this many or more; `null` judges nothing |
 
 ### `duplicate-rate`
 
@@ -296,6 +309,25 @@ Datasets. Configured by {py:class}`~dataeval_flow.steps.combines.OODUnionConfig`
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address, or a list of them | required | Each detector's OOD Output, every one computed on the same reference and test source |
+
+### `factor-gaps`
+
+The class-factor-value combinations under-represented among the factors Balance ties to the class. It reads the mutual
+information of a `balance` Output, runs no Balance of its own, and searches the factors at or over `mi_threshold`. A
+combination is a gap where its count is under `min_representation` while its expected count, from the factor's overall
+spread, is over it. The section ranks each factor's mutual information with the class. Configured by
+{py:class}`~dataeval_flow.steps.combines.FactorGapsConfig`; makes a
+{py:class}`~dataeval_flow.steps.combines.FactorGapsOutput`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | The Dataset whose Metadata the gaps are counted in |
+| `balance` | an address | required | A `balance` Output computed on exactly `input` |
+| `mi_threshold` | a number | `0.1` | The least mutual information with the class a factor needs to be searched |
+| `min_representation` | a count | `5` | A combination is a gap where its count is under this while its expected count is over it |
+| `metadata` | a policy name, or `null` | `null` | The metadata policy the factors are read under; it should be the one `balance` read under |
+
+The config refuses a `balance` computed on another Dataset when it loads, as `classwise-outliers` does.
 
 ### `factor-predictors`
 
