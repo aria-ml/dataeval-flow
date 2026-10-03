@@ -4,6 +4,7 @@ Field names are DataEval's argument names. An unset field is not passed, so Data
 """
 
 __all__ = [
+    "CompletenessConfig",
     "CoverageConfig",
     "LabelAlignmentConfig",
     "LabelAlignmentResult",
@@ -24,6 +25,7 @@ from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators._result import EvaluatorResult
 from dataeval_flow.evaluators.scope._result import (
+    CompletenessResult,
     CoverageResult,
     LabelReconciliationResult,
     OntologyValidationResult,
@@ -273,6 +275,23 @@ class LabelAlignmentConfig(EvaluatorConfig[LabelAlignmentResult]):
     threshold: float = Field(
         default=0.0, ge=0.0, le=1.0, description="DataEval's `threshold`: the lowest confidence a fuzzy match keeps."
     )
+
+
+class CompletenessConfig(EvaluatorConfig[CompletenessResult]):
+    """Config for ``completeness``: how much of the embedding space's dimensions the data fills.
+
+    Wraps ``dataeval.core.completeness`` on the task extractor's embeddings, rescaled to the unit interval per dimension
+    first, as legacy data-coverage did. It takes no settings.
+
+    Example YAML::
+
+        evaluators:
+          - name: completeness
+            type: completeness
+    """
+
+    type: str = Field(default="completeness", description="The evaluator type this entry configures: `completeness`.")
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.ONE)
 
 
 class LabelReconciliationConfig(EvaluatorConfig[LabelReconciliationResult]):

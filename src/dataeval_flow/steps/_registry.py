@@ -40,6 +40,7 @@ _COMBINE_BUILTINS: dict[str, str] = {
 _CHECK_BUILTINS: dict[str, str] = {
     "class-imbalance": "dataeval_flow.steps.checks._labels:ClassImbalanceCheck",
     "classwise-outlier-rate": "dataeval_flow.steps.checks._outliers:ClasswiseOutlierRateCheck",
+    "completeness-score": "dataeval_flow.steps.checks._coverage:CompletenessScoreCheck",
     "drift": "dataeval_flow.steps.checks._drift:DriftCheck",
     "duplicate-rate": "dataeval_flow.steps.checks._duplicates:DuplicateRateCheck",
     "label-conformance": "dataeval_flow.steps.checks._label_space:LabelConformanceCheck",

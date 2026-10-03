@@ -30,6 +30,7 @@ _TITLES = {
     "factor-triage": "Factor Triage",
     "coverage": "Coverage",
     "label-alignment": "Label Alignment",
+    "completeness": "Completeness",
     "label-reconciliation": "Label Reconciliation",
     "ontology-validation": "Ontology Validation",
     "prioritize": "Prioritization",

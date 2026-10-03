@@ -89,6 +89,10 @@ dataeval_flow.evaluators.quality:OutliersEvaluator
 dataeval_flow.evaluators.quality:OutliersResult
 dataeval_flow.evaluators.quality:ThresholdSpec
 dataeval_flow.evaluators.quality:VerificationEntry
+dataeval_flow.evaluators.scope:CompletenessConfig
+dataeval_flow.evaluators.scope:CompletenessEvaluator
+dataeval_flow.evaluators.scope:CompletenessOutput
+dataeval_flow.evaluators.scope:CompletenessResult
 dataeval_flow.evaluators.scope:CoverageConfig
 dataeval_flow.evaluators.scope:CoverageEvaluator
 dataeval_flow.evaluators.scope:CoverageResult
@@ -171,6 +175,8 @@ dataeval_flow.steps.checks:ClassImbalanceCheck
 dataeval_flow.steps.checks:ClassImbalanceConfig
 dataeval_flow.steps.checks:ClasswiseOutlierRateCheck
 dataeval_flow.steps.checks:ClasswiseOutlierRateConfig
+dataeval_flow.steps.checks:CompletenessScoreCheck
+dataeval_flow.steps.checks:CompletenessScoreConfig
 dataeval_flow.steps.checks:DriftCheck
 dataeval_flow.steps.checks:DriftCheckConfig
 dataeval_flow.steps.checks:DriftThresholds

@@ -21,6 +21,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | `representation` | `dataeval.scope.Representation` | labels | 1 | refused |
 | `coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
 | `prioritize` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
+| `completeness` | `dataeval.core.completeness` | embeddings | 1 | required |
 | `label-alignment` | `dataeval.core.label_alignment` | labels | 1 | refused |
 | `label-reconciliation` | `dataeval.core.label_reconciliation` | labels | 1 | refused |
 | `ontology-validation` | `dataeval.core.ontology_validation` | labels, read only to place the report | 1 | refused |
@@ -273,6 +274,15 @@ Configured by {py:class}`~dataeval_flow.evaluators.scope.LabelAlignmentConfig`; 
 
 Output: a mapping, the alignment (`mergeability`, `correspondences`, `unaligned_source`, `unaligned_target`,
 `class_remap`, `paste_remap`, `target_vocabulary`, `ambiguous_labels`, `label_space_digest`).
+
+### `completeness`
+
+How much of the embedding space's dimensions the data fills. The embeddings are rescaled to the unit interval per
+dimension first, a constant dimension at 0, as legacy `data-coverage` did. Configured by
+{py:class}`~dataeval_flow.evaluators.scope.CompletenessConfig`; runs `dataeval.core.completeness`. It takes no
+parameters.
+
+Output: a mapping: `completeness` and `nearest_neighbor_pairs`.
 
 ### `label-reconciliation`
 

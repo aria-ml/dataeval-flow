@@ -23,6 +23,7 @@ detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
 | `stratification` | check | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
 | `uncovered-rate` | check | `input`: a `coverage` Output | Uncovered Rate |
+| `completeness-score` | check | `input`: a `completeness` Output | Dimensional Completeness |
 | `leaf-coverage` | check | `input`: a `representation` Output against a declared ontology | Label Space Coverage |
 | `label-conformance` | check | `input`: a `label-reconciliation` Output | Label Conformance |
 | `mergeability` | check | `input`: a `label-alignment` Output | Label Alignment |
@@ -144,6 +145,19 @@ OverflowError". Configured by {py:class}`~dataeval_flow.steps.checks.UncoveredRa
 | --- | --- | --- | --- |
 | `input` | an address | required | A `coverage` Output |
 | `rate` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
+
+### `completeness-score`
+
+How much of the embedding space's dimensions the data fills, judged against two bands: the finding warns under
+`warning`, informs under `info`, and is `ok` above. The score is rounded to three places first. With both bands `null`
+nothing is judged and the finding informs. Configured by
+{py:class}`~dataeval_flow.steps.checks.CompletenessScoreConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `completeness` Output |
+| `warning` | a score from 0 to 1, or `null` | `0.5` | The score under which the finding warns; must not exceed `info` |
+| `info` | a score from 0 to 1, or `null` | `0.8` | The score under which the finding informs |
 
 ### `leaf-coverage`
 

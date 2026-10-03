@@ -40,6 +40,7 @@ _WIRING: dict[str, frozenset[str]] = {
     "ood-kneighbors": frozenset({"extractor"}),
     # `matchers` holds objects a config file cannot express.
     "label-alignment": frozenset({"matchers"}),
+    "completeness": frozenset(),
     "label-reconciliation": frozenset(),
     # `label_pattern` is keyword-only, so it is a field rather than wiring.
     "ontology-validation": frozenset(),

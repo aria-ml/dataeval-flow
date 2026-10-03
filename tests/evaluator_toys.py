@@ -149,6 +149,7 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "representation": lambda count: (ToyImages(count=count), None),
     "coverage": lambda count: (ToyImages(count=count), FLAT),
     "prioritize": lambda count: (ToyImages(count=count), FLAT),
+    "completeness": lambda count: (ToyImages(count=count), FLAT),
     "drift-domain-classifier": lambda count: (shifted_sources(count), FLAT),
     "drift-kneighbors": lambda count: (shifted_sources(count), FLAT),
     "drift-mmd": lambda count: (shifted_sources(count), FLAT),

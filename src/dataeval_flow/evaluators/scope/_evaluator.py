@@ -4,6 +4,7 @@
 """
 
 __all__ = [
+    "CompletenessEvaluator",
     "CoverageEvaluator",
     "LabelAlignmentEvaluator",
     "LabelReconciliationEvaluator",
@@ -21,7 +22,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from dataeval.core import RankResult, label_alignment, label_reconciliation, ontology_validation
+from dataeval.core import RankResult, completeness, label_alignment, label_reconciliation, ontology_validation
 from dataeval.scope import (
     Coverage,
     CoverageOutput,
@@ -38,6 +39,7 @@ from dataeval_flow.evaluators._evaluator import Evaluator
 from dataeval_flow.evaluators._fields import dataeval_arguments, require
 from dataeval_flow.evaluators._inputs import EvaluatorInputs
 from dataeval_flow.evaluators.scope._config import (
+    CompletenessConfig,
     CoverageConfig,
     LabelAlignmentConfig,
     LabelReconciliationConfig,
@@ -45,7 +47,11 @@ from dataeval_flow.evaluators.scope._config import (
     PrioritizeConfig,
     RepresentationConfig,
 )
-from dataeval_flow.evaluators.scope._result import LabelReconciliationOutput, OntologyValidationOutput
+from dataeval_flow.evaluators.scope._result import (
+    CompletenessOutput,
+    LabelReconciliationOutput,
+    OntologyValidationOutput,
+)
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -218,6 +224,34 @@ class LabelAlignmentEvaluator(Evaluator[LabelAlignmentConfig, LabelAlignmentOutp
             "dataeval.core.label_alignment", started, time.monotonic() - clock, {"threshold": config.threshold}
         )
         return LabelAlignmentOutput(alignment, source.ontology, meta, ontology_source=source.ontology_source)
+
+
+class CompletenessEvaluator(Evaluator[CompletenessConfig, CompletenessOutput]):
+    """``completeness``: dimensional completeness of the embeddings, per DataEval's completeness."""
+
+    name: ClassVar[str] = "completeness"
+    title: ClassVar[str] = "Completeness"
+    description: ClassVar[str] = "How much of the embedding space's dimensions the data fills (DataEval completeness)"
+    dataeval_class: ClassVar[Any] = completeness
+    dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.EMBEDDINGS: "__call__"}
+    reads_factors: ClassVar[bool] = False
+
+    def run(self, config: CompletenessConfig, inputs: Sequence[EvaluatorInputs]) -> CompletenessOutput:  # noqa: ARG002
+        """Score the source's embeddings, rescaled to the unit interval per dimension, constant dimensions at 0
+        (coverage spec §6.1)."""
+        from dataeval_flow.workflows._common import normalize_unit_interval
+
+        (source,) = inputs
+        embeddings = np.asarray(require(source.embeddings, "embeddings", source.source))
+        if len(embeddings) < 2:
+            raise ValueError(f"`completeness` needs at least two embeddings; the source has {len(embeddings)}.")
+        started, clock = datetime.now(UTC), time.monotonic()
+        result = completeness(normalize_unit_interval(embeddings))
+        meta = execution("dataeval.core.completeness", started, time.monotonic() - clock, {})
+        pairs = [[int(a), int(b)] for a, b in result.get("nearest_neighbor_pairs", [])]
+        return CompletenessOutput(
+            {"completeness": float(result["completeness"]), "nearest_neighbor_pairs": pairs}, meta
+        )
 
 
 class LabelReconciliationEvaluator(Evaluator[LabelReconciliationConfig, LabelReconciliationOutput]):

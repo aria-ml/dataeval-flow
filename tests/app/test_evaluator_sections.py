@@ -7,7 +7,7 @@ from textual.widgets import Input, Select
 
 from dataeval_flow._app._model._introspect import FieldKind
 from dataeval_flow._app._model._item import finalize_item
-from dataeval_flow._app._model._registry import SECTION_KEYS, get_fields, get_variant_choices
+from dataeval_flow._app._model._registry import SECTION_KEYS, get_fields, get_model_for_variant, get_variant_choices
 from dataeval_flow._app._model._state import ConfigState
 from dataeval_flow._app._screens import SectionModal
 from dataeval_flow._app._screens._base import _select_value
@@ -162,5 +162,7 @@ def test_every_builtin_evaluator_is_offered():
 
 @pytest.mark.parametrize("name", sorted(_BUILTINS))
 def test_every_builtin_evaluator_has_a_form(name: str):
-    """Each type's form builds, nested `chunking:` and mapping fields included."""
-    assert get_fields("evaluators", name, ConfigState())
+    """Each type's form builds, nested `chunking:` and mapping fields included; `completeness` takes no settings, so
+    its form is empty."""
+    assert get_model_for_variant("evaluators", name) is not None
+    assert get_fields("evaluators", name, ConfigState()) or name == "completeness"
