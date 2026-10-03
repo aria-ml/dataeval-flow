@@ -21,7 +21,9 @@ class LeafCoverageLimits(BaseModel):
         default=0.9,
         ge=0.0,
         le=1.0,
-        description="The least share of the ontology's leaves with examples; `null` turns off. Legacy `leaf_coverage`.",
+        description=(
+            "The least share of the ontology's leaves with examples; `null` turns it off. Legacy `leaf_coverage`."
+        ),
     )
     empty_branches: int | None = Field(
         default=0,
@@ -72,6 +74,7 @@ class LabelSpaceConfig(WorkflowConfig[ChainResult]):
     type: str = Field(default="label-space", description="The workflow type this entry configures: `label-space`.")
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
 
+    # Overridden to be required, which the schema then shows; the base declares it optional.
     ontology: dict[str, Any] | str = Field(  # pyright: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
         description=(
             "The ontology to judge labels against: a name under the top-level `ontologies:` key, a path to a "

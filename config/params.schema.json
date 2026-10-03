@@ -5978,7 +5978,7 @@
             }
           ],
           "default": 0.9,
-          "description": "The least share of the ontology's leaves with examples; `null` turns off. Legacy `leaf_coverage`.",
+          "description": "The least share of the ontology's leaves with examples; `null` turns it off. Legacy `leaf_coverage`.",
           "title": "Coverage"
         },
         "empty_branches": {

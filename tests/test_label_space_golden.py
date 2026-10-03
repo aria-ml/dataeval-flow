@@ -9,8 +9,8 @@ Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), e
 - **Class names are the `index2label` values in index order,** where legacy took the class distribution's keys,
   observed then unseen. The correspondences, the unmatched list, the ambiguous mapping and "Dropped:" can come in
   another order; the stanza is sorted, and the digest does not depend on the order. An observed label missing from
-  `index2label`, which legacy judged as its `str(index)`, is no longer judged. The golden's datasets declare every
-  label, in index order, so they agree.
+  `index2label` is judged under the loader's placeholder `UNDEFINED_CLASS_<index>`, where legacy used `str(index)`.
+  The golden's datasets declare every label, in index order, so they agree.
 - **The digest's precedence is reversed** (coverage spec §3.5): on a source whose view applies a `Relabel`, the
   source's record wins over the alignment's, where legacy's own stamp won.
 - **No "Class Balance Worklist" without an ontology**: that finding is data-coverage's.

@@ -128,7 +128,7 @@ share as a fraction in `[0, 1]`:
 
 Named classes use their floor as the collection target instead of the uniform share, and a dataset below the floor is
 reported as a violation. Classes not named keep the uniform target. A name that resolves to no concept, or to several,
-is ignored and noted in the result.
+is ignored and noted in the result. (Until its port, data-coverage takes this as `ontology_expected`.)
 
 ## Lint the label names
 
@@ -139,7 +139,8 @@ conventions:
     label_pattern: '^[a-z0-9_]+$'   # lowercase_snake_case
 ```
 
-Labels that fail are reported in the ontology's structure.
+Labels that fail are reported in the ontology's structure. (Until its port, data-coverage takes this as
+`ontology_label_pattern`.)
 
 ## What `label-space` finds
 
@@ -181,8 +182,6 @@ a label space, that record's digest is used instead.
 
 ## Related material
 
-- {doc}`configure_metadata_binning` — how this workflow's metadata factors are discretized before gap analysis
-  reads them
 - [Dataset Coverage](../concepts/Coverage.md) — the label-space and embedding-space axes coverage measures
 - [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html) — the
   authoritative treatment of ontologies and the reconciliation, alignment, and validation operations over them

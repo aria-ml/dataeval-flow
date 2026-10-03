@@ -19,7 +19,7 @@
 - Every tool computes on CUDA when PyTorch sees a GPU, else the CPU; `dataeval_flow.set_device` chooses from Python,
   and `CUDA_VISIBLE_DEVICES` hides GPUs. A config names no device
 - `device` on every result's metadata: the device its task computed on, such as `cuda:0 (NVIDIA L4)`
-- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's seventeen types
+- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's twenty types
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
 - `dataeval-flow evaluators` command listing evaluator types, what each consumes, and their parameter schemas

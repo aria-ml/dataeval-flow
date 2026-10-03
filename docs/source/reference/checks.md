@@ -41,6 +41,8 @@ detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s
 A check's thresholds are written beside it, in the step entry, like a transform's settings. Each is a percentage or a
 ratio, and a finding warns where the measured value passes it. `null` switches a threshold off: the finding is still
 made, as `info`. The defaults are `data-cleaning`'s `health_thresholds`.
+A check with a criterion that has no threshold, such as an unmet share, an ambiguous name or an empty class, keeps
+judging it, so its finding can still be `ok` or `warning` when its thresholds are `null`.
 
 A check is never skipped because an input produced nothing. Where a step it reads failed or was skipped, it makes one
 `info` finding briefed `not assessed`, titled with its `subject` where it takes one and with its own title otherwise,

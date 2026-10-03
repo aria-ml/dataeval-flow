@@ -31,7 +31,8 @@ class LabelSpaceWorkflow(Preset, Workflow[LabelSpaceConfig, ChainResult]):
     - ``structure`` (``ontology-validation``) and ``ontology-structure``: the ontology's own structure.
 
     No step is optional: the ontology is the preset's whole input. The result's ``label_space_digest`` is the
-    alignment's. It makes no Dataset, so it declares no outputs.
+    alignment's, unless a source's ``Relabel`` already recorded a label space (coverage spec §3.5). It makes no
+    Dataset, so it declares no outputs.
     """
 
     name: ClassVar[str] = "label-space"
