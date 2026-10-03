@@ -34,7 +34,7 @@ class UncoveredRateConfig(CheckConfig):
         description=(
             "The percent of the Dataset's items uncovered past which the finding warns; `null` judges nothing. Judge "
             "only `naive` coverage: adaptive coverage marks `percent` of the items uncovered by construction. "
-            "data-coverage's `health_thresholds.uncovered_rate`."
+            "data-coverage's `health_thresholds.uncovered-rate.rate`, legacy `health_thresholds.uncovered_rate`."
         ),
     )
 

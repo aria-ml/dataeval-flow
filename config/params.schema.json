@@ -1760,7 +1760,7 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of the Dataset's items uncovered past which the finding warns; `null` judges nothing. Judge only `naive` coverage: adaptive coverage marks `percent` of the items uncovered by construction. data-coverage's `health_thresholds.uncovered_rate`.",
+          "description": "The percent of the Dataset's items uncovered past which the finding warns; `null` judges nothing. Judge only `naive` coverage: adaptive coverage marks `percent` of the items uncovered by construction. data-coverage's `health_thresholds.uncovered-rate.rate`, legacy `health_thresholds.uncovered_rate`.",
           "title": "Rate"
         },
         "check": {
@@ -7483,7 +7483,7 @@
     },
     "OntologyConfig": {
       "additionalProperties": false,
-      "description": "A named label space, referenced by the workflows that share it.\n\nDefine an ontology once here and reference it by name so workflows meant to be compared\nread the same vocabulary. Two tasks reading different ontologies produce worklists you\ncannot compare.\n\nYAML example::\n\n    ontologies:\n      - name: vehicles\n        source: config/label_ontology.jsonld\n        concepts:\n          - id: http://example.org/cv#FreightCar\n            label: Freight Car\n            synonyms: [freight_car, freight car]\n            parents: [http://example.org/cv#LandVehicle]\n\n    workflows:\n      - name: audit\n        type: data-coverage\n        ontology: vehicles",
+      "description": "A named label space, referenced by the workflows that share it.\n\nDefine an ontology once here and reference it by name so workflows meant to be compared\nread the same vocabulary. Two tasks reading different ontologies produce worklists you\ncannot compare.\n\nYAML example::\n\n    ontologies:\n      - name: vehicles\n        source: config/label_ontology.jsonld\n        concepts:\n          - id: http://example.org/cv#FreightCar\n            label: Freight Car\n            synonyms: [freight_car, freight car]\n            parents: [http://example.org/cv#LandVehicle]\n\n    workflows:\n      - name: audit\n        type: label-space\n        ontology: vehicles",
       "properties": {
         "name": {
           "description": "Identifier for this ontology",

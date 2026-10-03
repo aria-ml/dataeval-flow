@@ -78,9 +78,8 @@ class DatasetContext:
 class ResolvedOntology:
     """The label space a task was configured with, resolved before the dataset was read.
 
-    Read :attr:`error` rather than expecting an exception. An ontology problem degrades a
-    ``data-coverage`` run to a skip reason and leaves label, metadata and gap analysis
-    running, so resolving earlier must not abort the task.
+    Read :attr:`error` rather than expecting an exception. An ontology problem is reported by
+    the work that reads the ontology, so resolving earlier must not abort the task.
     """
 
     ontology: "Ontology | None"

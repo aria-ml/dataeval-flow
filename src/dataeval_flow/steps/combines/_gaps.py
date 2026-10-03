@@ -73,8 +73,8 @@ def mi_from_balance(balance: BalanceOutput, factor_names: Sequence[str]) -> dict
 def _factor_gaps(
     fname: str, factor_col: pl.Series, class_labels: Any, label_map: Mapping[int, str], n_total: int, minimum: int
 ) -> list[FactorGap]:
-    """The under-represented combinations of one factor's values with each class (legacy `_find_factor_gaps`), values
-    of equal count in value order, which legacy left to Polars and so to chance."""
+    """The under-represented combinations of one factor's values with each class, as legacy data-coverage's gap analysis
+    found them, values of equal count in value order, which legacy left to Polars and so to chance."""
     overall_vc = factor_col.value_counts().sort(["count", fname], descending=[True, False])
     if len(overall_vc) == 0:
         return []
@@ -113,7 +113,7 @@ def find_gaps(
     metadata: "Metadata", mutual_information: Mapping[str, float], mi_threshold: float, minimum: int
 ) -> FactorGapsOutput:
     """The gaps among the factors at or over `mi_threshold`, counted at the metadata's label level, largest deficit
-    first (legacy `_run_gap_analysis`)."""
+    first, as legacy data-coverage's gap analysis did."""
     mi = {name: mutual_information[name] for name in metadata.factor_names if name in mutual_information}
     df = metadata.rows_at(metadata.label_level)
     if df is None or len(df) == 0:
