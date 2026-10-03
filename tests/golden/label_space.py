@@ -86,6 +86,19 @@ CASES: dict[str, Case] = {
         ["car", "truck", "bus"],
         {"land": {"car": None, "truck": None, "bus": None}, "air": {"plane": None, "drone": None}},
     ),
+    "smells": Case(
+        ["car", "truck", "bus"],
+        concepts=[
+            _concept("vehicle", "vehicle"),
+            _concept("land", "land", ("vehicle",)),
+            _concept("car", "car", ("land", "vehicle")),
+            _concept("truck", "truck", ("land",)),
+            _concept("bus", "bus", ("transport",)),
+        ],
+    ),
+    "unseen": Case(
+        ["car", "truck", "bus", "tank"], {"vehicle": {"car": None, "truck": None, "bus": None, "tank": None}}
+    ),
 }
 
 

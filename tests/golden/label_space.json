@@ -897,6 +897,142 @@
    }
   ]
  },
+ "smells": {
+  "alignment": {
+   "ambiguous_labels": [],
+   "class_remap": {
+    "bus": "bus",
+    "car": "car",
+    "truck": "truck"
+   },
+   "correspondences": [
+    {
+     "confidence": 1.0,
+     "matcher": "exact",
+     "relation": "equivalent",
+     "source": "car",
+     "target": "car",
+     "target_label": "car"
+    },
+    {
+     "confidence": 1.0,
+     "matcher": "exact",
+     "relation": "equivalent",
+     "source": "truck",
+     "target": "truck",
+     "target_label": "truck"
+    },
+    {
+     "confidence": 1.0,
+     "matcher": "exact",
+     "relation": "equivalent",
+     "source": "bus",
+     "target": "bus",
+     "target_label": "bus"
+    }
+   ],
+   "label_space_digest": "79570d73487b",
+   "mergeability": "lossless",
+   "paste_remap": {
+    "bus": "bus",
+    "car": "car",
+    "truck": "truck"
+   },
+   "target_vocabulary": [
+    "vehicle",
+    "land",
+    "car",
+    "truck",
+    "bus"
+   ],
+   "unaligned_source": [],
+   "unaligned_target": [
+    "vehicle",
+    "land"
+   ]
+  },
+  "conformance": {
+   "ambiguous": {},
+   "conforms": true,
+   "matched": {
+    "bus": "bus",
+    "car": "car",
+    "truck": "truck"
+   },
+   "unmatched": []
+  },
+  "dark_branches": [],
+  "findings": [
+   [
+    "info",
+    "Label Space Coverage",
+    "leaf coverage 100.0% \u00b7 0 to acquire \u00b7 deficit 4",
+    "100.0% of the ontology's sanctioned leaf species have examples. The dataset is 4 labels short of an even spread across them."
+   ],
+   [
+    "ok",
+    "Label Conformance",
+    "conforms",
+    "Every class name resolves to exactly one ontology concept."
+   ],
+   [
+    "ok",
+    "Label Alignment",
+    null,
+    "Mergeability: lossless. Every class carries over one-to-one."
+   ],
+   [
+    "info",
+    "Ontology Structure",
+    "5 concepts, 3 leaves, depth 2 \u00b7 1 redundant edges, 1 ancestor-sibling pairs, 1 truncated ancestries",
+    "The ontology has 5 concepts, 3 of them leaves, reaching depth 2."
+   ]
+  ],
+  "ignored_expected": [],
+  "leaf_coverage": 1.0,
+  "structure": {
+   "ancestor_siblings": [
+    [
+     "car",
+     "land"
+    ]
+   ],
+   "concept_count": 5,
+   "external_ancestors": {
+    "bus": [
+     "transport"
+    ]
+   },
+   "isolated": [],
+   "label_collisions": {},
+   "leaf_count": 3,
+   "max_depth": 2,
+   "nonconforming_labels": {},
+   "redundant_edges": [
+    [
+     "vehicle",
+     "car"
+    ]
+   ],
+   "roots": [
+    "vehicle"
+   ],
+   "unary_parents": []
+  },
+  "total_deficit": 4,
+  "violations": [],
+  "worklist": [
+   {
+    "action": "augment",
+    "concept": "bus",
+    "count": 4,
+    "deficit": 4,
+    "label": "bus",
+    "parent": "transport",
+    "target": 8
+   }
+  ]
+ },
  "unmatched": {
   "alignment": {
    "ambiguous_labels": [],
@@ -1017,6 +1153,147 @@
     "label": "bus",
     "parent": "vehicle",
     "target": 8
+   }
+  ]
+ },
+ "unseen": {
+  "alignment": {
+   "ambiguous_labels": [],
+   "class_remap": {
+    "bus": "bus",
+    "car": "car",
+    "tank": "tank",
+    "truck": "truck"
+   },
+   "correspondences": [
+    {
+     "confidence": 1.0,
+     "matcher": "exact",
+     "relation": "equivalent",
+     "source": "car",
+     "target": "car",
+     "target_label": "car"
+    },
+    {
+     "confidence": 1.0,
+     "matcher": "exact",
+     "relation": "equivalent",
+     "source": "truck",
+     "target": "truck",
+     "target_label": "truck"
+    },
+    {
+     "confidence": 1.0,
+     "matcher": "exact",
+     "relation": "equivalent",
+     "source": "bus",
+     "target": "bus",
+     "target_label": "bus"
+    },
+    {
+     "confidence": 1.0,
+     "matcher": "exact",
+     "relation": "equivalent",
+     "source": "tank",
+     "target": "tank",
+     "target_label": "tank"
+    }
+   ],
+   "label_space_digest": "b719c9aaa5c7",
+   "mergeability": "lossless",
+   "paste_remap": {
+    "bus": "bus",
+    "car": "car",
+    "tank": "tank",
+    "truck": "truck"
+   },
+   "target_vocabulary": [
+    "vehicle",
+    "car",
+    "truck",
+    "bus",
+    "tank"
+   ],
+   "unaligned_source": [],
+   "unaligned_target": [
+    "vehicle"
+   ]
+  },
+  "conformance": {
+   "ambiguous": {},
+   "conforms": true,
+   "matched": {
+    "bus": "bus",
+    "car": "car",
+    "tank": "tank",
+    "truck": "truck"
+   },
+   "unmatched": []
+  },
+  "dark_branches": [],
+  "findings": [
+   [
+    "warning",
+    "Label Space Coverage",
+    "leaf coverage 75.0% \u00b7 1 to acquire \u00b7 deficit 8",
+    "75.0% of the ontology's sanctioned leaf species have examples. The dataset is 8 labels short of an even spread across them."
+   ],
+   [
+    "ok",
+    "Label Conformance",
+    "conforms",
+    "Every class name resolves to exactly one ontology concept."
+   ],
+   [
+    "ok",
+    "Label Alignment",
+    null,
+    "Mergeability: lossless. Every class carries over one-to-one."
+   ],
+   [
+    "info",
+    "Ontology Structure",
+    "5 concepts, 4 leaves, depth 1",
+    "The ontology has 5 concepts, 4 of them leaves, reaching depth 1."
+   ]
+  ],
+  "ignored_expected": [],
+  "leaf_coverage": 0.75,
+  "structure": {
+   "ancestor_siblings": [],
+   "concept_count": 5,
+   "external_ancestors": {},
+   "isolated": [],
+   "label_collisions": {},
+   "leaf_count": 4,
+   "max_depth": 1,
+   "nonconforming_labels": {},
+   "redundant_edges": [],
+   "roots": [
+    "vehicle"
+   ],
+   "unary_parents": []
+  },
+  "total_deficit": 8,
+  "violations": [],
+  "worklist": [
+   {
+    "action": "acquire",
+    "concept": "tank",
+    "count": 0,
+    "deficit": 6,
+    "label": "tank",
+    "parent": "vehicle",
+    "target": 6
+   },
+   {
+    "action": "augment",
+    "concept": "bus",
+    "count": 4,
+    "deficit": 2,
+    "label": "bus",
+    "parent": "vehicle",
+    "target": 6
    }
   ]
  }
