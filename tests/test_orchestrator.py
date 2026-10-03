@@ -28,7 +28,6 @@ from dataeval_flow.config import (
 from dataeval_flow.config.extractors import OnnxExtractorConfig
 from dataeval_flow.workflows import WorkflowResult
 from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
-from dataeval_flow.workflows.data_coverage import DataCoverageConfig
 from tests.workflow_toys import (
     ToyCountConfig,
     ToyCountMetadata,
@@ -1624,8 +1623,10 @@ class TestOntologyReachesTheContext:
 
         ds = ImageFolderDatasetConfig(name="images", path="data/images")
         source = SourceConfig(name="src", dataset="images")
-        task = TaskConfig(name="t", workflow="coverage", sources="src")
-        coverage_instance = DataCoverageConfig(name="coverage", ontology="animals")
+        task = TaskConfig(name="t", workflow="analysis", sources="src")
+        analysis_instance = DataAnalysisConfig(
+            name="analysis", outlier_method="zscore", outlier_flags=["dimension"], ontology="animals"
+        )
 
         config = MagicMock()
 
@@ -1635,7 +1636,7 @@ class TestOntologyReachesTheContext:
         config.extractors = None
         config.preprocessors = None
         config.selections = None
-        config.workflows = [coverage_instance]
+        config.workflows = [analysis_instance]
         config.ontologies = [
             OntologyConfig(
                 name="animals",
@@ -1856,7 +1857,7 @@ class TestLabelSpaceRecords:
         assert meta.label_space[0].ontology is None
 
     def test_a_workflow_stamped_digest_survives(self):
-        """A workflow that already stamped its own digest — the coverage audit does — keeps it."""
+        """A workflow that already stamped its own digest — a label-space audit does — keeps it."""
         config = _envelope_config()
         assert config.tasks is not None
         config.tasks[0].sources = "a"

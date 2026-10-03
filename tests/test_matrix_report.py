@@ -119,11 +119,13 @@ def test_the_health_line_counts_one_run_and_one_warning_in_the_singular() -> Non
 def test_a_legacy_workflow_s_findings_fill_the_table() -> None:
     from tests.evaluator_toys import ToyFactors
 
-    # data-coverage still runs its own code, not a chain; its class-imbalance threshold is judged without an extractor.
-    matrix = {"health_thresholds.class_imbalance_ratio": [2.0, 5.0]}
+    # data-analysis still runs its own code, not a chain; its class-imbalance threshold is judged without an extractor.
+    matrix = {"health_thresholds.class_label_imbalance": [2.0, 5.0]}
     config = chain_pipeline(
-        workflows=[{"name": "coverage", "type": "data-coverage"}],
-        tasks=[{"name": "t", "workflow": "coverage", "sources": "src", "matrix": matrix}],
+        workflows=[
+            {"name": "analysis", "type": "data-analysis", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
+        ],
+        tasks=[{"name": "t", "workflow": "analysis", "sources": "src", "matrix": matrix}],
         datasets={"src": ToyFactors(count=40)},
     )
     result = run_tasks(config)["t"]

@@ -11,12 +11,11 @@ from tests.test_metadata_injection import _ICDataset, _ODDataset
 
 pytestmark = pytest.mark.required
 
-WORKFLOWS = ["data-coverage", "data-analysis"]
+WORKFLOWS = ["data-analysis"]
 
 
 # Minimal valid params per workflow: only the fields with no default.
 _PARAMS = {
-    "data-coverage": {},
     "data-analysis": {"outlier_method": "adaptive", "outlier_flags": ["pixel"]},
 }
 
@@ -48,9 +47,9 @@ def _run(workflow_type: str, dataset, policy_fields: dict, value_range=(0.0, 1.0
 def _binning(result_metadata, split: str = "default") -> dict:
     """The binning record, whichever envelope shape the workflow reports.
 
-    `data-analysis` is the one multi-split workflow of the two; it reports a record per split.
-    Coverage reports one dataset's record flat. Unwrapping here makes the parametrisation
-    assert record presence for every workflow.
+    `data-analysis` is multi-split and reports a record per split; a workflow reporting one
+    dataset's record flat is unwrapped the same way. (The chain's flat record is covered by
+    `tests/test_chain_binning.py`, since a preset refuses a direct `run`.)
     """
     record = result_metadata.metadata_binning
     per_split = record.get("per_split")

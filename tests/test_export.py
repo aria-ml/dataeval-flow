@@ -33,6 +33,7 @@ from dataeval_flow.config import (
 )
 from dataeval_flow.workflows import ResolvedOntology
 from dataeval_flow.workflows.data_coverage import DataCoverageConfig
+from dataeval_flow.workflows.label_space import LabelSpaceConfig
 from tests.test_sources import _PNG, _merge_config, _od_dataset
 
 _CAR = ObjectDetectionAnnotation(bbox=(1.0, 2.0, 3.0, 4.0), category_id=0, category_name="Car")
@@ -684,7 +685,7 @@ class TestOntologyDivergenceWarning:
     def _config_with_workflow_ontology(self) -> PipelineConfig:
         config = _merge_config()
         config.ontologies = [OntologyConfig(name="vehicles", concepts=[OntologyConceptConfig(id="Car", label="Car")])]
-        config.workflows = [DataCoverageConfig(name="audit", ontology="vehicles")]
+        config.workflows = [LabelSpaceConfig(name="audit", ontology="vehicles")]
         return config
 
     def test_it_warns_and_names_the_workflow(self, tmp_path: Path, caplog):

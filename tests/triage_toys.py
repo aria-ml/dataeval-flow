@@ -83,6 +83,15 @@ class LatitudeDataset:
         return np.zeros((3, 8, 8), dtype=np.float32), one_hot, {"id": index, "latitude": latitude}
 
 
+class _Target:
+    """Minimal object-detection target (boxes / labels / scores)."""
+
+    def __init__(self, boxes: list[list[float]], labels: list[int]) -> None:
+        self.boxes = np.asarray(boxes, dtype=np.float64)
+        self.labels = np.asarray(labels, dtype=np.intp)
+        self.scores = np.ones((len(self.labels), 2), dtype=np.float32)
+
+
 class OcclusionDataset:
     """Detections, two boxes an image, whose ``occlusion`` reads ``'high'`` on every fifth image's second box."""
 
@@ -92,8 +101,6 @@ class OcclusionDataset:
         return 30
 
     def __getitem__(self, index: int) -> tuple[Any, Any, Any]:
-        from tests.test_coverage_workflow import _Target
-
         occlusion: list[Any] = [0.1 * index, "high" if index % 5 == 0 else 0.2]
         target = _Target([[2, 2, 20, 20], [8, 8, 30, 30]], [0, 1])
         return np.zeros((3, 32, 32), dtype=np.uint8), target, {"id": index, "occlusion": occlusion}

@@ -14,8 +14,8 @@ from dataeval_flow.evaluators import Evaluator, EvaluatorConfig, EvaluatorInputs
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesEvaluator, DuplicatesResult
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows import Workflow, WorkflowConfig, WorkflowContext, WorkflowResult
+from dataeval_flow.workflows.data_analysis import DataAnalysisResult
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningWorkflow
-from dataeval_flow.workflows.data_coverage import DataCoverageResult
 from dataeval_flow.workflows.data_splitting import DataSplittingConfig
 from tests.evaluator_toys import ToyImages, toy_pipeline
 from tests.example_plugin import CountConfig
@@ -161,7 +161,7 @@ def test_a_run_that_returns_no_result_becomes_a_failed_result() -> None:
     assert result.errors == ["x.forgetful returned NoneType, not a ToyCountResult"]
 
 
-@pytest.mark.parametrize("result", [DataCoverageResult, WorkflowResult[Any, Any]], ids=["another", "broader"])
+@pytest.mark.parametrize("result", [DataAnalysisResult, WorkflowResult[Any, Any]], ids=["another", "broader"])
 def test_a_workflow_must_produce_the_result_its_config_names(result: Any) -> None:
     """Else `run()`, typed by the config's result class, would type a result the workflow never returns."""
     with pytest.raises(TypeError, match=r"Mismatched returns .*, but its config ToyCountConfig names ToyCount"):
@@ -193,10 +193,10 @@ class _Mislabelled(Workflow[ToyCountConfig, ToyCountResult]):
     """Returns another workflow's result, which its annotation cannot stop at run time."""
 
     name: ClassVar[str] = "x.mislabelled"
-    description: ClassVar[str] = "Returns a DataCoverageResult."
+    description: ClassVar[str] = "Returns a DataAnalysisResult."
 
     def run(self, config: ToyCountConfig, context: WorkflowContext) -> ToyCountResult:
-        return DataCoverageResult.failed(type="data-coverage", errors=["not mine"])  # type: ignore[return-value]
+        return DataAnalysisResult.failed(type="data-analysis", errors=["not mine"])  # type: ignore[return-value]
 
 
 def test_a_run_that_returns_another_result_class_becomes_a_failed_result() -> None:
@@ -204,7 +204,7 @@ def test_a_run_that_returns_another_result_class_becomes_a_failed_result() -> No
     result = _run_target(_Mislabelled(), config, WorkflowContext())
     assert type(result) is ToyCountResult
     assert not result.success
-    assert result.errors == ["x.mislabelled returned DataCoverageResult, not a ToyCountResult"]
+    assert result.errors == ["x.mislabelled returned DataAnalysisResult, not a ToyCountResult"]
 
 
 class _MetalessOutput:
