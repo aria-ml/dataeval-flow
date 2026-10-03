@@ -52,6 +52,8 @@ class Evaluator(Step, ABC, Generic[ConfigT, OutputT]):
       out and a reader needs, such as a coverage radius. ``to_dict()`` and ``export()`` write each under
       ``"extras"``, as ``null`` where it is ``None``, and the report shows them. Leave it unset when ``data()``
       holds every result.
+    - ``reads_factors: ClassVar[bool]``, optional: ``False`` for an evaluator that reads a Dataset's labels and none
+      of its metadata factors, such as ``label-health``, so the result's binning record leaves its read out.
     - :meth:`run`: the call to DataEval, the only place besides ``dataeval_methods`` that names a DataEval method.
 
     A concrete evaluator without ``name``, ``description``, ``dataeval_class`` or ``dataeval_methods``, not
@@ -129,6 +131,7 @@ class Evaluator(Step, ABC, Generic[ConfigT, OutputT]):
     dataeval_methods: ClassVar[Mapping[InputKind, str]]
     output_extras: ClassVar[tuple[str, ...]] = ()
     output_type: ClassVar[type | None] = None
+    reads_factors: ClassVar[bool] = True
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Bind ``config_type`` from the type arguments, and require identity on a concrete evaluator."""

@@ -18,6 +18,8 @@ from tests.evaluator_toys import ToyFactors
 
 _LABELS = {"name": "labels", "type": "label-health"}
 _READ_LABELS = {"name": "labels", "evaluator": "labels", "input": "data"}
+_BALANCE = {"name": "balance", "type": "balance"}
+_READ_BALANCE = {"name": "balance", "evaluator": "balance", "input": "data"}
 _BINNED = {"name": "binned", "continuous_factor_bins": {"angle": 3}}
 
 
@@ -33,7 +35,7 @@ def _chain(
     *,
     inputs: Sequence[Any] = ("data",),
     datasets: dict[str, Any] | None = None,
-    evaluators: Sequence[dict[str, Any]] = (_LABELS,),
+    evaluators: Sequence[dict[str, Any]] = (_LABELS, _BALANCE),
     policies: Sequence[dict[str, Any]] = (),
 ) -> ChainResult:
     datasets = datasets if datasets is not None else {"src": ToyFactors()}
@@ -58,7 +60,7 @@ def _binning(result: ChainResult | ResultMetadata) -> dict[str, Any]:
 
 
 def test_a_chain_reading_one_dataset_one_way_records_one_encoding() -> None:
-    result = _chain([_READ_LABELS])
+    result = _chain([_READ_BALANCE])
     record = result.metadata.metadata_binning
     assert record is not None
     assert "per_split" not in record
@@ -78,21 +80,43 @@ def test_a_chain_reading_no_metadata_records_no_encoding() -> None:
     assert "Auto-bin method" not in result.report(detailed=True)
 
 
+def test_an_evaluator_reading_labels_alone_records_no_encoding() -> None:
+    """label-health reads each item's class, which no factor's cuts change, so its read has no encoding to record."""
+    result = _chain([_READ_LABELS])
+    assert result.metadata.metadata_binning is None
+    assert result.metadata.encoding_digest is None
+    assert "Auto-bin method" not in result.report(detailed=True)
+
+
+def test_a_part_read_for_its_labels_leaves_the_whole_s_record_alone() -> None:
+    """data-splitting's shape: the whole set's balance reads its factors, and each part's label-health its labels."""
+    result = _chain(
+        [
+            _READ_BALANCE,
+            {"name": "split", "transform": "split", "input": "data", "test_frac": 0.25},
+            {"name": "labels", "evaluator": "labels", "input": "split.train"},
+        ]
+    )
+    record = _binning(result)
+    assert "per_split" not in record
+    assert sorted(record["factors"]) == ["angle", "site"]
+
+
 def test_a_chain_reading_metadata_reports_its_factors() -> None:
-    report = _chain([_READ_LABELS]).report(detailed=True)
+    report = _chain([_READ_BALANCE]).report(detailed=True)
     assert "METADATA FACTORS" in report.upper()
     assert "angle" in report
 
 
 def test_two_steps_reading_one_encoding_make_one_record() -> None:
-    result = _chain([_READ_LABELS, {"name": "again", "evaluator": "labels", "input": "data"}])
+    result = _chain([_READ_BALANCE, {"name": "again", "evaluator": "balance", "input": "data"}])
     assert "per_split" not in _binning(result)
 
 
 def test_a_dataset_read_two_ways_keeps_both_and_names_the_second_by_its_policy() -> None:
     result = _chain(
-        [_READ_LABELS, {"name": "binned", "evaluator": "labels-binned", "input": "data"}],
-        evaluators=[_LABELS, {"name": "labels-binned", "type": "label-health", "metadata": "binned"}],
+        [_READ_BALANCE, {"name": "binned", "evaluator": "balance-binned", "input": "data"}],
+        evaluators=[_BALANCE, {"name": "balance-binned", "type": "balance", "metadata": "binned"}],
         policies=[_BINNED],
     )
     per_split = _binning(result)["per_split"]
@@ -106,7 +130,7 @@ def test_a_dataset_read_two_ways_keeps_both_and_names_the_second_by_its_policy()
 
 def test_each_element_of_a_list_is_its_own_record() -> None:
     result = _chain(
-        [{"name": "labels", "evaluator": "labels", "input": "splits"}],
+        [{"name": "balance", "evaluator": "balance", "input": "splits"}],
         inputs=[{"name": "splits", "list": True}],
         datasets={"a": ToyFactors(count=60), "b": ToyFactors(count=45)},
     )
@@ -117,7 +141,7 @@ def test_a_transform_s_read_is_recorded_beside_an_evaluator_s() -> None:
     result = _chain(
         [
             {"name": "split", "transform": "split", "input": "data", "test_frac": 0.25},
-            {"name": "labels", "evaluator": "labels", "input": "split.train"},
+            {"name": "balance", "evaluator": "balance", "input": "split.train"},
         ]
     )
     assert list(_binning(result)["per_split"]) == ["data", "split.train"]
@@ -149,7 +173,7 @@ def test_a_record_that_cannot_be_described_costs_the_record_not_the_run(
 
     monkeypatch.setattr(binning, "describe_under", _renamed_upstream)
     with caplog.at_level(logging.WARNING):
-        result = _chain([_READ_LABELS])
+        result = _chain([_READ_BALANCE])
     assert result.metadata.metadata_binning is None
     assert result.metadata.encoding_digest is None
     assert "Binning record unavailable" in caplog.text

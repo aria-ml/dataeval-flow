@@ -638,6 +638,7 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
     setup = settings.extractors.get(spec.extractor)
     contexts = {node.address: _context_for(node, spec, setup) for node in nodes}
     step = settings.step_contexts.get(spec.name, StepContext())
+    runner = settings.runners[spec.name] if spec.name in settings.runners else spec.impl()
     context = ReadingContext(
         dataset_contexts=contexts,
         batch_size=setup.batch_size if setup is not None else None,
@@ -645,11 +646,11 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
         ontology=step.ontology,
         stats_policy=step.stats_policy,
         policy_name=_policy_name(spec),
+        reads_factors=getattr(runner, "reads_factors", True),
     )
     # Run as the orchestrator runs a task's target, so a step and a task run it the same way.
     from dataeval_flow._orchestrator import _run_target
 
-    runner = settings.runners[spec.name] if spec.name in settings.runners else spec.impl()
     unions = {node.address: union for node in nodes if (union := _stats_union(step, node, element)) is not None}
     # Each is passed only when set, so without them the call is exactly a task's.
     extra: dict[str, Any] = {"stats_unions": unions} if unions else {}

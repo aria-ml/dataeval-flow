@@ -290,6 +290,8 @@
 - The Image Outliers, Target Outliers, Classwise Outliers and Label Distribution findings have no `description`, which
   repeated their brief
 - A text table too wide for the report wraps its text cells, with a blank line between its rows
+- A chain's binning record leaves out `label-health`'s reads, which read labels and no factor, so each Dataset it
+  alone reads, such as each part of a split, no longer has a Metadata Factors block or binning diagnostics
 - `data-splitting` is a preset: the whole set's labels, balance, diversity and coverage, a `split` or `kfold`, each
   train rebalanced where `rebalance:` is set, and each part's labels, stratification and coverage. Run as a step of a
   custom workflow, it exposes `train` (rebalanced where set), `val` and `test`, as lists keyed by fold under

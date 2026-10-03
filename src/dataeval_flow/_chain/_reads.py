@@ -60,10 +60,16 @@ class ReadingContext(WorkflowContext):
     policy_name: str | None = None
     """The name the step's entry gave its metadata policy, ``None`` where it named none."""
 
+    reads_factors: bool = True
+    """Whether the step reads any metadata factor. A step reading labels alone has no encoding to record, and
+    describing its read would bin every factor of each Dataset it reads, such as each part of a split."""
+
     def metadata(self, source: str) -> "Metadata":
-        """The source's Metadata, as :meth:`WorkflowContext.metadata` builds it, noted for the binning record."""
+        """The source's Metadata, as :meth:`WorkflowContext.metadata` builds it, noted for the binning record where
+        the step reads its factors."""
         metadata = super().metadata(source)
-        note_read(source, self.policy_name, self.metadata_policy, metadata)
+        if self.reads_factors:
+            note_read(source, self.policy_name, self.metadata_policy, metadata)
         return metadata
 
 

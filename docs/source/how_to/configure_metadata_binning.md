@@ -21,8 +21,9 @@ The three `metadata_*` settings are accepted by every workflow that builds metad
 
 `data-cleaning` and `ood-detection` take a policy's name, `metadata:`, but none of the `metadata_*` settings. A custom
 workflow's or preset's result records the encodings its steps read in `metadata_binning`: one record, or `per_split`
-keyed by Dataset address where the steps read several Datasets or one Dataset two ways. A chain whose steps read no
-metadata records none, and its `metadata_binning` and `encoding_digest` are `null`.
+keyed by Dataset address where the steps read several Datasets or one Dataset two ways. A step that reads labels
+alone, as `label-health` does, adds nothing to it, so a split's parts are not recorded when only their labels are read.
+A chain whose steps read no factors records none, and its `metadata_binning` and `encoding_digest` are `null`.
 
 ## Define the policy once and share it
 
