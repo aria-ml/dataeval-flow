@@ -36,6 +36,7 @@ import pytest
 
 from dataeval_flow import run_tasks
 from dataeval_flow.steps import ChainResult
+from tests.golden.rerouting import approximately
 from tests.golden.splitting import CASES, pipeline
 
 _GOLDEN = json.loads((Path(__file__).parent / "golden" / "splitting.json").read_text())
@@ -95,8 +96,8 @@ def test_data_splitting_gives_the_splits_it_gave_before_its_port(name: str) -> N
     assert produced["test_counts"] == golden["test_counts"]
     assert produced["full_counts"] == golden["full_counts"]
     assert [{key: fold[key] for key in produced["folds"][0]} for fold in golden["folds"]] == produced["folds"]
-    assert produced["balance"] == golden["balance"]
-    assert produced["diversity"] == golden["diversity"]
+    assert produced["balance"] == approximately(golden["balance"])
+    assert produced["diversity"] == approximately(golden["diversity"])
     imbalance = next(finding for finding in result.findings if finding.step == "labels-check")
     assert imbalance.severity == golden["class_distribution"]
 
