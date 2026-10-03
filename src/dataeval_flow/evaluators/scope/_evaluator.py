@@ -57,11 +57,21 @@ class RepresentationEvaluator(Evaluator[RepresentationConfig, RepresentationOutp
     description: ClassVar[str] = "Class counts against an ontology's leaves (DataEval Representation)"
     dataeval_class: ClassVar[type] = Representation
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "evaluate"}
-    output_extras: ClassVar[tuple[str, ...]] = ("leaf_coverage", "total_deficit", "violations", "dark_branches")
+    output_extras: ClassVar[tuple[str, ...]] = (
+        "leaf_coverage",
+        "total_deficit",
+        "violations",
+        "dark_branches",
+        "ignored_expected",
+    )
     reads_factors: ClassVar[bool] = False
 
     def run(self, config: RepresentationConfig, inputs: Sequence[EvaluatorInputs]) -> RepresentationOutput:
-        """Count the source's labels against the task's ontology, or one synthesized from its ``index2label``."""
+        """Count the source's labels against the task's ontology, or one synthesized from its ``index2label``.
+
+        The output also records the ``expected`` names that resolve to no concept or to several, which
+        Representation drops with only a log warning, and how the ontology was named (coverage spec §3.3).
+        """
         from dataeval_flow.workflows._ontology import synthesize_ontology
 
         (source,) = inputs
@@ -72,8 +82,16 @@ class RepresentationEvaluator(Evaluator[RepresentationConfig, RepresentationOutp
                 "counts class labels."
             )
         index2label = dict(source.index2label or {})
-        ontology = source.ontology if source.ontology is not None else synthesize_ontology(index2label)[0]
-        return Representation(ontology, **dataeval_arguments(config)).evaluate(labels, index2label=index2label)
+        if source.ontology is not None:
+            ontology, named = source.ontology, source.ontology_source
+        else:
+            ontology, named = synthesize_ontology(index2label)
+        output = Representation(ontology, **dataeval_arguments(config)).evaluate(labels, index2label=index2label)
+        output.ignored_expected = sorted(  # pyright: ignore[reportAttributeAccessIssue]
+            name for name in (config.expected or {}) if len(ontology.find(name)) != 1
+        )
+        output.ontology_source = named  # pyright: ignore[reportAttributeAccessIssue]
+        return output
 
 
 @dataclass(frozen=True)

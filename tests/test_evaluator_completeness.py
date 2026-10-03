@@ -66,7 +66,8 @@ _ECHOES: dict[str, frozenset[str]] = {
     "balance": frozenset({"plot_type"}),
     "diversity": frozenset({"plot_type"}),
     "parity": frozenset(),
-    "representation": frozenset(),
+    # `ontology_source` is how the config named the ontology, read back by `leaf-coverage` rather than serialized.
+    "representation": frozenset({"ontology_source"}),
     "coverage": frozenset({"class_axis"}),
     "prioritize": frozenset({"class_labels", "method", "num_bins", "order", "policy"}),
     "drift-domain-classifier": frozenset(),

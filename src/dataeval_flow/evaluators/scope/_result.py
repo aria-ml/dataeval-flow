@@ -23,13 +23,21 @@ class RepresentationResult(EvaluatorResult[RepresentationOutput]):
     output
         DataEval's ``RepresentationOutput``: ``data()`` is the worklist, one row per concept short of its target
         (``concept``, ``label``, ``parent``, ``action``, ``count``, ``target``, ``deficit``). ``leaf_coverage``,
-        ``total_deficit``, ``violations`` and ``dark_branches`` are the summary ``to_dict()`` writes under ``extras``.
+        ``total_deficit``, ``violations`` and ``dark_branches`` are the summary ``to_dict()`` writes under ``extras``,
+        and ``ignored_expected``, the ``expected`` names that resolve to no concept or to several, is a fifth.
+        ``output.ontology_source`` is how the config named the ontology.
     metadata.evaluator
         The evaluator type, e.g. ``duplicates``.
     metadata.dataeval
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
     """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """Leaf coverage, the deficit and how many concepts fall short."""
+        from dataeval_flow.evaluators.scope._report import representation_section
+
+        return representation_section(output)
 
 
 class CoverageResult(EvaluatorResult[CoverageOutput]):

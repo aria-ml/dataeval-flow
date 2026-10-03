@@ -5,11 +5,13 @@ Field names are DataEval's argument names. An unset field is not passed, so Data
 
 __all__ = ["CoverageConfig", "LabelAlignmentConfig", "LabelAlignmentResult", "PrioritizeConfig", "RepresentationConfig"]
 
+from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import Field
 
 from dataeval_flow._alignment import LabelAlignmentOutput
+from dataeval_flow._blocks import Block
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators._result import EvaluatorResult
@@ -231,6 +233,12 @@ class LabelAlignmentResult(EvaluatorResult[LabelAlignmentOutput]):
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
     """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """Its mergeability, and how many names correspond, were dropped, or are not covered."""
+        from dataeval_flow.evaluators.scope._report import label_alignment_section
+
+        return label_alignment_section(output)
 
 
 class LabelAlignmentConfig(EvaluatorConfig[LabelAlignmentResult]):

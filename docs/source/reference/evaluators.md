@@ -216,8 +216,8 @@ with labels, and fails, naming the source, without them. Configured by
 | `expected` | `expected`: class name to its minimum share, a fraction | a uniform share for every leaf |
 
 Output: a table, the worklist, with one row per concept short of its target (`concept`, `label`, `parent`,
-`action`, `count`, `target`, `deficit`). `extras` holds `leaf_coverage`, `total_deficit`, and the `violations` and
-`dark_branches` tables.
+`action`, `count`, `target`, `deficit`). `extras` holds `leaf_coverage`, `total_deficit`, the `violations` and
+`dark_branches` tables, and `ignored_expected`, the `expected` names that resolve to no concept or to several.
 
 ### `coverage`
 

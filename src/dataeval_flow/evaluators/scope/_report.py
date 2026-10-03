@@ -1,11 +1,17 @@
 """The scope evaluators' report tables."""
 
-__all__ = ["coverage_section", "prioritize_section", "uncovered_blocks"]
+__all__ = [
+    "coverage_section",
+    "label_alignment_section",
+    "prioritize_section",
+    "representation_section",
+    "uncovered_blocks",
+]
 
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from dataeval_flow._blocks import Block, Cell, Column, ItemRef, Paragraph, Section, Table
+from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Paragraph, Section, Table
 from dataeval_flow._tables import table_limits
 
 
@@ -64,6 +70,39 @@ def coverage_section(output: Mapping[str, Any], sources: Sequence[str], *, detai
     return [
         *uncovered_blocks(refs, "images", listed_in="output.extras.uncovered_indices"),
         *output_blocks({**output, "extras": extras}, detailed=detailed),
+    ]
+
+
+def representation_section(output: Mapping[str, Any]) -> list[Block]:
+    """A Representation Output's report: leaf coverage, the deficit and how many concepts fall short. The worklist
+    itself is shown by the check that judges it (coverage spec §3.3)."""
+    extras = output.get("extras") or {}
+    worklist = output.get("rows") or []  # the worklist serializes as a table
+    coverage = extras.get("leaf_coverage")
+    return [
+        Fields(
+            items=[
+                ("Leaf coverage", None if coverage is None else f"{round(float(coverage) * 100, 1)}%"),
+                ("Total deficit", extras.get("total_deficit")),
+                ("Concepts short", len(worklist)),
+            ]
+        )
+    ]
+
+
+def label_alignment_section(output: Mapping[str, Any]) -> list[Block]:
+    """A Label Alignment Output's report: its mergeability and its counts. The correspondences are shown by the check
+    that judges it (coverage spec §3.3)."""
+    data = output.get("data") or {}
+    return [
+        Fields(
+            items=[
+                ("Mergeability", data.get("mergeability")),
+                ("Correspondences", len(data.get("correspondences") or [])),
+                ("Dropped", len(data.get("unaligned_source") or [])),
+                ("Not covered", len(data.get("unaligned_target") or [])),
+            ]
+        )
     ]
 
 
