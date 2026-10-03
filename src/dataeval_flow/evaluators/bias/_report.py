@@ -1,11 +1,11 @@
 """The bias evaluators' report tables."""
 
-__all__ = ["balance_section", "ranked_table"]
+__all__ = ["balance_section", "metadata_summary_section", "ranked_table"]
 
 from collections.abc import Mapping
 from typing import Any
 
-from dataeval_flow._blocks import Block, Cell, Column, Section, Table
+from dataeval_flow._blocks import Block, Cell, Column, Paragraph, Section, Table
 
 
 def ranked_table(values: Mapping[Any, float], *, headers: tuple[str, str]) -> Table:
@@ -45,3 +45,42 @@ def balance_section(output: Mapping[str, Any], *, detailed: bool) -> list[Block]
         else []
     )
     return [*ranked, *output_blocks({**output, "data": data}, detailed=detailed)]
+
+
+def metadata_summary_section(output: Mapping[str, Any]) -> list[Block]:
+    """A Metadata Summary Output's report: legacy data-coverage's Metadata Distribution table over the kept factors, or
+    a sentence when there are none (coverage spec §6.1)."""
+    data = output.get("data") or {}
+    factors = list(data.get("factors") or [])
+    if not factors:
+        return [Paragraph(text="No metadata factors available")]
+    summary = data.get("summary") or {}
+    rows: list[dict[str, Cell]] = []
+    for name in factors:
+        stats = summary.get(name) or {}
+        if "unique_values" in stats:
+            unique: Cell = stats["unique_values"]
+        elif stats.get("mean") is not None:
+            # An all-null column (e.g. a target-level factor read off image-level rows) has a null mean: absent.
+            unique = f"μ={round(stats['mean'], 2)}"
+        else:
+            unique = "-"
+        rows.append(
+            {
+                "factor": name,
+                "type": stats.get("type", "unknown"),
+                "unique": unique,
+                "nulls": stats.get("null_count", 0),
+            }
+        )
+    return [
+        Table(
+            columns=[
+                Column(key="factor", header="Factor"),
+                Column(key="type", header="Type"),
+                Column(key="unique", header="Unique"),
+                Column(key="nulls", header="Nulls"),
+            ],
+            rows=rows,
+        )
+    ]

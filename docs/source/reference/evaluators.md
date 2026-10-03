@@ -13,6 +13,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | --- | --- | --- | --- | --- |
 | `balance` | `dataeval.bias.Balance` | metadata | 1 | refused |
 | `diversity` | `dataeval.bias.Diversity` | metadata | 1 | refused |
+| `metadata-summary` | `dataeval.Metadata` | metadata | 1 | refused |
 | `parity` | `dataeval.bias.Parity` | metadata | 1 | refused |
 | `duplicates` | `dataeval.quality.Duplicates` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 | `outliers` | `dataeval.quality.Outliers` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
@@ -82,6 +83,19 @@ How evenly each metadata factor's values are spread, overall and within each cla
 
 Output: a mapping of two tables. `factors` has each factor's diversity and whether it is low, and `classwise` each
 class's.
+
+### `metadata-summary`
+
+Each metadata factor's type, binning, nulls, and range or top values, as legacy data-coverage's Metadata Distribution
+listed them. Configured by {py:class}`~dataeval_flow.evaluators.bias.MetadataSummaryConfig`. It reads the Dataset's
+metadata through DataEval's `Metadata`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `metadata` | (DataEval Flow) the name of a `metadata:` policy | DataEval's default encoding |
+
+Output: a mapping of `factors`, the kept factor names, and `summary`, each factor's type, level, binning, nulls, and
+its range or top values, and each dropped factor with its reasons.
 
 ### `parity`
 

@@ -28,6 +28,7 @@ _TITLES = {
     "label-health": "Label Health",
     "outliers": "Outliers",
     "factor-triage": "Factor Triage",
+    "metadata-summary": "Metadata Summary",
     "coverage": "Coverage",
     "label-alignment": "Label Alignment",
     "completeness": "Completeness",

@@ -11,6 +11,7 @@ __all__ = ["EVALUATORS", "get_evaluator", "list_evaluators"]
 _BUILTINS = {
     "balance": "dataeval_flow.evaluators.bias._evaluator:BalanceEvaluator",
     "diversity": "dataeval_flow.evaluators.bias._evaluator:DiversityEvaluator",
+    "metadata-summary": "dataeval_flow.evaluators.bias._evaluator:MetadataSummaryEvaluator",
     "parity": "dataeval_flow.evaluators.bias._evaluator:ParityEvaluator",
     "duplicates": "dataeval_flow.evaluators.quality._evaluator:DuplicatesEvaluator",
     "factor-triage": "dataeval_flow.evaluators.quality._triage:FactorTriageEvaluator",

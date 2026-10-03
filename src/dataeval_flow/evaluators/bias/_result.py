@@ -6,9 +6,16 @@ from typing import Any
 from dataeval.bias import BalanceOutput, DiversityOutput, ParityOutput
 
 from dataeval_flow._blocks import Block
+from dataeval_flow.evaluators._core import CoreOutput
 from dataeval_flow.evaluators._result import EvaluatorResult
 
-__all__ = ["BalanceResult", "DiversityResult", "ParityResult"]
+__all__ = [
+    "BalanceResult",
+    "DiversityResult",
+    "MetadataSummaryOutput",
+    "MetadataSummaryResult",
+    "ParityResult",
+]
 
 
 class BalanceResult(EvaluatorResult[BalanceOutput]):
@@ -77,3 +84,37 @@ class ParityResult(EvaluatorResult[ParityOutput]):
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
     """
+
+
+class MetadataSummaryOutput(CoreOutput):
+    """``metadata-summary``'s output: each metadata factor's type, binning, nulls and range or top values.
+
+    ``data()`` holds ``factors``, the kept factor names, and ``summary``, each factor's type, level, binning, nulls, and
+    its range or top values, and each dropped factor with its reasons.
+    """
+
+
+class MetadataSummaryResult(EvaluatorResult[MetadataSummaryOutput]):
+    """The result of a ``metadata-summary`` run; ``output`` is a
+    :class:`~dataeval_flow.evaluators.bias.MetadataSummaryOutput`.
+
+    ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
+    fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
+    fields of :class:`~dataeval_flow.ResultMetadata`.
+
+    Fields
+    ------
+    output
+        ``data()`` holds ``factors``, the kept factor names, and ``summary``, each factor's statistics by name.
+    metadata.evaluator
+        The evaluator type, e.g. ``duplicates``.
+    metadata.dataeval
+        DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
+        parameters as written are in ``resolved_config``.
+    """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """The kept factors' table: type, unique values or mean, nulls."""
+        from dataeval_flow.evaluators.bias._report import metadata_summary_section
+
+        return metadata_summary_section(output)

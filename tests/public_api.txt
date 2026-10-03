@@ -70,6 +70,10 @@ dataeval_flow.evaluators.bias:BalanceResult
 dataeval_flow.evaluators.bias:DiversityConfig
 dataeval_flow.evaluators.bias:DiversityEvaluator
 dataeval_flow.evaluators.bias:DiversityResult
+dataeval_flow.evaluators.bias:MetadataSummaryConfig
+dataeval_flow.evaluators.bias:MetadataSummaryEvaluator
+dataeval_flow.evaluators.bias:MetadataSummaryOutput
+dataeval_flow.evaluators.bias:MetadataSummaryResult
 dataeval_flow.evaluators.bias:ParityConfig
 dataeval_flow.evaluators.bias:ParityEvaluator
 dataeval_flow.evaluators.bias:ParityResult
