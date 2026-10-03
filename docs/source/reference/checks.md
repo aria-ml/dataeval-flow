@@ -25,6 +25,8 @@ detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s
 | `uncovered-rate` | check | `input`: a `coverage` Output | Uncovered Rate |
 | `coverage-gaps` | check | `input`: a `factor-gaps` Output | Metadata Coverage Gaps |
 | `completeness-score` | check | `input`: a `completeness` Output | Dimensional Completeness |
+| `class-coverage` | check | `input`: a `coverage` Output | Embedding Coverage |
+| `class-shortfall` | check | `input`: a `representation` Output with no ontology | Class Balance Worklist |
 | `leaf-coverage` | check | `input`: a `representation` Output against a declared ontology | Label Space Coverage |
 | `label-conformance` | check | `input`: a `label-reconciliation` Output | Label Conformance |
 | `mergeability` | check | `input`: a `label-alignment` Output | Label Alignment |
@@ -171,6 +173,30 @@ nothing is judged and the finding informs. Configured by
 | `input` | an address | required | A `completeness` Output |
 | `warning` | a score from 0 to 1, or `null` | `0.5` | The score under which the finding warns; must not exceed `info` |
 | `info` | a score from 0 to 1, or `null` | `0.8` | The score under which the finding informs |
+
+### `class-coverage`
+
+Which assessable classes `coverage` found clustered, one-dimensional or padded with near-duplicates, and how many items
+it left uncovered. Warns on any flagged class; informs while any item is uncovered; ok otherwise. On detection crops it
+notes the crops counted and the detections dropped. Configured by
+{py:class}`~dataeval_flow.steps.checks.ClassCoverageConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `coverage` Output |
+| `dispersion` | a number, or `null` | `0.5` | The dispersion under which a class is clustered; `null` turns it off |
+| `isotropy` | a number, or `null` | `0.5` | The isotropy under which a class is one-dimensional; `null` turns it off |
+| `near_duplicates` | a fraction, or `null` | `0.1` | The near-duplicate share over which a class is padded; `null` turns it off |
+
+### `class-shortfall`
+
+The classes short of an even spread over the classes the Dataset declares, and what each lacks. Warns on an unmet
+minimum share (`expected`); informs while any class is short; ok otherwise. Configured by
+{py:class}`~dataeval_flow.steps.checks.ClassShortfallConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `representation` Output, computed with no ontology |
 
 ### `leaf-coverage`
 

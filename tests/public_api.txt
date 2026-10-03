@@ -175,8 +175,12 @@ dataeval_flow.steps:list_combines
 dataeval_flow.steps:list_steps
 dataeval_flow.steps:list_transforms
 dataeval_flow.steps:parse_address
+dataeval_flow.steps.checks:ClassCoverageCheck
+dataeval_flow.steps.checks:ClassCoverageConfig
 dataeval_flow.steps.checks:ClassImbalanceCheck
 dataeval_flow.steps.checks:ClassImbalanceConfig
+dataeval_flow.steps.checks:ClassShortfallCheck
+dataeval_flow.steps.checks:ClassShortfallConfig
 dataeval_flow.steps.checks:ClasswiseOutlierRateCheck
 dataeval_flow.steps.checks:ClasswiseOutlierRateConfig
 dataeval_flow.steps.checks:CompletenessScoreCheck

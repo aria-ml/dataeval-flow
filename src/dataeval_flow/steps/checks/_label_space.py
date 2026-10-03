@@ -2,6 +2,8 @@
 findings, as steps (coverage spec §3.4)."""
 
 __all__ = [
+    "ClassShortfallCheck",
+    "ClassShortfallConfig",
     "LabelConformanceCheck",
     "LabelConformanceConfig",
     "LeafCoverageCheck",
@@ -50,14 +52,20 @@ def worklist_table(rows: Sequence[Mapping[str, Any]]) -> list[Block]:
     return [Table(columns=columns, rows=cells)]
 
 
-def shortfall_notes(violations: Sequence[Mapping[str, Any]], ignored: Sequence[str]) -> list[str]:
-    """The unmet minimum shares and the ignored `expected` entries, as legacy noted them."""
+def shortfall_notes(
+    violations: Sequence[Mapping[str, Any]],
+    ignored: Sequence[str],
+    *,
+    why: str = "they resolve to zero or several concepts",
+) -> list[str]:
+    """The unmet minimum shares and the ignored `expected` entries, with *why* they were ignored, as legacy noted
+    them."""
     notes: list[str] = []
     if violations:
         names = ", ".join(f"{v['label']} ({v['actual']:.1%} < {v['floor']:.1%})" for v in violations)
         notes.append(f"Asserted minimum shares not met: {names}.")
     if ignored:
-        notes.append(f"Ignored `expected` entries (they resolve to zero or several concepts): {', '.join(ignored)}.")
+        notes.append(f"Ignored `expected` entries ({why}): {', '.join(ignored)}.")
     return notes
 
 
@@ -264,5 +272,44 @@ class OntologyStructureCheck(Check[OntologyStructureConfig]):
                         ]
                     ),
                 ],
+            )
+        ]
+
+
+class ClassShortfallConfig(CheckConfig):
+    """A `class-shortfall` step's input. It has no thresholds: an unmet minimum share warns, a worklist informs."""
+
+    input: str = Field(description="A `representation` Output, computed with no ontology.")
+
+
+class ClassShortfallCheck(Check[ClassShortfallConfig]):
+    """``class-shortfall``: legacy data-coverage's Class Balance Worklist, the classes short of an even spread over
+    the classes the dataset declares (coverage spec §6.2)."""
+
+    name: ClassVar[str] = "class-shortfall"
+    description: ClassVar[str] = "Lists the classes short of an even spread, and warns on an unmet minimum share."
+    title: ClassVar[str] = "Class Balance Worklist"
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(RepresentationOutput,)),)
+
+    def run(self, config: ClassShortfallConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+        """The worklist, the unmet shares and the ignored `expected` names."""
+        value = inputs["input"].value
+        worklist = value.data().to_dicts()
+        violations = value.violations.to_dicts()
+        deficit = int(value.total_deficit)
+        severity: Severity = "warning" if violations else "info" if worklist else "ok"
+        notes = shortfall_notes(violations, list(getattr(value, "ignored_expected", [])), why="no class has that name")
+        return [
+            Finding(
+                severity=severity,
+                title=self.title,
+                brief=f"{len(worklist)} classes short · deficit {deficit}",
+                description=(
+                    f"{len(worklist)} class(es) fall short of an even spread, by {deficit} labels in total. Targets "
+                    "come from a uniform expectation over the classes the dataset itself declares — run a "
+                    "`label-space` entry with a declared `ontology` to measure coverage of a sanctioned label space "
+                    "instead, which is what reveals classes that were never collected at all."
+                ),
+                blocks=[*(Paragraph(text=note) for note in notes), *worklist_table(worklist)],
             )
         ]

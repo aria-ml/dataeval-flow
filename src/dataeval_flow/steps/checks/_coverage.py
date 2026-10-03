@@ -1,14 +1,21 @@
 """The `uncovered-rate` check: how much of a Dataset coverage left uncovered (data-splitting spec §6.2)."""
 
-__all__ = ["CompletenessScoreCheck", "CompletenessScoreConfig", "UncoveredRateCheck", "UncoveredRateConfig"]
+__all__ = [
+    "ClassCoverageCheck",
+    "ClassCoverageConfig",
+    "CompletenessScoreCheck",
+    "CompletenessScoreConfig",
+    "UncoveredRateCheck",
+    "UncoveredRateConfig",
+]
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, ClassVar, Self
 
 from dataeval.scope import CoverageOutput
 from pydantic import Field, model_validator
 
-from dataeval_flow._blocks import Fields
+from dataeval_flow._blocks import Fields, Paragraph
 from dataeval_flow.evaluators.scope import CompletenessOutput
 from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
@@ -116,3 +123,104 @@ class CompletenessScoreCheck(Check[CompletenessScoreConfig]):
                 ],
             )
         ]
+
+
+class ClassCoverageConfig(CheckConfig):
+    """A `class-coverage` step's input, and how clustered, flat or padded an assessable class may be."""
+
+    input: str = Field(description="A `coverage` Output.")
+    dispersion: float | None = Field(
+        default=0.5,
+        ge=0.0,
+        description="A class's dispersion under which it is clustered; `null` turns it off. Legacy `min_dispersion`.",
+    )
+    isotropy: float | None = Field(
+        default=0.5,
+        ge=0.0,
+        description="A class's isotropy under which it is one-dimensional; `null` turns it off. Legacy `min_isotropy`.",
+    )
+    near_duplicates: float | None = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "A class's near-duplicate share over which it is duplicate-padded; `null` turns it off. Legacy "
+            "`max_near_duplicate_fraction`."
+        ),
+    )
+
+
+class ClassCoverageCheck(Check[ClassCoverageConfig]):
+    """``class-coverage``: legacy data-coverage's Embedding Coverage finding. Warns where an assessable class is
+    clustered, one-dimensional or duplicate-padded; informs where any item is uncovered. The uncovered rate itself is
+    `uncovered-rate`'s (coverage spec §6.2)."""
+
+    name: ClassVar[str] = "class-coverage"
+    description: ClassVar[str] = "Warns when a class is clustered, one-dimensional or padded with near-duplicates."
+    title: ClassVar[str] = "Embedding Coverage"
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(CoverageOutput,)),)
+
+    def run(self, config: ClassCoverageConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+        """The uncovered share, each flagged class, and, on detection crops, legacy's notes on them."""
+        from dataeval.data import DetectionCrops
+
+        node = inputs["input"]
+        rows = [row for row in node.value.data().to_dicts() if row["assessable"]]
+        clustered = _flagged(rows, "dispersion", config.dispersion, under=True)
+        flat = _flagged(rows, "isotropy", config.isotropy, under=True)
+        padded = _flagged(rows, "near_duplicate_fraction", config.near_duplicates, under=False)
+        uncovered = len(node.value.uncovered_indices)
+        total = node.items or 0
+        pct = round(uncovered / total * 100, 1) if total else 0.0
+        crops = [on.value for on in getattr(node, "computed_on", ()) if isinstance(on.value, DetectionCrops)]
+        units = "detection crops" if crops else "images"
+        if clustered or flat or padded:
+            severity: Severity = "warning"
+        elif uncovered:
+            severity = "info"
+        else:
+            severity = "ok"
+        flags = [
+            f"{len(names)} {word}"
+            for names, word in ((clustered, "clustered"), (flat, "one-dimensional"), (padded, "duplicate-padded"))
+            if names
+        ]
+        brief = f"{uncovered} uncovered ({pct}%)" + (" · " + ", ".join(flags) if flags else "")
+        notes: list[str] = []
+        if crops:
+            notes.append(
+                f"The embedding assessments run on {units} — one per ground-truth box — because "
+                "coverage assumes one embedding per label."
+            )
+            dropped = sum(int(crop.n_dropped) for crop in crops)
+            if dropped:
+                notes.append(
+                    f"{dropped} detection(s) were too small or degenerate to embed and "
+                    "are not covered by these numbers."
+                )
+        if clustered:
+            notes.append(f"Clustered (low dispersion): {', '.join(clustered)}.")
+        if flat:
+            notes.append(f"One-dimensional (low isotropy): {', '.join(flat)}.")
+        if padded:
+            notes.append(f"Duplicate-padded: {', '.join(padded)}.")
+        return [
+            Finding(
+                severity=severity,
+                title=self.title,
+                brief=brief,
+                description=f"{uncovered} of {total} {units} uncovered in embedding space.",
+                blocks=[Paragraph(text=note) for note in notes],
+            )
+        ]
+
+
+def _flagged(rows: Sequence[Mapping[str, Any]], column: str, limit: float | None, *, under: bool) -> list[str]:
+    """The classes whose `column` is under (or over) `limit`; none where the limit is ``None``."""
+    if limit is None:
+        return []
+    return [
+        str(row["class"])
+        for row in rows
+        if row[column] is not None and (row[column] < limit if under else row[column] > limit)
+    ]

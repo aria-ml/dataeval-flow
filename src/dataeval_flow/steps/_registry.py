@@ -39,7 +39,9 @@ _COMBINE_BUILTINS: dict[str, str] = {
     "ood-union": "dataeval_flow.steps.combines._ood:OODUnionCombine",
 }
 _CHECK_BUILTINS: dict[str, str] = {
+    "class-coverage": "dataeval_flow.steps.checks._coverage:ClassCoverageCheck",
     "class-imbalance": "dataeval_flow.steps.checks._labels:ClassImbalanceCheck",
+    "class-shortfall": "dataeval_flow.steps.checks._label_space:ClassShortfallCheck",
     "classwise-outlier-rate": "dataeval_flow.steps.checks._outliers:ClasswiseOutlierRateCheck",
     "completeness-score": "dataeval_flow.steps.checks._coverage:CompletenessScoreCheck",
     "coverage-gaps": "dataeval_flow.steps.checks._gaps:CoverageGapsCheck",
