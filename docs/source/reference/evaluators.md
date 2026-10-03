@@ -166,8 +166,8 @@ metadata.
 | `metadata` | (DataEval Flow) a policy under `metadata:`, which the metadata is built under | DataEval's defaults |
 
 Output: a mapping of `item_count`, `class_count` (the classes the Dataset declares, used or not), `label_count`,
-`label_counts_per_class` and `image_counts_per_class` (by class name, for the classes that occur),
-`empty_image_count`, and `label_source`, where the labels came from.
+`label_counts_per_class` and `image_counts_per_class` (by class name, for every declared class, at 0 where unseen),
+`empty_image_count`, `empty_image_indices` (the items with no label), and `label_source`, where the labels came from.
 
 ### `factor-triage`
 

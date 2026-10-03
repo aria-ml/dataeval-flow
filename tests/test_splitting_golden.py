@@ -24,6 +24,8 @@ Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), e
   DataEval's defaults.
 - **On detection data each part's label counts are its boxes' labels;** legacy indexed box labels by image index, so
   its per-part counts were wrong there. The golden is classification data.
+- **A declared class with no labels in a split is listed at 0.** `label-health` lists every declared class, at 0 where
+  unseen (coverage spec §5.3), so a part's label table, and stratification's, name it. `_same_counts` checks them.
 - **Indices are into the dataset at the bottom of the views;** the golden's source has none, so they agree.
 """
 
@@ -49,6 +51,19 @@ def _deviation(brief: str | None) -> float:
 
 def _counts(record: Any) -> dict[str, int]:
     return dict(record.output.data()["label_counts_per_class"])
+
+
+_DECLARED = {"cat", "dog", "bird"}  # the golden dataset's `index2label`
+
+
+def _same_counts(produced: dict[str, int], golden: dict[str, int]) -> None:
+    """The golden's classes agree exactly; the classes it left out are the declared ones, each at 0."""
+    if not golden:  # no such part
+        assert produced == {}
+        return
+    assert {name: produced[name] for name in golden} == golden
+    extra = {name: count for name, count in produced.items() if name not in golden}
+    assert extra == dict.fromkeys(_DECLARED - golden.keys(), 0)
 
 
 def _elements(record: Any, keys: list[str] | None) -> list[Any]:
@@ -93,9 +108,13 @@ def test_data_splitting_gives_the_splits_it_gave_before_its_port(name: str) -> N
     golden = _GOLDEN[name]
     produced = _produced(result)
     assert produced["test"] == golden["test"]
-    assert produced["test_counts"] == golden["test_counts"]
-    assert produced["full_counts"] == golden["full_counts"]
-    assert [{key: fold[key] for key in produced["folds"][0]} for fold in golden["folds"]] == produced["folds"]
+    _same_counts(produced["test_counts"], golden["test_counts"])
+    _same_counts(produced["full_counts"], golden["full_counts"])
+    assert len(produced["folds"]) == len(golden["folds"])
+    for fold, recorded in zip(produced["folds"], golden["folds"], strict=True):
+        assert (fold["train"], fold["val"]) == (recorded["train"], recorded["val"])
+        _same_counts(fold["train_counts"], recorded["train_counts"])
+        _same_counts(fold["val_counts"], recorded["val_counts"])
     assert produced["balance"] == approximately(golden["balance"])
     assert produced["diversity"] == approximately(golden["diversity"])
     imbalance = next(finding for finding in result.findings if finding.step == "labels-check")

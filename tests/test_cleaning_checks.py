@@ -322,7 +322,7 @@ def test_the_duplicate_and_label_checks_judge_nothing_where_their_limits_are_non
     _, chain = _both(steps, _DATASETS["detection"]())
     assert {f.title: f.severity for f in chain if f.title in {"Duplicates", "Label Distribution"}} == {
         "Duplicates": "info",
-        "Label Distribution": "info",
+        "Label Distribution": "warning",  # detection's `bus` is a declared class with no labels: ratio or not
     }
 
 
@@ -378,6 +378,7 @@ def _labels(counts: dict[str, int], *, classes: int, items: int, source: str | N
         "label_counts_per_class": counts,
         "image_counts_per_class": counts,
         "empty_image_count": 0,
+        "empty_image_indices": [],
         "label_source": source,
     }
     return LabelHealthOutput(data, None)
@@ -413,4 +414,5 @@ def test_class_imbalance_warns_on_a_class_with_no_labels_even_without_a_ratio_li
     labels = _labels({"car": 4, "van": 0}, classes=2, items=4)
     config = ClassImbalanceConfig(input="l", ratio=None)
     (finding,) = ClassImbalanceCheck().run(config, {"input": _node(labels)}, _CONTEXT)
-    assert (finding.severity, finding.brief) == ("warning", "2 classes, 4 items, imbalance 0.0:1")
+    # the ratio is over the classes with labels; the empty class alone makes it a warning
+    assert (finding.severity, finding.brief) == ("warning", "2 classes, 4 items, imbalance 1.0:1")

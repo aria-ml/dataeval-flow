@@ -46,8 +46,9 @@ class ClassImbalanceCheck(Check[ClassImbalanceConfig]):
         if not data["label_count"] or not classes:
             return []
         counts: dict[str, int] = dict(data["label_counts_per_class"])
-        empty = bool(counts) and min(counts.values()) == 0
-        ratio = round(max(counts.values()) / min(counts.values()), 1) if counts and not empty else 0.0
+        present = [count for count in counts.values() if count > 0]
+        empty = len(present) < len(counts)
+        ratio = round(max(present) / min(present), 1) if present else 0.0
         source = data.get("label_source")
         notes = [f"Labels {render_label_source(source)}"] if source else []
         if empty:

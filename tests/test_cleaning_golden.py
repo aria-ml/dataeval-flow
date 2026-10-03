@@ -5,6 +5,8 @@ Deliberate differences from its legacy run (spec §10.3 item 3), each with its r
 - **It names its items by the chain's input, `data`, not by the source.** Spec §7.4 has an item reference name the
   node address it was read from.
   `tests/test_run.py::test_a_cleaning_run_carries_a_thumbnail_of_each_item_its_report_names` pins it.
+- **A declared class with no labels makes Label Distribution a warning.** `label-health` lists every declared class,
+  at 0 where unseen (coverage spec §5.3, §6.3), so the `detection` case's `bus` is an empty class.
 """
 
 import json
@@ -27,7 +29,12 @@ def test_every_case_is_recorded() -> None:
 
 @pytest.mark.parametrize("name", sorted(CASES))
 def test_data_cleaning_gives_the_findings_it_gave_before_its_port(name: str) -> None:
-    assert [[f.severity, f.title, f.brief] for f in CASES[name]()] == _GOLDEN[name]
+    expected = [list(row) for row in _GOLDEN[name]]
+    if name == "detection":
+        for row in expected:
+            if row[1] == "Label Distribution":
+                row[0] = "warning"
+    assert [[f.severity, f.title, f.brief] for f in CASES[name]()] == expected
 
 
 def test_a_data_cleaning_result_records_the_encoding_its_steps_read() -> None:
