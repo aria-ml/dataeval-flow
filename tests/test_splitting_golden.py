@@ -2,7 +2,7 @@
 balance and diversity rows, its class-imbalance verdict, the largest stratification deviation and its verdict, and
 each part's uncovered count (data-splitting spec §9).
 
-Deliberate differences from its legacy run (spec §10.3 item 3), each with its reason:
+Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), each with its reason:
 
 - **Titles and briefs are the checks' own:** "Label Distribution", "Stratification", "Uncovered Rate".
 - **The split sizes are the split step's section, not findings.**

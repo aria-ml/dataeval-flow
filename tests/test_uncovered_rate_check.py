@@ -11,7 +11,7 @@ from dataeval_flow._cache import DatasetCache
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.steps.checks import UncoveredRateCheck, UncoveredRateConfig
 from tests.chain_toys import chain_pipeline, run_chain_task
-from tests.evaluator_toys import ToyImages
+from tests.evaluator_toys import ToyFactors
 
 
 def _judge(uncovered: int, items: int, **settings: Any) -> Any:
@@ -36,10 +36,9 @@ def test_a_null_rate_judges_nothing() -> None:
 
 def test_it_judges_naive_coverage_in_a_chain() -> None:
     DatasetCache.clear_instances()
-    toys = ToyImages(count=12)
-    # naive coverage's critical value takes gamma(d / 2 + 1), which overflows past ~340 dimensions; 8 x 8 pixels flatten
-    # to 192, where the toys' 16 x 16 would flatten to 768
-    toys._images = [image[:, :8, :8] for image in toys._images]
+    # naive coverage's critical value takes gamma(d / 2 + 1), which overflows past ~340 dimensions; 3 x 8 x 8 pixels
+    # flatten to 192
+    toys = ToyFactors(count=12)
     steps = [
         {"name": "cov", "evaluator": "cov", "input": "data"},
         {"name": "uncovered", "check": "uncovered-rate", "input": "cov", "rate": 100.0},

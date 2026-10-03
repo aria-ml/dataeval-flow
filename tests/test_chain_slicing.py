@@ -123,6 +123,7 @@ def test_a_view_of_an_embedded_node_extracts_nothing(monkeypatch: pytest.MonkeyP
     assert sizes == [12]
 
 
+# Also the guard that a stateful extractor's fit stays where it lands: a parent is never extracted early.
 def test_a_view_embedded_before_its_parent_extracts_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
     sizes = _extractions(monkeypatch)
     _chain([_PART, _SUB, _WHOLE], _COVERAGE)
