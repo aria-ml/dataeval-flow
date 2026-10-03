@@ -6,6 +6,7 @@
 __all__ = [
     "CoverageEvaluator",
     "LabelAlignmentEvaluator",
+    "LabelReconciliationEvaluator",
     "PrioritizeEvaluator",
     "RepresentationEvaluator",
     "usable_labels",
@@ -19,7 +20,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from dataeval.core import RankResult, label_alignment
+from dataeval.core import RankResult, label_alignment, label_reconciliation
 from dataeval.scope import (
     Coverage,
     CoverageOutput,
@@ -38,9 +39,11 @@ from dataeval_flow.evaluators._inputs import EvaluatorInputs
 from dataeval_flow.evaluators.scope._config import (
     CoverageConfig,
     LabelAlignmentConfig,
+    LabelReconciliationConfig,
     PrioritizeConfig,
     RepresentationConfig,
 )
+from dataeval_flow.evaluators.scope._result import LabelReconciliationOutput
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -203,3 +206,35 @@ class LabelAlignmentEvaluator(Evaluator[LabelAlignmentConfig, LabelAlignmentOutp
             "dataeval.core.label_alignment", started, time.monotonic() - clock, {"threshold": config.threshold}
         )
         return LabelAlignmentOutput(alignment, source.ontology, meta, ontology_source=source.ontology_source)
+
+
+class LabelReconciliationEvaluator(Evaluator[LabelReconciliationConfig, LabelReconciliationOutput]):
+    """``label-reconciliation``: which class names resolve to one ontology concept, per DataEval's
+    label_reconciliation."""
+
+    name: ClassVar[str] = "label-reconciliation"
+    title: ClassVar[str] = "Label Reconciliation"
+    description: ClassVar[str] = "Which of a Dataset's class names resolve to exactly one ontology concept"
+    dataeval_class: ClassVar[Any] = label_reconciliation
+    dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "__call__"}
+    reads_factors: ClassVar[bool] = False
+
+    def run(self, config: LabelReconciliationConfig, inputs: Sequence[EvaluatorInputs]) -> LabelReconciliationOutput:  # noqa: ARG002
+        """Reconcile the source's class names, in index order, against the task's ontology."""
+        (source,) = inputs
+        if source.ontology is None:
+            raise ValueError("`label-reconciliation` needs its `ontology:` to load.")
+        index2label = dict(source.index2label or {})
+        names = [index2label[index] for index in sorted(index2label)]
+        started, clock = datetime.now(UTC), time.monotonic()
+        result = label_reconciliation(names, source.ontology)
+        meta = execution("dataeval.core.label_reconciliation", started, time.monotonic() - clock, {})
+        unmatched = list(result["unmatched"])
+        ambiguous = {name: list(ids) for name, ids in result["ambiguous"].items()}
+        data = {
+            "conforms": not unmatched and not ambiguous,
+            "matched": dict(result["matched"]),
+            "unmatched": unmatched,
+            "ambiguous": ambiguous,
+        }
+        return LabelReconciliationOutput(data, meta)

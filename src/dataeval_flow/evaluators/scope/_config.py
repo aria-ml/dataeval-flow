@@ -3,7 +3,14 @@
 Field names are DataEval's argument names. An unset field is not passed, so DataEval's own default applies.
 """
 
-__all__ = ["CoverageConfig", "LabelAlignmentConfig", "LabelAlignmentResult", "PrioritizeConfig", "RepresentationConfig"]
+__all__ = [
+    "CoverageConfig",
+    "LabelAlignmentConfig",
+    "LabelAlignmentResult",
+    "LabelReconciliationConfig",
+    "PrioritizeConfig",
+    "RepresentationConfig",
+]
 
 from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, ClassVar, Literal
@@ -15,7 +22,12 @@ from dataeval_flow._blocks import Block
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators._result import EvaluatorResult
-from dataeval_flow.evaluators.scope._result import CoverageResult, PrioritizeResult, RepresentationResult
+from dataeval_flow.evaluators.scope._result import (
+    CoverageResult,
+    LabelReconciliationResult,
+    PrioritizeResult,
+    RepresentationResult,
+)
 
 
 class RepresentationConfig(EvaluatorConfig[RepresentationResult]):
@@ -258,4 +270,28 @@ class LabelAlignmentConfig(EvaluatorConfig[LabelAlignmentResult]):
     )
     threshold: float = Field(
         default=0.0, ge=0.0, le=1.0, description="DataEval's `threshold`: the lowest confidence a fuzzy match keeps."
+    )
+
+
+class LabelReconciliationConfig(EvaluatorConfig[LabelReconciliationResult]):
+    """Config for ``label-reconciliation``: which of a Dataset's class names resolve to exactly one ontology concept.
+
+    Wraps ``dataeval.core.label_reconciliation`` over the Dataset's ``index2label`` names, in index order. An
+    unmatched name is out of vocabulary; an ambiguous one names several concepts.
+
+    Example YAML::
+
+        evaluators:
+          - name: reconciliation
+            type: label-reconciliation
+            ontology: vehicles
+    """
+
+    type: str = Field(
+        default="label-reconciliation",
+        description="The evaluator type this entry configures: `label-reconciliation`.",
+    )
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
+    ontology: dict[str, Any] | str = Field(
+        description="The ontology to reconcile against: a name from `ontologies:`, a path, or an inline hierarchy."
     )

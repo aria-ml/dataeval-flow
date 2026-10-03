@@ -6,9 +6,16 @@ from typing import Any
 from dataeval.scope import CoverageOutput, PrioritizeOutput, RepresentationOutput
 
 from dataeval_flow._blocks import Block
+from dataeval_flow.evaluators._core import CoreOutput
 from dataeval_flow.evaluators._result import EvaluatorResult
 
-__all__ = ["CoverageResult", "PrioritizeResult", "RepresentationResult"]
+__all__ = [
+    "CoverageResult",
+    "LabelReconciliationOutput",
+    "LabelReconciliationResult",
+    "PrioritizeResult",
+    "RepresentationResult",
+]
 
 
 class RepresentationResult(EvaluatorResult[RepresentationOutput]):
@@ -93,3 +100,46 @@ class PrioritizeResult(EvaluatorResult[PrioritizeOutput]):
         from dataeval_flow.evaluators.scope._report import prioritize_section
 
         return prioritize_section(output, sources, detailed=detailed)
+
+
+class LabelReconciliationOutput(CoreOutput):
+    """``label-reconciliation``'s output: ``data()`` holds ``conforms``, ``matched`` (class name to concept id),
+    ``unmatched`` (names no concept answers to) and ``ambiguous`` (each name several concepts answer to, with their
+    ids)."""
+
+
+class LabelReconciliationResult(EvaluatorResult[LabelReconciliationOutput]):
+    """The result of a ``label-reconciliation`` run; ``output`` is a
+    :class:`~dataeval_flow.evaluators.scope.LabelReconciliationOutput`.
+
+    ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
+    fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
+    fields of :class:`~dataeval_flow.ResultMetadata`.
+
+    Fields
+    ------
+    output
+        ``data()`` holds ``conforms``, true where no name is unmatched or ambiguous; ``matched``, each class name to
+        the concept id it resolves to; ``unmatched``; and ``ambiguous``, each name to the ids of the concepts it
+        names.
+    metadata.evaluator
+        The evaluator type, e.g. ``duplicates``.
+    metadata.dataeval
+        DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
+        parameters as written are in ``resolved_config``.
+    """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """How many names matched, were unmatched, or were ambiguous."""
+        from dataeval_flow._blocks import Fields
+
+        data = output.get("data") or {}
+        return [
+            Fields(
+                items=[
+                    ("Matched", len(data.get("matched") or {})),
+                    ("Unmatched", len(data.get("unmatched") or [])),
+                    ("Ambiguous", len(data.get("ambiguous") or {})),
+                ]
+            )
+        ]

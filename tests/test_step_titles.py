@@ -30,6 +30,7 @@ _TITLES = {
     "factor-triage": "Factor Triage",
     "coverage": "Coverage",
     "label-alignment": "Label Alignment",
+    "label-reconciliation": "Label Reconciliation",
     "prioritize": "Prioritization",
     "representation": "Representation",
     "drift-domain-classifier": "Drift (Domain Classifier)",

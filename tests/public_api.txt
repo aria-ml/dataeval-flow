@@ -96,6 +96,10 @@ dataeval_flow.evaluators.scope:LabelAlignmentConfig
 dataeval_flow.evaluators.scope:LabelAlignmentEvaluator
 dataeval_flow.evaluators.scope:LabelAlignmentOutput
 dataeval_flow.evaluators.scope:LabelAlignmentResult
+dataeval_flow.evaluators.scope:LabelReconciliationConfig
+dataeval_flow.evaluators.scope:LabelReconciliationEvaluator
+dataeval_flow.evaluators.scope:LabelReconciliationOutput
+dataeval_flow.evaluators.scope:LabelReconciliationResult
 dataeval_flow.evaluators.scope:PrioritizeConfig
 dataeval_flow.evaluators.scope:PrioritizeEvaluator
 dataeval_flow.evaluators.scope:PrioritizeResult

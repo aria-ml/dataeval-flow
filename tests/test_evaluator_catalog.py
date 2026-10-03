@@ -27,6 +27,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "coverage": ("1", "required"),
     "prioritize": ("1-2", "required"),
     "label-alignment": ("1", "refused"),
+    "label-reconciliation": ("1", "refused"),
     "drift-domain-classifier": ("2", "required"),
     "drift-kneighbors": ("2", "required"),
     "drift-mmd": ("2", "required"),
