@@ -14,10 +14,8 @@ from dataeval.config import set_seed
 from dataeval_flow import PipelineConfig, Result, run_task
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.bias import BalanceConfig, DiversityConfig
-from dataeval_flow.evaluators.scope import CoverageConfig, RepresentationConfig
 from dataeval_flow.workflows.data_analysis import DataAnalysisConfig, DataAnalysisResult
-from dataeval_flow.workflows.data_coverage import DataCoverageConfig, DataCoverageResult
-from tests.evaluator_toys import ToyFactors, ToyImages, output_json, toy_pipeline
+from tests.evaluator_toys import ToyFactors, output_json, toy_pipeline
 
 
 def _run(config: PipelineConfig, task: TaskConfig) -> "Result[Any, Any]":
@@ -43,40 +41,6 @@ def _tasks(workflow: str, evaluator: str, sources: list[str], *, extractor: bool
     ]
 
 
-def test_coverage_agrees_with_data_coverage():
-    settings = {"num_observations": 5, "min_class_samples": 5, "near_duplicate_factor": 0.5}
-    workflow = DataCoverageConfig(
-        name="wf", coverage_method="adaptive", coverage_percent=0.01, run_completeness=False, **settings
-    )
-    evaluator = CoverageConfig(name="ev", method="adaptive", percent=0.01, **settings)
-    tasks = _tasks("wf", "ev", ["src"], extractor=True)
-    config = toy_pipeline(
-        workflows=[workflow], evaluators=[evaluator], tasks=tasks, dataset=ToyImages(count=40), extractor=True
-    )
-    workflow_result, evaluator_result = _run(config, tasks[0]), _run(config, tasks[1])
-    assert isinstance(workflow_result, DataCoverageResult)
-    coverage = workflow_result.output.raw.coverage
-    assert coverage is not None
-    table = output_json(evaluator_result)
-    assert table["rows"] == _json(
-        [
-            {
-                "class": row.class_name,
-                "count": row.count,
-                "uncovered": row.uncovered,
-                "uncovered_fraction": row.uncovered_fraction,
-                "dispersion": row.dispersion,
-                "isotropy": row.isotropy,
-                "near_duplicate_fraction": row.near_duplicate_fraction,
-                "assessable": row.assessable,
-            }
-            for row in coverage.per_class
-        ]
-    )
-    assert table["extras"]["coverage_radius"] == pytest.approx(coverage.coverage_radius)
-    assert len(table["extras"]["uncovered_indices"]) == coverage.uncovered_count
-
-
 @pytest.mark.parametrize(
     ("evaluator", "summary", "tables"),
     [
@@ -96,23 +60,3 @@ def test_bias_agrees_with_data_analysis(evaluator: Any, summary: str, tables: tu
     data = output_json(evaluator_result)["data"]
     for table in tables:
         assert data[table]["rows"] == _json(expected[table]), table
-
-
-def test_representation_agrees_with_data_coverage():
-    toy = ToyImages(count=40)
-    toy.metadata["index2label"] = {0: "a", 1: "b", 2: "c"}  # type: ignore[reportTypedDictNotRequiredAccess]
-    ontology = {"animal": ["a", "b", "c", "d"]}
-    workflow = DataCoverageConfig(name="wf", ontology=ontology, ontology_expected={"a": 0.6}, run_completeness=False)
-    evaluator = RepresentationConfig(name="ev", ontology=ontology, expected={"a": 0.6})
-    tasks = _tasks("wf", "ev", ["src"], extractor=False)
-    config = toy_pipeline(workflows=[workflow], evaluators=[evaluator], tasks=tasks, dataset=toy)
-    workflow_result, evaluator_result = _run(config, tasks[0]), _run(config, tasks[1])
-    assert isinstance(workflow_result, DataCoverageResult)
-    assert workflow_result.output.raw.ontology is not None
-    representation = workflow_result.output.raw.ontology.representation
-    table = output_json(evaluator_result)
-    assert table["rows"] == _json([row.model_dump() for row in representation.worklist])
-    assert table["extras"]["leaf_coverage"] == pytest.approx(representation.leaf_coverage)
-    assert table["extras"]["total_deficit"] == representation.total_deficit
-    assert table["extras"]["violations"]["rows"] == _json([row.model_dump() for row in representation.violations])
-    assert table["extras"]["dark_branches"]["rows"] == _json([row.model_dump() for row in representation.dark_branches])

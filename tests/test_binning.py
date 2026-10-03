@@ -411,12 +411,8 @@ class TestAttributingWarnings:
 
 
 class TestGapMiAgreesWithBalance:
-    """Gap analysis compares against `gap_mi_threshold`, so its MI must be Balance's.
-
-    `factor_source` decides per factor whether the codes or the measured values are read,
-    consulting the encoding record's provenance; that is two estimators chosen per
-    column.
-    """
+    """`factor-gaps` compares against `mi_threshold`, so its MI must be Balance's: it reads the `balance` step's
+    class-to-factor rows rather than computing its own."""
 
     @staticmethod
     def _metadata_with_signal() -> Metadata:
@@ -435,48 +431,25 @@ class TestGapMiAgreesWithBalance:
             class_labels=labels,
         )
 
-    @pytest.mark.parametrize("factor_source", [None, "auto", "coded", "values"])
-    def test_matches_balance_under_every_factor_source(self, factor_source):
+    def test_reuses_a_balance_result_rather_than_recomputing(self):
+        """Each factor's MI is the one in Balance's class-to-factor rows, so reuse changes no number."""
         import warnings
 
         from dataeval.bias import Balance
 
-        from dataeval_flow.workflows.data_coverage._workflow import _balance_class_to_factor
-
-        md = self._metadata_with_signal()
-
-        with warnings.catch_warnings(action="ignore"):
-            expected = {
-                row["factor_name"]: float(row["mi_value"])
-                for row in Balance(factor_source=factor_source).evaluate(md).balance.to_dicts()
-            }
-            actual = _balance_class_to_factor(md, factor_source)
-
-        assert actual.keys() >= set(md.factor_names)
-        for name in md.factor_names:
-            assert actual[name] == pytest.approx(expected[name], abs=1e-9), (
-                f"{name}: coverage's MI diverged from Balance's under factor_source={factor_source!r}"
-            )
-
-    def test_reuses_a_balance_result_rather_than_recomputing(self):
-        """The precomputed path and the computed path must agree, or reuse changes numbers."""
-        import warnings
-
-        from dataeval_flow.workflows.data_coverage._workflow import _balance_class_to_factor, _mi_from_balance
+        from dataeval_flow.steps.combines._gaps import mi_from_balance
 
         md = self._metadata_with_signal()
         names = list(md.factor_names)
 
         with warnings.catch_warnings(action="ignore"):
-            from dataeval.bias import Balance
+            balance = Balance().evaluate(md)
 
-            summary = {"balance": Balance().evaluate(md).balance.to_dicts()}
-            computed = _balance_class_to_factor(md, None)
-
-        reused = _mi_from_balance(summary, names)
-        assert reused is not None
+        expected = {row["factor_name"]: float(row["mi_value"]) for row in balance.balance.to_dicts()}
+        reused = mi_from_balance(balance, names)
+        assert reused.keys() == set(names)
         for name in names:
-            assert reused[name] == pytest.approx(computed[name], abs=1e-9)
+            assert reused[name] == pytest.approx(expected[name], abs=1e-9)
 
 
 class TestRecordsFactorSource:

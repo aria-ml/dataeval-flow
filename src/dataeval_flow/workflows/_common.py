@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 __all__ = [
     "compute_metadata_summary",
     "normalize_unit_interval",
-    "serialize_coverage",
     "to_serializable",
 ]
 
@@ -42,18 +41,6 @@ def to_serializable(obj: Any) -> Any:
     if isinstance(obj, frozenset | set):
         return sorted(str(v) for v in obj)
     return obj
-
-
-def serialize_coverage(coverage_result: Any) -> dict[str, Any]:
-    """Convert a dataeval ``CoverageResult`` to a plain dict."""
-    result: dict[str, Any] = {}
-    for key in ("uncovered_indices", "critical_value_radii", "coverage_radius"):
-        val = coverage_result.get(key, None) if hasattr(coverage_result, "get") else getattr(coverage_result, key, None)
-        if val is not None:
-            if hasattr(val, "tolist"):
-                val = val.tolist()
-            result[key] = val
-    return result
 
 
 def compute_metadata_summary(metadata: "Metadata") -> dict[str, dict[str, Any]]:

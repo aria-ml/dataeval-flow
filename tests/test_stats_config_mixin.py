@@ -8,7 +8,6 @@ from dataeval_flow._orchestrator import _resolve_stats_policy
 from dataeval_flow.config import StatsConfigMixin, StatsPolicyConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
 from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
-from dataeval_flow.workflows.data_coverage import DataCoverageConfig
 
 
 def test_the_mixin_carries_no_deprecated_field():
@@ -19,7 +18,6 @@ def test_the_mixin_carries_no_deprecated_field():
     "config_type",
     [
         DataAnalysisConfig,
-        DataCoverageConfig,
     ],
 )
 def test_the_workflows_that_took_value_range_still_do(config_type: type[BaseModel]):

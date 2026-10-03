@@ -372,6 +372,101 @@
         }
       ]
     },
+    "CheckStep_class-coverage": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `coverage` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "dispersion": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "A class's dispersion under which it is clustered; `null` turns it off. Legacy `min_dispersion`.",
+          "title": "Dispersion"
+        },
+        "isotropy": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "A class's isotropy under which it is one-dimensional; `null` turns it off. Legacy `min_isotropy`.",
+          "title": "Isotropy"
+        },
+        "near_duplicates": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.1,
+          "description": "A class's near-duplicate share over which it is duplicate-padded; `null` turns it off. Legacy `max_near_duplicate_fraction`.",
+          "title": "Near Duplicates"
+        },
+        "check": {
+          "const": "class-coverage",
+          "description": "`class-coverage`: Warns when a class is clustered, one-dimensional or padded with near-duplicates.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_class-coverage",
+      "type": "object"
+    },
     "CheckStep_class-imbalance": {
       "additionalProperties": false,
       "properties": {
@@ -391,8 +486,22 @@
             }
           ],
           "default": 5.0,
-          "description": "Largest class count over smallest that may hold before the finding warns; `null` judges nothing but an empty class, which always warns. data-cleaning's `health_thresholds.class_label_imbalance`.",
+          "description": "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` judges nothing but an empty class, which always warns. data-cleaning's `health_thresholds.class_label_imbalance`.",
           "title": "Ratio"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A ratio at or under which the finding is ok, between which and `ratio` it informs; `null` makes every ratio under `ratio` information. Must not exceed `ratio`.",
+          "title": "Info"
         },
         "check": {
           "const": "class-imbalance",
@@ -436,6 +545,58 @@
         "name"
       ],
       "title": "CheckStep_class-imbalance",
+      "type": "object"
+    },
+    "CheckStep_class-shortfall": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `representation` Output, computed with no ontology.",
+          "title": "Input",
+          "type": "string"
+        },
+        "check": {
+          "const": "class-shortfall",
+          "description": "`class-shortfall`: Lists the classes short of an even spread, and warns on an unmet minimum share.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_class-shortfall",
       "type": "object"
     },
     "CheckStep_classwise-outlier-rate": {
@@ -503,6 +664,154 @@
         "name"
       ],
       "title": "CheckStep_classwise-outlier-rate",
+      "type": "object"
+    },
+    "CheckStep_completeness-score": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `completeness` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "The score under which the finding warns; `null` turns it off. Legacy `completeness_score`.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.8,
+          "description": "The score under which the finding informs; `null` turns it off. Legacy's hard-coded 0.8.",
+          "title": "Info"
+        },
+        "check": {
+          "const": "completeness-score",
+          "description": "`completeness-score`: Warns when the embeddings fill too little of their space's dimensions.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_completeness-score",
+      "type": "object"
+    },
+    "CheckStep_coverage-gaps": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `factor-gaps` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3,
+          "description": "The number of gaps at which the finding warns: this many or more (legacy's `>=`); `null` judges nothing. Legacy `gap_count`.",
+          "title": "Count"
+        },
+        "check": {
+          "const": "coverage-gaps",
+          "description": "`coverage-gaps`: Warns when enough class-factor-value combinations are under-represented.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_coverage-gaps",
       "type": "object"
     },
     "CheckStep_drift": {
@@ -1787,6 +2096,57 @@
       "title": "ChunkedDriftConfig",
       "type": "object"
     },
+    "ClassCoverageLimits": {
+      "additionalProperties": false,
+      "description": "The `class-coverage` check's fields, with legacy data-coverage's defaults.",
+      "properties": {
+        "dispersion": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "An assessable class's dispersion under which it is clustered, and the Embedding Coverage finding warns; `null` turns this criterion off. Legacy `min_dispersion`.",
+          "title": "Dispersion"
+        },
+        "isotropy": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "An assessable class's isotropy under which it is one-dimensional, and the Embedding Coverage finding warns; `null` turns this criterion off. Legacy `min_isotropy`.",
+          "title": "Isotropy"
+        },
+        "near_duplicates": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.1,
+          "description": "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Embedding Coverage finding warns; `null` turns this criterion off. Legacy `max_near_duplicate_fraction`.",
+          "title": "Near Duplicates"
+        }
+      },
+      "title": "ClassCoverageLimits",
+      "type": "object"
+    },
     "ClassImbalanceLimits": {
       "additionalProperties": false,
       "description": "The `class-imbalance` check's field, with legacy data-splitting's default.",
@@ -2075,6 +2435,74 @@
       "title": "CombineStep_factor-deviation",
       "type": "object"
     },
+    "CombineStep_factor-gaps": {
+      "additionalProperties": false,
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "input": {
+          "description": "The Dataset whose Metadata the gaps are counted in.",
+          "title": "Input",
+          "type": "string"
+        },
+        "balance": {
+          "description": "A `balance` Output computed on exactly `input`.",
+          "title": "Balance",
+          "type": "string"
+        },
+        "mi_threshold": {
+          "default": 0.1,
+          "description": "The least mutual information with the class a factor needs to be searched.",
+          "minimum": 0.0,
+          "title": "Mi Threshold",
+          "type": "number"
+        },
+        "min_representation": {
+          "default": 5,
+          "description": "A combination is a gap where its count is under this while its expected count is over it. Legacy `gap_min_representation`.",
+          "minimum": 1,
+          "title": "Min Representation",
+          "type": "integer"
+        },
+        "combine": {
+          "const": "factor-gaps",
+          "description": "`factor-gaps`: Class-factor-value combinations under-represented, among the factors tied to the class.",
+          "title": "Combine",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "balance",
+        "combine",
+        "name"
+      ],
+      "title": "CombineStep_factor-gaps",
+      "type": "object"
+    },
     "CombineStep_factor-predictors": {
       "additionalProperties": false,
       "properties": {
@@ -2193,6 +2621,64 @@
       "title": "CombineStep_ood-union",
       "type": "object"
     },
+    "CompletenessConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``completeness``: how much of the embedding space's dimensions the data fills.\n\nWraps ``dataeval.core.completeness`` on the task extractor's embeddings, rescaled to the unit interval per dimension\nfirst, as legacy data-coverage did. It takes no settings.\n\nExample YAML::\n\n    evaluators:\n      - name: completeness\n        type: completeness",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "completeness",
+          "default": "completeness",
+          "description": "The evaluator type this entry configures: `completeness`.",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "CompletenessConfig",
+      "type": "object"
+    },
+    "CompletenessScoreLimits": {
+      "additionalProperties": false,
+      "description": "The `completeness-score` check's fields, with legacy data-coverage's defaults.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "The completeness score under which the Dimensional Completeness finding warns; `null` turns this band off. Must not exceed `info`. Legacy `completeness_score`.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.8,
+          "description": "The score under which the finding informs, at or over which it is ok; `null` turns this band off, and with `warning` also `null` the finding judges nothing. Legacy's hard-coded 0.8, or `warning` where that is higher and `info` is unset.",
+          "title": "Info"
+        }
+      },
+      "title": "CompletenessScoreLimits",
+      "type": "object"
+    },
     "CoverageConfig": {
       "additionalProperties": false,
       "description": "Config for ``coverage``, DataEval's Coverage.\n\nFinds the items in sparse regions of the embedding space, which the rest of the data does not cover, and breaks\nthe coverage down by class. Needs an extractor on the task. Uses the dataset's labels where there is one per item;\nwithout them it runs over every item as one class, ``0``, and logs a warning.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators coverage`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: coverage\n        type: coverage\n        num_observations: 30",
@@ -2301,6 +2787,111 @@
       "title": "CoverageConfig",
       "type": "object"
     },
+    "CoverageGapsLimits": {
+      "additionalProperties": false,
+      "description": "The `coverage-gaps` check's field, with legacy data-coverage's default.",
+      "properties": {
+        "count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3,
+          "description": "The number of under-represented class-factor-value combinations at which the Metadata Coverage Gaps finding warns, this many or more; fewer inform, and `null` never warns. Legacy `gap_count`.",
+          "title": "Count"
+        }
+      },
+      "title": "CoverageGapsLimits",
+      "type": "object"
+    },
+    "CoverageSettings": {
+      "additionalProperties": false,
+      "description": "The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`\nis written partly.",
+      "properties": {
+        "method": {
+          "default": "adaptive",
+          "description": "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or `naive`, a fixed analytic radius, judged by an `uncovered-rate` step. DataEval's naive radius overflows past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`.",
+          "enum": [
+            "naive",
+            "adaptive"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "percent": {
+          "default": 0.01,
+          "description": "Fraction of items flagged as uncovered, for `adaptive` only.",
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Percent",
+          "type": "number"
+        },
+        "num_observations": {
+          "default": 50,
+          "description": "Neighbors an item needs within the radius to count as covered.",
+          "exclusiveMinimum": 0,
+          "title": "Num Observations",
+          "type": "integer"
+        },
+        "min_class_samples": {
+          "default": 20,
+          "description": "Items a class needs before its dispersion and isotropy are judged.",
+          "exclusiveMinimum": 0,
+          "title": "Min Class Samples",
+          "type": "integer"
+        },
+        "isotropy_min_samples": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Items a class needs before its isotropy is measured; unset uses DataEval's default.",
+          "title": "Isotropy Min Samples"
+        },
+        "near_duplicate_factor": {
+          "default": 0.5,
+          "description": "The fraction of the radius within which two items are near-duplicates.",
+          "exclusiveMinimum": 0.0,
+          "title": "Near Duplicate Factor",
+          "type": "number"
+        }
+      },
+      "title": "CoverageSettings",
+      "type": "object"
+    },
+    "CropSettings": {
+      "additionalProperties": false,
+      "description": "`DetectionCrops`' settings, used on detection data only.",
+      "properties": {
+        "padding": {
+          "default": 0.0,
+          "description": "Fraction of each box's size added around it before cropping.",
+          "minimum": 0.0,
+          "title": "Padding",
+          "type": "number"
+        },
+        "min_size": {
+          "default": 1,
+          "description": "The smallest box side, in pixels, cropped; smaller boxes are dropped.",
+          "minimum": 1,
+          "title": "Min Size",
+          "type": "integer"
+        }
+      },
+      "title": "CropSettings",
+      "type": "object"
+    },
     "CustomWorkflowConfig": {
       "additionalProperties": false,
       "description": "A workflow built from steps: its named inputs, and the steps that read them in order.\n\nA task runs it with ``workflow: <name>`` and binds its ``sources:`` to the inputs in order. The last input may\nbe a list (``{name: ..., list: true}``), binding every remaining source keyed by source name. A step names what\nit reads by address (spec \u00a74): an input, an earlier step, one of an earlier step's outputs, or one element of a\nlist.\n\nExamples\n--------\n>>> from dataeval_flow.steps import CustomWorkflowConfig\n>>> workflow = CustomWorkflowConfig.model_validate({\n...     \"name\": \"dupes_only\",\n...     \"inputs\": [\"data\"],\n...     \"steps\": [{\"name\": \"dupes\", \"evaluator\": \"dupes\", \"input\": \"data\"}],\n... })\n>>> print(workflow.to_yaml())  # doctest: +NORMALIZE_WHITESPACE\nworkflows:\n- name: dupes_only\n  inputs:\n  - data\n  steps:\n  - name: dupes\n    evaluator: dupes\n    input: data",
@@ -2376,16 +2967,31 @@
                 "$ref": "#/$defs/CombineStep_factor-deviation"
               },
               {
+                "$ref": "#/$defs/CombineStep_factor-gaps"
+              },
+              {
                 "$ref": "#/$defs/CombineStep_factor-predictors"
               },
               {
                 "$ref": "#/$defs/CombineStep_ood-union"
               },
               {
+                "$ref": "#/$defs/CheckStep_class-coverage"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_class-imbalance"
               },
               {
+                "$ref": "#/$defs/CheckStep_class-shortfall"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_classwise-outlier-rate"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_completeness-score"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_coverage-gaps"
               },
               {
                 "$ref": "#/$defs/CheckStep_drift"
@@ -2591,7 +3197,7 @@
             }
           ],
           "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
         "outlier_method": {
@@ -2794,7 +3400,7 @@
             }
           ],
           "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
         "outlier_method": {
@@ -3057,117 +3663,46 @@
       "title": "DataCleaningHealthThresholds",
       "type": "object"
     },
+    "DataCoverageClassImbalanceLimits": {
+      "additionalProperties": false,
+      "description": "The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset: the schema\ngives data-splitting's limits the short name.",
+      "properties": {
+        "ratio": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "Largest class count over smallest, among the classes with labels, past which the Label Distribution finding warns; `null` judges nothing but an empty class, which always warns. Legacy `class_imbalance_ratio`.",
+          "title": "Ratio"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 2.0,
+          "description": "The ratio at or under which the finding is ok, between which and `ratio` it informs; `null` makes every ratio under `ratio` information. Must not exceed `ratio`. Legacy's hard-coded 2.0, or `ratio` where that is lower and `info` is unset.",
+          "title": "Info"
+        }
+      },
+      "title": "DataCoverageClassImbalanceLimits",
+      "type": "object"
+    },
     "DataCoverageConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``data-coverage`` entry: the coverage, distribution and gap analyses, and when they warn.\n\nEmbedding-based analyses (coverage, completeness) require an extractor\nand are skipped when none is configured. Metadata-based analyses always run.\n\nExample YAML::\n\n    workflows:\n      - name: coverage_check\n        type: data-coverage\n        coverage_method: adaptive\n        balance: true\n        diversity_method: simpson\n        run_gap_analysis: true",
+      "description": "The settings of one ``data-coverage`` entry: coverage, crops, completeness, diversity, gaps and the worklist's\nminimum shares, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: coverage\n        type: data-coverage\n        metadata: standard\n        coverage: {method: adaptive, num_observations: 50}\n        crops: {padding: 0.1}\n        gaps: {mi_threshold: 0.1}",
       "properties": {
-        "stats": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
-          "title": "Stats"
-        },
-        "value_range": {
-          "anyOf": [
-            {
-              "maxItems": 2,
-              "minItems": 2,
-              "prefixItems": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "number"
-                }
-              ],
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "deprecated": true,
-          "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
-          "title": "Value Range"
-        },
-        "metadata_auto_bin_method": {
-          "anyOf": [
-            {
-              "enum": [
-                "uniform_width",
-                "uniform_count",
-                "clusters"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How a continuous factor with no declared bins is cut: `uniform_width`, `uniform_count` or `clusters`. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `auto_bin_method`.",
-          "title": "Metadata Auto Bin Method"
-        },
-        "metadata_exclude": {
-          "description": "Factor names removed before any evaluator sees them. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `exclude`.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Metadata Exclude",
-          "type": "array"
-        },
-        "metadata_continuous_factor_bins": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "items": {
-                      "type": "number"
-                    },
-                    "type": "array"
-                  }
-                ]
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Bin count (int) or explicit edges (list) per continuous factor. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `continuous_factor_bins`.",
-          "title": "Metadata Continuous Factor Bins"
-        },
-        "metadata_factor_source": {
-          "anyOf": [
-            {
-              "enum": [
-                "coded",
-                "values",
-                "auto"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
-          "title": "Metadata Factor Source"
-        },
         "metadata": {
           "anyOf": [
             {
@@ -3207,126 +3742,10 @@
             }
           ],
           "default": null,
-          "description": "Sanctioned label space. A nested mapping of concept to children is read as an inline hierarchy; a string is read as a path to a serialized RDF artifact (.ttl/.rdf/.owl/.xml/.nt/.jsonld), resolved against the data root. When unset, a flat ontology is synthesized from the dataset's index2label \u2014 enough for a class balance worklist, but it can only name classes the dataset already declares.",
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
-        "coverage_method": {
-          "default": "adaptive",
-          "description": "Coverage radius method. 'adaptive' flags the sparsest coverage_percent of observations \u2014 a useful shortlist, but its rate restates the config, so the uncovered_rate threshold is not applied to it. 'naive' compares each radius against a fixed geometric radius, giving a data-driven rate, but that radius grows with embedding dimensionality and saturates on wide embeddings. Either way, the per-class dispersion / isotropy / near-duplicate signals are the data-driven health signal.",
-          "enum": [
-            "naive",
-            "adaptive"
-          ],
-          "title": "Coverage Method",
-          "type": "string"
-        },
-        "coverage_percent": {
-          "default": 0.01,
-          "description": "Proportion of observations considered uncovered for coverage_adaptive.",
-          "exclusiveMaximum": 1.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Coverage Percent",
-          "type": "number"
-        },
-        "num_observations": {
-          "default": 50,
-          "description": "Number of neighbors for coverage functions.",
-          "minimum": 1,
-          "title": "Num Observations",
-          "type": "integer"
-        },
-        "min_class_samples": {
-          "default": 20,
-          "description": "Minimum samples for a class to get per-class variety signals. Smaller classes are reported with assessable=False and null dispersion/isotropy/near-duplicates.",
-          "minimum": 1,
-          "title": "Min Class Samples",
-          "type": "integer"
-        },
-        "isotropy_min_samples": {
-          "anyOf": [
-            {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Minimum samples for a class's isotropy to be reported. None means the embedding dimensionality plus one \u2014 isotropy is undefined below that.",
-          "title": "Isotropy Min Samples"
-        },
-        "near_duplicate_factor": {
-          "default": 0.5,
-          "description": "A within-class nearest-neighbor pair counts as a near-duplicate when it is closer than this multiple of the typical within-class neighbor distance.",
-          "exclusiveMinimum": 0.0,
-          "title": "Near Duplicate Factor",
-          "type": "number"
-        },
-        "crop_padding": {
-          "default": 0.0,
-          "description": "Fraction of each box's size to widen its crop by before embedding, so the embedding sees some of the scene around the object. 0.0 crops the box exactly. Applies to object-detection datasets, whose boxes are embedded as crops.",
-          "minimum": 0.0,
-          "title": "Crop Padding",
-          "type": "number"
-        },
-        "crop_min_size": {
-          "default": 1,
-          "description": "Smallest crop side, in pixels, that is embedded. Detections smaller than this are dropped, and the count is reported as `dropped_detections`. Raise it to keep boxes too small to carry a usable embedding out of the coverage numbers.",
-          "minimum": 1,
-          "title": "Crop Min Size",
-          "type": "integer"
-        },
-        "run_completeness": {
-          "default": true,
-          "description": "Compute dimensional completeness when an extractor is available.",
-          "title": "Run Completeness",
-          "type": "boolean"
-        },
-        "balance": {
-          "default": true,
-          "description": "Run Balance (MI) analysis on metadata factors.",
-          "title": "Balance",
-          "type": "boolean"
-        },
-        "diversity_method": {
-          "anyOf": [
-            {
-              "enum": [
-                "simpson",
-                "shannon"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": "simpson",
-          "description": "Diversity method (None = skip).",
-          "title": "Diversity Method"
-        },
-        "run_gap_analysis": {
-          "default": true,
-          "description": "Compute mutual information and cross-reference per-class metadata to identify gaps.",
-          "title": "Run Gap Analysis",
-          "type": "boolean"
-        },
-        "gap_mi_threshold": {
-          "default": 0.1,
-          "description": "Minimum MI score for a factor to be included in gap analysis.",
-          "minimum": 0.0,
-          "title": "Gap Mi Threshold",
-          "type": "number"
-        },
-        "gap_min_representation": {
-          "default": 5,
-          "description": "Minimum expected count per class-factor-value combination. Classes with fewer samples are flagged as gaps.",
-          "minimum": 1,
-          "title": "Gap Min Representation",
-          "type": "integer"
-        },
-        "ontology_expected": {
+        "expected": {
           "anyOf": [
             {
               "additionalProperties": {
@@ -3341,110 +3760,100 @@
             }
           ],
           "default": null,
-          "description": "Class name to its minimum expected share of the dataset, as a fraction in [0, 1]. Named classes use this floor as their collection target instead of the uniform share, and a dataset below the floor is reported as a violation.",
-          "title": "Ontology Expected"
+          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1], for the worklist; a name that is no class is ignored and noted.",
+          "title": "Expected"
         },
-        "ontology_label_pattern": {
+        "coverage": {
+          "$ref": "#/$defs/CoverageSettings",
+          "description": "The `coverage` step's settings, run when the task names an extractor."
+        },
+        "crops": {
+          "$ref": "#/$defs/CropSettings"
+        },
+        "completeness": {
+          "default": true,
+          "description": "Whether the completeness steps run, when the task names an extractor.",
+          "title": "Completeness",
+          "type": "boolean"
+        },
+        "diversity": {
+          "default": "simpson",
+          "description": "The `diversity` step's method.",
+          "enum": [
+            "simpson",
+            "shannon"
+          ],
+          "title": "Diversity",
+          "type": "string"
+        },
+        "gaps": {
           "anyOf": [
             {
-              "type": "string"
+              "$ref": "#/$defs/GapSettings"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "description": "Regex that ontology concept labels must match, e.g. '^[a-z0-9_]+$' for a lowercase_snake_case lint. Labels that fail are reported. Ignored when the ontology is synthesized.",
-          "title": "Ontology Label Pattern"
+          "description": "The gap analysis's settings; `null` leaves it out."
         },
         "health_thresholds": {
-          "$ref": "#/$defs/DataCoverageHealthThresholds",
-          "description": "Warning thresholds for dataset coverage health status."
+          "$ref": "#/$defs/DataCoverageThresholds",
+          "description": "When findings warn, keyed by check type."
         }
       },
       "title": "DataCoverageConfig",
       "type": "object"
     },
-    "DataCoverageHealthThresholds": {
+    "DataCoverageThresholds": {
       "additionalProperties": false,
-      "description": "Configurable warning thresholds for data coverage health status.\n\nEach threshold controls when the corresponding finding is elevated to\n``severity=\"warning\"``; otherwise it stays at ``severity=\"info\"``.\n\nAll ten are required numbers \u2014 ``None`` is not accepted. To stop a metric\nfrom ever warning, set it past the value it can reach: ``uncovered_rate=100.0``,\n``completeness_score=0.0``, ``leaf_coverage=0.0``, or a\n``class_imbalance_ratio``/``gap_count`` above anything the dataset will produce.",
+      "description": "When data-coverage's findings warn: each check's fields, keyed by check type.",
       "properties": {
-        "uncovered_rate": {
-          "default": 10.0,
-          "description": "Max allowable % of embedding observations flagged as uncovered. Default 10%. Lower for safety-critical datasets. Only applied when the headline result comes from coverage_naive \u2014 coverage_adaptive flags a fixed coverage_percent of observations, so its rate is not a health signal.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Uncovered Rate",
-          "type": "number"
+        "class-imbalance": {
+          "$ref": "#/$defs/DataCoverageClassImbalanceLimits",
+          "description": "The `class-imbalance` check's thresholds."
         },
-        "completeness_score": {
-          "default": 0.5,
-          "description": "Minimum dimensional completeness score before warning. Default 0.5. Raise to 0.7\u20130.8 for high-dimensional models.",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Completeness Score",
-          "type": "number"
+        "coverage-gaps": {
+          "$ref": "#/$defs/CoverageGapsLimits",
+          "description": "The `coverage-gaps` check's threshold."
         },
-        "class_imbalance_ratio": {
-          "default": 5.0,
-          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1.",
-          "minimum": 1.0,
-          "title": "Class Imbalance Ratio",
-          "type": "number"
+        "class-coverage": {
+          "$ref": "#/$defs/ClassCoverageLimits",
+          "description": "The `class-coverage` check's thresholds."
         },
-        "gap_count": {
-          "default": 3,
-          "description": "Number of metadata coverage gaps before elevating to warning. Default 3.",
-          "minimum": 0,
-          "title": "Gap Count",
-          "type": "integer"
+        "uncovered-rate": {
+          "$ref": "#/$defs/DataCoverageUncoveredRateLimits",
+          "description": "The `uncovered-rate` check's threshold, under `naive` coverage."
         },
-        "min_dispersion": {
-          "default": 0.5,
-          "description": "Minimum per-class dispersion before warning. A class below this spreads less than half as far as a typical class \u2014 clustered. Default 0.5.",
-          "minimum": 0.0,
-          "title": "Min Dispersion",
-          "type": "number"
-        },
-        "min_isotropy": {
-          "default": 0.5,
-          "description": "Minimum per-class isotropy before warning. A class below this varies along too few independent directions \u2014 one-dimensional. Default 0.5.",
-          "minimum": 0.0,
-          "title": "Min Isotropy",
-          "type": "number"
-        },
-        "max_near_duplicate_fraction": {
-          "default": 0.1,
-          "description": "Maximum share of a class allowed to sit in near-duplicate pairs before warning. Above this the class is padded with repeated frames. Default 0.1.",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Max Near Duplicate Fraction",
-          "type": "number"
-        },
-        "leaf_coverage": {
-          "default": 0.9,
-          "description": "Minimum fraction of sanctioned leaf species with any examples before warning. Default 0.9. Applied only to a configured ontology \u2014 against a synthesized one leaf coverage is 1.0 by construction.",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Leaf Coverage",
-          "type": "number"
-        },
-        "dark_branch_count": {
-          "default": 0,
-          "description": "Number of wholly-unpopulated ontology branches tolerated before warning. Default 0, so any dark branch warns. Applied only to a configured ontology.",
-          "minimum": 0,
-          "title": "Dark Branch Count",
-          "type": "integer"
-        },
-        "unmatched_class_count": {
-          "default": 0,
-          "description": "Number of class names that may fail to resolve to an ontology concept before warning. Default 0. Applied only to a configured ontology.",
-          "minimum": 0,
-          "title": "Unmatched Class Count",
-          "type": "integer"
+        "completeness-score": {
+          "$ref": "#/$defs/CompletenessScoreLimits",
+          "description": "The `completeness-score` check's thresholds."
         }
       },
-      "title": "DataCoverageHealthThresholds",
+      "title": "DataCoverageThresholds",
+      "type": "object"
+    },
+    "DataCoverageUncoveredRateLimits": {
+      "additionalProperties": false,
+      "description": "The `uncovered-rate` check's field, with legacy data-coverage's default, read under `naive` coverage only.\nNamed for the preset, as `DataCoverageClassImbalanceLimits` is.",
+      "properties": {
+        "rate": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10.0,
+          "description": "The percent of the items uncovered past which the Uncovered Rate finding warns, under `naive` coverage only; `null` judges nothing. Legacy `uncovered_rate`.",
+          "title": "Rate"
+        }
+      },
+      "title": "DataCoverageUncoveredRateLimits",
       "type": "object"
     },
     "DataPrioritizationCleaningConfig": {
@@ -3573,7 +3982,7 @@
             }
           ],
           "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
         "method": {
@@ -3761,7 +4170,7 @@
             }
           ],
           "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
         "folds": {
@@ -4614,7 +5023,7 @@
             }
           ],
           "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
         "detectors": {
@@ -5526,6 +5935,28 @@
       "title": "FlattenExtractorConfig",
       "type": "object"
     },
+    "GapSettings": {
+      "additionalProperties": false,
+      "description": "The `factor-gaps` step's settings.",
+      "properties": {
+        "mi_threshold": {
+          "default": 0.1,
+          "description": "The least mutual information with the class a factor needs to be searched.",
+          "minimum": 0.0,
+          "title": "Mi Threshold",
+          "type": "number"
+        },
+        "min_representation": {
+          "default": 5,
+          "description": "A combination is a gap under this count while its expected count is over it.",
+          "minimum": 1,
+          "title": "Min Representation",
+          "type": "integer"
+        }
+      },
+      "title": "GapSettings",
+      "type": "object"
+    },
     "HuggingFaceDatasetConfig": {
       "additionalProperties": false,
       "description": "Dataset config for HuggingFace format.\n\nYAML example::\n\n    datasets:\n      - name: cifar10_train\n        format: huggingface\n        path: ./cifar10\n        split: train\n        task: image_classification",
@@ -6283,6 +6714,39 @@
       "title": "MetadataPolicyConfig",
       "type": "object"
     },
+    "MetadataSummaryConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``metadata-summary``: each metadata factor's type, binning, nulls, and range or top values.\n\nA Flow-only evaluator over DataEval's ``Metadata``, as legacy data-coverage's Metadata Distribution was; audit\nreuses it.\n\nExample YAML::\n\n    evaluators:\n      - name: summary\n        type: metadata-summary\n        metadata: standard",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "metadata-summary",
+          "default": "metadata-summary",
+          "description": "The evaluator type this entry configures: `metadata-summary`.",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "MetadataSummaryConfig",
+      "type": "object"
+    },
     "MetadataTriageConfig": {
       "additionalProperties": false,
       "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``factor-triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``metadata-issues`` check, which takes ``max_examples``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
@@ -6326,7 +6790,7 @@
             }
           ],
           "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
         "max_examples": {
@@ -6417,7 +6881,7 @@
             }
           ],
           "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `data-coverage` audit's stanza carries that audit's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`.",
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
         "detectors": {
@@ -9888,6 +10352,16 @@
           "title": "Params",
           "type": "object"
         },
+        "other_kinds": {
+          "default": "refuse",
+          "description": "A Dataset the wrapper does not take: `refuse` it before the run, or `pass` it on unchanged, keeping its kind, so a chain can wrap detection data and read anything else as it is.",
+          "enum": [
+            "refuse",
+            "pass"
+          ],
+          "title": "Other Kinds",
+          "type": "string"
+        },
         "transform": {
           "const": "wrap",
           "description": "`wrap`: Wraps a Dataset in a DataEval wrapper that changes its kind, such as DetectionCrops.",
@@ -10592,6 +11066,9 @@
                 "$ref": "#/$defs/BalanceConfig"
               },
               {
+                "$ref": "#/$defs/CompletenessConfig"
+              },
+              {
                 "$ref": "#/$defs/CoverageConfig"
               },
               {
@@ -10626,6 +11103,9 @@
               },
               {
                 "$ref": "#/$defs/LabelReconciliationConfig"
+              },
+              {
+                "$ref": "#/$defs/MetadataSummaryConfig"
               },
               {
                 "$ref": "#/$defs/OntologyValidationConfig"

@@ -518,17 +518,15 @@ test_cases:
     name: Data Coverage Workflow
     test_type: Core Functionality
     business_case: >-
-      Verify that DataCoverageWorkflow executes end-to-end on synthetic data,
-      degrades gracefully when no extractor is configured, and consumes a
-      declared ontology for label-space analysis.
+      Verify that DataCoverageWorkflow executes end-to-end on synthetic data
+      and degrades gracefully when no extractor is configured.
     initial_conditions:
       - dataeval-flow installed
       - Synthetic ImageFolder dataset configured
     expected_results:
       - DataCoverageWorkflow returns success=True and a non-empty report()
-      - Label and metadata distribution analyses are populated on every run
-      - Embedding coverage and completeness are None (skipped, not fatal) with no extractor
-      - A declared ontology yields either an ontology assessment or a recorded skip reason
+      - The label distribution and Class Balance Worklist findings are made, and the metadata summary is present
+      - Embedding coverage and completeness are not assessed (skipped, not fatal) with no extractor
 
   "20-2":
     name: Label Space

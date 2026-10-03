@@ -1,12 +1,19 @@
-"""Data coverage workflow — analyze dataset scope and coverage for sufficiency."""
+"""The ``data-coverage`` preset."""
 
 __all__ = [
+    "CoverageSettings",
+    "CropSettings",
     "DataCoverageConfig",
-    "DataCoverageHealthThresholds",
-    "DataCoverageResult",
+    "DataCoverageThresholds",
     "DataCoverageWorkflow",
+    "GapSettings",
 ]
 
-from dataeval_flow.workflows.data_coverage._config import DataCoverageConfig, DataCoverageHealthThresholds
-from dataeval_flow.workflows.data_coverage._outputs import DataCoverageResult
+from dataeval_flow.workflows.data_coverage._config import (
+    CoverageSettings,
+    CropSettings,
+    DataCoverageConfig,
+    DataCoverageThresholds,
+    GapSettings,
+)
 from dataeval_flow.workflows.data_coverage._workflow import DataCoverageWorkflow
