@@ -1,8 +1,10 @@
 # Declare an ontology
 
-The `data-coverage` workflow can only name a missing class if something tells it that class was supposed to exist.
-That something is an {term}`ontology <Ontology>` — the sanctioned label space. This guide covers declaring one inline,
-loading one from an RDF file, and the checks that only run once you have.
+The `label-space` workflow judges a dataset's labels against a declared {term}`ontology <Ontology>` — the sanctioned
+label space. It can name a missing class because the ontology says that class was supposed to exist. The
+`data-coverage` workflow still judges an ontology when `ontology:` is set, until its port moves that analysis to
+`label-space`. This guide covers declaring an ontology inline, loading one from an RDF file, and the findings
+`label-space` makes from it.
 
 ## Used in these tutorials
 
@@ -10,10 +12,9 @@ loading one from an RDF file, and the checks that only run once you have.
 
 ## Why counting labels is not enough
 
-Without an ontology the workflow synthesizes a flat one from the dataset's own `index2label`. That is enough for a
-class-balance worklist, but it is circular: it can only name classes the dataset already declares. A class that was
-never collected has no label, no count, and no row in the report. Declaring the label space externally is what breaks
-the circle.
+A class-balance worklist built from the dataset's own `index2label` is circular: it can only name classes the dataset
+already declares. A class that was never collected has no label, no count, and no row in the report. Declaring the
+label space externally is what breaks the circle, and `label-space` requires one: `ontology:` has no default.
 
 ## Option 1: inline hierarchy
 
@@ -41,8 +42,8 @@ The same structure in YAML:
 
 ```yaml
 workflows:
-  - name: coverage_check
-    type: data-coverage
+  - name: vocab_check
+    type: label-space
     ontology:
       postal_char:
         digit:
@@ -58,8 +59,8 @@ For a label space that is shared across datasets, teams, or programs, keep it in
 
 ```yaml
 workflows:
-  - name: coverage_check
-    type: data-coverage
+  - name: vocab_check
+    type: label-space
     ontology: config/taxonomy.ttl
 ```
 
@@ -94,10 +95,10 @@ ontologies:
 
 workflows:
   - name: audit
-    type: data-coverage
+    type: label-space
     ontology: vehicles
   - name: audit_holdout
-    type: data-coverage
+    type: label-space
     ontology: vehicles        # same pool entry, same vocabulary
 ```
 
@@ -116,50 +117,67 @@ Rename one of them.
 ## Set expected class shares
 
 By default every sanctioned class is held to a uniform share of the dataset. When some classes are legitimately rarer
-than others, give them explicit floors with `ontology_expected` — a mapping of class name to its minimum expected
+than others, give them explicit floors with `expected` — a mapping of class name to its minimum expected
 share as a fraction in `[0, 1]`:
 
 ```yaml
-    ontology_expected:
+    expected:
       face_shield: 0.05
       goggles: 0.02
 ```
 
 Named classes use their floor as the collection target instead of the uniform share, and a dataset below the floor is
-reported as a violation. Classes not named keep the uniform target.
+reported as a violation. Classes not named keep the uniform target. A name that resolves to no concept, or to several,
+is ignored and noted in the result.
 
 ## Lint the label names
 
-`ontology_label_pattern` is a regex every concept label must match. It catches a vocabulary that has drifted into
-mixed conventions:
+`label_pattern` is a regex every concept label should match. It catches a vocabulary that has drifted into mixed
+conventions:
 
 ```yaml
-    ontology_label_pattern: '^[a-z0-9_]+$'   # lowercase_snake_case
+    label_pattern: '^[a-z0-9_]+$'   # lowercase_snake_case
 ```
 
-Labels that fail are reported. The pattern is ignored when the ontology is synthesized.
+Labels that fail are reported in the ontology's structure.
 
-## What a configured ontology unlocks
+## What `label-space` finds
 
-Three findings — and the three health thresholds that govern them — apply **only** when an ontology is configured.
-Against a synthesized ontology they are vacuous by construction, so they never fire.
+`label-space` runs four evaluators, each followed by the check that judges it:
 
-| Finding | Threshold | Default | Meaning |
-| --- | --- | --- | --- |
-| Leaf coverage | `leaf_coverage` | `0.9` | Minimum fraction of sanctioned leaf concepts with any examples |
-| Dark branches | `dark_branch_count` | `0` | Wholly unpopulated branches tolerated before warning |
-| Unmatched classes | `unmatched_class_count` | `0` | Class names that may fail to resolve to a concept |
+- Leaf coverage and the worklist, by `leaf-coverage`: how many sanctioned leaf concepts have examples, what to collect,
+  the wholly empty branches, and the `expected` shares not met.
+- Conformance, by `label-conformance`: which class names resolve to exactly one concept. It warns on an unmatched or
+  an ambiguous name.
+- Alignment, by `mergeability`: whether the dataset's classes carry over to the ontology, with the `Relabel` stanza to
+  paste into a view that conforms it.
+- Structure, by `ontology-structure`: the ontology's size, depth and naming. It warns on a label several concepts
+  share.
+
+Two of the checks have thresholds, set under `health_thresholds` and keyed by check type. `null` turns a threshold
+off. The values below are the defaults:
 
 ```yaml
     health_thresholds:
-      leaf_coverage: 0.9
-      dark_branch_count: 0
-      unmatched_class_count: 0
+      leaf-coverage: {coverage: 0.9, empty_branches: 0}
+      label-conformance: {unmatched: 0}
 ```
 
-Leaf coverage and dark branches catch the class you never collected. Unmatched classes catch the opposite problem — a
+| Check | Threshold | Default | Meaning |
+| --- | --- | --- | --- |
+| `leaf-coverage` | `coverage` | `0.9` | Minimum fraction of sanctioned leaf concepts with any examples |
+| `leaf-coverage` | `empty_branches` | `0` | Wholly unpopulated branches tolerated before warning |
+| `label-conformance` | `unmatched` | `0` | Class names that may fail to resolve to a concept |
+
+Leaf coverage and empty branches catch the class you never collected. Unmatched names catch the opposite problem — a
 label in the data that the sanctioned vocabulary does not contain, which is usually a typo, a stale name, or a class
 someone added without updating the taxonomy.
+
+## The label space digest
+
+The result's `label_space_digest` is the alignment's: the value a dataset conformed by the alignment's `Relabel`
+stanza carries. Two results with the same digest judged the same label space. If a source's `Relabel` already recorded
+a label space, that record's digest is used instead.
 
 ## Related material
 
@@ -168,5 +186,5 @@ someone added without updating the taxonomy.
 - [Dataset Coverage](../concepts/Coverage.md) — the label-space and embedding-space axes coverage measures
 - [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html) — the
   authoritative treatment of ontologies and the reconciliation, alignment, and validation operations over them
-- {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field on `DataCoverageConfig` and
-  `DataCoverageHealthThresholds`
+- {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field on `LabelSpaceConfig` and
+  `LabelSpaceThresholds`

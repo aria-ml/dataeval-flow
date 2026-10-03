@@ -4,6 +4,14 @@
 
 ### Added
 
+- `label-space` preset: a dataset's labels judged against a declared ontology, as legacy data-coverage judged them
+  with `ontology:` set: leaf coverage and the worklist, conformance, alignment with the `Relabel` stanza, and the
+  ontology's structure. Its `health_thresholds` are keyed by check type: `leaf-coverage` (`coverage`,
+  `empty_branches`) and `label-conformance` (`unmatched`)
+- `label-reconciliation` evaluator: which class names resolve to exactly one ontology concept
+- `ontology-validation` evaluator: an ontology's structural and naming facts
+- `leaf-coverage`, `label-conformance`, `mergeability` and `ontology-structure` checks, which make `label-space`'s
+  findings
 - `uncertainty` extractor: an ONNX classifier's or detector's normalized entropy per prediction, for drift on unlabelled
   data, one row per detection for a detector; only drift and OOD evaluators read it
 - `by: predicted` keys a step by the class a model predicts
@@ -154,6 +162,12 @@
 
 ### Changed
 
+- A chain whose `label-alignment` steps agree, and whose sources and `conform` steps record no label space, stamps
+  its result's `label_space_digest` with the alignment's: the join key to a dataset conformed by its stanza
+- `representation`'s output records the `expected` names it ignored, under `extras.ignored_expected`, and its report
+  section and `label-alignment`'s are short summaries
+- `representation`, `coverage`, `prioritize` and `label-alignment` read class labels and no factor, so their reads
+  leave a chain's binning record: data-splitting with an extractor records the whole set once
 - `uncertainty` extractor entries need `metadata_path` and `preds_type`, and the TUI no longer offers them
 - drift-monitoring's `classwise:` maps each detector to its `by:` (`{drift-mmd: class}`), and takes class groups; the
   list form is refused
