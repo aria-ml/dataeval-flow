@@ -569,7 +569,7 @@ def _at(spec: StepSpec, port: Port, element: str | None) -> str:
     return spec.output_address(port) + (f"[{element}]" if element is not None else "")
 
 
-_NO_EXTRACTOR = "needs an extractor: name one with `extractor:` on the task or the step"
+_NO_EXTRACTOR = "requires an extractor"
 
 
 def _require_extractor(spec: StepSpec, settings: RunSettings) -> None:

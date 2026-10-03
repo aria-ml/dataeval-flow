@@ -12,7 +12,7 @@ from dataeval_flow.steps import ChainResult
 from tests.chain_toys import chain_pipeline, run_chain_task
 from tests.evaluator_toys import ToyImages
 
-_REASON = "needs an extractor: name one with `extractor:` on the task or the step"
+_REASON = "requires an extractor"
 
 
 @pytest.fixture(autouse=True)

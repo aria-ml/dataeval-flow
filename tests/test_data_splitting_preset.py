@@ -15,7 +15,7 @@ from dataeval_flow.workflows.data_splitting import DataSplittingConfig, DataSpli
 from tests.chain_toys import ToyDetections, chain_pipeline
 from tests.evaluator_toys import ToyFactors
 
-_NO_EXTRACTOR = "needs an extractor: name one with `extractor:` on the task or the step"
+_NO_EXTRACTOR = "requires an extractor"
 
 
 @pytest.fixture(autouse=True)
