@@ -119,16 +119,17 @@ def test_the_health_line_counts_one_run_and_one_warning_in_the_singular() -> Non
 def test_a_legacy_workflow_s_findings_fill_the_table() -> None:
     from tests.evaluator_toys import ToyFactors
 
-    # data-splitting still runs its own code, not a chain; 40 items leave every class in each split.
+    # data-coverage still runs its own code, not a chain; its class-imbalance threshold is judged without an extractor.
+    matrix = {"health_thresholds.class_imbalance_ratio": [2.0, 5.0]}
     config = chain_pipeline(
-        workflows=[{"name": "split", "type": "data-splitting"}],
-        tasks=[{"name": "t", "workflow": "split", "sources": "src", "matrix": {"test_frac": [0.25, 0.5]}}],
+        workflows=[{"name": "coverage", "type": "data-coverage"}],
+        tasks=[{"name": "t", "workflow": "coverage", "sources": "src", "matrix": matrix}],
         datasets={"src": ToyFactors(count=40)},
     )
     result = run_tasks(config)["t"]
     assert isinstance(result, MatrixResult)
     assert result.success, result.errors
-    assert len(comparison_table(result).columns) > 3  # #, test_frac and Health, then its findings
+    assert len(comparison_table(result).columns) > 3  # #, the threshold and Health, then its findings
 
 
 def test_an_evaluator_matrix_has_no_finding_columns() -> None:
