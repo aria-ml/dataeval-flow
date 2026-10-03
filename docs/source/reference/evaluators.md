@@ -22,6 +22,8 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | `coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
 | `prioritize` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
 | `label-alignment` | `dataeval.core.label_alignment` | labels | 1 | refused |
+| `label-reconciliation` | `dataeval.core.label_reconciliation` | labels | 1 | refused |
+| `ontology-validation` | `dataeval.core.ontology_validation` | labels, read only to place the report | 1 | refused |
 | `drift-domain-classifier` | `dataeval.shift.DriftDomainClassifier` | embeddings | 2: the reference, then the data to test | required |
 | `drift-kneighbors` | `dataeval.shift.DriftKNeighbors` | embeddings | 2: the reference, then the data to test | required |
 | `drift-mmd` | `dataeval.shift.DriftMMD` | embeddings | 2: the reference, then the data to test | required |
@@ -216,8 +218,8 @@ with labels, and fails, naming the source, without them. Configured by
 | `expected` | `expected`: class name to its minimum share, a fraction | a uniform share for every leaf |
 
 Output: a table, the worklist, with one row per concept short of its target (`concept`, `label`, `parent`,
-`action`, `count`, `target`, `deficit`). `extras` holds `leaf_coverage`, `total_deficit`, and the `violations` and
-`dark_branches` tables.
+`action`, `count`, `target`, `deficit`). `extras` holds `leaf_coverage`, `total_deficit`, the `violations` and
+`dark_branches` tables, and `ignored_expected`, the `expected` names that resolve to no concept or to several.
 
 ### `coverage`
 
@@ -271,6 +273,35 @@ Configured by {py:class}`~dataeval_flow.evaluators.scope.LabelAlignmentConfig`; 
 
 Output: a mapping, the alignment (`mergeability`, `correspondences`, `unaligned_source`, `unaligned_target`,
 `class_remap`, `paste_remap`, `target_vocabulary`, `ambiguous_labels`, `label_space_digest`).
+
+### `label-reconciliation`
+
+Which of a Dataset's class names resolve to exactly one ontology concept. An unmatched name is out of vocabulary: a
+typo, or a class the ontology does not sanction. An ambiguous name answers to several concepts. The names are the
+Dataset's `index2label` values, in index order. Configured by
+{py:class}`~dataeval_flow.evaluators.scope.LabelReconciliationConfig`; runs `dataeval.core.label_reconciliation`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `ontology` | `ontology`: a name under `ontologies:`, a path, or an inline hierarchy | required |
+
+Output: a mapping: `conforms`, `matched` (each name to its concept id), `unmatched`, and `ambiguous` (each name to the
+ids of the concepts it names).
+
+### `ontology-validation`
+
+An ontology's structural and naming facts: its concepts, leaves and depth, its roots, isolated concepts, truncated
+ancestries, redundant edges, ancestor-sibling pairs and single-child links, labels several concepts share, and labels
+that break `label_pattern`. Only a shared label is a defect: it is what makes reconciliation ambiguous. Configured by
+{py:class}`~dataeval_flow.evaluators.scope.OntologyValidationConfig`; runs `dataeval.core.ontology_validation`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `ontology` | `ontology`: a name under `ontologies:`, a path, or an inline hierarchy | required |
+| `label_pattern` | `label_pattern`: a regex every concept label should match | no naming check |
+
+Output: a mapping: `concept_count`, `leaf_count`, `max_depth`, `roots`, `isolated`, `external_ancestors`,
+`redundant_edges`, `ancestor_siblings`, `unary_parents`, `label_collisions`, `nonconforming_labels`.
 
 ## Shift
 

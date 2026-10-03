@@ -30,6 +30,8 @@ _TITLES = {
     "factor-triage": "Factor Triage",
     "coverage": "Coverage",
     "label-alignment": "Label Alignment",
+    "label-reconciliation": "Label Reconciliation",
+    "ontology-validation": "Ontology Validation",
     "prioritize": "Prioritization",
     "representation": "Representation",
     "drift-domain-classifier": "Drift (Domain Classifier)",
@@ -58,6 +60,7 @@ _TITLES = {
     "data-prioritization": "Data Prioritization",
     "data-splitting": "Data Splitting",
     "drift-monitoring": "Drift Monitoring",
+    "label-space": "Label Space",
     "metadata-triage": "Metadata Triage",
     "ood-detection": "OOD Detection",
 }

@@ -15,6 +15,7 @@ SPECS = {
     "data-prioritization": (SourceCount.TWO_OR_MORE, {InputKind.STATS, InputKind.EMBEDDINGS}, set()),
     "data-splitting": (SourceCount.ONE, {InputKind.METADATA}, {InputKind.EMBEDDINGS}),
     "drift-monitoring": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.LABELS}),
+    "label-space": (SourceCount.ONE, {InputKind.LABELS}, set()),
     "metadata-triage": (SourceCount.ONE, {InputKind.METADATA}, set()),
     "ood-detection": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.METADATA, InputKind.STATS}),
 }

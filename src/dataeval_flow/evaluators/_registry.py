@@ -20,6 +20,8 @@ _BUILTINS = {
     "coverage": "dataeval_flow.evaluators.scope._evaluator:CoverageEvaluator",
     "prioritize": "dataeval_flow.evaluators.scope._evaluator:PrioritizeEvaluator",
     "label-alignment": "dataeval_flow.evaluators.scope._evaluator:LabelAlignmentEvaluator",
+    "label-reconciliation": "dataeval_flow.evaluators.scope._evaluator:LabelReconciliationEvaluator",
+    "ontology-validation": "dataeval_flow.evaluators.scope._evaluator:OntologyValidationEvaluator",
     "drift-domain-classifier": "dataeval_flow.evaluators.shift._evaluator:DriftDomainClassifierEvaluator",
     "drift-kneighbors": "dataeval_flow.evaluators.shift._evaluator:DriftKNeighborsEvaluator",
     "drift-mmd": "dataeval_flow.evaluators.shift._evaluator:DriftMMDEvaluator",

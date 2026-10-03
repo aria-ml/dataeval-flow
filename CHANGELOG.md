@@ -4,6 +4,14 @@
 
 ### Added
 
+- `label-space` preset: a dataset's labels judged against a declared ontology, as legacy data-coverage judged them
+  with `ontology:` set: leaf coverage and the worklist, conformance, alignment with the `Relabel` stanza, and the
+  ontology's structure. Its `health_thresholds` are keyed by check type: `leaf-coverage` (`coverage`,
+  `empty_branches`) and `label-conformance` (`unmatched`)
+- `label-reconciliation` evaluator: which class names resolve to exactly one ontology concept
+- `ontology-validation` evaluator: an ontology's structural and naming facts
+- `leaf-coverage`, `label-conformance`, `mergeability` and `ontology-structure` checks, which make `label-space`'s
+  findings
 - `uncertainty` extractor: an ONNX classifier's or detector's normalized entropy per prediction, for drift on unlabelled
   data, one row per detection for a detector; only drift and OOD evaluators read it
 - `by: predicted` keys a step by the class a model predicts
@@ -11,7 +19,7 @@
 - Every tool computes on CUDA when PyTorch sees a GPU, else the CPU; `dataeval_flow.set_device` chooses from Python,
   and `CUDA_VISIBLE_DEVICES` hides GPUs. A config names no device
 - `device` on every result's metadata: the device its task computed on, such as `cuda:0 (NVIDIA L4)`
-- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's seventeen types
+- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's twenty types
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
 - `dataeval-flow evaluators` command listing evaluator types, what each consumes, and their parameter schemas
@@ -154,6 +162,13 @@
 
 ### Changed
 
+- A chain whose `label-alignment` steps agree, and whose sources and `conform` steps record no label space, stamps
+  its result's `label_space_digest` with the alignment's: the join key to a dataset conformed by its stanza
+- `representation`'s output records the `expected` names it ignored, under `extras.ignored_expected`, and its report
+  section and `label-alignment`'s are short summaries
+- `representation`, `coverage`, `prioritize` and `label-alignment` read class labels and no factor, so their reads
+  leave a chain's binning record: data-splitting with an extractor records the whole set once, and data-prioritization,
+  whose steps read no factor, records no binning record or `encoding_digest`
 - `uncertainty` extractor entries need `metadata_path` and `preds_type`, and the TUI no longer offers them
 - drift-monitoring's `classwise:` maps each detector to its `by:` (`{drift-mmd: class}`), and takes class groups; the
   list form is refused

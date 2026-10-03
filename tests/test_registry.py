@@ -25,6 +25,7 @@ BUILTIN_WORKFLOWS = [
     "data-prioritization",
     "data-splitting",
     "drift-monitoring",
+    "label-space",
     "metadata-triage",
     "ood-detection",
 ]

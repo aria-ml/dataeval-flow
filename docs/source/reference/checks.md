@@ -8,7 +8,8 @@ reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for 
 
 The built-in checks are the ones `data-cleaning` runs, whose findings are theirs; `metadata-issues`, which makes
 `metadata-triage`'s; `drift`, which judges `drift-monitoring`'s detectors; `ood`, which judges `ood-detection`'s
-detectors; and `stratification` and `uncovered-rate`, which judge `data-splitting`'s split and coverage. See
+detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s split and coverage; and
+`leaf-coverage`, `label-conformance`, `ontology-structure` and `mergeability`, which make `label-space`'s. See
 [data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
@@ -22,6 +23,10 @@ detectors; and `stratification` and `uncovered-rate`, which judge `data-splittin
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
 | `stratification` | check | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
 | `uncovered-rate` | check | `input`: a `coverage` Output | Uncovered Rate |
+| `leaf-coverage` | check | `input`: a `representation` Output against a declared ontology | Label Space Coverage |
+| `label-conformance` | check | `input`: a `label-reconciliation` Output | Label Conformance |
+| `mergeability` | check | `input`: a `label-alignment` Output | Label Alignment |
+| `ontology-structure` | check | `input`: an `ontology-validation` Output | Ontology Structure |
 | `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
 | `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
@@ -36,6 +41,8 @@ detectors; and `stratification` and `uncovered-rate`, which judge `data-splittin
 A check's thresholds are written beside it, in the step entry, like a transform's settings. Each is a percentage or a
 ratio, and a finding warns where the measured value passes it. `null` switches a threshold off: the finding is still
 made, as `info`. The defaults are `data-cleaning`'s `health_thresholds`.
+A check with a criterion that has no threshold, such as an unmet share, an ambiguous name or an empty class, keeps
+judging it, so its finding can still be `ok` or `warning` when its thresholds are `null`.
 
 A check is never skipped because an input produced nothing. Where a step it reads failed or was skipped, it makes one
 `info` finding briefed `not assessed`, titled with its `subject` where it takes one and with its own title otherwise,
@@ -135,6 +142,50 @@ OverflowError". Configured by {py:class}`~dataeval_flow.steps.checks.UncoveredRa
 | --- | --- | --- | --- |
 | `input` | an address | required | A `coverage` Output |
 | `rate` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
+
+### `leaf-coverage`
+
+How much of an ontology's sanctioned leaves the Dataset has examples of, what to acquire for an even spread, the
+wholly empty branches, and the asserted minimum shares (`expected`) not met. Warns on an unmet share, on leaf
+coverage under `coverage`, or on more empty branches than `empty_branches`; informs while anything remains to
+acquire; ok otherwise. Configured by {py:class}`~dataeval_flow.steps.checks.LeafCoverageConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `representation` Output, against a declared ontology |
+| `coverage` | a fraction, or `null` | `0.9` | The least share of leaves with examples; `null` turns it off |
+| `empty_branches` | a count, or `null` | `0` | Wholly empty branches tolerated; `null` turns it off |
+
+### `label-conformance`
+
+Which class names resolve to exactly one ontology concept. Warns on more unmatched names than `unmatched`, or on any
+ambiguous name; ok otherwise. Configured by {py:class}`~dataeval_flow.steps.checks.LabelConformanceConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `label-reconciliation` Output |
+| `unmatched` | a count, or `null` | `0` | Unmatched names tolerated; `null` turns it off |
+
+### `mergeability`
+
+Whether a Dataset's classes carry over to an ontology's vocabulary, with the `Relabel` stanza to paste into a view
+that conforms it. Lossless is ok; lossy, where two classes collapse into one concept, informs; partial, where
+`Relabel` would drop a class, warns. A target label several concepts share always warns: the stanza cannot be used
+until the ontology is fixed. Configured by {py:class}`~dataeval_flow.steps.checks.MergeabilityConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `label-alignment` Output |
+
+### `ontology-structure`
+
+An ontology's size, depth and structural observations. Only a label several concepts share warns: it is what makes
+reconciliation ambiguous. The rest are facts, so the finding informs. Configured by
+{py:class}`~dataeval_flow.steps.checks.OntologyStructureConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | An `ontology-validation` Output |
 
 ### `metadata-issues`
 

@@ -33,9 +33,9 @@ class LabelSpaceRecord(BaseModel):
     """The vocabulary one source's labels were rewritten into.
 
     Built from the `Relabel` in a source's view, not from an alignment result, so the
-    digest can be computed from the config alone. A `data-coverage` audit computes the
-    same digest from its own alignment, so a result conformed by that audit's stanza
-    carries the audit's value and can be matched back to it.
+    digest can be computed from the config alone. A `label-alignment` step computes the
+    same digest from its own alignment, so a result conformed by that alignment's stanza
+    carries the alignment's value and can be matched back to it.
     """
 
     source: str = Field(description="Source whose view applied the Relabel.")
@@ -69,8 +69,8 @@ class LabelSpaceRecord(BaseModel):
         default="",
         description=(
             "Identity of this vocabulary, over the ontology digest, the class_remap and "
-            "the target. Compare it against a coverage audit's label_space_digest to find "
-            "the audit that justified this vocabulary."
+            "the target. Compare it against the label_space_digest of the `label-alignment` run "
+            "whose stanza conformed it."
         ),
     )
 
@@ -184,10 +184,12 @@ class ResultMetadata(BaseModel):
     label_space_digest: str | None = Field(
         default=None,
         description=(
-            "Identity of the vocabulary this run's labels were read under. Null when no conforming happened. "
-            "The label-space counterpart of `encoding_digest`: a bias score computed over a collapsed "
-            "vocabulary differs from one over an uncollapsed vocabulary, and no other field tells them apart. "
-            "Also the join key to the `data-coverage` audit whose alignment produced the vocabulary."
+            "Identity of the vocabulary this run's labels were read under, or, for a run that aligned its labels "
+            "to an ontology and conformed none, the vocabulary its alignment would conform them to. Null when "
+            "neither happened. The label-space counterpart of `encoding_digest`: a bias score computed over a "
+            "collapsed vocabulary differs from one over an uncollapsed vocabulary, and no other field tells them "
+            "apart. Also the join key between a dataset conformed by an alignment's stanza and the `label-space` "
+            "run whose alignment produced it."
         ),
     )
     label_space: Sequence[LabelSpaceRecord] = Field(

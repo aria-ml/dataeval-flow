@@ -3,17 +3,33 @@
 Field names are DataEval's argument names. An unset field is not passed, so DataEval's own default applies.
 """
 
-__all__ = ["CoverageConfig", "LabelAlignmentConfig", "LabelAlignmentResult", "PrioritizeConfig", "RepresentationConfig"]
+__all__ = [
+    "CoverageConfig",
+    "LabelAlignmentConfig",
+    "LabelAlignmentResult",
+    "LabelReconciliationConfig",
+    "OntologyValidationConfig",
+    "PrioritizeConfig",
+    "RepresentationConfig",
+]
 
+from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import Field
 
 from dataeval_flow._alignment import LabelAlignmentOutput
+from dataeval_flow._blocks import Block
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators._result import EvaluatorResult
-from dataeval_flow.evaluators.scope._result import CoverageResult, PrioritizeResult, RepresentationResult
+from dataeval_flow.evaluators.scope._result import (
+    CoverageResult,
+    LabelReconciliationResult,
+    OntologyValidationResult,
+    PrioritizeResult,
+    RepresentationResult,
+)
 
 
 class RepresentationConfig(EvaluatorConfig[RepresentationResult]):
@@ -232,6 +248,12 @@ class LabelAlignmentResult(EvaluatorResult[LabelAlignmentOutput]):
         parameters as written are in ``resolved_config``.
     """
 
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """Its mergeability, and how many names correspond, were dropped, or are not covered."""
+        from dataeval_flow.evaluators.scope._report import label_alignment_section
+
+        return label_alignment_section(output, detailed=detailed)
+
 
 class LabelAlignmentConfig(EvaluatorConfig[LabelAlignmentResult]):
     """Config for ``label-alignment``: how a Dataset's class names align to an ontology.
@@ -250,4 +272,57 @@ class LabelAlignmentConfig(EvaluatorConfig[LabelAlignmentResult]):
     )
     threshold: float = Field(
         default=0.0, ge=0.0, le=1.0, description="DataEval's `threshold`: the lowest confidence a fuzzy match keeps."
+    )
+
+
+class LabelReconciliationConfig(EvaluatorConfig[LabelReconciliationResult]):
+    """Config for ``label-reconciliation``: which of a Dataset's class names resolve to exactly one ontology concept.
+
+    Wraps ``dataeval.core.label_reconciliation`` over the Dataset's ``index2label`` names, in index order. An
+    unmatched name is out of vocabulary; an ambiguous one names several concepts.
+
+    Example YAML::
+
+        evaluators:
+          - name: reconciliation
+            type: label-reconciliation
+            ontology: vehicles
+    """
+
+    type: str = Field(
+        default="label-reconciliation",
+        description="The evaluator type this entry configures: `label-reconciliation`.",
+    )
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
+    ontology: dict[str, Any] | str = Field(
+        description="The ontology to reconcile against: a name from `ontologies:`, a path, or an inline hierarchy."
+    )
+
+
+class OntologyValidationConfig(EvaluatorConfig[OntologyValidationResult]):
+    """Config for ``ontology-validation``: an ontology's structural and naming facts.
+
+    Wraps ``dataeval.core.ontology_validation``. It reads only the ontology; it takes a Dataset so its report sits
+    beside the dataset the ontology judges.
+
+    Example YAML::
+
+        evaluators:
+          - name: structure
+            type: ontology-validation
+            ontology: vehicles
+            label_pattern: '^[a-z0-9_]+$'
+    """
+
+    type: str = Field(
+        default="ontology-validation",
+        description="The evaluator type this entry configures: `ontology-validation`.",
+    )
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
+    ontology: dict[str, Any] | str = Field(
+        description="The ontology to validate: a name from `ontologies:`, a path, or an inline hierarchy."
+    )
+    label_pattern: str | None = Field(
+        default=None,
+        description="DataEval's `label_pattern`: a regex every concept label should match. Unset checks no naming.",
     )

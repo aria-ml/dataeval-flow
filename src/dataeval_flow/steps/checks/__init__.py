@@ -10,6 +10,12 @@ __all__ = [
     "DriftThresholds",
     "DuplicateRateCheck",
     "DuplicateRateConfig",
+    "LabelConformanceCheck",
+    "LabelConformanceConfig",
+    "LeafCoverageCheck",
+    "LeafCoverageConfig",
+    "MergeabilityCheck",
+    "MergeabilityConfig",
     "MetadataIssuesCheck",
     "MetadataIssuesConfig",
     "OODAgreementCheck",
@@ -17,6 +23,8 @@ __all__ = [
     "OODCheck",
     "OODCheckConfig",
     "OODThresholds",
+    "OntologyStructureCheck",
+    "OntologyStructureConfig",
     "OutlierRateCheck",
     "OutlierRateConfig",
     "StratificationCheck",
@@ -28,9 +36,18 @@ __all__ = [
     "UncoveredRateConfig",
 ]
 
+from dataeval_flow.steps.checks._alignment import MergeabilityCheck, MergeabilityConfig
 from dataeval_flow.steps.checks._coverage import UncoveredRateCheck, UncoveredRateConfig
 from dataeval_flow.steps.checks._drift import DriftCheck, DriftCheckConfig, DriftThresholds
 from dataeval_flow.steps.checks._duplicates import DuplicateRateCheck, DuplicateRateConfig
+from dataeval_flow.steps.checks._label_space import (
+    LabelConformanceCheck,
+    LabelConformanceConfig,
+    LeafCoverageCheck,
+    LeafCoverageConfig,
+    OntologyStructureCheck,
+    OntologyStructureConfig,
+)
 from dataeval_flow.steps.checks._labels import ClassImbalanceCheck, ClassImbalanceConfig
 from dataeval_flow.steps.checks._ood import (
     OODAgreementCheck,

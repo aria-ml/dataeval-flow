@@ -1,12 +1,10 @@
 """Data coverage workflow report/finding builders."""
 
-import json
 from typing import Any, Literal
-
-import yaml
 
 from dataeval_flow._blocks import Block, Cell, Code, Column, Fields, ItemRef, Paragraph, Table
 from dataeval_flow.evaluators.scope._report import uncovered_blocks
+from dataeval_flow.steps.checks._alignment import relabel_stanza as _relabel_stanza
 from dataeval_flow.workflows._base import Finding
 from dataeval_flow.workflows._tables import unlabelled_blocks
 from dataeval_flow.workflows.data_coverage._config import DataCoverageHealthThresholds
@@ -519,36 +517,6 @@ def _finding_conformance(
             ),
         ],
     )
-
-
-def _yaml_scalar(value: str) -> str:
-    """A YAML scalar for *value*, quoted only where a plain scalar would not round-trip.
-
-    Checked by round-tripping rather than by matching a character set. A label may contain
-    a metacharacter, but it may also be a plain word that YAML resolves to a non-string:
-    ``0``, ``on``, ``null``, or a date. A config that parses back to an int key never
-    matches the class it names, and ``Relabel`` then drops that class silently.
-    """
-    try:
-        safe = yaml.safe_load(f"[{value}]") == [value]
-    except yaml.YAMLError:
-        safe = False
-    return value if safe else json.dumps(value)
-
-
-def _relabel_stanza(paste_remap: dict[str, str], target_vocabulary: list[str]) -> str:
-    """The alignment as a view operation that can be pasted into a config."""
-    lines = [
-        "      - type: Relabel",
-        "        params:",
-        "          class_remap:",
-    ]
-    lines.extend(
-        f"            {_yaml_scalar(source)}: {_yaml_scalar(target)}" for source, target in sorted(paste_remap.items())
-    )
-    targets = ", ".join(_yaml_scalar(t) for t in target_vocabulary)
-    lines.append(f"          target: [{targets}]")
-    return "\n".join(lines)
 
 
 def _finding_alignment(

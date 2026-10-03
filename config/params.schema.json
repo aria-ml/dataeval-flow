@@ -687,6 +687,205 @@
       "title": "CheckStep_duplicate-rate",
       "type": "object"
     },
+    "CheckStep_label-conformance": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `label-reconciliation` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "unmatched": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "Class names that may resolve to no concept; more warn. An ambiguous name always warns. `null` turns the unmatched criterion off. Legacy data-coverage's `health_thresholds.unmatched_class_count`.",
+          "title": "Unmatched"
+        },
+        "check": {
+          "const": "label-conformance",
+          "description": "`label-conformance`: Warns when class names resolve to no ontology concept, or to several.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_label-conformance",
+      "type": "object"
+    },
+    "CheckStep_leaf-coverage": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `representation` Output, computed against a declared ontology.",
+          "title": "Input",
+          "type": "string"
+        },
+        "coverage": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.9,
+          "description": "The least share of the ontology's leaves that must have examples; under it the finding warns. `null` turns this criterion off. Legacy data-coverage's `health_thresholds.leaf_coverage`.",
+          "title": "Coverage"
+        },
+        "empty_branches": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "Wholly empty branches tolerated; more warn. `null` turns this criterion off. Legacy data-coverage's `health_thresholds.dark_branch_count`.",
+          "title": "Empty Branches"
+        },
+        "check": {
+          "const": "leaf-coverage",
+          "description": "`leaf-coverage`: Warns when too few of an ontology's leaves have examples, or a branch is empty.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_leaf-coverage",
+      "type": "object"
+    },
+    "CheckStep_mergeability": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `label-alignment` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "check": {
+          "const": "mergeability",
+          "description": "`mergeability`: Whether a Dataset's classes carry over to an ontology's vocabulary, with the stanza.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_mergeability",
+      "type": "object"
+    },
     "CheckStep_metadata-issues": {
       "additionalProperties": false,
       "properties": {
@@ -744,6 +943,58 @@
         "name"
       ],
       "title": "CheckStep_metadata-issues",
+      "type": "object"
+    },
+    "CheckStep_ontology-structure": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "An `ontology-validation` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "check": {
+          "const": "ontology-structure",
+          "description": "`ontology-structure`: Reports an ontology's structure, and warns on a label several concepts share.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_ontology-structure",
       "type": "object"
     },
     "CheckStep_ood": {
@@ -2143,7 +2394,19 @@
                 "$ref": "#/$defs/CheckStep_duplicate-rate"
               },
               {
+                "$ref": "#/$defs/CheckStep_label-conformance"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_leaf-coverage"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_mergeability"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_metadata-issues"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_ontology-structure"
               },
               {
                 "$ref": "#/$defs/CheckStep_ood"
@@ -5521,6 +5784,28 @@
       "title": "LabelAlignmentConfig",
       "type": "object"
     },
+    "LabelConformanceLimits": {
+      "additionalProperties": false,
+      "description": "The `label-conformance` check's field, with legacy data-coverage's default.",
+      "properties": {
+        "unmatched": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "Class names that may resolve to no concept; `null` turns it off. Legacy `unmatched_class_count`.",
+          "title": "Unmatched"
+        }
+      },
+      "title": "LabelConformanceLimits",
+      "type": "object"
+    },
     "LabelHealthConfig": {
       "additionalProperties": false,
       "description": "Config for ``label-health``: how a Dataset's labels spread over its classes.\n\nWraps ``dataeval.core.label_stats`` over the Dataset's metadata. It adds the number of classes the Dataset\ndeclares, seen or not, and where its labels came from. The ``class-imbalance`` and ``target-outlier-rate`` checks\nread it.\n\nExample YAML::\n\n    evaluators:\n      - name: labels\n        type: label-health",
@@ -5552,6 +5837,166 @@
         }
       },
       "title": "LabelHealthConfig",
+      "type": "object"
+    },
+    "LabelReconciliationConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``label-reconciliation``: which of a Dataset's class names resolve to exactly one ontology concept.\n\nWraps ``dataeval.core.label_reconciliation`` over the Dataset's ``index2label`` names, in index order. An\nunmatched name is out of vocabulary; an ambiguous one names several concepts.\n\nExample YAML::\n\n    evaluators:\n      - name: reconciliation\n        type: label-reconciliation\n        ontology: vehicles",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "label-reconciliation",
+          "default": "label-reconciliation",
+          "description": "The evaluator type this entry configures: `label-reconciliation`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "The ontology to reconcile against: a name from `ontologies:`, a path, or an inline hierarchy.",
+          "title": "Ontology"
+        }
+      },
+      "required": [
+        "ontology"
+      ],
+      "title": "LabelReconciliationConfig",
+      "type": "object"
+    },
+    "LabelSpaceConfig": {
+      "additionalProperties": false,
+      "description": "The settings of one ``label-space`` entry: the ontology to judge labels against, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: vocab\n        type: label-space\n        ontology: vehicles\n        expected: {truck: 0.2}",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "label-space",
+          "default": "label-space",
+          "description": "The workflow type this entry configures: `label-space`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "The ontology to judge labels against: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children.",
+          "title": "Ontology"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1], as `representation` reads it. A name resolving to no concept or to several is ignored and noted.",
+          "title": "Expected"
+        },
+        "label_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A regex every ontology label should match, as `ontology-validation` reads it.",
+          "title": "Label Pattern"
+        },
+        "health_thresholds": {
+          "$ref": "#/$defs/LabelSpaceThresholds",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "required": [
+        "ontology"
+      ],
+      "title": "LabelSpaceConfig",
+      "type": "object"
+    },
+    "LabelSpaceThresholds": {
+      "additionalProperties": false,
+      "description": "When label-space's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "leaf-coverage": {
+          "$ref": "#/$defs/LeafCoverageLimits",
+          "description": "The `leaf-coverage` check's thresholds."
+        },
+        "label-conformance": {
+          "$ref": "#/$defs/LabelConformanceLimits",
+          "description": "The `label-conformance` check's threshold."
+        }
+      },
+      "title": "LabelSpaceThresholds",
+      "type": "object"
+    },
+    "LeafCoverageLimits": {
+      "additionalProperties": false,
+      "description": "The `leaf-coverage` check's fields, with legacy data-coverage's defaults.",
+      "properties": {
+        "coverage": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.9,
+          "description": "The least share of the ontology's leaves with examples; `null` turns it off. Legacy `leaf_coverage`.",
+          "title": "Coverage"
+        },
+        "empty_branches": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "Wholly empty branches tolerated; `null` turns it off. Legacy `dark_branch_count`.",
+          "title": "Empty Branches"
+        }
+      },
+      "title": "LeafCoverageLimits",
       "type": "object"
     },
     "LoggingConfig": {
@@ -6607,6 +7052,55 @@
         "name"
       ],
       "title": "OntologyConfig",
+      "type": "object"
+    },
+    "OntologyValidationConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``ontology-validation``: an ontology's structural and naming facts.\n\nWraps ``dataeval.core.ontology_validation``. It reads only the ontology; it takes a Dataset so its report sits\nbeside the dataset the ontology judges.\n\nExample YAML::\n\n    evaluators:\n      - name: structure\n        type: ontology-validation\n        ontology: vehicles\n        label_pattern: '^[a-z0-9_]+$'",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "ontology-validation",
+          "default": "ontology-validation",
+          "description": "The evaluator type this entry configures: `ontology-validation`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "The ontology to validate: a name from `ontologies:`, a path, or an inline hierarchy.",
+          "title": "Ontology"
+        },
+        "label_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "DataEval's `label_pattern`: a regex every concept label should match. Unset checks no naming.",
+          "title": "Label Pattern"
+        }
+      },
+      "required": [
+        "ontology"
+      ],
+      "title": "OntologyValidationConfig",
       "type": "object"
     },
     "OutliersConfig": {
@@ -10066,6 +10560,9 @@
                 "$ref": "#/$defs/DriftMonitoringConfig"
               },
               {
+                "$ref": "#/$defs/LabelSpaceConfig"
+              },
+              {
                 "$ref": "#/$defs/MetadataTriageConfig"
               },
               {
@@ -10126,6 +10623,12 @@
               },
               {
                 "$ref": "#/$defs/LabelHealthConfig"
+              },
+              {
+                "$ref": "#/$defs/LabelReconciliationConfig"
+              },
+              {
+                "$ref": "#/$defs/OntologyValidationConfig"
               },
               {
                 "$ref": "#/$defs/OODDomainClassifierConfig"

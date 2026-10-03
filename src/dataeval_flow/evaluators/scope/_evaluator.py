@@ -6,6 +6,8 @@
 __all__ = [
     "CoverageEvaluator",
     "LabelAlignmentEvaluator",
+    "LabelReconciliationEvaluator",
+    "OntologyValidationEvaluator",
     "PrioritizeEvaluator",
     "RepresentationEvaluator",
     "usable_labels",
@@ -19,7 +21,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from dataeval.core import RankResult, label_alignment
+from dataeval.core import RankResult, label_alignment, label_reconciliation, ontology_validation
 from dataeval.scope import (
     Coverage,
     CoverageOutput,
@@ -38,9 +40,12 @@ from dataeval_flow.evaluators._inputs import EvaluatorInputs
 from dataeval_flow.evaluators.scope._config import (
     CoverageConfig,
     LabelAlignmentConfig,
+    LabelReconciliationConfig,
+    OntologyValidationConfig,
     PrioritizeConfig,
     RepresentationConfig,
 )
+from dataeval_flow.evaluators.scope._result import LabelReconciliationOutput, OntologyValidationOutput
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -57,10 +62,21 @@ class RepresentationEvaluator(Evaluator[RepresentationConfig, RepresentationOutp
     description: ClassVar[str] = "Class counts against an ontology's leaves (DataEval Representation)"
     dataeval_class: ClassVar[type] = Representation
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "evaluate"}
-    output_extras: ClassVar[tuple[str, ...]] = ("leaf_coverage", "total_deficit", "violations", "dark_branches")
+    output_extras: ClassVar[tuple[str, ...]] = (
+        "leaf_coverage",
+        "total_deficit",
+        "violations",
+        "dark_branches",
+        "ignored_expected",
+    )
+    reads_factors: ClassVar[bool] = False
 
     def run(self, config: RepresentationConfig, inputs: Sequence[EvaluatorInputs]) -> RepresentationOutput:
-        """Count the source's labels against the task's ontology, or one synthesized from its ``index2label``."""
+        """Count the source's labels against the task's ontology, or one synthesized from its ``index2label``.
+
+        The output also records the ``expected`` names that resolve to no concept or to several, which
+        Representation drops with only a log warning, and how the ontology was named (coverage spec §3.3).
+        """
         from dataeval_flow.workflows._ontology import synthesize_ontology
 
         (source,) = inputs
@@ -71,8 +87,16 @@ class RepresentationEvaluator(Evaluator[RepresentationConfig, RepresentationOutp
                 "counts class labels."
             )
         index2label = dict(source.index2label or {})
-        ontology = source.ontology if source.ontology is not None else synthesize_ontology(index2label)[0]
-        return Representation(ontology, **dataeval_arguments(config)).evaluate(labels, index2label=index2label)
+        if source.ontology is not None:
+            ontology, named = source.ontology, source.ontology_source
+        else:
+            ontology, named = synthesize_ontology(index2label)
+        output = Representation(ontology, **dataeval_arguments(config)).evaluate(labels, index2label=index2label)
+        output.ignored_expected = sorted(  # pyright: ignore[reportAttributeAccessIssue]
+            name for name in (config.expected or {}) if len(ontology.find(name)) != 1
+        )
+        output.ontology_source = named  # pyright: ignore[reportAttributeAccessIssue]
+        return output
 
 
 @dataclass(frozen=True)
@@ -113,6 +137,7 @@ class CoverageEvaluator(Evaluator[CoverageConfig, CoverageOutput]):
         InputKind.LABELS: "evaluate",
     }
     output_extras: ClassVar[tuple[str, ...]] = ("uncovered_indices", "coverage_radius", "critical_value_radii")
+    reads_factors: ClassVar[bool] = False
 
     def run(self, config: CoverageConfig, inputs: Sequence[EvaluatorInputs]) -> CoverageOutput:
         """Measure the source's coverage, broken down by class where its labels allow, else as one class, ``0``."""
@@ -139,6 +164,7 @@ class PrioritizeEvaluator(Evaluator[PrioritizeConfig, PrioritizeOutput]):
         InputKind.LABELS: "evaluate",
     }
     output_extras: ClassVar[tuple[str, ...]] = ("scores",)
+    reads_factors: ClassVar[bool] = False
 
     def run(self, config: PrioritizeConfig, inputs: Sequence[EvaluatorInputs]) -> PrioritizeOutput:
         """Rank the first source's items, relative to the second source's where the task names one."""
@@ -167,6 +193,7 @@ class LabelAlignmentEvaluator(Evaluator[LabelAlignmentConfig, LabelAlignmentOutp
     )
     dataeval_class: ClassVar[Any] = label_alignment
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "__call__"}
+    reads_factors: ClassVar[bool] = False
 
     def run(self, config: LabelAlignmentConfig, inputs: Sequence[EvaluatorInputs]) -> LabelAlignmentOutput:
         """Align the source's class names to the task's ontology with DataEval's ``label_alignment``."""
@@ -181,3 +208,77 @@ class LabelAlignmentEvaluator(Evaluator[LabelAlignmentConfig, LabelAlignmentOutp
             "dataeval.core.label_alignment", started, time.monotonic() - clock, {"threshold": config.threshold}
         )
         return LabelAlignmentOutput(alignment, source.ontology, meta, ontology_source=source.ontology_source)
+
+
+class LabelReconciliationEvaluator(Evaluator[LabelReconciliationConfig, LabelReconciliationOutput]):
+    """``label-reconciliation``: which class names resolve to one ontology concept, per DataEval's
+    label_reconciliation."""
+
+    name: ClassVar[str] = "label-reconciliation"
+    title: ClassVar[str] = "Label Reconciliation"
+    description: ClassVar[str] = "Which of a Dataset's class names resolve to exactly one ontology concept"
+    dataeval_class: ClassVar[Any] = label_reconciliation
+    dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "__call__"}
+    reads_factors: ClassVar[bool] = False
+
+    def run(self, config: LabelReconciliationConfig, inputs: Sequence[EvaluatorInputs]) -> LabelReconciliationOutput:  # noqa: ARG002
+        """Reconcile the source's class names, in index order, against the task's ontology."""
+        (source,) = inputs
+        if source.ontology is None:
+            raise ValueError("`label-reconciliation` needs its `ontology:` to load.")
+        index2label = dict(source.index2label or {})
+        names = [index2label[index] for index in sorted(index2label)]
+        started, clock = datetime.now(UTC), time.monotonic()
+        result = label_reconciliation(names, source.ontology)
+        meta = execution("dataeval.core.label_reconciliation", started, time.monotonic() - clock, {})
+        unmatched = list(result["unmatched"])
+        ambiguous = {name: list(ids) for name, ids in result["ambiguous"].items()}
+        data = {
+            "conforms": not unmatched and not ambiguous,
+            "matched": dict(result["matched"]),
+            "unmatched": unmatched,
+            "ambiguous": ambiguous,
+        }
+        return LabelReconciliationOutput(data, meta)
+
+
+class OntologyValidationEvaluator(Evaluator[OntologyValidationConfig, OntologyValidationOutput]):
+    """``ontology-validation``: an ontology's structural and naming facts, per DataEval's ontology_validation."""
+
+    name: ClassVar[str] = "ontology-validation"
+    title: ClassVar[str] = "Ontology Validation"
+    description: ClassVar[str] = "An ontology's structural and naming facts: depth, roots, collisions, and more"
+    dataeval_class: ClassVar[Any] = ontology_validation
+    dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "__call__"}
+    reads_factors: ClassVar[bool] = False
+
+    def run(self, config: OntologyValidationConfig, inputs: Sequence[EvaluatorInputs]) -> OntologyValidationOutput:
+        """Validate the task's ontology; the source is read only for its ontology."""
+        (source,) = inputs
+        ontology = source.ontology
+        if ontology is None:
+            raise ValueError("`ontology-validation` needs its `ontology:` to load.")
+        started, clock = datetime.now(UTC), time.monotonic()
+        result = ontology_validation(ontology, label_pattern=config.label_pattern)
+        meta = execution(
+            "dataeval.core.ontology_validation",
+            started,
+            time.monotonic() - clock,
+            {"label_pattern": config.label_pattern},
+        )
+        depths = result["depth"]
+        data = {
+            "concept_count": len(ontology.ids),
+            "leaf_count": len(result["leaves"]),
+            "max_depth": max(depths.values()) if depths else 0,
+            "roots": list(result["roots"]),
+            "isolated": list(result["isolated"]),
+            "external_ancestors": {cid: list(ids) for cid, ids in result["external_ancestors"].items()},
+            # DataEval returns tuples; JSON has none, so each pair is a two-element list.
+            "redundant_edges": [list(edge) for edge in result["redundant_edges"]],
+            "ancestor_siblings": [list(pair) for pair in result["ancestor_siblings"]],
+            "unary_parents": list(result["unary_parents"]),
+            "label_collisions": {name: list(ids) for name, ids in result["label_collisions"].items()},
+            "nonconforming_labels": dict(result["nonconforming_labels"]),
+        }
+        return OntologyValidationOutput(data, meta)

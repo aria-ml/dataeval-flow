@@ -40,6 +40,9 @@ _WIRING: dict[str, frozenset[str]] = {
     "ood-kneighbors": frozenset({"extractor"}),
     # `matchers` holds objects a config file cannot express.
     "label-alignment": frozenset({"matchers"}),
+    "label-reconciliation": frozenset(),
+    # `label_pattern` is keyword-only, so it is a field rather than wiring.
+    "ontology-validation": frozenset(),
 }
 
 # Flow's own evaluators: their settings are Flow's, not a DataEval `Config`'s, so they have no wiring list.

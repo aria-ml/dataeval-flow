@@ -209,3 +209,40 @@ def test_no_reads_record_nothing() -> None:
     attach_reads(envelope, [])
     assert envelope.metadata_binning is None
     assert envelope.encoding_digest is None
+
+
+@pytest.mark.parametrize("name", ["representation", "coverage", "prioritize", "label-alignment"])
+def test_the_scope_evaluators_read_no_factors(name: str) -> None:
+    from dataeval_flow.evaluators import get_evaluator
+
+    assert get_evaluator(name).reads_factors is False
+
+
+def test_a_chain_reading_labels_through_representation_records_no_encoding() -> None:
+    """`representation` reads each item's class through the Metadata, and no factor (coverage spec §3.3)."""
+    result = _chain(
+        [{"name": "rep", "evaluator": "rep", "input": "data"}],
+        evaluators=[{"name": "rep", "type": "representation"}],
+    )
+    assert result.metadata.metadata_binning is None
+
+
+def test_data_splitting_with_an_extractor_records_the_whole_set_once() -> None:
+    """Its coverage steps read each part's labels; only the whole set's factors are read (coverage spec §6.3)."""
+    from tests.golden.splitting import pipeline
+
+    result = run_tasks(pipeline("coverage", legacy=False))["t"]
+    assert isinstance(result, ChainResult)
+    record = _binning(result)
+    assert "per_split" not in record
+
+
+def test_data_prioritization_records_no_binning() -> None:
+    """Its steps read no factor, so its envelope has no binning record or encoding digest."""
+    from tests.golden.prioritization import pipeline
+
+    result = run_tasks(pipeline("plain"))["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    assert result.metadata.metadata_binning is None
+    assert result.metadata.encoding_digest is None

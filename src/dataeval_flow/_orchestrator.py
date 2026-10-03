@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from dataeval_flow._cache import DatasetCache
     from dataeval_flow._chain._run import ChainRun, ExtractorSetup
     from dataeval_flow._policy import ResolvedPolicy
-    from dataeval_flow._result import Result
+    from dataeval_flow._result import Result, ResultMetadata
     from dataeval_flow._sources import ResolvedSource, SourceOperand
     from dataeval_flow._stats import ResolvedStatsPolicy
     from dataeval_flow._tables import TableLimits
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from dataeval_flow.evaluators._base import EvaluatorConfig
     from dataeval_flow.evaluators._evaluator import Evaluator
     from dataeval_flow.steps._by import ByConfig
-    from dataeval_flow.steps._result import ChainResult
+    from dataeval_flow.steps._result import ChainResult, StepResult
     from dataeval_flow.workflows._base import Workflow, WorkflowConfig
     from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology, WorkflowContext
 
@@ -894,7 +894,34 @@ def _run_custom_task(
         # One vocabulary names the run's labels only where every record agrees, the sources' and the chain's.
         digests = {record.digest for record in result.metadata.label_space}
         result.metadata.label_space_digest = next(iter(digests)) if len(digests) == 1 else None
+    else:
+        _stamp_alignment_digest(result.metadata, result.steps)
     return result
+
+
+def _alignment_digests(steps: "Mapping[str, StepResult]") -> set[str]:
+    """The label-space digest of every completed `label-alignment` step, each element of a broadcast counting."""
+    digests: set[str] = set()
+    for record in steps.values():
+        if record.type != "label-alignment":
+            continue
+        for run in (record.elements or {}).values() if record.elements else (record,):
+            alignment = getattr(run.output, "alignment", None) if run.status == "ok" else None
+            digest = getattr(alignment, "label_space_digest", None)
+            if digest:
+                digests.add(digest)
+    return digests
+
+
+def _stamp_alignment_digest(metadata: "ResultMetadata", steps: "Mapping[str, StepResult]") -> None:
+    """Stamp the digest a chain's alignments agree on, where its sources and `conform` steps recorded no label space
+    (coverage spec §3.5): the label space a dataset would have after pasting the remap, which `conform`'s exports are
+    compared against."""
+    if metadata.label_space:
+        return
+    digests = _alignment_digests(steps)
+    if len(digests) == 1:
+        metadata.label_space_digest = next(iter(digests))
 
 
 def _capture_chain_assets(result: "ChainResult", chain: "ChainRun", limit: int | None) -> None:
@@ -1075,7 +1102,7 @@ def _populate_result_metadata(
         result.metadata.label_space = records
         digests = {record.digest for record in records}
         # Set the scalar only where the run read one vocabulary. A workflow that stamped
-        # its own — the coverage audit does — keeps it.
+        # its own keeps it.
         if len(digests) == 1 and not result.metadata.label_space_digest:
             result.metadata.label_space_digest = records[0].digest
 
