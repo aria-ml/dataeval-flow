@@ -46,7 +46,7 @@ class RepresentationResult(EvaluatorResult[RepresentationOutput]):
         """Leaf coverage, the deficit and how many concepts fall short."""
         from dataeval_flow.evaluators.scope._report import representation_section
 
-        return representation_section(output)
+        return representation_section(output, detailed=detailed)
 
 
 class CoverageResult(EvaluatorResult[CoverageOutput]):

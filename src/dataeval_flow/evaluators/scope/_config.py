@@ -252,7 +252,7 @@ class LabelAlignmentResult(EvaluatorResult[LabelAlignmentOutput]):
         """Its mergeability, and how many names correspond, were dropped, or are not covered."""
         from dataeval_flow.evaluators.scope._report import label_alignment_section
 
-        return label_alignment_section(output)
+        return label_alignment_section(output, detailed=detailed)
 
 
 class LabelAlignmentConfig(EvaluatorConfig[LabelAlignmentResult]):

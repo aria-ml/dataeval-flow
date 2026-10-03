@@ -44,3 +44,23 @@ def test_label_alignment_s_section_summarizes_rather_than_listing_correspondence
     assert section is not None
     fields = _fields(section)
     assert fields == {"Mergeability": "lossless", "Correspondences": 2, "Dropped": 0, "Not covered": 0}
+
+
+def test_a_detailed_representation_section_adds_the_output_blocks() -> None:
+    result = run(RepresentationConfig(ontology={"x": {"a": None, "b": None, "c": None}}), ToyImages(count=20))
+    short = result._section(output_json(result), ["src"], detailed=False)
+    detailed = result._section(output_json(result), ["src"], detailed=True)
+    assert short is not None
+    assert detailed is not None
+    assert detailed[: len(short)] == short
+    assert any(getattr(block, "title", None) == "Output" for block in detailed[len(short) :])
+
+
+def test_a_detailed_label_alignment_section_adds_the_output_blocks() -> None:
+    result = run(LabelAlignmentConfig(ontology={"a": None, "b": None}), ToyImages(count=20))
+    short = result._section(output_json(result), ["src"], detailed=False)
+    detailed = result._section(output_json(result), ["src"], detailed=True)
+    assert short is not None
+    assert detailed is not None
+    assert detailed[: len(short)] == short
+    assert any(getattr(block, "title", None) == "Output" for block in detailed[len(short) :])

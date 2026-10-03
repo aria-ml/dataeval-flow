@@ -73,37 +73,39 @@ def coverage_section(output: Mapping[str, Any], sources: Sequence[str], *, detai
     ]
 
 
-def representation_section(output: Mapping[str, Any]) -> list[Block]:
+def representation_section(output: Mapping[str, Any], *, detailed: bool) -> list[Block]:
     """A Representation Output's report: leaf coverage, the deficit and how many concepts fall short. The worklist
-    itself is shown by the check that judges it (coverage spec §3.3)."""
+    itself is shown by the check that judges it (coverage spec §3.3), and by a detailed report, in full."""
+    from dataeval_flow.evaluators._report import output_blocks
+
     extras = output.get("extras") or {}
     worklist = output.get("rows") or []  # the worklist serializes as a table
     coverage = extras.get("leaf_coverage")
-    return [
-        Fields(
-            items=[
-                ("Leaf coverage", None if coverage is None else f"{round(float(coverage) * 100, 1)}%"),
-                ("Total deficit", extras.get("total_deficit")),
-                ("Concepts short", len(worklist)),
-            ]
-        )
-    ]
+    fields = Fields(
+        items=[
+            ("Leaf coverage", None if coverage is None else f"{round(float(coverage) * 100, 1)}%"),
+            ("Total deficit", extras.get("total_deficit")),
+            ("Concepts short", len(worklist)),
+        ]
+    )
+    return [fields, *(output_blocks(dict(output), detailed=True) if detailed else [])]
 
 
-def label_alignment_section(output: Mapping[str, Any]) -> list[Block]:
+def label_alignment_section(output: Mapping[str, Any], *, detailed: bool) -> list[Block]:
     """A Label Alignment Output's report: its mergeability and its counts. The correspondences are shown by the check
-    that judges it (coverage spec §3.3)."""
+    that judges it (coverage spec §3.3), and by a detailed report, in full."""
+    from dataeval_flow.evaluators._report import output_blocks
+
     data = output.get("data") or {}
-    return [
-        Fields(
-            items=[
-                ("Mergeability", data.get("mergeability")),
-                ("Correspondences", len(data.get("correspondences") or [])),
-                ("Dropped", len(data.get("unaligned_source") or [])),
-                ("Not covered", len(data.get("unaligned_target") or [])),
-            ]
-        )
-    ]
+    fields = Fields(
+        items=[
+            ("Mergeability", data.get("mergeability")),
+            ("Correspondences", len(data.get("correspondences") or [])),
+            ("Dropped", len(data.get("unaligned_source") or [])),
+            ("Not covered", len(data.get("unaligned_target") or [])),
+        ]
+    )
+    return [fields, *(output_blocks(dict(output), detailed=True) if detailed else [])]
 
 
 # A ranking's first and last this many items are listed.
