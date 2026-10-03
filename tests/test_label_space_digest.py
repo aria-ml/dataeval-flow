@@ -44,7 +44,43 @@ def test_a_broadcast_alignment_whose_elements_agree_stamps_their_digest() -> Non
         sources=["a", "b"],
         datasets={"a": ToyImages(count=10), "b": ToyImages(count=12, seed=1)},
     )
-    assert result.metadata.label_space_digest is not None
+    digests = {e.output.alignment.label_space_digest for e in (result.steps["align"].elements or {}).values()}
+    assert len(digests) == 1
+    assert result.metadata.label_space_digest == digests.pop()
+
+
+def test_a_broadcast_alignment_whose_elements_disagree_stamps_nothing() -> None:
+    from tests.evaluator_toys import ToyImages
+
+    renamed = ToyImages(count=12, seed=1)
+    renamed.metadata = {"id": renamed.metadata["id"], "index2label": {0: "a", 1: "c"}}
+    result = _run(
+        [{"name": "align", "evaluator": "align", "input": "splits"}],
+        [_ALIGN],
+        inputs=[{"name": "splits", "list": True}],
+        sources=["a", "b"],
+        datasets={"a": ToyImages(count=10), "b": renamed},
+    )
+    assert result.metadata.label_space_digest is None
+
+
+def test_a_source_that_relabelled_keeps_its_record_over_a_running_alignment() -> None:
+    from dataeval_flow.config import SourceConfig, ViewConfig, ViewOperation
+    from tests.evaluator_toys import ToyImages
+
+    relabel = ViewOperation(type="Relabel", params={"class_remap": {"a": "A", "b": "B"}, "target": ["A", "B"]})
+    result = _run(
+        [{"name": "align", "evaluator": "align", "input": "data"}],
+        [_ALIGN],
+        datasets={"src": ToyImages(count=12)},
+        extra={
+            "sources": [SourceConfig(name="src", dataset="src_data", view="conform")],
+            "views": [ViewConfig(name="conform", operations=[relabel])],
+        },
+    )
+    (record,) = result.metadata.label_space
+    assert result.metadata.label_space_digest == record.digest
+    assert record.digest != result.steps["align"].output.alignment.label_space_digest
 
 
 def test_two_alignments_that_disagree_stamp_nothing() -> None:

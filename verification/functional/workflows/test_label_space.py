@@ -44,4 +44,4 @@ class TestLabelSpace:
             "Ontology Structure",
         ]
         assert result.report().strip()
-        assert result.metadata.label_space_digest is not None
+        assert result.metadata.label_space_digest == result.steps["alignment"].output.alignment.label_space_digest

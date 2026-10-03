@@ -62,10 +62,13 @@ def test_an_ontology_that_does_not_load_fails_the_task_with_the_loader_s_message
 
 
 def test_it_runs_on_detection_data_counting_box_labels() -> None:
-    boxes = ToyDetections([[0], [1, 0], [0], [1], [0, 1], [1]], {0: "car", 1: "van"})
-    result = _run({"ontology": {"x": {"car": None, "van": None}}}, {"src": boxes})
+    boxes = ToyDetections([[0], [1, 0], [0], [1], [0, 1], [1]], {0: "car", 1: "van", 2: "bus"})
+    result = _run({"ontology": {"x": {"car": None, "van": None, "bus": None}}}, {"src": boxes})
     assert result.success, result.errors
     assert [finding.title for finding in result.findings] == _TITLES
+    # Eight boxes over three leaves: each wants three, and `bus` has none.
+    (row,) = result.steps["representation"].output.data().to_dicts()
+    assert (row["concept"], row["count"], row["target"], row["deficit"]) == ("bus", 0, 3, 3)
 
 
 def test_thresholds_are_keyed_by_check_type_and_reach_the_checks() -> None:

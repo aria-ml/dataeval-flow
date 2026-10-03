@@ -114,6 +114,16 @@ def test_unmatched_names_within_the_limit_are_ok() -> None:
     assert _conformance(data, unmatched=1).severity == "ok"
 
 
+def test_unmatched_with_no_threshold_is_still_judged_for_ambiguity() -> None:
+    """A criterion without a threshold keeps judging: `unmatched=None` lifts only the unmatched limit."""
+    unmatched = _conformance({"conforms": False, "matched": {}, "unmatched": ["truk"], "ambiguous": {}}, unmatched=None)
+    ambiguous = _conformance(
+        {"conforms": False, "matched": {}, "unmatched": ["truk"], "ambiguous": {"car": ["c1", "c2"]}}, unmatched=None
+    )
+    assert unmatched.severity == "ok"
+    assert ambiguous.severity == "warning"
+
+
 def _structure(**data: Any) -> Any:
     base = {
         "concept_count": 4,
