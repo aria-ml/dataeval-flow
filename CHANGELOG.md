@@ -167,7 +167,8 @@
 - `representation`'s output records the `expected` names it ignored, under `extras.ignored_expected`, and its report
   section and `label-alignment`'s are short summaries
 - `representation`, `coverage`, `prioritize` and `label-alignment` read class labels and no factor, so their reads
-  leave a chain's binning record: data-splitting with an extractor records the whole set once
+  leave a chain's binning record: data-splitting with an extractor records the whole set once, and data-prioritization,
+  whose steps read no factor, records no binning record or `encoding_digest`
 - `uncertainty` extractor entries need `metadata_path` and `preds_type`, and the TUI no longer offers them
 - drift-monitoring's `classwise:` maps each detector to its `by:` (`{drift-mmd: class}`), and takes class groups; the
   list form is refused

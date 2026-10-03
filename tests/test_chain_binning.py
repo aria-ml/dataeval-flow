@@ -235,3 +235,14 @@ def test_data_splitting_with_an_extractor_records_the_whole_set_once() -> None:
     assert isinstance(result, ChainResult)
     record = _binning(result)
     assert "per_split" not in record
+
+
+def test_data_prioritization_records_no_binning() -> None:
+    """Its steps read no factor, so its envelope has no binning record or encoding digest."""
+    from tests.golden.prioritization import pipeline
+
+    result = run_tasks(pipeline("plain"))["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    assert result.metadata.metadata_binning is None
+    assert result.metadata.encoding_digest is None
