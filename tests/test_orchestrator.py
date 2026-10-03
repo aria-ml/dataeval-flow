@@ -2199,7 +2199,7 @@ class TestResolveStatsPolicy:
     def test_none_for_a_workflow_that_computes_no_statistics(self):
         from dataeval_flow import PipelineConfig
         from dataeval_flow._orchestrator import _resolve_stats_policy
-        from dataeval_flow.workflows.data_splitting import DataSplittingConfig
+        from dataeval_flow.workflows.data_coverage import DataCoverageConfig
 
-        instance = DataSplittingConfig(name="s", type="data-splitting")
+        instance = DataCoverageConfig(name="c", type="data-coverage")
         assert _resolve_stats_policy(instance, PipelineConfig(), {}) is None

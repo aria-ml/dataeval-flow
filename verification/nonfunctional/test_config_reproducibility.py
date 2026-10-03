@@ -1,8 +1,9 @@
 """TC-11-1 (NFR-4) — configuration reproducibility.
 
-Demonstrates that the splitting workflow is deterministic for a given
-``PipelineConfig`` (same config → identical ``to_dict()`` output, ignoring
-non-deterministic envelope fields like ``timestamp`` and ``execution_time_s``),
+Demonstrates that the data-splitting preset is deterministic for a given
+``PipelineConfig`` (same config → identical ``to_dict()`` output, ignoring the
+run's timing: the envelope's ``timestamp`` and ``execution_time_s``, and each
+step's ``elapsed_s`` and DataEval ``execution_time`` and ``execution_duration``),
 and that varying the configuration changes the output.
 """
 
@@ -40,7 +41,6 @@ def _build_split_cfg(data_root: Path, test_frac: float, seed: int | None = 42) -
                 type="data-splitting",
                 test_frac=test_frac,
                 val_frac=0.25,
-                num_folds=1,
                 stratify=False,
             ),
         ],
@@ -54,12 +54,16 @@ def _build_split_cfg(data_root: Path, test_frac: float, seed: int | None = 42) -
     )
 
 
-def _strip_volatile_metadata(payload: dict[str, Any]) -> dict[str, Any]:
-    """Remove non-deterministic envelope fields (timestamp + duration)."""
-    meta = dict(payload.get("metadata", {}))
-    for key in ("timestamp", "execution_time_s"):
-        meta.pop(key, None)
-    return {**payload, "metadata": meta}
+_VOLATILE = frozenset({"timestamp", "execution_time_s", "elapsed_s", "execution_time", "execution_duration"})
+
+
+def _strip_volatile(payload: Any) -> Any:
+    """Remove the run's timing at every depth: the envelope's, and each step's."""
+    if isinstance(payload, dict):
+        return {key: _strip_volatile(value) for key, value in payload.items() if key not in _VOLATILE}
+    if isinstance(payload, list):
+        return [_strip_volatile(value) for value in payload]
+    return payload
 
 
 def _run(data_root: Path, test_frac: float) -> dict[str, Any]:
@@ -74,7 +78,7 @@ def _run(data_root: Path, test_frac: float) -> dict[str, Any]:
     mechanism.
     """
     result = run_tasks(_build_split_cfg(data_root, test_frac=test_frac), data_dir=data_root)["split_task"]
-    return _strip_volatile_metadata(result.to_dict())
+    return _strip_volatile(result.to_dict())
 
 
 @pytest.mark.test_case("11-1")

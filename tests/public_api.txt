@@ -177,8 +177,13 @@ dataeval_flow.steps.checks:OODCheckConfig
 dataeval_flow.steps.checks:OODThresholds
 dataeval_flow.steps.checks:OutlierRateCheck
 dataeval_flow.steps.checks:OutlierRateConfig
+dataeval_flow.steps.checks:StratificationCheck
+dataeval_flow.steps.checks:StratificationConfig
+dataeval_flow.steps.checks:StratificationThresholds
 dataeval_flow.steps.checks:TargetOutlierRateCheck
 dataeval_flow.steps.checks:TargetOutlierRateConfig
+dataeval_flow.steps.checks:UncoveredRateCheck
+dataeval_flow.steps.checks:UncoveredRateConfig
 dataeval_flow.steps.combines:ClasswiseOutliers
 dataeval_flow.steps.combines:ClasswiseOutliersCombine
 dataeval_flow.steps.combines:ClasswiseOutliersConfig
@@ -239,8 +244,9 @@ dataeval_flow.workflows.data_prioritization:DataPrioritizationCleaningConfig
 dataeval_flow.workflows.data_prioritization:DataPrioritizationConfig
 dataeval_flow.workflows.data_prioritization:DataPrioritizationWorkflow
 dataeval_flow.workflows.data_splitting:DataSplittingConfig
-dataeval_flow.workflows.data_splitting:DataSplittingResult
+dataeval_flow.workflows.data_splitting:DataSplittingThresholds
 dataeval_flow.workflows.data_splitting:DataSplittingWorkflow
+dataeval_flow.workflows.data_splitting:SplittingCoverage
 dataeval_flow.workflows.drift_monitoring:DriftMonitoringConfig
 dataeval_flow.workflows.drift_monitoring:DriftMonitoringThresholds
 dataeval_flow.workflows.drift_monitoring:DriftMonitoringWorkflow

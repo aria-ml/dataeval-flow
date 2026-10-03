@@ -1,6 +1,6 @@
 """Per-dataset and per-run context a workflow or evaluator executes with."""
 
-__all__ = ["DatasetContext", "ResolvedOntology", "WorkflowContext"]
+__all__ = ["DatasetContext", "ResolvedOntology", "Subset", "WorkflowContext"]
 
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
@@ -24,6 +24,14 @@ if TYPE_CHECKING:
     from dataeval_flow._stats import ResolvedStatsPolicy
     from dataeval_flow.config._schemas import ViewOperation
     from dataeval_flow.config.extractors._base import ExtractorConfig
+
+
+@dataclass(frozen=True)
+class Subset:
+    """Where a chain node's items sit in another node's: that node's context, and each item's index in its dataset."""
+
+    context: "DatasetContext"
+    indices: tuple[int, ...]
 
 
 @dataclass
@@ -58,6 +66,12 @@ class DatasetContext:
     """
     cache: "DatasetCache | None" = None
     """The source's cache, or ``None`` to compute without one."""
+    parent: "Subset | None" = field(default=None, compare=False, repr=False)
+    """For a chain node that views another through operations changing no pixels, that node and where each item sits
+    in it: its embeddings slice rows the run already extracted for an ancestor (data-splitting spec §5.3)."""
+    embedded: "dict[str, Any] | None" = field(default=None, compare=False, repr=False)
+    """The embeddings this run extracted for this node, by extractor settings, shared by every copy of the context a
+    step reads it through; ``None`` outside a chain."""
 
 
 @dataclass(frozen=True)
@@ -248,12 +262,15 @@ class WorkflowContext:
             When the task named no extractor for *source*.
         """
         from dataeval_flow._cache import get_or_compute_embeddings
+        from dataeval_flow._embeddings import node_embeddings
 
         dc = self._source(source)
         if dc.extractor is None:
             raise ValueError(f"Source {source!r} has no extractor; name one on the task with `extractor:`.")
         with self._cached(source) as dataset:
-            return get_or_compute_embeddings(dataset, dc.extractor, dc.transforms, dc.batch_size)
+            return node_embeddings(
+                dc, lambda: get_or_compute_embeddings(dataset, dc.extractor, dc.transforms, dc.batch_size)
+            )
 
     def predictions(self, source: str) -> "Predictions":
         """The source's extractor's model run over every item in the source, cached: each row's class scores and the

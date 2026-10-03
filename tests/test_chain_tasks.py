@@ -310,7 +310,7 @@ def test_a_one_step_task_hands_its_runner_the_contexts_it_resolved_and_records_n
     (context,) = handed
     (run,) = runs
     assert list(context.dataset_contexts) == ["src"]
-    assert context.dataset_contexts["src"] is contexts["src"]
+    assert context.dataset_contexts["src"] == contexts["src"]
     assert (run.lineage, run.label_space) == ([], [])
     assert "lineage" not in result.to_dict()["metadata"]  # type: ignore[operator]
 

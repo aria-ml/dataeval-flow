@@ -109,6 +109,7 @@ class LabelHealthEvaluator(Evaluator[LabelHealthConfig, LabelHealthOutput]):
     description: ClassVar[str] = "How a Dataset's labels spread over its classes (DataEval label_stats)"
     dataeval_class: ClassVar[Any] = label_stats
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.METADATA: "__call__"}
+    reads_factors: ClassVar[bool] = False
 
     def run(self, config: LabelHealthConfig, inputs: Sequence[EvaluatorInputs]) -> LabelHealthOutput:  # noqa: ARG002
         """Count the source's labels by class with DataEval's ``label_stats``, naming each class."""

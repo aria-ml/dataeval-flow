@@ -1111,6 +1111,7 @@ class TestSectionModalPopulateOneField:
             existing = {
                 "name": "wf1",
                 "type": "data-splitting",
+                "folds": 3,
                 "test_frac": 0.2,
             }
             modal = SectionModal("workflows", existing=existing)

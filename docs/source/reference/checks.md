@@ -7,8 +7,9 @@ reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for 
 [Transform Catalog](transforms.md) for the steps that make Datasets.
 
 The built-in checks are the ones `data-cleaning` runs, whose findings are theirs; `metadata-issues`, which makes
-`metadata-triage`'s; `drift`, which judges `drift-monitoring`'s detectors; and `ood`, which judges `ood-detection`'s
-detectors. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
+`metadata-triage`'s; `drift`, which judges `drift-monitoring`'s detectors; `ood`, which judges `ood-detection`'s
+detectors; and `stratification` and `uncovered-rate`, which judge `data-splitting`'s split and coverage. See
+[data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
 
@@ -19,6 +20,8 @@ detectors. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 | `classwise-outlier-rate` | check | `input`: a `classwise-outliers` Output | Classwise Outliers |
 | `duplicate-rate` | check | `input`: a `duplicates` Output | Duplicates |
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
+| `stratification` | check | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
+| `uncovered-rate` | check | `input`: a `coverage` Output | Uncovered Rate |
 | `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
 | `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
@@ -104,6 +107,34 @@ Dataset declares no class. Its title reads "Label/Directory_Name Distribution" w
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-health` Output |
 | `ratio` | a ratio of at least 1, or `null` | `5.0` | Largest class count over smallest that may hold before the finding warns; an empty class always warns |
+
+### `stratification`
+
+How far each part's class shares stray from the whole's: for each class and part, the gap between the class's share
+of the part's labels and of the whole's, in percentage points. The largest, rounded to one place, is judged; the
+table of counts across the parts is its evidence. Run once per fold over `kfold`'s lists. Configured by
+{py:class}`~dataeval_flow.steps.checks.StratificationConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `label-health` Output over the whole Dataset the parts were split from |
+| `parts` | one address or several | required | The parts' `label-health` Outputs, each judged |
+| `shown` | one address or several, or `null` | `null` | `label-health` Outputs shown in the table but not judged, such as a rebalanced train |
+| `info` | percentage points, or `null` | `2.0` | The largest deviation above which the finding is `info`; `null` has no `info` band |
+| `warning` | percentage points, or `null` | `10.0` | The largest deviation above which the finding warns; `null` never warns |
+
+### `uncovered-rate`
+
+How much of a Dataset coverage left uncovered, as a share of its items. Judge only `naive` coverage: adaptive
+coverage, DataEval's default, marks the sparsest `percent` of the items uncovered by construction, so its share says
+nothing about the data. DataEval's naive radius overflows past about 340 embedding dimensions, so `naive` suits
+low-dimensional embeddings: with a wide CNN or ONNX extractor, the coverage steps are skipped with "failed:
+OverflowError". Configured by {py:class}`~dataeval_flow.steps.checks.UncoveredRateConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `coverage` Output |
+| `rate` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
 
 ### `metadata-issues`
 

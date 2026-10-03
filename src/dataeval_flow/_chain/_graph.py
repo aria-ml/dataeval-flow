@@ -105,8 +105,8 @@ class ChainGraph:
     steps: tuple[StepSpec, ...]
     one_step: bool = False
     aliases: Mapping[str, str] = field(default_factory=dict)
-    """Each declared output of a preset step, such as `cleaning.clean`, to the address of the spliced step that
-    makes it, `cleaning/clean`."""
+    """Each declared output of a preset step, such as `cleaning.clean`, to the output address in the spliced
+    chain that holds it, `cleaning/clean` or `splits/split.train`."""
 
     def aliases_of(self, address: str) -> tuple[str, ...]:
         """The addresses that read what `address` holds: each declared output of a preset step made there."""
@@ -151,6 +151,7 @@ def build_graph(
             specs.update((spec.name, spec) for spec in spliced.steps)
             aliases.update(spliced.aliases)
             types.update(spliced.types)
+            empty[entry.name] = spliced.empty
             continue
         spec = _resolve(entry, workflow, pipeline, types, later, specs, empty, evaluators)
         specs[entry.name] = spec
@@ -248,7 +249,8 @@ def binding_problems(
 def _task_graph_problems(
     task: "TaskConfig", graph: ChainGraph, owners: dict[str, str], extractors: Mapping[str, Any]
 ) -> list[str]:
-    """A task's problems running one workflow graph: missing extractors, a model extractor on a step that reads one
+    """A task's problems running one workflow graph: missing extractors (an optional step with none is skipped at
+    run time instead, data-splitting spec §5.2), a model extractor on a step that reads one
     row per item or whose settings cannot read its rows, `by: predicted` without a model, and export destinations
     already claimed."""
     from dataeval_flow._predictions import runs_model
@@ -257,7 +259,7 @@ def _task_graph_problems(
     for spec in graph.steps:
         config: Any = spec.config
         needs_extractor = spec.kind in ("evaluator", "workflow") and config.requires_extractor()
-        if needs_extractor and not (spec.extractor or task.extractor):
+        if needs_extractor and not (spec.extractor or task.extractor) and not spec.optional:
             kinds = ", ".join(sorted(str(kind) for kind in config.wanted_kinds() if kind.needs_extractor))
             problems.append(
                 f"Task '{task.name}' runs workflow '{graph.name}', whose step '{spec.name}' needs an extractor to "

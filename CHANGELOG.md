@@ -140,6 +140,17 @@
   run's findings. It varies the entry's settings, the task's `sources` and `extractor`, and the evaluators, workflows,
   extractors and steps the task reads. The runs share one draw of each source and the cache; an export writes under
   `run-<n>/`
+- `stratification` check: each part's class shares against the whole's, warning past `warning` percentage points of
+  deviation and informing past `info`
+- `uncovered-rate` check: the share of a Dataset a coverage run left uncovered, warning past `rate` percent
+- `split`, `kfold` and `view` steps record each output's indices, into the dataset at the bottom of its views, in their
+  `details`, and `split` and `kfold` have a report section of each part's size
+- A preset's declared outputs read any address in its chain, lists included, so `data-splitting`'s `<step>.train` is
+  the rebalanced train where it rebalances
+- A subset of a Dataset, such as a split's part, slices the embeddings the run already computed for its parent, where
+  its view changes no pixels, instead of extracting them again
+- An optional step that needs an extractor is skipped, with the reason, when neither it nor the task names one, where
+  load refused it
 
 ### Changed
 
@@ -279,6 +290,27 @@
 - The Image Outliers, Target Outliers, Classwise Outliers and Label Distribution findings have no `description`, which
   repeated their brief
 - A text table too wide for the report wraps its text cells, with a blank line between its rows
+- A chain's binning record leaves out `label-health`'s reads, which read labels and no factor, so each Dataset it
+  alone reads, such as each part of a split, no longer has a Metadata Factors block or binning diagnostics
+- `data-splitting` is a preset: the whole set's labels, balance, diversity and coverage, a `split` or `kfold`, each
+  train rebalanced where `rebalance:` is set, and each part's labels, stratification and coverage. Run as a step of a
+  custom workflow, it exposes `train` (rebalanced where set), `val` and `test`, as lists keyed by fold under
+  `folds` of 2 or more. It returns a `ChainResult`: each part's indices are in
+  `result.steps["split"].details["indices"]`. Under `folds` of 2 or more, each fold's rebalanced train is in
+  `result.steps["rebalance"].elements["<k>"].details["indices"]`; where rebalancing kept the train as it was,
+  `details` is `None` and the train's indices from `split` apply.
+  Its findings are Label Distribution, Stratification for each fold, and Uncovered Rate under `naive` coverage;
+  balance and diversity are report sections, and the split's sizes are in the `split` step's section and the
+  `lineage`. Only object-detection Datasets can be exported, so a classification split's parts can be read but not yet
+  exported. `health_thresholds` is keyed by check type: `class-imbalance`, `stratification`, `uncovered-rate`. To
+  upgrade:
+  - `num_folds` is `folds`
+  - `rebalance_method` is `rebalance`
+  - `coverage_percent` and `num_observations` are `coverage.percent` and `coverage.num_observations`, beside
+    `coverage.method`
+  - `val_frac` with `folds` of 2 or more is refused, where legacy ignored it: remove it, since each fold's val is its
+    1/k. `val_frac` unset is 0.1 with `folds: 1`
+  - the `split_sizes` and `stratified` of `metadata`, and `output.raw`, are in `result.steps` and `lineage`
 
 ### Fixed
 
@@ -367,6 +399,7 @@
 - `DriftMonitoringResult` and its parts; a drift-monitoring result is a `ChainResult`
 - `OODDetectionResult`, `OODDetectorKNeighbors`, `OODDetectorDomainClassifier` and `OODDetectionHealthThresholds`;
   ood-detection returns a `ChainResult`, and its detectors are OOD evaluator entries
+- `DataSplittingResult` and its output and metadata types; a data-splitting result is a `ChainResult`
 
 ## v0.2.2
 

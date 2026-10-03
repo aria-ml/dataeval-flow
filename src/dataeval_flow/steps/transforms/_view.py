@@ -1,6 +1,6 @@
 """`view`: DataEval view operations over a Dataset, as a source's view applies them."""
 
-__all__ = ["ViewTransform", "ViewTransformConfig"]
+__all__ = ["ViewTransform", "ViewTransformConfig", "root_indices"]
 
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -15,6 +15,20 @@ if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
 
 _GENERIC = (None, "any_target", "image_only")
+
+
+def root_indices(dataset: Any) -> list[int]:
+    """`dataset`'s items as indices into the dataset at the bottom of its views (`View.root`), composing each view's
+    `resolve_indices()`, which counts within its own source."""
+    from dataeval.data import View
+
+    indices = list(range(len(dataset)))
+    current = dataset
+    while isinstance(current, View):
+        selection = current.resolve_indices()
+        indices = [int(selection[index]) for index in indices]
+        current = current.source
+    return indices
 
 
 class ViewTransformConfig(TransformConfig):
@@ -78,3 +92,18 @@ class ViewTransform(Transform[ViewTransformConfig]):
         from dataeval_flow._view import build_view
 
         return {"output": build_view(inputs["input"].value, list(config.operations or ()))}
+
+    def details(
+        self,
+        config: ViewTransformConfig,  # noqa: ARG002
+        inputs: Mapping[str, Any],
+        outputs: Mapping[str, Any],
+    ) -> dict[str, Any] | None:
+        """The view's items as indices into the dataset at the bottom of its views; none where it keeps every item of
+        its input in order (data-splitting spec §5.4)."""
+        from dataeval.data import View
+
+        output = outputs["output"]
+        if not isinstance(output, View) or list(output.resolve_indices()) == list(range(len(inputs["input"].value))):
+            return None
+        return {"indices": root_indices(output)}

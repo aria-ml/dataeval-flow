@@ -8,6 +8,7 @@ import pytest
 
 from dataeval_flow import run_tasks
 from dataeval_flow.config import TaskConfig
+from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows.data_splitting import DataSplittingConfig
 
 pytestmark = pytest.mark.required
@@ -29,14 +30,7 @@ class TestDataSplittingWorkflow:
             n_per_class=8,
             include_extractor=False,
             workflows=[
-                DataSplittingConfig(
-                    name="split_main",
-                    type="data-splitting",
-                    test_frac=0.25,
-                    val_frac=0.25,
-                    num_folds=1,
-                    stratify=False,
-                ),
+                DataSplittingConfig(name="split_main", test_frac=0.25, val_frac=0.25, stratify=False),
             ],
             tasks=[
                 TaskConfig(
@@ -51,10 +45,7 @@ class TestDataSplittingWorkflow:
         text = result.report()
         assert isinstance(text, str)
         assert text.strip()
-        # Typed output check: splits (folds + test set) exposed on the data payload
-        raw = result.output.raw
-        assert len(raw.folds) > 0
-        fold = raw.folds[0]
-        assert len(fold.train_indices) > 0
-        assert len(fold.val_indices) > 0
-        assert len(raw.test_indices) > 0
+        # The split step records each part's indices in its details
+        assert isinstance(result, ChainResult)
+        indices = result.steps["split"].details["indices"]
+        assert all(len(indices[part]) > 0 for part in ("train", "val", "test"))

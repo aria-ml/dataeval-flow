@@ -11,6 +11,7 @@ from dataeval_flow._chain._identity import indices_digest
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import Transform, TransformConfig, TransformContext
+from dataeval_flow.steps.transforms._view import root_indices
 
 
 class _SplitSettings(TransformConfig, MetadataConfigMixin):
@@ -66,6 +67,12 @@ def _parts(
     )
 
 
+def _spread(sizes: list[int]) -> int | str:
+    """The one size every fold shares, or the spread of sizes across the folds."""
+    low, high = min(sizes), max(sizes)
+    return low if low == high else f"{low}-{high} (range {high - low})"
+
+
 def _view(dataset: Any, indices: Any) -> Any:
     from dataeval.data import Indices, View
 
@@ -117,6 +124,22 @@ class SplitTransform(Transform[SplitConfig]):
         """Each part's indices."""
         return "|".join(indices_digest(outputs[name].resolve_indices()) for name in ("train", "val", "test"))
 
+    def details(
+        self,
+        config: SplitConfig,  # noqa: ARG002
+        inputs: Mapping[str, Any],  # noqa: ARG002
+        outputs: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Each part's indices into the dataset at the bottom of the input's views (data-splitting spec §5.4)."""
+        return {"indices": {name: root_indices(outputs[name]) for name in ("train", "val", "test")}}
+
+    def section(self, record: Any) -> list[Any]:
+        """Each part's size."""
+        from dataeval_flow._blocks import Fields
+
+        parts = record.output
+        return [Fields(items=[(name.title(), len(parts[name])) for name in ("train", "val", "test")])]
+
 
 class KFoldTransform(Transform[KFoldConfig]):
     """``kfold``: `folds` train and val pairs, as lists keyed ``"0"`` to ``"k-1"``, and one test."""
@@ -161,3 +184,39 @@ class KFoldTransform(Transform[KFoldConfig]):
         """Every fold's indices, and the test's."""
         parts = [indices_digest(view.resolve_indices()) for name in ("train", "val") for view in outputs[name].values()]
         return "|".join([*parts, indices_digest(outputs["test"].resolve_indices())])
+
+    def details(
+        self,
+        config: KFoldConfig,  # noqa: ARG002
+        inputs: Mapping[str, Any],  # noqa: ARG002
+        outputs: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Each fold's train and val indices, and the test's, into the dataset at the bottom of the input's views."""
+        return {
+            "indices": {
+                "train": {key: root_indices(view) for key, view in outputs["train"].items()},
+                "val": {key: root_indices(view) for key, view in outputs["val"].items()},
+                "test": root_indices(outputs["test"]),
+            }
+        }
+
+    def section(self, record: Any) -> list[Any]:
+        """A row of part sizes per fold, then each part's spread across the folds, the test shared."""
+        from dataeval_flow._blocks import Cell, Column, Fields, Table
+
+        parts = record.output
+        test = len(parts["test"])
+        trains = {key: len(view) for key, view in parts["train"].items()}
+        vals = {key: len(view) for key, view in parts["val"].items()}
+        rows: list[dict[str, Cell]] = [
+            {"fold": key, "train": trains[key], "val": vals[key], "test": test} for key in trains
+        ]
+        columns = [Column(key=key, header=key.title()) for key in ("fold", "train", "val", "test")]
+        spread = Fields(
+            items=[
+                ("Train", _spread(list(trains.values()))),
+                ("Val", _spread(list(vals.values()))),
+                ("Test", f"{test} (shared across folds)"),
+            ]
+        )
+        return [Table(columns=columns, rows=rows), spread]

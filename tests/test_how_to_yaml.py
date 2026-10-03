@@ -38,6 +38,9 @@ _CHAINS_BASE: dict[str, Any] = {
     ],
 }
 
+# The export how-to's snippets export a merged source, which a reader's pipeline defines.
+_EXPORT_BASE: dict[str, Any] = {**_BASE, "sources": [*_BASE["sources"], {"name": "merged", "dataset": "ds"}]}
+
 _PAGES: dict[str, dict[str, Any]] = {
     "how_to/run_a_single_evaluator.md": _BASE,
     "how_to/evaluator_recipes.md": _BASE,
@@ -46,6 +49,7 @@ _PAGES: dict[str, dict[str, Any]] = {
     "how_to/run_a_matrix.md": _BASE,
     "concepts/WorkflowsAsChains.md": _CHAINS_BASE,
     "reference/checks.md": _BASE,
+    "how_to/export_a_dataset.md": _EXPORT_BASE,
 }
 
 

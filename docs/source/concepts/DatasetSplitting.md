@@ -26,6 +26,25 @@ leakage-avoidance guarantees are DataEval's. The science of leakage — how it
 arises and how to prevent it — is explained authoritatively in DataEval's
 [Data Leakage explanation](https://dataeval.readthedocs.io/en/latest/concepts/Leakage.html).
 
+## The preset
+
+`data-splitting` is a {term}`preset <Preset>`: its settings expand to a chain of steps. The chain judges the whole
+set's labels, balance and diversity, splits it (`folds: 1`) or cuts it into k folds (`folds` of 2 or more) with a
+shared test part, optionally rebalances each train, and judges each part's labels, its stratification against the
+whole, and, when the task names an extractor, its coverage. Its findings are Label Distribution for the whole set,
+Stratification for each fold, and Uncovered Rate under `naive` coverage; balance and diversity are report sections.
+
+The result is a `ChainResult`. Each part's indices into the source are in
+`result.steps["split"].details["indices"]`, as `train`, `val` and `test`; under k-fold, `train` and `val` are keyed by
+fold, `"0"` to `"k-1"`. The rebalanced train's indices are in `result.steps["rebalance"].details["indices"]`; under
+k-fold, each fold's are in `result.steps["rebalance"].elements["<k>"].details["indices"]`. Where rebalancing kept the
+train as it was, `details` is `None` and the train's indices from `split` apply.
+
+Run as a step of a custom workflow, the entry hands on three Datasets: `<step>.train` (the rebalanced train, where the
+entry sets `rebalance:`), `<step>.val` and `<step>.test`. Under `folds` of 2 or more, `train` and `val` are lists keyed
+by fold. Only object-detection Datasets can be exported; see
+[Export the parts of a split](../how_to/export_a_dataset.md#export-the-parts-of-a-split).
+
 ## When to use it
 
 Split when preparing a dataset for training and evaluation — after cleaning, so

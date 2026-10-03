@@ -46,7 +46,9 @@ _CHECK_BUILTINS: dict[str, str] = {
     "ood": "dataeval_flow.steps.checks._ood:OODCheck",
     "ood-agreement": "dataeval_flow.steps.checks._ood:OODAgreementCheck",
     "outlier-rate": "dataeval_flow.steps.checks._outliers:OutlierRateCheck",
+    "stratification": "dataeval_flow.steps.checks._stratification:StratificationCheck",
     "target-outlier-rate": "dataeval_flow.steps.checks._outliers:TargetOutlierRateCheck",
+    "uncovered-rate": "dataeval_flow.steps.checks._coverage:UncoveredRateCheck",
 }
 
 TRANSFORMS: Registry[Transform[Any]] = Registry(

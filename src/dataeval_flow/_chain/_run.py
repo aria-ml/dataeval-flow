@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from dataeval_flow.config.extractors._base import ExtractorConfig
     from dataeval_flow.evaluators._evaluator import Evaluator
     from dataeval_flow.workflows._base import Workflow
-    from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology
+    from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology, Subset
 
 _logger = logging.getLogger(__name__)
 
@@ -95,8 +95,7 @@ class ChainRun:
 
 def input_node(address: str, context: "DatasetContext", *, source: str, cache_name: str, cache_key: str) -> Node:
     """A chain input: the source's context, named for `address`, keyed exactly as the source is today."""
-    if context.name != address:
-        context = replace(context, name=address)
+    context = replace(context, name=address, embedded={})
     root = Root(
         source=source,
         cache_name=cache_name,
@@ -413,6 +412,7 @@ def _attempt(
     details: dict[str, Any] | None = None
     try:
         if spec.kind in ("evaluator", "workflow"):
+            _require_extractor(spec, settings)
             result = _pooled(spec, inputs, settings, element)
             if not result.success:
                 failed = _failed(spec, inputs_text, list(result.errors), start, result)
@@ -569,6 +569,17 @@ def _at(spec: StepSpec, port: Port, element: str | None) -> str:
     return spec.output_address(port) + (f"[{element}]" if element is not None else "")
 
 
+_NO_EXTRACTOR = "requires an extractor"
+
+
+def _require_extractor(spec: StepSpec, settings: RunSettings) -> None:
+    """Skip a step that embeds with no extractor named, which load lets through only when it is optional
+    (data-splitting spec §5.2)."""
+    config: Any = spec.config
+    if config.requires_extractor() and settings.extractors.get(spec.extractor) is None:
+        raise StepSkipped(_NO_EXTRACTOR)
+
+
 def _failure_word(spec: StepSpec) -> str:
     return "was skipped" if spec.optional else "failed"
 
@@ -627,6 +638,7 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
     setup = settings.extractors.get(spec.extractor)
     contexts = {node.address: _context_for(node, spec, setup) for node in nodes}
     step = settings.step_contexts.get(spec.name, StepContext())
+    runner = settings.runners[spec.name] if spec.name in settings.runners else spec.impl()
     context = ReadingContext(
         dataset_contexts=contexts,
         batch_size=setup.batch_size if setup is not None else None,
@@ -634,11 +646,11 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
         ontology=step.ontology,
         stats_policy=step.stats_policy,
         policy_name=_policy_name(spec),
+        reads_factors=getattr(runner, "reads_factors", True),
     )
     # Run as the orchestrator runs a task's target, so a step and a task run it the same way.
     from dataeval_flow._orchestrator import _run_target
 
-    runner = settings.runners[spec.name] if spec.name in settings.runners else spec.impl()
     unions = {node.address: union for node in nodes if (union := _stats_union(step, node, element)) is not None}
     # Each is passed only when set, so without them the call is exactly a task's.
     extra: dict[str, Any] = {"stats_unions": unions} if unions else {}
@@ -782,6 +794,8 @@ def _made_node(
         transforms=setup.transforms if setup is not None else None,
         batch_size=setup.batch_size if setup is not None else None,
         label_source=_label_source_of(_label_sources(roots)),
+        parent=_subset_of(dataset, sources),
+        embedded={},
         value_range=next(iter(ranges)) if len(ranges) == 1 else None,
         channel_groups=_merge_channel_groups((root.channel_groups for root in roots), f"Step '{spec.name}'"),
         cache=DatasetCache.get_or_create(
@@ -798,6 +812,26 @@ def _made_node(
         step_type=spec.type,
         inputs=tuple(node.address for node in sources),
     )
+
+
+def _subset_of(dataset: Any, sources: Sequence[Node]) -> "Subset | None":
+    """Where `dataset`'s items sit in its one input's, when it views that input through operations that change no
+    pixels; ``None`` otherwise, and it extracts its own embeddings (data-splitting spec §5.3)."""
+    from dataeval.data import ClassBalance, ClassFilter, Indices, Limit, Relabel, Reverse, Shuffle, View
+
+    from dataeval_flow.workflows._context import Subset
+
+    if len(sources) != 1 or not isinstance(dataset, View):
+        return None
+    (source,) = sources
+    if source.context is None or dataset.source is not source.value:
+        return None
+    below = dataset.source.operation_groups if isinstance(dataset.source, View) else []
+    operations = [operation for group in dataset.operation_groups[len(below) :] for operation in group]
+    safe = (ClassBalance, ClassFilter, Indices, Limit, Relabel, Reverse, Shuffle)
+    if not all(isinstance(operation, safe) for operation in operations):
+        return None
+    return Subset(source.context, tuple(int(index) for index in dataset.resolve_indices()))
 
 
 def _label_sources(roots: Sequence[Root]) -> list[str | None]:

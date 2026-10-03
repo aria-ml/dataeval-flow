@@ -4,7 +4,7 @@ __all__ = ["Preset", "PresetChain", "expand_preset", "preset_of"]
 
 from abc import abstractmethod
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from dataeval_flow._kind import is_abstract
@@ -32,6 +32,9 @@ class PresetChain:
 
     steps: Sequence[StepEntry | Mapping[str, Any]]
     evaluators: Sequence["EvaluatorConfig[Any]"] = ()
+    outputs: Mapping[str, str] = field(default_factory=dict)
+    """Where each declared output is read in the chain, by output name: an address such as `split.train`. An output
+    the map leaves out is the step of its own name, with one output."""
 
 
 class Preset:
@@ -43,8 +46,9 @@ class Preset:
 
     - ``slots``: what the steps call the task's sources, in the order a task names them. The last may be a list slot,
       ``InputSlot.model_validate({"name": "pools", "list": True})``, which takes every source left, keyed by name;
-    - ``outputs``: the Datasets a custom workflow may read when it runs the preset as a step. Each is named after
-      the step of the chain that makes it, which has one output;
+    - ``outputs``: the Datasets a custom workflow may read when it runs the preset as a step. Each is read where
+      :meth:`chain`'s ``outputs`` maps it, or else from the step of the chain named after it, which has one output; it
+      is a list where that address is one;
     - :meth:`chain`: the steps an entry's settings expand to, and the evaluator entries they name.
 
     As a task, the result's ``type`` is the preset's type id and its steps are the chain's. As a step of a custom

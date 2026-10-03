@@ -382,13 +382,13 @@ test_cases:
     name: Splitting Workflow & Configuration Reproducibility
     test_type: Core Functionality
     business_case: >-
-      Verify that DataSplittingWorkflow produces deterministic splits when
+      Verify that the data-splitting preset produces deterministic splits when
       the seed is set, demonstrating configuration reproducibility.
     initial_conditions:
       - dataeval-flow installed
       - Synthetic dataset configured with a fixed seed
     expected_results:
-      - DataSplittingWorkflow.run returns success=True
+      - run_tasks returns a successful ChainResult
       - Two runs with the same seed produce identical splits
       - Two runs with different seeds produce different splits
 

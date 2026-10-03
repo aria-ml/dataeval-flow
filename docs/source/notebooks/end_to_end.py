@@ -258,9 +258,9 @@ clean_result, profile_result, split_result = results["clean_train"], results["pr
 #
 # - `result.report()`: Formatted text summary.
 # - `result.findings`: Structured finding objects.
-# - The numbers behind the findings. For `data-analysis` and `data-splitting`, `result.output.raw` holds the
-#   workflow-specific raw metrics. `data-cleaning` runs as a chain of steps, so its result holds each step's output
-#   in `result.steps`, by step name.
+# - The numbers behind the findings. For `data-analysis`, `result.output.raw` holds the workflow-specific raw
+#   metrics. `data-cleaning` and `data-splitting` run as chains of steps, so their results hold each step's output
+#   in `result.steps`, by step name; the split's part indices are in `result.steps["split"].details["indices"]`.
 #
 # You can call `report(detailed=False)` for high-level summaries, or `report(detailed=True)`
 # for per-finding breakdowns.
@@ -343,17 +343,18 @@ for pair, section in profile_result.output.raw.cross_split.items():
 # %% [markdown]
 # ### 5e. Dataset splitting: Partition indices
 #
-# The splitting task generates explicit index lists for each fold. You can use
-# these indices to construct PyTorch `Subset` or `DataLoader` instances.
+# The splitting task generates explicit index lists for each part, in the split step's
+# details. With `folds: 1`, as here, `train`, `val` and `test` are each one list; with
+# more folds, `train` and `val` are keyed by fold. You can use these indices to
+# construct PyTorch `Subset` or `DataLoader` instances.
 
 # %%
-fold = split_result.output.raw.folds[0]
+indices = split_result.steps["split"].details["indices"]
 
-print(f"Split sizes: {split_result.metadata.split_sizes}")
-print(f"Stratified:  {split_result.metadata.stratified}")
-print(f"Train indices (first 10): {fold.train_indices[:10]}")
-print(f"Val   indices (first 10): {fold.val_indices[:10]}")
-print(f"Test  indices (first 10): {split_result.output.raw.test_indices[:10]}")
+print(f"Split sizes: { {part: len(idx) for part, idx in indices.items()} }")
+print(f"Train indices (first 10): {indices['train'][:10]}")
+print(f"Val   indices (first 10): {indices['val'][:10]}")
+print(f"Test  indices (first 10): {indices['test'][:10]}")
 
 # %% [markdown]
 # ## Step 6: Export the results
@@ -493,7 +494,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 #     && echo "PASS: no warnings" || echo "FAIL: warnings present"
 #
 # # Inspect split partition sizes
-# jq -r '.split_train.metadata.split_sizes' output/results/result.json
+# jq -c '.split_train.steps.split.details.indices | map_values(length)' output/results/result.json
 # ```
 
 # %% [markdown]
