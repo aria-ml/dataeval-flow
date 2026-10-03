@@ -106,14 +106,16 @@ images.
 
 ### `class-imbalance`
 
-The largest class's label count over the smallest's. Configured by
-{py:class}`~dataeval_flow.steps.checks.ClassImbalanceConfig`. It makes no finding where no item has a label, or the
-Dataset declares no class. Its title reads "Label/Directory_Name Distribution" where the labels come from file paths.
+The largest class's label count over the smallest's, taken over the classes with labels; a class with none is named and
+always warns. Configured by {py:class}`~dataeval_flow.steps.checks.ClassImbalanceConfig`. It makes a finding whenever
+the Dataset has classes, declared or observed, and lists the images with no labels. Its title reads
+"Label/Directory_Name Distribution" where the labels come from file paths.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-health` Output |
 | `ratio` | a ratio of at least 1, or `null` | `5.0` | Largest class count over smallest that may hold before the finding warns; an empty class always warns |
+| `info` | a ratio, or `null` | `null` | A ratio at or under which the finding is ok; must not exceed `ratio` |
 
 ### `stratification`
 

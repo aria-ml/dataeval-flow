@@ -405,9 +405,10 @@ def test_class_imbalance_names_labels_read_from_file_paths() -> None:
     )
 
 
-def test_class_imbalance_makes_no_finding_where_no_item_has_a_label() -> None:
-    labels = _labels({}, classes=2, items=6)
-    assert ClassImbalanceCheck().run(ClassImbalanceConfig(input="l"), {"input": _node(labels)}, _CONTEXT) == []
+def test_class_imbalance_warns_where_no_item_has_a_label_but_classes_are_declared() -> None:
+    labels = _labels({"car": 0, "van": 0}, classes=2, items=6)
+    (finding,) = ClassImbalanceCheck().run(ClassImbalanceConfig(input="l"), {"input": _node(labels)}, _CONTEXT)
+    assert (finding.severity, finding.brief) == ("warning", "2 classes, 6 items, imbalance 0.0:1")
 
 
 def test_class_imbalance_warns_on_a_class_with_no_labels_even_without_a_ratio_limit() -> None:

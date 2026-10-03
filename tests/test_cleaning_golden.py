@@ -7,6 +7,8 @@ Deliberate differences from its legacy run (spec §10.3 item 3), each with its r
   `tests/test_run.py::test_a_cleaning_run_carries_a_thumbnail_of_each_item_its_report_names` pins it.
 - **A declared class with no labels makes Label Distribution a warning.** `label-health` lists every declared class,
   at 0 where unseen (coverage spec §5.3, §6.3), so the `detection` case's `bus` is an empty class.
+- **An unlabelled Dataset that declares classes gets a Label Distribution warning,** where the check made no finding:
+  every declared class is empty (coverage spec §5.3, §17). The `unlabelled` case gains that finding.
 """
 
 import json
@@ -34,6 +36,8 @@ def test_data_cleaning_gives_the_findings_it_gave_before_its_port(name: str) -> 
         for row in expected:
             if row[1] == "Label Distribution":
                 row[0] = "warning"
+    if name == "unlabelled":
+        expected.append(["warning", "Label Distribution", "2 classes, 24 items, imbalance 0.0:1"])
     assert [[f.severity, f.title, f.brief] for f in CASES[name]()] == expected
 
 
