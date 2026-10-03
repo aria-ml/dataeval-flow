@@ -58,6 +58,7 @@ class RepresentationEvaluator(Evaluator[RepresentationConfig, RepresentationOutp
     dataeval_class: ClassVar[type] = Representation
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "evaluate"}
     output_extras: ClassVar[tuple[str, ...]] = ("leaf_coverage", "total_deficit", "violations", "dark_branches")
+    reads_factors: ClassVar[bool] = False
 
     def run(self, config: RepresentationConfig, inputs: Sequence[EvaluatorInputs]) -> RepresentationOutput:
         """Count the source's labels against the task's ontology, or one synthesized from its ``index2label``."""
@@ -113,6 +114,7 @@ class CoverageEvaluator(Evaluator[CoverageConfig, CoverageOutput]):
         InputKind.LABELS: "evaluate",
     }
     output_extras: ClassVar[tuple[str, ...]] = ("uncovered_indices", "coverage_radius", "critical_value_radii")
+    reads_factors: ClassVar[bool] = False
 
     def run(self, config: CoverageConfig, inputs: Sequence[EvaluatorInputs]) -> CoverageOutput:
         """Measure the source's coverage, broken down by class where its labels allow, else as one class, ``0``."""
@@ -139,6 +141,7 @@ class PrioritizeEvaluator(Evaluator[PrioritizeConfig, PrioritizeOutput]):
         InputKind.LABELS: "evaluate",
     }
     output_extras: ClassVar[tuple[str, ...]] = ("scores",)
+    reads_factors: ClassVar[bool] = False
 
     def run(self, config: PrioritizeConfig, inputs: Sequence[EvaluatorInputs]) -> PrioritizeOutput:
         """Rank the first source's items, relative to the second source's where the task names one."""
@@ -167,6 +170,7 @@ class LabelAlignmentEvaluator(Evaluator[LabelAlignmentConfig, LabelAlignmentOutp
     )
     dataeval_class: ClassVar[Any] = label_alignment
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "__call__"}
+    reads_factors: ClassVar[bool] = False
 
     def run(self, config: LabelAlignmentConfig, inputs: Sequence[EvaluatorInputs]) -> LabelAlignmentOutput:
         """Align the source's class names to the task's ontology with DataEval's ``label_alignment``."""
