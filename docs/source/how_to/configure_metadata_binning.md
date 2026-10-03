@@ -12,18 +12,20 @@ back what the run did.
 
 ## Which workflows this applies to
 
-The three `metadata_*` settings are accepted by every workflow that builds metadata:
+These workflows read metadata factors under the policy their `metadata:` names:
 
 | Workflow | Reads metadata for |
 | --- | --- |
 | `data-analysis` | balance, diversity, per-factor summaries |
-| `data-coverage` | class balance, factor gap analysis, factor-to-class mutual information |
+| `data-coverage` | its `summary`, `balance`, `diversity` and `gaps` steps: per-factor summaries, class balance, diversity, and the factor gap analysis with factor-to-class mutual information |
 
-`data-cleaning` and `ood-detection` take a policy's name, `metadata:`, but none of the `metadata_*` settings. A custom
-workflow's or preset's result records the encodings its steps read in `metadata_binning`: one record, or `per_split`
-keyed by Dataset address where the steps read several Datasets or one Dataset two ways. A step that reads labels
-alone, as `label-health` does, adds nothing to it, so a split's parts are not recorded when only their labels are read.
-A chain whose steps read no factors records none, and its `metadata_binning` and `encoding_digest` are `null`.
+Only `data-analysis` also takes the four older `metadata_*` settings; `data-coverage` refuses them, saying to name a
+policy under `metadata:`. `data-cleaning` and `ood-detection` take a policy's name, `metadata:`, but none of the
+`metadata_*` settings. A custom workflow's or preset's result records the encodings its steps read in
+`metadata_binning`: one record, or `per_split` keyed by Dataset address where the steps read several Datasets or one
+Dataset two ways. A step that reads labels alone, as `label-health` does, adds nothing to it, so a split's parts are not
+recorded when only their labels are read. A chain whose steps read no factors records none, and its `metadata_binning`
+and `encoding_digest` are `null`.
 
 ## Define the policy once and share it
 
@@ -56,9 +58,9 @@ A policy carries everything that decides how a factor becomes a code: `encoding`
 `auto_bin_method`, `exclude`, `continuous_factor_bins`, `intrinsic_factors`, `factor_source`, and
 `reference_split`.
 
-The older per-workflow `metadata_*` fields still work and mean the same things. Naming a policy *and* setting one of
-them on the same workflow is an error rather than a merge — two sources disagreeing about one factor has no good
-resolution.
+The older per-workflow `metadata_*` fields still work on `data-analysis` and mean the same things. Naming a policy
+*and* setting one of them on the same workflow is an error rather than a merge — two sources disagreeing about one
+factor has no good resolution.
 
 Everything a policy says is checked before the dataset is read, and a mistake costs only a message:
 
@@ -169,13 +171,18 @@ The pull request is the point.
 
 ## Let the method choose the cuts
 
-`metadata_auto_bin_method` picks how an un-pinned continuous factor is discretized.
+A policy's `auto_bin_method` (`metadata_auto_bin_method` on `data-analysis`) picks how an un-pinned continuous factor
+is discretized.
 
 ```yaml
+metadata:
+  - name: standard
+    auto_bin_method: uniform_width
+
 workflows:
   - name: coverage_check
     type: data-coverage
-    metadata_auto_bin_method: uniform_width
+    metadata: standard
 ```
 
 | Method | Cuts the range into | Use when |

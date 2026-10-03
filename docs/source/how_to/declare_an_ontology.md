@@ -1,10 +1,10 @@
 # Declare an ontology
 
 The `label-space` workflow judges a dataset's labels against a declared {term}`ontology <Ontology>` — the sanctioned
-label space. It can name a missing class because the ontology says that class was supposed to exist. The
-`data-coverage` workflow still judges an ontology when `ontology:` is set, until its port moves that analysis to
-`label-space`. This guide covers declaring an ontology inline, loading one from an RDF file, and the findings
-`label-space` makes from it.
+label space. It can name a missing class because the ontology says that class was supposed to exist. It is the only
+workflow that judges labels against an ontology: `data-coverage` refuses `ontology:`, so run a `label-space` entry on
+the same source beside it. This guide covers declaring an ontology inline, loading one from an RDF file, and the
+findings `label-space` makes from it.
 
 ## Used in these tutorials
 
@@ -128,7 +128,7 @@ share as a fraction in `[0, 1]`:
 
 Named classes use their floor as the collection target instead of the uniform share, and a dataset below the floor is
 reported as a violation. Classes not named keep the uniform target. A name that resolves to no concept, or to several,
-is ignored and noted in the result. (Until its port, data-coverage takes this as `ontology_expected`.)
+is ignored and noted in the result.
 
 ## Lint the label names
 
@@ -139,8 +139,7 @@ conventions:
     label_pattern: '^[a-z0-9_]+$'   # lowercase_snake_case
 ```
 
-Labels that fail are reported in the ontology's structure. (Until its port, data-coverage takes this as
-`ontology_label_pattern`.)
+Labels that fail are reported in the ontology's structure.
 
 ## What `label-space` finds
 

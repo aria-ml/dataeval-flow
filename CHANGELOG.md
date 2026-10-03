@@ -19,7 +19,7 @@
 - Every tool computes on CUDA when PyTorch sees a GPU, else the CPU; `dataeval_flow.set_device` chooses from Python,
   and `CUDA_VISIBLE_DEVICES` hides GPUs. A config names no device
 - `device` on every result's metadata: the device its task computed on, such as `cuda:0 (NVIDIA L4)`
-- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's twenty types
+- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's twenty-two types
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
 - `dataeval-flow evaluators` command listing evaluator types, what each consumes, and their parameter schemas
@@ -30,12 +30,13 @@
 - Workflow `ontology:` resolves pool names first, falling back to file paths for backward compatibility
 - `merge:` on sources to concatenate multiple inputs into one dataset, unified via `Relabel` views
 - Top-level `exports:` key exporting sources to COCO, YOLO, Hugging Face, or VisDrone format with `provenance.json`
-- `ontology:` support across all workflows, attaching the vocabulary audit digest to results
+- `ontology:` support across all workflows but `data-coverage`, attaching the vocabulary audit digest to results
 - `label_space` on result envelopes, recording conformed vocabulary and matching audit digest
 - `channel_groups:` on datasets, measuring band groups separately as `<group>_<statistic>` columns
 - Top-level `stats:` key defining policies for measured statistics, background inclusion, and outlier/factor views
 - `format: demo` dataset loader resolving tutorial datasets from a fixed table without arbitrary imports
-- `crop_padding` and `crop_min_size` on `data-coverage`, with `dropped_detections` reporting omitted annotations
+- `crops:` on `data-coverage`, `DetectionCrops`' `padding` and `min_size`, with the `crops` step's `details`
+  counting the detections dropped
 - `DATAEVAL_*` environment variables to configure CLI parameters; CLI arguments take precedence
 - `--no-fail-on-warning` flag to disable `DATAEVAL_FAIL_ON_WARNING` for a single run
 - `--log-format {structured,plain}` flag selecting structured or plain log output
@@ -63,7 +64,8 @@
 - `--no-report-images`, `DATAEVAL_REPORT_IMAGES=0` or `report_images=False` turn a run's thumbnails off
 - `image` table columns, each cell an item reference or a group of them
 - Data analysis, coverage, prioritization, splitting and metadata triage picture the items their findings name
-- Data coverage's `output.raw.coverage.uncovered` keeps each uncovered item, its box and class, and its distance
+- `uncovered_classes` in `coverage`'s `extras`: each uncovered item's class. Its report section, "Uncovered items",
+  gives each item's class and distance
 - A pipeline's `result: max_images:` sets how many thumbnails each result embeds (200), shared evenly between findings
 - The `result:` block also names the result files and picks their formats, detail, per-task split and text width
 - `result: max_rows:` and `preview_rows:` set a table of items' rows (500) and text preview (10); `-1` lifts a limit
@@ -159,6 +161,14 @@
   its view changes no pixels, instead of extracting them again
 - An optional step that needs an extractor is skipped, with the reason, when neither it nor the task names one, where
   load refused it
+- `completeness` evaluator: how much of the embedding space's dimensions the data fills, as legacy data-coverage's
+  Dimensional Completeness measured it; it refuses fewer than two embeddings
+- `metadata-summary` evaluator: each metadata factor's type, binning, nulls, and range or top values
+- `class-coverage`, `completeness-score`, `coverage-gaps` and `class-shortfall` checks, which make `data-coverage`'s
+  Embedding Coverage, Dimensional Completeness, Metadata Coverage Gaps and Class Balance Worklist findings
+- `factor-gaps` combine: each factor's mutual information with the class, read from a `balance` Output, and the
+  class-factor-value combinations under-represented among the factors at or over `mi_threshold`
+- `other_kinds: pass` on `wrap` hands a Dataset of another kind on unchanged, reading its source's cached embeddings
 
 ### Changed
 
@@ -326,6 +336,59 @@
   - `val_frac` with `folds` of 2 or more is refused, where legacy ignored it: remove it, since each fold's val is its
     1/k. `val_frac` unset is 0.1 with `folds: 1`
   - the `split_sizes` and `stratified` of `metadata`, and `output.raw`, are in `result.steps` and `lineage`
+- `data-coverage` is a preset. A `crops` step (`wrap`) crops detection data into one item per box and hands other data
+  on unchanged. `coverage` and `completeness` embed the crops, judged by `class-coverage`, by `uncovered-rate` under
+  `naive` coverage, and by `completeness-score`. `labels` (`label-health`) is judged by `class-imbalance`; `summary`
+  (`metadata-summary`), `balance` and `diversity` read the metadata, and `gaps` (`factor-gaps`), judged by
+  `coverage-gaps`, reads balance; `worklist` (`representation`) is judged by `class-shortfall`. Without an extractor
+  the embedding steps are skipped, and their findings say "not assessed". It returns a `ChainResult`, whose numbers
+  are each step's output in `result.steps`, such as `result.steps["coverage"].output`. Metadata Distribution, balance
+  and diversity are report sections, where Metadata Distribution was a finding. Under `naive` coverage, legacy's
+  Embedding Coverage finding is two, Embedding Coverage and Uncovered Rate; under `adaptive` the uncovered rate is not
+  judged. Naive coverage that overflows is skipped, where legacy re-ran it as adaptive. On detection data, coverage's
+  uncovered items index the `crops` Dataset, one item per box, where legacy named each one's image and box. It no
+  longer judges an ontology: a `label-space` entry on the same source does, and a data-coverage run on a conformed
+  source records no label space of its own, so `label-space` carries the join key. `health_thresholds` is keyed by
+  check type: `class-imbalance`, `coverage-gaps`, `class-coverage`, `uncovered-rate` and `completeness-score`. Every
+  legacy field is refused by name, with its replacement. To upgrade:
+  - `coverage_method`, `coverage_percent`, `num_observations`, `min_class_samples`, `isotropy_min_samples` and
+    `near_duplicate_factor` are `coverage.method`, `.percent`, `.num_observations`, `.min_class_samples`,
+    `.isotropy_min_samples` and `.near_duplicate_factor`
+  - `crop_padding` and `crop_min_size` are `crops.padding` and `crops.min_size`
+  - `run_completeness` is `completeness`
+  - `diversity_method` is refused: diversity always runs, as a report section, and `diversity` picks its method, so
+    legacy's `null` (skip diversity) has no replacement
+  - `balance` is refused: balance always runs, as a report section
+  - `run_gap_analysis` is refused whatever its value: `gaps: null` replaces `false`. `gap_mi_threshold` and
+    `gap_min_representation` are `gaps.mi_threshold` and `gaps.min_representation`
+  - `ontology` and `ontology_label_pattern` are refused: write them on a `label-space` entry on the same source, as
+    `ontology` and `label_pattern`
+  - `ontology_expected` is `expected`, or `label-space`'s `expected` where an ontology is set
+  - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source`
+    are refused: name a policy under `metadata:`
+  - `value_range` is refused: set it on the dataset. `stats` is refused, since no step of data-coverage reads statistics
+  - in `health_thresholds`, `class_imbalance_ratio` is `class-imbalance.ratio`, and legacy's fixed band at 2.0 is
+    `class-imbalance.info`; `gap_count` is `coverage-gaps.count`; `min_dispersion`, `min_isotropy` and
+    `max_near_duplicate_fraction` are `class-coverage.dispersion`, `.isotropy` and `.near_duplicates`;
+    `uncovered_rate` is `uncovered-rate.rate`; and `completeness_score` is `completeness-score.warning`, and legacy's
+    fixed band at 0.8 is `completeness-score.info`. An unset `info` follows `ratio` or `warning` as legacy's band did,
+    so `ratio: 1.5` or `warning: 0.9` alone loads; two written bounds that cross are refused
+  - an ImageFolder source's label finding is titled "Label/Directory_Name Distribution", where it was "Label
+    Distribution"
+  - `health_thresholds.leaf_coverage`, `dark_branch_count` and `unmatched_class_count` are `label-space`'s
+    `health_thresholds.leaf-coverage.coverage`, `leaf-coverage.empty_branches` and `label-conformance.unmatched`
+  - `output.raw` and `metadata.has_extractor` are gone: `coverage`, `completeness` and `metadata_gaps` are the
+    `coverage`, `completeness` and `gaps` steps' outputs, `label_distribution` is `labels`', `metadata_distribution`
+    is `summary`'s, a skipped step's reason is its `reason`, and `coverage.dropped_detections` is
+    `result.steps["crops"].details["dropped"]`
+- `label-health` lists every class the Dataset declares, at 0 where it has no labels, and the items with no label as
+  `empty_image_indices`. So a declared class with no labels now shows at 0 in data-cleaning's and data-splitting's
+  label tables and in stratification's "Classes checked" and its table across the parts, and makes their Label
+  Distribution finding warn
+- `class-imbalance` makes its finding on any Dataset with classes, declared or observed, so an unlabelled Dataset that
+  declares classes now warns in data-cleaning and data-splitting, where it made no finding. Its ratio is taken over
+  the classes with labels, and each class with none is named. It takes `info`, a ratio at or under which the finding
+  is `ok`, and its evidence gains each class's share and the images with no labels
 
 ### Fixed
 
@@ -373,6 +436,8 @@
 - A chain refused before any step ran says why in its report, where it said only `Steps: 0 ran`
 - A report's health line and its HTML badge say `failed` where a required step failed, where they could say every
   check passed
+- A "not assessed" finding's description ends in one full stop where its cause already ends in one, where it ended in
+  two
 
 ### Removed
 
@@ -415,6 +480,8 @@
 - `OODDetectionResult`, `OODDetectorKNeighbors`, `OODDetectorDomainClassifier` and `OODDetectionHealthThresholds`;
   ood-detection returns a `ChainResult`, and its detectors are OOD evaluator entries
 - `DataSplittingResult` and its output and metadata types; a data-splitting result is a `ChainResult`
+- `DataCoverageResult` and its output and metadata types, and `DataCoverageHealthThresholds`; a data-coverage result is
+  a `ChainResult`, and its thresholds are `DataCoverageThresholds`
 
 ## v0.2.2
 

@@ -94,9 +94,10 @@ entry records:
 Only the COCO writer also embeds the same mapping in its own `info` block. The other three drop it, which is why the
 sidecar is written for every format.
 
-The `label_space` digests are the values the {term}`result envelope <Result Envelope>` carries and a `data-coverage`
-audit stamps. Declare the same ontology on the audit, on the workflows, and on the export, and one digest match ties
-an emitted dataset to the run that produced it and to the audit that justified its vocabulary.
+The `label_space` digests are the values the {term}`result envelope <Result Envelope>` carries and a `label-space`
+audit stamps from its alignment, whose `Relabel` stanza conforms the source. Declare the same ontology on the audit, on
+the workflows, and on the export, and one digest match ties an emitted dataset to the run that produced it and to the
+audit that justified its vocabulary.
 
 ## Know what an export drops
 

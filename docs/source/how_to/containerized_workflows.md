@@ -316,20 +316,25 @@ workflows:
 ````
 
 ````{tab-item} data-coverage
-Class balance, metadata gaps, ontology findings, and embedding blind spots.
+Class balance, metadata gaps, and embedding blind spots; a `label-space` entry on the same source judges the labels
+against an ontology.
 See the {doc}`Data Coverage tutorial <../notebooks/data_coverage>` for a full walkthrough.
 
 ```yaml
 workflows:
   - name: coverage_check
     type: data-coverage
-    coverage_method: adaptive
-    balance: true
-    run_gap_analysis: true
-    ontology: config/taxonomy.ttl   # optional; unlocks the label-space findings
+    coverage: {method: adaptive}     # adaptive | naive; embeds only when the task names an extractor
+    gaps: {mi_threshold: 0.1, min_representation: 5}   # null leaves out the gap analysis
     health_thresholds:
-      leaf_coverage: 0.9
-      dark_branch_count: 0
+      class-imbalance: {ratio: 5.0}
+      coverage-gaps: {count: 3}
+
+  - name: vocab_check
+    type: label-space
+    ontology: config/taxonomy.ttl
+    health_thresholds:
+      leaf-coverage: {coverage: 0.9, empty_branches: 0}
 ```
 ````
 

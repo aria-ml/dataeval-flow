@@ -8,9 +8,10 @@ reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for 
 
 The built-in checks are the ones `data-cleaning` runs, whose findings are theirs; `metadata-issues`, which makes
 `metadata-triage`'s; `drift`, which judges `drift-monitoring`'s detectors; `ood`, which judges `ood-detection`'s
-detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s split and coverage; and
-`leaf-coverage`, `label-conformance`, `ontology-structure` and `mergeability`, which make `label-space`'s. See
-[data-cleaning is this chain](#data-cleaning-is-this-chain).
+detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s split and coverage;
+`leaf-coverage`, `label-conformance`, `ontology-structure` and `mergeability`, which make `label-space`'s; and
+`class-coverage`, `completeness-score`, `coverage-gaps` and `class-shortfall`, which make `data-coverage`'s with
+`class-imbalance` and `uncovered-rate`. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
 
