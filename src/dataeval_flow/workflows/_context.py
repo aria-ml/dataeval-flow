@@ -66,10 +66,10 @@ class DatasetContext:
     """
     cache: "DatasetCache | None" = None
     """The source's cache, or ``None`` to compute without one."""
-    parent: "Subset | None" = None
+    parent: "Subset | None" = field(default=None, compare=False, repr=False)
     """For a chain node that views another through operations changing no pixels, that node and where each item sits
     in it: its embeddings slice rows the run already extracted for an ancestor (data-splitting spec §5.3)."""
-    embedded: "dict[str, Any] | None" = None
+    embedded: "dict[str, Any] | None" = field(default=None, compare=False, repr=False)
     """The embeddings this run extracted for this node, by extractor settings, shared by every copy of the context a
     step reads it through; ``None`` outside a chain."""
 
