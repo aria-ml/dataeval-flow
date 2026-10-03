@@ -86,7 +86,7 @@ def splice_preset(
                 f"`{port.name}`{' ' if port.name in mapped else ', '}{where}."
             )
         spec, output = found
-        inner = renamed[spec.name] if len(spec.outputs) == 1 else f"{renamed[spec.name]}.{output.name}"
+        inner = replace(spec, name=renamed[spec.name]).output_address(output)
         transform = spec.impl if issubclass(spec.impl, Transform) else None
         keys = dict(transform.output_keys(spec.config)).get(output.name) if output.is_list and transform else spec.keys
         address = f"{entry.name}.{port.name}"

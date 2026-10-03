@@ -130,8 +130,7 @@ class ToySplitPresetConfig(WorkflowConfig[ChainResult]):
 
 
 class ToySplitPreset(Preset, Workflow[ToySplitPresetConfig, ChainResult]):
-    """Declares `train`, `val` and `test`, read from its `split` step's outputs; `val` is empty, and `labels` is no
-    Dataset."""
+    """Declares `train`, `val` and `test`, read from its `parts` step's outputs; `val` is empty."""
 
     name: ClassVar[str] = "toy-split-preset"
     description: ClassVar[str] = "Splits off a test, holding out no val."
