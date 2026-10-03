@@ -44,6 +44,7 @@ _CHECK_BUILTINS: dict[str, str] = {
     "duplicate-rate": "dataeval_flow.steps.checks._duplicates:DuplicateRateCheck",
     "label-conformance": "dataeval_flow.steps.checks._label_space:LabelConformanceCheck",
     "leaf-coverage": "dataeval_flow.steps.checks._label_space:LeafCoverageCheck",
+    "mergeability": "dataeval_flow.steps.checks._alignment:MergeabilityCheck",
     "metadata-issues": "dataeval_flow.steps.checks._triage:MetadataIssuesCheck",
     "ood": "dataeval_flow.steps.checks._ood:OODCheck",
     "ood-agreement": "dataeval_flow.steps.checks._ood:OODAgreementCheck",

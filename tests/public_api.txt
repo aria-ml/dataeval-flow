@@ -180,6 +180,8 @@ dataeval_flow.steps.checks:LabelConformanceCheck
 dataeval_flow.steps.checks:LabelConformanceConfig
 dataeval_flow.steps.checks:LeafCoverageCheck
 dataeval_flow.steps.checks:LeafCoverageConfig
+dataeval_flow.steps.checks:MergeabilityCheck
+dataeval_flow.steps.checks:MergeabilityConfig
 dataeval_flow.steps.checks:MetadataIssuesCheck
 dataeval_flow.steps.checks:MetadataIssuesConfig
 dataeval_flow.steps.checks:OODAgreementCheck

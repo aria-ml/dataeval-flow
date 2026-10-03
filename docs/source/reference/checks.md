@@ -9,7 +9,7 @@ reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for 
 The built-in checks are the ones `data-cleaning` runs, whose findings are theirs; `metadata-issues`, which makes
 `metadata-triage`'s; `drift`, which judges `drift-monitoring`'s detectors; `ood`, which judges `ood-detection`'s
 detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s split and coverage; and
-`leaf-coverage`, `label-conformance` and `ontology-structure`, which make `label-space`'s. See
+`leaf-coverage`, `label-conformance`, `ontology-structure` and `mergeability`, which make `label-space`'s. See
 [data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
@@ -25,6 +25,7 @@ detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s
 | `uncovered-rate` | check | `input`: a `coverage` Output | Uncovered Rate |
 | `leaf-coverage` | check | `input`: a `representation` Output against a declared ontology | Label Space Coverage |
 | `label-conformance` | check | `input`: a `label-reconciliation` Output | Label Conformance |
+| `mergeability` | check | `input`: a `label-alignment` Output | Label Alignment |
 | `ontology-structure` | check | `input`: an `ontology-validation` Output | Ontology Structure |
 | `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
@@ -162,6 +163,17 @@ ambiguous name; ok otherwise. Configured by {py:class}`~dataeval_flow.steps.chec
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-reconciliation` Output |
 | `unmatched` | a count, or `null` | `0` | Unmatched names tolerated; `null` turns it off |
+
+### `mergeability`
+
+Whether a Dataset's classes carry over to an ontology's vocabulary, with the `Relabel` stanza to paste into a view
+that conforms it. Lossless is ok; lossy, where two classes collapse into one concept, informs; partial, where
+`Relabel` would drop a class, warns. A target label several concepts share always warns: the stanza cannot be used
+until the ontology is fixed. Configured by {py:class}`~dataeval_flow.steps.checks.MergeabilityConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `label-alignment` Output |
 
 ### `ontology-structure`
 

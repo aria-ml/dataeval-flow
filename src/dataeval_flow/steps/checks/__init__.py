@@ -14,6 +14,8 @@ __all__ = [
     "LabelConformanceConfig",
     "LeafCoverageCheck",
     "LeafCoverageConfig",
+    "MergeabilityCheck",
+    "MergeabilityConfig",
     "MetadataIssuesCheck",
     "MetadataIssuesConfig",
     "OODAgreementCheck",
@@ -34,6 +36,7 @@ __all__ = [
     "UncoveredRateConfig",
 ]
 
+from dataeval_flow.steps.checks._alignment import MergeabilityCheck, MergeabilityConfig
 from dataeval_flow.steps.checks._coverage import UncoveredRateCheck, UncoveredRateConfig
 from dataeval_flow.steps.checks._drift import DriftCheck, DriftCheckConfig, DriftThresholds
 from dataeval_flow.steps.checks._duplicates import DuplicateRateCheck, DuplicateRateConfig
