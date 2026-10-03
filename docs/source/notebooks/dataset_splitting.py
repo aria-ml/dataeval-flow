@@ -34,17 +34,17 @@
 # - Load the MilitaryVehicles dataset (7,823 training images across 24 classes).
 # - Configure a stratified splitting workflow with a test holdout and 3-fold cross-validation.
 # - Run `run_task()` to generate partition index sets.
-# - Inspect the splitting report for class distribution and split sizes.
-# - Review label distribution statistics and metadata balance metrics.
-# - Export split indices and construct sliced dataset views.
+# - Inspect the splitting report for class distribution, stratification and split sizes.
+# - Review metadata balance and diversity.
+# - Read the split indices from the result and export them to JSON.
 
 # %% [markdown]
 # ## What you will learn
 #
 # - How to configure and execute the `data-splitting` workflow.
-# - How to set splitting parameters (`test_frac`, `val_frac`, `num_folds`, `stratify`).
+# - How to set splitting parameters (`test_frac`, `folds`, `stratify`, `rebalance`).
 # - How to evaluate class distribution balance across splits.
-# - How to access split index lists for downstream training workflows.
+# - How to read each part's indices from the split step's details.
 # - How pre-split balance and diversity metrics evaluate metadata factor correlation.
 
 # %% [markdown]
@@ -92,8 +92,9 @@ print(f"Reading from {data_path}")
 # You must specify splitting parameters explicitly. In this example, you will
 # configure stratified splitting with a 20% test holdout and 3-fold cross-validation.
 #
-# When `num_folds=3`, the validation fraction is `1/num_folds` (one third of the
-# non-test portion). For 7,823 items with `test_frac=0.2`:
+# With `folds=3`, each fold's validation part is one third of the non-test items, so
+# `val_frac` is left unset: setting it with 2 or more folds is refused. For 7,823 items
+# with `test_frac=0.2`:
 #
 # - Test set: 20% of 7,823 ≈ 1,565 samples (shared across folds).
 # - Validation set: 1/3 of the remaining 6,258 ≈ 2,086 samples per fold.
@@ -102,8 +103,8 @@ print(f"Reading from {data_path}")
 # Each fold receives a distinct train and validation split while preserving the
 # shared test set. Exact counts may vary slightly due to per-class rounding.
 #
-# You do not need an extractor because dataset splitting operates on labels and
-# metadata rather than embeddings.
+# The split runs on labels and metadata, so it needs no extractor. Coverage embeds the
+# items, so it runs only when the task names one; this tutorial leaves it out.
 
 # %%
 from dataeval_flow import PipelineConfig, run_task
@@ -113,8 +114,7 @@ from dataeval_flow.workflows.data_splitting import DataSplittingConfig
 workflow = DataSplittingConfig(
     name="mv_split",
     test_frac=0.2,  # 20% of full dataset held out for test
-    val_frac=0.0,  # Must be 0 when num_folds > 1; validation is 1/num_folds
-    num_folds=3,  # 3-fold cross-validation
+    folds=3,  # 3-fold cross-validation; each fold's val is 1/3 of the non-test items
     stratify=True,  # Preserve class distribution in each partition
 )
 
@@ -150,8 +150,8 @@ assert result.success
 # %% [markdown]
 # ### Splitting report
 #
-# Call `result.report()` to display class distributions, split sizes, and metadata
-# balance metrics in a formatted summary.
+# Call `result.report()` to display the findings, the class distributions, the split
+# sizes, and the metadata balance and diversity in a formatted summary.
 
 # %%
 print(result.report())
@@ -159,155 +159,125 @@ print(result.report())
 # %% [markdown]
 # ### Understanding the report
 #
-# You should inspect these report sections:
+# The summary lists one finding for the whole set and one per fold:
 #
-# - **Class distribution**: Per-class counts and maximum imbalance ratio.
-#   MilitaryVehicles has an imbalance ratio of approximately 3.6:1.
-# - **Split sizes**: Train, validation, and test sample counts per fold.
-# - **Pre-split balance**: Mutual information between metadata factors and
-#   labels. High mutual information indicates potential label bias.
-# - **Pre-split diversity**: Shannon diversity of metadata factors. Low values
-#   indicate limited metadata variation.
+# - **Label Distribution**: the whole set's class counts and its imbalance ratio, the
+#   largest class count over the smallest. MilitaryVehicles has 24 classes and 7,823
+#   items, with an imbalance ratio of 3.6:1, under the default limit of 10:1.
+# - **Stratification**: for each fold, how far each part's class shares stray from the
+#   whole's, in percentage points. Every fold's largest deviation is 0.1 points (class
+#   `T-72` in the test part), so all three pass.
 #
-# MilitaryVehicles includes `height` and `width` as metadata factors. If your
-# dataset uses uniform image dimensions and no additional attributes, metadata
-# factor tables will be empty.
+# The report's other sections are not findings:
+#
+# - **Balance**: mutual information between each metadata factor and the class.
+#   High values mean a factor predicts the label.
+# - **Diversity**: how evenly each factor's values spread.
+# - **K-Fold Split**: the sizes of each fold's train and val, and of the shared test.
+#
+# `coverage` is skipped, as are its per-part runs, because this task names no extractor.
+# Coverage embeds the items, so name an extractor on the task to run it. The Steps
+# table lists each step and why it was skipped.
 
 # %% [markdown]
 # ### Split indices
 #
-# You can retrieve raw split index lists from `result.output.raw` to build filtered
-# datasets for training or evaluation.
+# The split step holds each part's indices into the source's items, in
+# `result.steps["split"].details["indices"]`. With `folds` of 2 or more, `train` and
+# `val` are keyed by fold, `"0"` to `"2"` here, and `test` is one list shared by every
+# fold. With `folds: 1`, `train`, `val` and `test` are each one list.
 
 # %%
-raw = result.output.raw
-
-print(f"Dataset size: {raw.dataset_size}")
-print(f"Test indices: {len(raw.test_indices)}")
-print(f"Number of folds: {len(raw.folds)}")
+indices = result.steps["split"].details["indices"]
+test = indices["test"]
+print(f"Folds: {list(indices['train'])}")
+print(f"Test indices: {len(test)} (first ten: {test[:10]})")
 
 # %%
 import polars as pl
 
-rows = []
-for i, fold in enumerate(raw.folds):
-    rows.append({"fold": i, "train": len(fold.train_indices), "val": len(fold.val_indices)})
+rows = [
+    {"fold": fold, "train": len(indices["train"][fold]), "val": len(indices["val"][fold])} for fold in indices["train"]
+]
 print(pl.DataFrame(rows))
-print(f"\nTest (shared across folds): {len(raw.test_indices)} samples")
+print(f"\nTest (shared across folds): {len(test)} samples")
 
 # %%
-# Verify no overlap between splits and full coverage per fold
-test_set = set(raw.test_indices)
+# Verify no overlap between parts and full coverage per fold
+dataset_size = sum(len(indices[part]["0"]) for part in ("train", "val")) + len(test)
+test_set = set(test)
 
-for i, fold in enumerate(raw.folds):
-    train_set = set(fold.train_indices)
-    val_set = set(fold.val_indices)
+for fold in indices["train"]:
+    train_set = set(indices["train"][fold])
+    val_set = set(indices["val"][fold])
 
-    assert train_set.isdisjoint(val_set), f"Fold {i}: train/val overlap!"
-    assert train_set.isdisjoint(test_set), f"Fold {i}: train/test overlap!"
-    assert val_set.isdisjoint(test_set), f"Fold {i}: val/test overlap!"
+    assert train_set.isdisjoint(val_set), f"Fold {fold}: train/val overlap!"
+    assert train_set.isdisjoint(test_set), f"Fold {fold}: train/test overlap!"
+    assert val_set.isdisjoint(test_set), f"Fold {fold}: val/test overlap!"
+    assert len(train_set | val_set | test_set) == dataset_size, f"Fold {fold}: missing indices"
 
-    total = len(train_set) + len(val_set) + len(test_set)
-    assert total == raw.dataset_size, f"Fold {i}: missing indices: {total} != {raw.dataset_size}"
-
-print(f"All {len(raw.folds)} folds verified: no overlap, full coverage.")
+print(f"All {len(indices['train'])} folds verified: no overlap, full coverage of {dataset_size} items.")
 
 # %% [markdown]
-# ### Label distribution per split
+# ### Label distribution per part
 #
-# When you set `stratify=True`, each split preserves the overall class distribution.
+# When you set `stratify=True`, each part keeps the whole set's class shares.
 #
-# For example, a class with 119 images yields 63 training, 32 validation, and 24
-# test samples under this 3-fold split. The report section **Stratification quality**
-# computes deviations between split proportions and overall dataset proportions.
+# For example, the class with 119 images, `30N6E`, has 63 training, 32 validation, and
+# 24 test samples in fold 0. The **Stratification** section of the report tabulates every
+# class's count in each part, and the **Label Health** block beneath it counts each
+# part's labels.
 
 # %%
-# Full dataset label stats
-if raw.label_stats_full:
-    print("Full dataset:")
-    print(f"  Classes: {raw.label_stats_full.get('class_count', '?')}")
-    print(f"  Per-class counts: {raw.label_stats_full.get('label_counts_per_class', [])}")
-
-# Per-fold and test label stats
-for i, fold in enumerate(raw.folds):
-    if fold.label_stats_train:
-        print(f"\nFold {i} train: {fold.label_stats_train.get('label_counts_per_class', [])}")
-    if fold.label_stats_val:
-        print(f"Fold {i} val:   {fold.label_stats_val.get('label_counts_per_class', [])}")
-if raw.label_stats_test:
-    print(f"\nTest:  {raw.label_stats_test.get('label_counts_per_class', [])}")
+for item in result.findings:
+    print(f"{item.severity:8} {item.title}: {item.brief}")
 
 # %% [markdown]
 # ### Balance and diversity
 #
-# The workflow evaluates `Balance` and `Diversity` on the full dataset before
-# splitting.
+# The workflow evaluates `Balance` and `Diversity` on the whole set before splitting.
+# They are report sections on the `balance` and `diversity` steps, not findings.
 #
-# The balance output displays mutual information between metadata factors and class
-# labels. High mutual information indicates that a metadata factor predicts the label.
-# The diversity output displays Shannon diversity per factor.
+# Balance reports the mutual information between each metadata factor and the class
+# label. In MilitaryVehicles, `height` and `width` score about 0.01, so the vehicle
+# classes do not depend on image resolution. The two factors score 0.99 against each
+# other, which is expected for image dimensions.
 #
-# In MilitaryVehicles, `height` and `width` have low mutual information scores
-# (around 0.01), showing vehicle labels do not depend on image resolution.
+# Diversity reports a score per factor. `class_label` scores 0.96, close to even.
+# `height` and `width` score 0.15 and 0.17 and are flagged as low diversity, because
+# most images share a few sizes.
 
 # %%
-# Pre-split balance: mutual information between factors and labels
-balance_rows = raw.pre_split_balance.get("balance")
-if balance_rows:
-    print("Pre-split balance (mutual information):")
-    print(pl.DataFrame(balance_rows))
-else:
-    print("No balance data (dataset may lack metadata factors)")
-
-# Pre-split diversity: Shannon diversity per factor
-diversity_rows = raw.pre_split_diversity.get("factors")
-if diversity_rows:
-    print("\nPre-split diversity:")
-    print(pl.DataFrame(diversity_rows))
-else:
-    print("No diversity data (dataset may lack metadata factors)")
+print(result.steps["balance"].output.balance)
+print(result.steps["diversity"].output.factors)
 
 # %% [markdown]
-# ## Results Exploration: Export and metadata
+# ## Results Exploration: Export and lineage
 
 # %%
-meta = result.metadata
-print(f"Stratified:  {meta.stratified}")
-print(f"Num folds:   {meta.num_folds}")
-print(f"Split sizes: {meta.split_sizes}")
+print(f"Folds:      {len(indices['train'])}")
+print(f"Source:     {result.metadata.lineage[0].name} ({result.metadata.lineage[0].items} items)")
+for record in result.metadata.lineage[1:4]:
+    print(f"{record.name:16} {record.type:6} {record.items} items")
 
 # %%
 import json
 
-json_str = result.export(fmt="json")
-exported = json.loads(json_str)
+exported = json.loads(result.export(fmt="json"))
 
-# Extract test indices (nested under "raw")
-test_idx = exported["raw"]["test_indices"]
-print(f"Test indices ({len(test_idx)} samples): {test_idx[:10]}...")
+# The same indices, under the split step's details
+exported_indices = exported["steps"]["split"]["details"]["indices"]
+print(f"Test indices ({len(exported_indices['test'])} samples): {exported_indices['test'][:10]}...")
 
-# Extract per-fold train/val indices
-for i, fold in enumerate(exported["raw"]["folds"]):
-    print(f"Fold {i}: train={len(fold['train_indices'])}, val={len(fold['val_indices'])}")
+for fold in exported_indices["train"]:
+    print(f"Fold {fold}: train={len(exported_indices['train'][fold])}, val={len(exported_indices['val'][fold])}")
 
 # %% [markdown]
-# You can extract split indices from exported JSON. You can apply them directly to
-# `result.dataset` using `View` to create training and evaluation datasets.
-#
-# You should slice `result.dataset` directly so the indices align with the resolved
-# dataset ordering.
-
-# %%
-from dataeval.data import Indices, View
-
-ds = result.dataset
-assert ds is not None
-
-test_ds = View(ds, operations=[Indices(test_idx)])
-train_ds = View(ds, operations=[Indices(exported["raw"]["folds"][0]["train_indices"])])
-val_ds = View(ds, operations=[Indices(exported["raw"]["folds"][0]["val_indices"])])
-
-print(f"Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
+# You can save these indices and apply them to the dataset you loaded, in the source's
+# order, to build training and evaluation datasets for each fold. A custom workflow that
+# runs a `data-splitting` entry as a step reads the parts directly as `<step>.train`,
+# `<step>.val` and `<step>.test`. See
+# [Export the parts of a split](../how_to/export_a_dataset.md).
 
 # %% [markdown]
 # ## Conclusion
@@ -317,20 +287,19 @@ print(f"Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
 # - Configure the `data-splitting` workflow with test fractions, fold counts, and stratification.
 # - Execute the workflow with `run_task()`.
 # - Read the splitting report for class distributions and partition sizes.
-# - Access raw partition index arrays for train, validation, and test sets.
+# - Read the partition indices for train, validation, and test sets.
 # - Verify partition coverage and verify that partitions do not overlap.
-# - Inspect pre-split balance and diversity metrics across metadata factors.
-# - Apply split indices to `result.dataset` using `View`.
-# - Export split definitions to JSON for downstream integration.
+# - Inspect balance and diversity across metadata factors.
+# - Export the split to JSON for downstream integration.
 
 # %% [markdown]
 # ## Next steps
 #
 # - **Data cleaning**: Use the `data-cleaning` workflow to detect outliers and duplicates
 #   in each split before training.
-# - **Cross-validation**: Increase `num_folds` to evaluate model stability across more folds.
+# - **Cross-validation**: Increase `folds` to evaluate model stability across more folds.
 # - **Group-aware splits**: Set `split_on=["group_id"]` to prevent leakage across related samples.
-# - **Rebalancing**: Set `rebalance_method="global"` to rebalance class distributions in training splits.
+# - **Rebalancing**: Set `rebalance: global` or `interclass` to rebalance the class distribution of each train.
 
 # %% [markdown]
 # ## Related guides

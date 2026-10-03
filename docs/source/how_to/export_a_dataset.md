@@ -132,6 +132,47 @@ images independently would otherwise overwrite each other on disk.
 The merged datum id is carried as `source_id` in the per-image metadata, so `0:17` in the dataset stays traceable to
 item `17` of the first operand.
 
+## Export the parts of a split
+
+A `data-splitting` entry, run as a step of a custom workflow, hands on its parts as `<step>.train`, `<step>.val` and
+`<step>.test`; `train` is the rebalanced one where the entry sets `rebalance:`. An `export` step writes any of them.
+The workflow below splits an object-detection source and writes its train and test:
+
+```yaml
+workflows:
+  - name: splits
+    type: data-splitting
+    test_frac: 0.2
+    val_frac: 0.1
+
+  - name: split_and_export
+    inputs: [data]
+    steps:
+      - {name: split, workflow: splits, input: data}
+      - {name: train_set, transform: export, input: split.train, format: coco}
+      - {name: test_set, transform: export, input: split.test, format: coco}
+
+tasks:
+  - name: build_splits
+    workflow: split_and_export
+    sources: [train]
+```
+
+Each is written under `datasets/<task>.<step>/`, here `datasets/build_splits.train_set/`. With `folds: 3` the entry
+runs `kfold`, and `train` and `val` are lists keyed by fold, `"0"` to `"2"`; an `export` step handed one writes each
+element under its key, as `datasets/build_splits.train_set/0/`. `test` is one Dataset shared by every fold.
+
+```yaml
+workflows:
+  - name: splits
+    type: data-splitting
+    folds: 3
+    test_frac: 0.2
+```
+
+Only object-detection Datasets can be exported. A classification source's parts can be read as `split.train` by other
+steps, such as an evaluator, but `export` does not yet write them.
+
 ## Related material
 
 - {doc}`build_dataset_views` — the views that conform and merge a dataset before it is exported

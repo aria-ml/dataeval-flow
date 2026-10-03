@@ -275,10 +275,10 @@ Partition a dataset into train/val/test splits.
 workflows:
   - name: stratified_split
     type: data-splitting
+    folds: 1                # 1 splits once; 2 or more run k-fold
     test_frac: 0.2
-    val_frac: 0.1
+    val_frac: 0.1           # with folds: 1 only
     stratify: true
-    num_folds: 1
 ```
 ````
 ````{tab-item} drift-monitoring
