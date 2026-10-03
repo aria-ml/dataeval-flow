@@ -250,7 +250,7 @@ def _unassessed(
         severity="info",
         title=_check_title(spec) + (f" by {spec.by.label}" if spec.by is not None else ""),
         brief="not assessed",
-        description=f"Not assessed: {gap}.",
+        description=f"Not assessed: {gap.rstrip('.')}.",
         step=_finding_step(spec, element),
     )
     record = StepResult(

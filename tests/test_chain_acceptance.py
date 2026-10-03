@@ -239,6 +239,17 @@ def test_a_check_whose_evaluator_failed_is_not_assessed_in_a_run_from_yaml(tmp_p
     assert result.health["status"] == "warning"  # the duplicates are still judged, and still warn
 
 
+def test_a_not_assessed_description_ends_in_one_full_stop(tmp_path: Path) -> None:
+    text = _CLEANING_REPORT.replace(
+        "{name: outliers, evaluator: outliers, input: data}",
+        "{name: outliers, evaluator: outliers, input: data, optional: true}",
+    )
+    with patch.object(OutliersEvaluator, "run", side_effect=RuntimeError("no stats.")):
+        result = _run(text, {"src": ToyImages(count=24)}, tmp_path, "report")
+    image = next(finding for finding in result.findings if finding.step == "image-outliers")
+    assert image.description == "Not assessed: `outliers` was skipped: failed: RuntimeError: no stats."
+
+
 def test_a_data_cleaning_step_hands_its_cleaned_dataset_to_an_export(tmp_path: Path) -> None:
     text = """
 workflows:
