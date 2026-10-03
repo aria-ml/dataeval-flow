@@ -3,6 +3,8 @@
 from collections.abc import Sequence
 from typing import Any, cast
 
+import pytest
+
 from dataeval_flow import run_task
 from dataeval_flow._blocks import Block, Fields, ItemRef, Paragraph, Section, Table
 from dataeval_flow.config import TaskConfig
@@ -111,8 +113,13 @@ def test_a_coverage_section_pictures_the_uncovered_items() -> None:
     result = _task(config, dataset=ToyImages(count=40), extractor=True)
     uncovered = [int(index) for index in result.output.uncovered_indices]
     assert uncovered
-    (table,) = _tables(_section(result._report_output(detailed=True), "Uncovered images").blocks)
+    (table,) = _tables(_section(result._report_output(detailed=True), "Uncovered items").blocks)
     assert sorted(ref.index for ref in _refs(table)) == sorted(uncovered)
+    radii = result.output.critical_value_radii
+    for row in table.rows:
+        assert row["class"] in {"a", "b"}
+        assert row["distance"] == pytest.approx(float(radii[row["item"]]))
+    assert "critical_value_radii" not in result.report()  # one per item, in the JSON; the uncovered items' are above
 
 
 def test_a_balance_section_ranks_each_factor_by_its_mutual_information_with_the_class() -> None:

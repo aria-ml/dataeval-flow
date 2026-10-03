@@ -13,6 +13,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | --- | --- | --- | --- | --- |
 | `balance` | `dataeval.bias.Balance` | metadata | 1 | refused |
 | `diversity` | `dataeval.bias.Diversity` | metadata | 1 | refused |
+| `metadata-summary` | `dataeval.Metadata` | metadata | 1 | refused |
 | `parity` | `dataeval.bias.Parity` | metadata | 1 | refused |
 | `duplicates` | `dataeval.quality.Duplicates` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 | `outliers` | `dataeval.quality.Outliers` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
@@ -21,6 +22,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | `representation` | `dataeval.scope.Representation` | labels | 1 | refused |
 | `coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
 | `prioritize` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
+| `completeness` | `dataeval.core.completeness` | embeddings | 1 | required |
 | `label-alignment` | `dataeval.core.label_alignment` | labels | 1 | refused |
 | `label-reconciliation` | `dataeval.core.label_reconciliation` | labels | 1 | refused |
 | `ontology-validation` | `dataeval.core.ontology_validation` | labels, read only to place the report | 1 | refused |
@@ -81,6 +83,19 @@ How evenly each metadata factor's values are spread, overall and within each cla
 
 Output: a mapping of two tables. `factors` has each factor's diversity and whether it is low, and `classwise` each
 class's.
+
+### `metadata-summary`
+
+Each metadata factor's type, binning, nulls, and range or top values, as legacy data-coverage's Metadata Distribution
+listed them. Configured by {py:class}`~dataeval_flow.evaluators.bias.MetadataSummaryConfig`. It reads the Dataset's
+metadata through DataEval's `Metadata`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `metadata` | (DataEval Flow) the name of a `metadata:` policy | DataEval's default encoding |
+
+Output: a mapping of `factors`, the kept factor names, and `summary`, each factor's type, level, binning, nulls, and
+its range or top values, and each dropped factor with its reasons.
 
 ### `parity`
 
@@ -166,8 +181,8 @@ metadata.
 | `metadata` | (DataEval Flow) a policy under `metadata:`, which the metadata is built under | DataEval's defaults |
 
 Output: a mapping of `item_count`, `class_count` (the classes the Dataset declares, used or not), `label_count`,
-`label_counts_per_class` and `image_counts_per_class` (by class name, for the classes that occur),
-`empty_image_count`, and `label_source`, where the labels came from.
+`label_counts_per_class` and `image_counts_per_class` (by class name, for every declared class, at 0 where unseen),
+`empty_image_count`, `empty_image_indices` (the items with no label), and `label_source`, where the labels came from.
 
 ### `factor-triage`
 
@@ -225,7 +240,7 @@ Output: a table, the worklist, with one row per concept short of its target (`co
 
 Which items sit in sparse regions of the embedding space, uncovered by the rest of the data, broken down by class.
 With no label per item (a dataset without labels, or a detection dataset's labels per target), it runs over every
-item as one class, `0`, and logs a warning. `data-coverage` crops detections first; this evaluator does not.
+item as one class, `0`, and logs a warning. Crop detections first with a `wrap` step, as `data-coverage` does.
 Configured by {py:class}`~dataeval_flow.evaluators.scope.CoverageConfig`; runs `dataeval.scope.Coverage`.
 
 | Parameter | DataEval argument | Left unset |
@@ -238,8 +253,8 @@ Configured by {py:class}`~dataeval_flow.evaluators.scope.CoverageConfig`; runs `
 | `near_duplicate_factor` | `near_duplicate_factor` | DataEval's default (`0.5`) |
 
 Output: a table with one row per class (`class`, `count`, `uncovered`, `uncovered_fraction`, `dispersion`,
-`isotropy`, `near_duplicate_fraction`, `assessable`). `extras` holds `uncovered_indices`, `coverage_radius` and
-`critical_value_radii`.
+`isotropy`, `near_duplicate_fraction`, `assessable`). `extras` holds `uncovered_indices`, `coverage_radius`,
+`critical_value_radii` and `uncovered_classes` (each uncovered item's class, `None` without a class breakdown).
 
 ### `prioritize`
 
@@ -273,6 +288,15 @@ Configured by {py:class}`~dataeval_flow.evaluators.scope.LabelAlignmentConfig`; 
 
 Output: a mapping, the alignment (`mergeability`, `correspondences`, `unaligned_source`, `unaligned_target`,
 `class_remap`, `paste_remap`, `target_vocabulary`, `ambiguous_labels`, `label_space_digest`).
+
+### `completeness`
+
+How much of the embedding space's dimensions the data fills. The embeddings are rescaled to the unit interval per
+dimension first, a constant dimension at 0, as legacy `data-coverage` did. Configured by
+{py:class}`~dataeval_flow.evaluators.scope.CompletenessConfig`; runs `dataeval.core.completeness`. It takes no
+parameters.
+
+Output: a mapping: `completeness` and `nearest_neighbor_pairs`.
 
 ### `label-reconciliation`
 

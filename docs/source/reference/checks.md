@@ -8,9 +8,10 @@ reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for 
 
 The built-in checks are the ones `data-cleaning` runs, whose findings are theirs; `metadata-issues`, which makes
 `metadata-triage`'s; `drift`, which judges `drift-monitoring`'s detectors; `ood`, which judges `ood-detection`'s
-detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s split and coverage; and
-`leaf-coverage`, `label-conformance`, `ontology-structure` and `mergeability`, which make `label-space`'s. See
-[data-cleaning is this chain](#data-cleaning-is-this-chain).
+detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s split and coverage;
+`leaf-coverage`, `label-conformance`, `ontology-structure` and `mergeability`, which make `label-space`'s; and
+`class-coverage`, `completeness-score`, `coverage-gaps` and `class-shortfall`, which make `data-coverage`'s with
+`class-imbalance` and `uncovered-rate`. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
 
@@ -23,6 +24,10 @@ detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s
 | `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
 | `stratification` | check | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
 | `uncovered-rate` | check | `input`: a `coverage` Output | Uncovered Rate |
+| `coverage-gaps` | check | `input`: a `factor-gaps` Output | Metadata Coverage Gaps |
+| `completeness-score` | check | `input`: a `completeness` Output | Dimensional Completeness |
+| `class-coverage` | check | `input`: a `coverage` Output | Embedding Coverage |
+| `class-shortfall` | check | `input`: a `representation` Output with no ontology | Class Balance Worklist |
 | `leaf-coverage` | check | `input`: a `representation` Output against a declared ontology | Label Space Coverage |
 | `label-conformance` | check | `input`: a `label-reconciliation` Output | Label Conformance |
 | `mergeability` | check | `input`: a `label-alignment` Output | Label Alignment |
@@ -31,6 +36,7 @@ detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s
 | `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
 | `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
+| `factor-gaps` | combine | `input`: a Dataset; `balance`: a `balance` Output computed on it | each factor's MI with the class, and the under-represented combinations |
 | `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
 | `ood-union` | combine | `input`: the OOD Outputs of one comparison of a test source with a reference | each flagged image as mutual, partial or unique, with its agreement score |
 | `factor-predictors` | combine | `ood`: an `ood-union` or OOD Output; `reference`, `input`: the Datasets it was computed on | each factor's association with being flagged |
@@ -92,6 +98,17 @@ Configured by {py:class}`~dataeval_flow.steps.checks.ClasswiseOutlierRateConfig`
 | `input` | an address | required | A `classwise-outliers` Output |
 | `total` | a percentage, or `null` | `3.0` | Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too |
 
+### `coverage-gaps`
+
+Whether class-factor-value combinations are under-represented: a warning at `count` gaps or more, `info` with fewer,
+`ok` with none, and the gaps as a table, largest deficit first. Configured by
+{py:class}`~dataeval_flow.steps.checks.CoverageGapsConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `factor-gaps` Output |
+| `count` | a count, or `null` | `3` | The number of gaps at which the finding warns, this many or more; `null` judges nothing |
+
 ### `duplicate-rate`
 
 The shares of a Dataset's images in exact and in near duplicate groups. Configured by
@@ -106,14 +123,16 @@ images.
 
 ### `class-imbalance`
 
-The largest class's label count over the smallest's. Configured by
-{py:class}`~dataeval_flow.steps.checks.ClassImbalanceConfig`. It makes no finding where no item has a label, or the
-Dataset declares no class. Its title reads "Label/Directory_Name Distribution" where the labels come from file paths.
+The largest class's label count over the smallest's, taken over the classes with labels; a class with none is named and
+always warns. Configured by {py:class}`~dataeval_flow.steps.checks.ClassImbalanceConfig`. It makes a finding whenever
+the Dataset has classes, declared or observed, and lists the images with no labels. Its title reads
+"Label/Directory_Name Distribution" where the labels come from file paths.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-health` Output |
 | `ratio` | a ratio of at least 1, or `null` | `5.0` | Largest class count over smallest that may hold before the finding warns; an empty class always warns |
+| `info` | a ratio, or `null` | `null` | A ratio at or under which the finding is ok; must not exceed `ratio` |
 
 ### `stratification`
 
@@ -142,6 +161,43 @@ OverflowError". Configured by {py:class}`~dataeval_flow.steps.checks.UncoveredRa
 | --- | --- | --- | --- |
 | `input` | an address | required | A `coverage` Output |
 | `rate` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
+
+### `completeness-score`
+
+How much of the embedding space's dimensions the data fills, judged against two bands: the finding warns under
+`warning`, informs under `info`, and is `ok` above. The score is rounded to three places first. With both bands `null`
+nothing is judged and the finding informs. Configured by
+{py:class}`~dataeval_flow.steps.checks.CompletenessScoreConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `completeness` Output |
+| `warning` | a score from 0 to 1, or `null` | `0.5` | The score under which the finding warns; must not exceed `info` |
+| `info` | a score from 0 to 1, or `null` | `0.8` | The score under which the finding informs |
+
+### `class-coverage`
+
+Which assessable classes `coverage` found clustered, one-dimensional or padded with near-duplicates, and how many items
+it left uncovered. Warns on any flagged class; informs while any item is uncovered; ok otherwise. On detection crops it
+notes the crops counted and the detections dropped. Configured by
+{py:class}`~dataeval_flow.steps.checks.ClassCoverageConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `coverage` Output |
+| `dispersion` | a number, or `null` | `0.5` | The dispersion under which a class is clustered; `null` turns it off |
+| `isotropy` | a number, or `null` | `0.5` | The isotropy under which a class is one-dimensional; `null` turns it off |
+| `near_duplicates` | a fraction, or `null` | `0.1` | The near-duplicate share over which a class is padded; `null` turns it off |
+
+### `class-shortfall`
+
+The classes short of an even spread over the classes the Dataset declares, and what each lacks. Warns on an unmet
+minimum share (`expected`); informs while any class is short; ok otherwise. Configured by
+{py:class}`~dataeval_flow.steps.checks.ClassShortfallConfig`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `representation` Output, computed with no ontology |
 
 ### `leaf-coverage`
 
@@ -280,6 +336,25 @@ Datasets. Configured by {py:class}`~dataeval_flow.steps.combines.OODUnionConfig`
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address, or a list of them | required | Each detector's OOD Output, every one computed on the same reference and test source |
+
+### `factor-gaps`
+
+The class-factor-value combinations under-represented among the factors Balance ties to the class. It reads the mutual
+information of a `balance` Output, runs no Balance of its own, and searches the factors at or over `mi_threshold`. A
+combination is a gap where its count is under `min_representation` while its expected count, from the factor's overall
+spread, is over it. The section ranks each factor's mutual information with the class. Configured by
+{py:class}`~dataeval_flow.steps.combines.FactorGapsConfig`; makes a
+{py:class}`~dataeval_flow.steps.combines.FactorGapsOutput`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | The Dataset whose Metadata the gaps are counted in |
+| `balance` | an address | required | A `balance` Output computed on exactly `input` |
+| `mi_threshold` | a number | `0.1` | The least mutual information with the class a factor needs to be searched |
+| `min_representation` | a count | `5` | A combination is a gap where its count is under this while its expected count is over it |
+| `metadata` | a policy name, or `null` | `null` | The metadata policy the factors are read under; it should be the one `balance` read under |
+
+The config refuses a `balance` computed on another Dataset when it loads, as `classwise-outliers` does.
 
 ### `factor-predictors`
 

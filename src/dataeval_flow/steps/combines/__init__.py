@@ -9,6 +9,10 @@ __all__ = [
     "FactorDeviationCombine",
     "FactorDeviationConfig",
     "FactorDeviations",
+    "FactorGap",
+    "FactorGapsCombine",
+    "FactorGapsConfig",
+    "FactorGapsOutput",
     "FactorPredictors",
     "FactorPredictorsCombine",
     "FactorPredictorsConfig",
@@ -32,4 +36,5 @@ from dataeval_flow.steps.combines._factors import (
     FactorPredictorsCombine,
     FactorPredictorsConfig,
 )
+from dataeval_flow.steps.combines._gaps import FactorGap, FactorGapsCombine, FactorGapsConfig, FactorGapsOutput
 from dataeval_flow.steps.combines._ood import OODUnion, OODUnionCombine, OODUnionConfig

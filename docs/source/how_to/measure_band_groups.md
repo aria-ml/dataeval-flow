@@ -49,8 +49,8 @@ workflows:
 ```
 
 Reference a policy by name from any workflow that computes image statistics — `data-cleaning`, `data-analysis`,
-`data-coverage`, `ood-detection`, and `data-prioritization` all take a `stats:` name. Two
-workflows naming the same policy measure the same things, so their results are comparable.
+`ood-detection`, and `data-prioritization` all take a `stats:` name; `data-coverage` reads no statistics and refuses
+one. Two workflows naming the same policy measure the same things, so their results are comparable.
 
 ### measure is a complete statement
 

@@ -1,279 +1,356 @@
-"""The ``data-coverage`` workflow's config and health thresholds."""
+"""The ``data-coverage`` preset's config: coverage, crops, completeness, diversity and gaps, and when a finding warns
+(coverage spec §4.1, §4.3)."""
 
-from typing import Annotated, Any, ClassVar, Literal
+__all__ = ["CoverageSettings", "CropSettings", "DataCoverageConfig", "DataCoverageThresholds", "GapSettings"]
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated, Any, ClassVar, Literal, Self
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin, _LegacyMetadataMixin
-from dataeval_flow.workflows._base import WorkflowConfig, _LegacyValueRangeMixin
-from dataeval_flow.workflows.data_coverage._outputs import DataCoverageResult
-
-__all__ = ["DataCoverageHealthThresholds", "DataCoverageConfig"]
+from dataeval_flow.config._schemas._mixins import MetadataConfigMixin
+from dataeval_flow.steps._result import ChainResult
+from dataeval_flow.workflows._base import WorkflowConfig
 
 
-class DataCoverageHealthThresholds(BaseModel):
-    """Configurable warning thresholds for data coverage health status.
-
-    Each threshold controls when the corresponding finding is elevated to
-    ``severity="warning"``; otherwise it stays at ``severity="info"``.
-
-    All ten are required numbers — ``None`` is not accepted. To stop a metric
-    from ever warning, set it past the value it can reach: ``uncovered_rate=100.0``,
-    ``completeness_score=0.0``, ``leaf_coverage=0.0``, or a
-    ``class_imbalance_ratio``/``gap_count`` above anything the dataset will produce.
-    """
+class CoverageSettings(BaseModel):
+    """The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`
+    is written partly."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    uncovered_rate: float = Field(
+    method: Literal["naive", "adaptive"] = Field(
+        default="adaptive",
+        description=(
+            "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or "
+            "`naive`, a fixed analytic radius, judged by an `uncovered-rate` step. DataEval's naive radius overflows "
+            "past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`."
+        ),
+    )
+    percent: float = Field(
+        default=0.01, gt=0.0, lt=1.0, description="Fraction of items flagged as uncovered, for `adaptive` only."
+    )
+    num_observations: int = Field(
+        default=50, gt=0, description="Neighbors an item needs within the radius to count as covered."
+    )
+    min_class_samples: int = Field(
+        default=20, gt=0, description="Items a class needs before its dispersion and isotropy are judged."
+    )
+    isotropy_min_samples: int | None = Field(
+        default=None,
+        gt=0,
+        description="Items a class needs before its isotropy is measured; unset uses DataEval's default.",
+    )
+    near_duplicate_factor: float = Field(
+        default=0.5, gt=0.0, description="The fraction of the radius within which two items are near-duplicates."
+    )
+
+
+class CropSettings(BaseModel):
+    """`DetectionCrops`' settings, used on detection data only."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    padding: float = Field(
+        default=0.0, ge=0.0, description="Fraction of each box's size added around it before cropping."
+    )
+    min_size: int = Field(
+        default=1, ge=1, description="The smallest box side, in pixels, cropped; smaller boxes are dropped."
+    )
+
+
+class GapSettings(BaseModel):
+    """The `factor-gaps` step's settings."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    mi_threshold: float = Field(
+        default=0.1, ge=0.0, description="The least mutual information with the class a factor needs to be searched."
+    )
+    min_representation: int = Field(
+        default=5, ge=1, description="A combination is a gap under this count while its expected count is over it."
+    )
+
+
+class DataCoverageClassImbalanceLimits(BaseModel):
+    """The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset: the schema
+    gives data-splitting's limits the short name."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    ratio: float | None = Field(
+        default=5.0,
+        ge=1.0,
+        description=(
+            "Largest class count over smallest, among the classes with labels, past which the Label Distribution "
+            "finding warns; `null` judges nothing but an empty class, which always warns. Legacy "
+            "`class_imbalance_ratio`."
+        ),
+    )
+    info: float | None = Field(
+        default=2.0,
+        ge=1.0,
+        description=(
+            "The ratio at or under which the finding is ok, between which and `ratio` it informs; `null` makes every "
+            "ratio under `ratio` information. Must not exceed `ratio`. Legacy's hard-coded 2.0, or `ratio` where "
+            "that is lower and `info` is unset."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _info_under_ratio(self) -> Self:
+        """An unset `info` follows a `ratio` under it, as legacy's unreachable band did; two written bounds that cross
+        are refused here, where the user wrote them."""
+        if self.ratio is None or self.info is None:
+            return self
+        if "info" not in self.model_fields_set:
+            # derived, so still unset: a matrix varies `ratio` alone
+            object.__setattr__(self, "info", min(self.info, self.ratio))
+        elif self.info > self.ratio:
+            raise ValueError(f"`info` ({self.info}) must not exceed `ratio` ({self.ratio}).")
+        return self
+
+
+class CoverageGapsLimits(BaseModel):
+    """The `coverage-gaps` check's field, with legacy data-coverage's default."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    count: int | None = Field(
+        default=3,
+        ge=0,
+        description=(
+            "The number of under-represented class-factor-value combinations at which the Metadata Coverage Gaps "
+            "finding warns, this many or more; fewer inform, and `null` never warns. Legacy `gap_count`."
+        ),
+    )
+
+
+class ClassCoverageLimits(BaseModel):
+    """The `class-coverage` check's fields, with legacy data-coverage's defaults."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    dispersion: float | None = Field(
+        default=0.5,
+        ge=0.0,
+        description=(
+            "An assessable class's dispersion under which it is clustered, and the Embedding Coverage finding warns; "
+            "`null` turns this criterion off. Legacy `min_dispersion`."
+        ),
+    )
+    isotropy: float | None = Field(
+        default=0.5,
+        ge=0.0,
+        description=(
+            "An assessable class's isotropy under which it is one-dimensional, and the Embedding Coverage finding "
+            "warns; `null` turns this criterion off. Legacy `min_isotropy`."
+        ),
+    )
+    near_duplicates: float | None = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Embedding "
+            "Coverage finding warns; `null` turns this criterion off. Legacy `max_near_duplicate_fraction`."
+        ),
+    )
+
+
+class DataCoverageUncoveredRateLimits(BaseModel):
+    """The `uncovered-rate` check's field, with legacy data-coverage's default, read under `naive` coverage only.
+    Named for the preset, as `DataCoverageClassImbalanceLimits` is."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    rate: float | None = Field(
         default=10.0,
         ge=0.0,
         le=100.0,
         description=(
-            "Max allowable % of embedding observations flagged as uncovered. "
-            "Default 10%. Lower for safety-critical datasets. Only applied when the "
-            "headline result comes from coverage_naive — coverage_adaptive flags a fixed "
-            "coverage_percent of observations, so its rate is not a health signal."
-        ),
-    )
-    completeness_score: float = Field(
-        default=0.5,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Minimum dimensional completeness score before warning. "
-            "Default 0.5. Raise to 0.7–0.8 for high-dimensional models."
-        ),
-    )
-    class_imbalance_ratio: float = Field(
-        default=5.0,
-        ge=1.0,
-        description=(
-            "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1."
-        ),
-    )
-    gap_count: int = Field(
-        default=3,
-        ge=0,
-        description=("Number of metadata coverage gaps before elevating to warning. Default 3."),
-    )
-    min_dispersion: float = Field(
-        default=0.5,
-        ge=0.0,
-        description=(
-            "Minimum per-class dispersion before warning. A class below this spreads less "
-            "than half as far as a typical class — clustered. Default 0.5."
-        ),
-    )
-    min_isotropy: float = Field(
-        default=0.5,
-        ge=0.0,
-        description=(
-            "Minimum per-class isotropy before warning. A class below this varies along too "
-            "few independent directions — one-dimensional. Default 0.5."
-        ),
-    )
-    max_near_duplicate_fraction: float = Field(
-        default=0.1,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Maximum share of a class allowed to sit in near-duplicate pairs before warning. "
-            "Above this the class is padded with repeated frames. Default 0.1."
-        ),
-    )
-    leaf_coverage: float = Field(
-        default=0.9,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Minimum fraction of sanctioned leaf species with any examples before warning. "
-            "Default 0.9. Applied only to a configured ontology — against a synthesized one "
-            "leaf coverage is 1.0 by construction."
-        ),
-    )
-    dark_branch_count: int = Field(
-        default=0,
-        ge=0,
-        description=(
-            "Number of wholly-unpopulated ontology branches tolerated before warning. Default "
-            "0, so any dark branch warns. Applied only to a configured ontology."
-        ),
-    )
-    unmatched_class_count: int = Field(
-        default=0,
-        ge=0,
-        description=(
-            "Number of class names that may fail to resolve to an ontology concept before "
-            "warning. Default 0. Applied only to a configured ontology."
+            "The percent of the items uncovered past which the Uncovered Rate finding warns, under `naive` coverage "
+            "only; `null` judges nothing. Legacy `uncovered_rate`."
         ),
     )
 
 
-class DataCoverageConfig(
-    WorkflowConfig[DataCoverageResult],
-    MetadataConfigMixin,
-    _LegacyMetadataMixin,
-    _LegacyValueRangeMixin,
-    StatsConfigMixin,
-):
-    """The settings of one ``data-coverage`` entry: the coverage, distribution and gap analyses, and when they warn.
+class CompletenessScoreLimits(BaseModel):
+    """The `completeness-score` check's fields, with legacy data-coverage's defaults."""
 
-    Embedding-based analyses (coverage, completeness) require an extractor
-    and are skipped when none is configured. Metadata-based analyses always run.
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    warning: float | None = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "The completeness score under which the Dimensional Completeness finding warns; `null` turns this band "
+            "off. Must not exceed `info`. Legacy `completeness_score`."
+        ),
+    )
+    info: float | None = Field(
+        default=0.8,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "The score under which the finding informs, at or over which it is ok; `null` turns this band off, and "
+            "with `warning` also `null` the finding judges nothing. Legacy's hard-coded 0.8, or `warning` where "
+            "that is higher and `info` is unset."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _warning_under_info(self) -> Self:
+        """An unset `info` follows a `warning` over it, as legacy's unreachable band did; two written bounds that cross
+        are refused here, where the user wrote them."""
+        if self.warning is None or self.info is None:
+            return self
+        if "info" not in self.model_fields_set:
+            # derived, so still unset: a matrix varies `warning` alone
+            object.__setattr__(self, "info", max(self.info, self.warning))
+        elif self.warning > self.info:
+            raise ValueError(f"`warning` ({self.warning}) must not exceed `info` ({self.info}).")
+        return self
+
+
+class DataCoverageThresholds(BaseModel):
+    """When data-coverage's findings warn: each check's fields, keyed by check type."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
+
+    class_imbalance: DataCoverageClassImbalanceLimits = Field(
+        default_factory=DataCoverageClassImbalanceLimits,
+        alias="class-imbalance",
+        description="The `class-imbalance` check's thresholds.",
+    )
+    coverage_gaps: CoverageGapsLimits = Field(
+        default_factory=CoverageGapsLimits, alias="coverage-gaps", description="The `coverage-gaps` check's threshold."
+    )
+    class_coverage: ClassCoverageLimits = Field(
+        default_factory=ClassCoverageLimits,
+        alias="class-coverage",
+        description="The `class-coverage` check's thresholds.",
+    )
+    uncovered_rate: DataCoverageUncoveredRateLimits = Field(
+        default_factory=DataCoverageUncoveredRateLimits,
+        alias="uncovered-rate",
+        description="The `uncovered-rate` check's threshold, under `naive` coverage.",
+    )
+    completeness_score: CompletenessScoreLimits = Field(
+        default_factory=CompletenessScoreLimits,
+        alias="completeness-score",
+        description="The `completeness-score` check's thresholds.",
+    )
+
+
+_NO_ONTOLOGY = (
+    "data-coverage no longer judges an ontology: run a `label-space` entry on the same source, with this `ontology:` "
+    "(and `label_pattern:`)"
+)
+
+_MOVED: dict[str, str] = {
+    "coverage_method": "it is `coverage.method`",
+    "coverage_percent": "it is `coverage.percent`",
+    "num_observations": "it is `coverage.num_observations`",
+    "min_class_samples": "it is `coverage.min_class_samples`",
+    "isotropy_min_samples": "it is `coverage.isotropy_min_samples`",
+    "near_duplicate_factor": "it is `coverage.near_duplicate_factor`",
+    "crop_padding": "it is `crops.padding`",
+    "crop_min_size": "it is `crops.min_size`",
+    "run_completeness": "it is `completeness`",
+    "balance": "balance always runs, as a report section; `gaps: null` leaves out the gap analysis",
+    "diversity_method": "diversity always runs, as a report section, and `diversity` picks the method",
+    "run_gap_analysis": "write `gaps: null` to leave out the gap analysis",
+    "gap_mi_threshold": "it is `gaps.mi_threshold`",
+    "gap_min_representation": "it is `gaps.min_representation`",
+    "ontology_label_pattern": _NO_ONTOLOGY,
+    "ontology_expected": "it is `expected`, or `label-space`'s `expected` where an ontology is set",
+    "metadata_auto_bin_method": "name a policy under `metadata:`",
+    "metadata_exclude": "name a policy under `metadata:`",
+    "metadata_continuous_factor_bins": "name a policy under `metadata:`",
+    "metadata_factor_source": "name a policy under `metadata:`",
+    "value_range": "set `value_range` on the dataset",
+    "stats": "no step of data-coverage reads statistics",
+}
+
+_THRESHOLDS_MOVED: dict[str, str] = {
+    "class_imbalance_ratio": "`health_thresholds.class-imbalance.ratio`",
+    "gap_count": "`health_thresholds.coverage-gaps.count`",
+    "min_dispersion": "`health_thresholds.class-coverage.dispersion`",
+    "min_isotropy": "`health_thresholds.class-coverage.isotropy`",
+    "max_near_duplicate_fraction": "`health_thresholds.class-coverage.near_duplicates`",
+    "uncovered_rate": "`health_thresholds.uncovered-rate.rate`",
+    "completeness_score": "`health_thresholds.completeness-score.warning`",
+    "leaf_coverage": "`label-space`'s `health_thresholds.leaf-coverage.coverage`",
+    "dark_branch_count": "`label-space`'s `health_thresholds.leaf-coverage.empty_branches`",
+    "unmatched_class_count": "`label-space`'s `health_thresholds.label-conformance.unmatched`",
+}
+
+
+class DataCoverageConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
+    """The settings of one ``data-coverage`` entry: coverage, crops, completeness, diversity, gaps and the worklist's
+    minimum shares, and when a finding warns.
 
     Example YAML::
 
         workflows:
-          - name: coverage_check
+          - name: coverage
             type: data-coverage
-            coverage_method: adaptive
-            balance: true
-            diversity_method: simpson
-            run_gap_analysis: true
+            metadata: standard
+            coverage: {method: adaptive, num_observations: 50}
+            crops: {padding: 0.1}
+            gaps: {mi_threshold: 0.1}
     """
 
     type: str = Field(default="data-coverage", description="The workflow type this entry configures: `data-coverage`.")
-
     inputs: ClassVar[InputSpec] = InputSpec(
-        required=frozenset({InputKind.METADATA}),
-        optional=frozenset({InputKind.EMBEDDINGS}),
-        sources=SourceCount.ONE,
+        required=frozenset({InputKind.METADATA}), optional=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.ONE
     )
 
-    # --- Embedding coverage ---
-    coverage_method: Literal["naive", "adaptive"] = Field(
-        default="adaptive",
-        description=(
-            "Coverage radius method. 'adaptive' flags the sparsest coverage_percent of "
-            "observations — a useful shortlist, but its rate restates the config, so the "
-            "uncovered_rate threshold is not applied to it. 'naive' compares each radius "
-            "against a fixed geometric radius, giving a data-driven rate, but that radius "
-            "grows with embedding dimensionality and saturates on wide embeddings. Either "
-            "way, the per-class dispersion / isotropy / near-duplicate signals are the "
-            "data-driven health signal."
-        ),
-    )
-    coverage_percent: float = Field(
-        default=0.01,
-        gt=0.0,
-        lt=1.0,
-        description="Proportion of observations considered uncovered for coverage_adaptive.",
-    )
-    num_observations: int = Field(
-        default=50,
-        ge=1,
-        description="Number of neighbors for coverage functions.",
-    )
-    min_class_samples: int = Field(
-        default=20,
-        ge=1,
-        description=(
-            "Minimum samples for a class to get per-class variety signals. Smaller classes "
-            "are reported with assessable=False and null dispersion/isotropy/near-duplicates."
-        ),
-    )
-    isotropy_min_samples: int | None = Field(
-        default=None,
-        ge=1,
-        description=(
-            "Minimum samples for a class's isotropy to be reported. None means the embedding "
-            "dimensionality plus one — isotropy is undefined below that."
-        ),
-    )
-    near_duplicate_factor: float = Field(
-        default=0.5,
-        gt=0.0,
-        description=(
-            "A within-class nearest-neighbor pair counts as a near-duplicate when it is "
-            "closer than this multiple of the typical within-class neighbor distance."
-        ),
-    )
-
-    crop_padding: float = Field(
-        default=0.0,
-        ge=0.0,
-        description=(
-            "Fraction of each box's size to widen its crop by before embedding, so the "
-            "embedding sees some of the scene around the object. 0.0 crops the box exactly. "
-            "Applies to object-detection datasets, whose boxes are embedded as crops."
-        ),
-    )
-    crop_min_size: int = Field(
-        default=1,
-        ge=1,
-        description=(
-            "Smallest crop side, in pixels, that is embedded. Detections smaller than this "
-            "are dropped, and the count is reported as `dropped_detections`. Raise it to "
-            "keep boxes too small to carry a usable embedding out of the coverage numbers."
-        ),
-    )
-
-    # --- Completeness ---
-    run_completeness: bool = Field(
-        default=True,
-        description="Compute dimensional completeness when an extractor is available.",
-    )
-
-    # --- Metadata distribution ---
-    balance: bool = Field(
-        default=True,
-        description="Run Balance (MI) analysis on metadata factors.",
-    )
-    diversity_method: Literal["simpson", "shannon"] | None = Field(
-        default="simpson",
-        description="Diversity method (None = skip).",
-    )
-
-    # --- Metadata gap analysis ---
-    run_gap_analysis: bool = Field(
-        default=True,
-        description="Compute mutual information and cross-reference per-class metadata to identify gaps.",
-    )
-    gap_mi_threshold: float = Field(
-        default=0.1,
-        ge=0.0,
-        description="Minimum MI score for a factor to be included in gap analysis.",
-    )
-    gap_min_representation: int = Field(
-        default=5,
-        ge=1,
-        description=(
-            "Minimum expected count per class-factor-value combination. Classes with fewer samples are flagged as gaps."
-        ),
-    )
-
-    # --- Ontology ---
-    ontology: dict[str, Any] | str | None = Field(
+    expected: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] | None = Field(
         default=None,
         description=(
-            "Sanctioned label space. A nested mapping of concept to children is read as an "
-            "inline hierarchy; a string is read as a path to a serialized RDF artifact "
-            "(.ttl/.rdf/.owl/.xml/.nt/.jsonld), resolved against the data root. When unset, a "
-            "flat ontology is synthesized from the dataset's index2label — enough for a class "
-            "balance worklist, but it can only name classes the dataset already declares."
+            "Class name to its minimum expected share of the dataset, a fraction in [0, 1], for the worklist; a name "
+            "that is no class is ignored and noted."
         ),
     )
-    ontology_expected: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] | None = Field(
-        default=None,
-        description=(
-            "Class name to its minimum expected share of the dataset, as a fraction in [0, 1]. "
-            "Named classes use this floor as their collection target instead of the uniform "
-            "share, and a dataset below the floor is reported as a violation."
-        ),
+    coverage: CoverageSettings = Field(
+        default_factory=CoverageSettings,
+        description="The `coverage` step's settings, run when the task names an extractor.",
     )
-    ontology_label_pattern: str | None = Field(
-        default=None,
-        description=(
-            "Regex that ontology concept labels must match, e.g. '^[a-z0-9_]+$' for a "
-            "lowercase_snake_case lint. Labels that fail are reported. Ignored when the "
-            "ontology is synthesized."
-        ),
+    crops: CropSettings = Field(
+        default_factory=CropSettings, description="`DetectionCrops`' settings, used on detection data only."
+    )
+    completeness: bool = Field(
+        default=True, description="Whether the completeness steps run, when the task names an extractor."
+    )
+    diversity: Literal["simpson", "shannon"] = Field(default="simpson", description="The `diversity` step's method.")
+    gaps: GapSettings | None = Field(
+        default_factory=GapSettings, description="The gap analysis's settings; `null` leaves it out."
+    )
+    health_thresholds: DataCoverageThresholds = Field(
+        default_factory=DataCoverageThresholds, description="When findings warn, keyed by check type."
     )
 
-    # --- Health thresholds ---
-    health_thresholds: DataCoverageHealthThresholds = Field(
-        default_factory=DataCoverageHealthThresholds,
-        description="Warning thresholds for dataset coverage health status.",
-    )
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_legacy_fields(cls, data: Any) -> Any:
+        """Refuse every legacy data-coverage field by name, saying what replaced it (coverage spec §4.3)."""
+        if not isinstance(data, dict):
+            return data
+        if data.get("ontology") is not None:
+            raise ValueError(
+                f"{_NO_ONTOLOGY}. A data-coverage run on a conformed source then records no label space of its own; "
+                "`label-space` carries the join key."
+            )
+        for key, message in _MOVED.items():
+            if key in data:
+                raise ValueError(f"data-coverage's `{key}` is refused: {message}.")
+        thresholds = data.get("health_thresholds")
+        if isinstance(thresholds, dict):
+            for key, replacement in _THRESHOLDS_MOVED.items():
+                # legacy's values were numbers; a mapping under a snake_case name is a check type's own limits
+                if key in thresholds and not isinstance(thresholds[key], dict):
+                    raise ValueError(f"`health_thresholds.{key}` is refused: it is {replacement}.")
+        return data

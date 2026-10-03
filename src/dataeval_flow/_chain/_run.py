@@ -250,7 +250,7 @@ def _unassessed(
         severity="info",
         title=_check_title(spec) + (f" by {spec.by.label}" if spec.by is not None else ""),
         brief="not assessed",
-        description=f"Not assessed: {gap}.",
+        description=f"Not assessed: {gap.rstrip('.')}.",
         step=_finding_step(spec, element),
     )
     record = StepResult(
@@ -753,7 +753,9 @@ def _transform(
                 },
             )
         elif port.type is DataType.DATASET:
-            outputs[port.name] = _made_node(address, value, key, sources, spec, settings)
+            outputs[port.name] = _handed_on(address, value, sources, spec) or _made_node(
+                address, value, key, sources, spec, settings
+            )
         else:
             on = tuple(node.address for node in sources)
             outputs[port.name] = Node(address, port.type, payload=value, step=spec.name, step_type=spec.type, inputs=on)
@@ -772,6 +774,25 @@ def _check_datasets(spec: StepSpec, made: Mapping[str, Any]) -> None:
                     f"transform '{spec.type}' returned {type(dataset).__name__} for `{port.name}`, which has no "
                     "length: a Dataset must have one."
                 )
+
+
+def _handed_on(address: str, dataset: Any, sources: Sequence[Node], spec: StepSpec) -> Node | None:
+    """A node at `address` for an output that is one of the step's input Datasets itself, unchanged: it shares that
+    input's key, context, cache and drawn Dataset, so its readers read what the input's readers read, under the
+    source's cache key (coverage spec §5.1, §17). `None` for any other output."""
+    source = next((node for node in sources if dataset is node.value), None)
+    if source is None or source.context is None:
+        return None
+    return replace(
+        source,
+        address=address,
+        context=replace(source.context, name=address),
+        source=None,
+        step=spec.name,
+        step_type=spec.type,
+        inputs=(source.address,),
+        kind=None,
+    )
 
 
 def _made_node(

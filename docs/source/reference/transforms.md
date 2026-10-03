@@ -10,7 +10,7 @@ removes from or relabels the Datasets earlier steps made, or writes one to disk.
 | Type | Reads | Makes | Runs |
 | --- | --- | --- | --- |
 | `view` | `input`: a Dataset | a Dataset | `dataeval.data` view operations |
-| `wrap` | `input`: an object-detection Dataset | a classification Dataset, one item per detection | `dataeval.data.DetectionCrops` |
+| `wrap` | `input`: an object-detection Dataset | a classification Dataset, one item per detection; with `other_kinds: pass`, another kind unchanged | `dataeval.data.DetectionCrops` |
 | `merge` | `input`: two or more Datasets | a Dataset | `dataeval.data.merge_datasets` |
 | `split` | `input`: a Dataset | `train`, `val` and `test` | `dataeval.data.split_dataset` |
 | `kfold` | `input`: a Dataset | `train` and `val`, one per fold, and `test` | `dataeval.data.split_dataset` |
@@ -55,17 +55,18 @@ Wraps a Dataset in a DataEval wrapper that changes its kind. Configured by
 {py:class}`~dataeval_flow.steps.transforms.WrapConfig`; runs `dataeval.data.DetectionCrops`.
 
 Reads `input`, an object-detection Dataset. Makes a classification Dataset with one item per detection the wrapper
-keeps, labelled with the detection's class.
+keeps, labelled with the detection's class. With `other_kinds: pass`, a Dataset of another kind is handed on unchanged.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | The Dataset to wrap |
 | `wrapper` | `DetectionCrops` | required | The DataEval wrapper |
 | `params` | a mapping of the wrapper's keyword arguments | `{}` | For `DetectionCrops`: `region`, `padding`, `min_size`, `square` and `fill` |
+| `other_kinds` | `refuse` or `pass` | `refuse` | A Dataset the wrapper does not take: refused before the run, or passed on unchanged, keeping its kind and its source's cached embeddings |
 
-`min_size` drops detections whose box's shorter side is under that many pixels, as `data-coverage`'s `crop_min_size`
-does. Wrapping a Dataset of another kind is refused before any step runs. The video wrappers come once Flow can load a
-tracking dataset.
+`min_size` drops detections whose box's shorter side is under that many pixels. By default, wrapping a Dataset of
+another kind is refused before any step runs. With `other_kinds: pass` a chain can wrap detection data and read
+classification data as it is: `data-coverage` does. The video wrappers come once Flow can load a tracking dataset.
 
 ## Combining and splitting
 

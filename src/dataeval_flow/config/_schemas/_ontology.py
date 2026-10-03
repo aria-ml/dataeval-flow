@@ -70,7 +70,7 @@ class OntologyConfig(BaseModel):
 
         workflows:
           - name: audit
-            type: data-coverage
+            type: label-space
             ontology: vehicles
     """
 

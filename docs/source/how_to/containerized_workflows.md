@@ -222,7 +222,7 @@ extractors:
 
 ### Workflow types
 
-Eight workflow types are available. Define named instances in the `workflows`
+Nine workflow types are built in. Define named instances in the `workflows`
 section, then reference them from tasks.
 
 `````{tab-set}
@@ -316,20 +316,48 @@ workflows:
 ````
 
 ````{tab-item} data-coverage
-Class balance, metadata gaps, ontology findings, and embedding blind spots.
+Class balance, metadata gaps, and embedding blind spots; a `label-space` entry on the same source judges the labels
+against an ontology.
 See the {doc}`Data Coverage tutorial <../notebooks/data_coverage>` for a full walkthrough.
 
 ```yaml
 workflows:
   - name: coverage_check
     type: data-coverage
-    coverage_method: adaptive
-    balance: true
-    run_gap_analysis: true
-    ontology: config/taxonomy.ttl   # optional; unlocks the label-space findings
+    coverage: {method: adaptive}     # adaptive | naive; embeds only when the task names an extractor
+    gaps: {mi_threshold: 0.1, min_representation: 5}   # null leaves out the gap analysis
     health_thresholds:
-      leaf_coverage: 0.9
-      dark_branch_count: 0
+      class-imbalance: {ratio: 5.0}
+      coverage-gaps: {count: 3}
+```
+````
+
+````{tab-item} label-space
+Judge a dataset's labels against a declared ontology: leaf coverage, conformance, alignment and structure.
+See {doc}`Declare an ontology <declare_an_ontology>` for the options.
+
+```yaml
+workflows:
+  - name: vocab_check
+    type: label-space
+    ontology: config/taxonomy.ttl    # an ontologies: entry, an RDF file, or an inline hierarchy
+    health_thresholds:
+      leaf-coverage: {coverage: 0.9, empty_branches: 0}
+      label-conformance: {unmatched: 0}
+```
+````
+
+````{tab-item} metadata-triage
+Find the metadata a run failed to read, and the policy stanza that repairs it.
+See the {doc}`Metadata Triage tutorial <../notebooks/metadata_triage>` for a full walkthrough.
+
+```yaml
+workflows:
+  - name: triage
+    type: metadata-triage
+    metadata: standard             # the policy under triage
+    max_examples: 20
+    verify: true                   # re-read the metadata under the suggestions
 ```
 ````
 

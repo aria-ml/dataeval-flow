@@ -202,7 +202,15 @@ def test_lineage_records_each_dataset_with_where_it_came_from() -> None:
         ["kept"],
         3,
     )
-    assert len({record.digest for record in records.values()}) == 3
+    assert (records["kept"].step, records["kept"].type, records["kept"].inputs, records["kept"].source) == (
+        "kept",
+        "toy-keep",
+        ["a"],
+        None,
+    )
+    assert run.nodes["kept"].value is run.nodes["a"].value  # type: ignore[union-attr]
+    # `toy-keep` hands its input on as it is, so `kept` shares `a`'s key and digest; `few` is new (coverage spec §17).
+    assert records["kept"].digest == records["a"].digest != records["few"].digest
 
 
 def test_lineage_over_a_list_records_each_datasets_elements_and_no_outputs() -> None:

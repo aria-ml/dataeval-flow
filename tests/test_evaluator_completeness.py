@@ -63,6 +63,7 @@ _ECHOES: dict[str, frozenset[str]] = {
     ),
     "label-health": frozenset(),
     "factor-triage": frozenset(),
+    "metadata-summary": frozenset(),
     "balance": frozenset({"plot_type"}),
     "diversity": frozenset({"plot_type"}),
     "parity": frozenset(),
@@ -80,6 +81,7 @@ _ECHOES: dict[str, frozenset[str]] = {
     # `ontology` is the config's own input, and `ontology_source` how the config named it, read back rather than
     # serialized: `conform` reaches both off the result.
     "label-alignment": frozenset({"ontology", "ontology_source"}),
+    "completeness": frozenset(),
     "label-reconciliation": frozenset(),
     "ontology-validation": frozenset(),
 }

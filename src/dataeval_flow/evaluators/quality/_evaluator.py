@@ -125,8 +125,12 @@ class LabelHealthEvaluator(Evaluator[LabelHealthConfig, LabelHealthOutput]):
         )
         meta = execution("dataeval.core.label_stats", started, time.monotonic() - clock, {})
 
+        declared = {index2label[index]: 0 for index in sorted(index2label)}
+
         def named(counts: Mapping[int, int]) -> dict[str, int]:
-            return {index2label.get(label, str(label)): int(count) for label, count in counts.items()}
+            """Every declared class, at 0 where unseen, then any observed label `index2label` does not name
+            (coverage spec §5.3)."""
+            return declared | {index2label.get(label, str(label)): int(count) for label, count in counts.items()}
 
         provenance = source.label_source
         data = {
@@ -136,6 +140,7 @@ class LabelHealthEvaluator(Evaluator[LabelHealthConfig, LabelHealthOutput]):
             "label_counts_per_class": named(stats["label_counts_per_class"]),
             "image_counts_per_class": named(stats["image_counts_per_class"]),
             "empty_image_count": int(stats["empty_image_count"]),
+            "empty_image_indices": [int(index) for index in stats["empty_image_indices"]],
             "label_source": provenance if provenance is None or isinstance(provenance, str) else list(provenance),
         }
         return LabelHealthOutput(data, meta)

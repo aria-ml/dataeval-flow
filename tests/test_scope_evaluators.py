@@ -74,8 +74,19 @@ class TestCoverage:
         assert result.success, result.errors
         assert {row["class"] for row in output_json(result)["rows"]} == {"a", "b"}
         extras = output_json(result)["extras"]
-        assert set(extras) == {"uncovered_indices", "coverage_radius", "critical_value_radii"}
+        assert set(extras) == {"uncovered_indices", "coverage_radius", "critical_value_radii", "uncovered_classes"}
         assert len(extras["critical_value_radii"]) == 40
+
+    def test_coverage_names_each_uncovered_item_s_class(self):
+        output = run(CoverageConfig(**_SMALL), ToyImages(count=40), extractor=FLAT).output
+        assert len(output.uncovered_indices) > 0
+        assert len(output.uncovered_classes) == len(output.uncovered_indices)
+        assert set(output.uncovered_classes) <= {"a", "b"}
+
+    def test_coverage_without_a_class_breakdown_names_none(self):
+        output = run(CoverageConfig(**_SMALL), ToyImages(count=40, labeled=False), extractor=FLAT).output
+        assert len(output.uncovered_classes) == len(output.uncovered_indices) > 0
+        assert all(name is None for name in output.uncovered_classes)
 
     def test_without_labels_it_runs_as_one_class_and_warns(self, caplog: pytest.LogCaptureFixture):
         with caplog.at_level(logging.WARNING):

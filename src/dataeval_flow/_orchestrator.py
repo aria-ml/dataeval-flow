@@ -276,9 +276,9 @@ def _resolve_ontology(
     """Resolve the task's ontology up front. Return any failure rather than raising it.
 
     Resolve here for the same reason as the metadata policy: a name needs the pipeline's
-    pool and a path needs the data root. Return the failure instead of raising it, because
-    ``data-coverage`` degrades on an ontology problem by contract and moving the work
-    earlier must not change that.
+    pool and a path needs the data root. Return the failure instead of raising it, so a
+    problem with the ontology is reported by the work that reads it and moving the work
+    earlier does not abort the task.
     """
     from dataeval_flow.workflows._context import ResolvedOntology
     from dataeval_flow.workflows._ontology import OntologyLoadError, resolve_ontology
@@ -1102,7 +1102,7 @@ def _populate_result_metadata(
         result.metadata.label_space = records
         digests = {record.digest for record in records}
         # Set the scalar only where the run read one vocabulary. A workflow that stamped
-        # its own keeps it.
+        # its own, as `label-space` does with its alignment's, keeps it.
         if len(digests) == 1 and not result.metadata.label_space_digest:
             result.metadata.label_space_digest = records[0].digest
 

@@ -1,6 +1,6 @@
 """How a dataset's vocabulary aligns to a reference ontology (spec §6.2, §6.4).
 
-`data-coverage`'s ontology analysis and the `label-alignment` evaluator both align a dataset's class names
+`label-space`'s alignment and the `label-alignment` evaluator both align a dataset's class names
 against an ontology; this is the one place that calls DataEval's ``label_alignment`` and shapes the result, so the
 two report identically. ``LabelAlignmentOutput`` sits beside ``LabelAlignment`` so the evaluator's config and
 implementation modules can both import it without a cycle.

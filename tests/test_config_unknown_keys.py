@@ -21,7 +21,18 @@ from dataeval_flow.config._schemas._view import ViewOperation
 from dataeval_flow.workflows.data_analysis._config import DataAnalysisHealthThresholds
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningHealthThresholds
-from dataeval_flow.workflows.data_coverage._config import DataCoverageConfig, DataCoverageHealthThresholds
+from dataeval_flow.workflows.data_coverage._config import (
+    ClassCoverageLimits,
+    CompletenessScoreLimits,
+    CoverageGapsLimits,
+    CoverageSettings,
+    CropSettings,
+    DataCoverageClassImbalanceLimits,
+    DataCoverageConfig,
+    DataCoverageThresholds,
+    DataCoverageUncoveredRateLimits,
+    GapSettings,
+)
 from dataeval_flow.workflows.drift_monitoring import DriftMonitoringThresholds
 from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
 from dataeval_flow.workflows.ood_detection import OODDetectionThresholds
@@ -73,7 +84,15 @@ _NESTED = [
     pytest.param(MetadataTriageConfig, {}, id="another-workflow"),
     pytest.param(DataAnalysisHealthThresholds, {}, id="analysis-thresholds"),
     pytest.param(DataCleaningHealthThresholds, {}, id="cleaning-thresholds"),
-    pytest.param(DataCoverageHealthThresholds, {}, id="coverage-thresholds"),
+    pytest.param(DataCoverageThresholds, {}, id="coverage-thresholds"),
+    pytest.param(DataCoverageClassImbalanceLimits, {}, id="coverage-class-imbalance"),
+    pytest.param(CoverageGapsLimits, {}, id="coverage-gaps"),
+    pytest.param(ClassCoverageLimits, {}, id="coverage-class-coverage"),
+    pytest.param(DataCoverageUncoveredRateLimits, {}, id="coverage-uncovered-rate"),
+    pytest.param(CompletenessScoreLimits, {}, id="coverage-completeness-score"),
+    pytest.param(CoverageSettings, {}, id="coverage-settings"),
+    pytest.param(CropSettings, {}, id="coverage-crops"),
+    pytest.param(GapSettings, {}, id="coverage-gap-settings"),
     pytest.param(DriftMonitoringThresholds, {}, id="drift-thresholds"),
     pytest.param(OODDetectionThresholds, {}, id="ood-thresholds"),
 ]

@@ -10,6 +10,8 @@ from dataeval_flow.evaluators._core import CoreOutput
 from dataeval_flow.evaluators._result import EvaluatorResult
 
 __all__ = [
+    "CompletenessOutput",
+    "CompletenessResult",
     "CoverageResult",
     "LabelReconciliationOutput",
     "LabelReconciliationResult",
@@ -61,7 +63,8 @@ class CoverageResult(EvaluatorResult[CoverageOutput]):
     output
         DataEval's ``CoverageOutput``: ``data()`` is the per-class table (``class``, ``count``, ``uncovered``,
         ``uncovered_fraction``, ``dispersion``, ``isotropy``, ``near_duplicate_fraction``, ``assessable``), and
-        ``uncovered_indices``, ``coverage_radius`` and ``critical_value_radii`` are the source-wide results
+        ``uncovered_indices``, ``coverage_radius``, ``critical_value_radii`` and ``uncovered_classes`` (each
+        uncovered item's class, ``None`` where there was no class breakdown) are the source-wide results
         ``to_dict()`` writes under ``extras``.
     metadata.evaluator
         The evaluator type, e.g. ``duplicates``.
@@ -102,6 +105,46 @@ class PrioritizeResult(EvaluatorResult[PrioritizeOutput]):
         from dataeval_flow.evaluators.scope._report import prioritize_section
 
         return prioritize_section(output, sources, detailed=detailed)
+
+
+class CompletenessOutput(CoreOutput):
+    """``completeness``'s output: ``data()`` holds ``completeness``, the share of the embedding space's dimensions the
+    data fills, and ``nearest_neighbor_pairs``."""
+
+
+class CompletenessResult(EvaluatorResult[CompletenessOutput]):
+    """The result of a ``completeness`` run; ``output`` is a
+    :class:`~dataeval_flow.evaluators.scope.CompletenessOutput`.
+
+    ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
+    fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
+    fields of :class:`~dataeval_flow.ResultMetadata`.
+
+    Fields
+    ------
+    output
+        ``data()`` holds ``completeness`` and ``nearest_neighbor_pairs``, computed on the embeddings rescaled to the
+        unit interval per dimension.
+    metadata.evaluator
+        The evaluator type, e.g. ``duplicates``.
+    metadata.dataeval
+        DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
+        parameters as written are in ``resolved_config``.
+    """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """The score and the pair count."""
+        from dataeval_flow._blocks import Fields
+
+        data = output.get("data") or {}
+        return [
+            Fields(
+                items=[
+                    ("Completeness Score", data.get("completeness")),
+                    ("Nearest Neighbor Pairs", len(data.get("nearest_neighbor_pairs") or [])),
+                ]
+            )
+        ]
 
 
 class LabelReconciliationOutput(CoreOutput):

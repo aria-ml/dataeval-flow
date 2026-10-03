@@ -83,8 +83,9 @@ class LabelHealthOutput(CoreOutput):
     - ``item_count``: the items the labels come from, labelled or not;
     - ``class_count``: the classes the Dataset declares, used or not;
     - ``label_count``: the labels, one per item for classification and one per box for detection;
-    - ``label_counts_per_class`` and ``image_counts_per_class``: by class name, for the classes that occur;
-    - ``empty_image_count``: the items with no label;
+    - ``label_counts_per_class`` and ``image_counts_per_class``: by class name, for every declared class, at 0 where
+      unseen;
+    - ``empty_image_count`` and ``empty_image_indices``: the items with no label, counted and listed;
     - ``label_source``: where the labels came from, such as ``filepath``, or ``None`` where the source doesn't say.
     """
 
@@ -101,7 +102,8 @@ class LabelHealthResult(EvaluatorResult[LabelHealthOutput]):
     ------
     output
         The counts: ``data()`` holds ``item_count``, ``class_count``, ``label_count``, ``label_counts_per_class``,
-        ``image_counts_per_class``, ``empty_image_count`` and ``label_source``.
+        ``image_counts_per_class`` (each holding every declared class, at 0 where unseen), ``empty_image_count``,
+        ``empty_image_indices`` and ``label_source``.
     metadata.evaluator
         The evaluator type, e.g. ``duplicates``.
     metadata.dataeval

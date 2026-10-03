@@ -1,6 +1,10 @@
 """The scope evaluators: DataEval's Representation, Coverage and Prioritize, over one source's labels and embeddings."""
 
 __all__ = [
+    "CompletenessConfig",
+    "CompletenessEvaluator",
+    "CompletenessOutput",
+    "CompletenessResult",
     "CoverageConfig",
     "CoverageEvaluator",
     "CoverageResult",
@@ -26,6 +30,7 @@ __all__ = [
 
 from dataeval_flow._alignment import LabelAlignmentOutput
 from dataeval_flow.evaluators.scope._config import (
+    CompletenessConfig,
     CoverageConfig,
     LabelAlignmentConfig,
     LabelAlignmentResult,
@@ -35,6 +40,7 @@ from dataeval_flow.evaluators.scope._config import (
     RepresentationConfig,
 )
 from dataeval_flow.evaluators.scope._evaluator import (
+    CompletenessEvaluator,
     CoverageEvaluator,
     LabelAlignmentEvaluator,
     LabelReconciliationEvaluator,
@@ -43,6 +49,8 @@ from dataeval_flow.evaluators.scope._evaluator import (
     RepresentationEvaluator,
 )
 from dataeval_flow.evaluators.scope._result import (
+    CompletenessOutput,
+    CompletenessResult,
     CoverageResult,
     LabelReconciliationOutput,
     LabelReconciliationResult,

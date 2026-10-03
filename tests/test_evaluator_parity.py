@@ -40,13 +40,14 @@ _WIRING: dict[str, frozenset[str]] = {
     "ood-kneighbors": frozenset({"extractor"}),
     # `matchers` holds objects a config file cannot express.
     "label-alignment": frozenset({"matchers"}),
+    "completeness": frozenset(),
     "label-reconciliation": frozenset(),
     # `label_pattern` is keyword-only, so it is a field rather than wiring.
     "ontology-validation": frozenset(),
 }
 
 # Flow's own evaluators: their settings are Flow's, not a DataEval `Config`'s, so they have no wiring list.
-_FLOW_ONLY: frozenset[str] = frozenset({"factor-triage"})
+_FLOW_ONLY: frozenset[str] = frozenset({"factor-triage", "metadata-summary"})
 
 # Fields Flow converts before DataEval sees them, whose types are Flow's by design.
 _CONVERTED: set[tuple[str, str]] = {("duplicates", "flags"), ("outliers", "flags")}

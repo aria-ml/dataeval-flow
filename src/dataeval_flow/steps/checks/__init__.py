@@ -1,10 +1,18 @@
 """The built-in checks: steps that judge what evaluators found, each against its own thresholds."""
 
 __all__ = [
+    "ClassCoverageCheck",
+    "ClassCoverageConfig",
     "ClassImbalanceCheck",
     "ClassImbalanceConfig",
+    "ClassShortfallCheck",
+    "ClassShortfallConfig",
     "ClasswiseOutlierRateCheck",
     "ClasswiseOutlierRateConfig",
+    "CompletenessScoreCheck",
+    "CompletenessScoreConfig",
+    "CoverageGapsCheck",
+    "CoverageGapsConfig",
     "DriftCheck",
     "DriftCheckConfig",
     "DriftThresholds",
@@ -37,10 +45,20 @@ __all__ = [
 ]
 
 from dataeval_flow.steps.checks._alignment import MergeabilityCheck, MergeabilityConfig
-from dataeval_flow.steps.checks._coverage import UncoveredRateCheck, UncoveredRateConfig
+from dataeval_flow.steps.checks._coverage import (
+    ClassCoverageCheck,
+    ClassCoverageConfig,
+    CompletenessScoreCheck,
+    CompletenessScoreConfig,
+    UncoveredRateCheck,
+    UncoveredRateConfig,
+)
 from dataeval_flow.steps.checks._drift import DriftCheck, DriftCheckConfig, DriftThresholds
 from dataeval_flow.steps.checks._duplicates import DuplicateRateCheck, DuplicateRateConfig
+from dataeval_flow.steps.checks._gaps import CoverageGapsCheck, CoverageGapsConfig
 from dataeval_flow.steps.checks._label_space import (
+    ClassShortfallCheck,
+    ClassShortfallConfig,
     LabelConformanceCheck,
     LabelConformanceConfig,
     LeafCoverageCheck,

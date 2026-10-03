@@ -139,8 +139,8 @@ ONNX
 
 Ontology
     A machine-readable statement of the sanctioned label space — the concepts in a
-    domain and how they relate. Declaring one lets the coverage workflow validate
-    a dataset's labels and name classes missing entirely. See the
+    domain and how they relate. Declaring one lets the `label-space` workflow
+    validate a dataset's labels and name classes missing entirely. See the
     [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html).
 
 Out-of-Distribution (OOD)

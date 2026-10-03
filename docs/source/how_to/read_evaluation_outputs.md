@@ -532,20 +532,19 @@ other files.
 
 ## Getting at the raw numbers
 
-The report is a rendering; the numbers behind it live on the result object. `result.output.raw` holds the typed,
-workflow-specific outputs:
+The report is a rendering; the numbers behind it live on the result object. For a workflow that is not a chain,
+such as `data-analysis`, `result.output.raw` holds the typed, workflow-specific outputs:
 
 ```python
-result = run_task(task, config)
+result = run_task(task, config)  # a data-analysis task
 
-# data-coverage
-onto_findings = result.output.raw.ontology
-uncovered = result.output.raw.coverage.uncovered  # each uncovered item, its box and class, and its distance
+train = result.output.raw.splits["train"]
+outliers = train.image_quality.outliers  # one row per flagged image and metric, with its value
 ```
 
-Each workflow declares its own raw output, so field names differ by workflow. Each workflow's result class in the
+Each such workflow declares its own raw output, so field names differ by workflow. Each workflow's result class in the
 {doc}`API Reference <../reference/autoapi/dataeval_flow/index>`, such as
-{py:class}`~dataeval_flow.workflows.data_coverage.DataCoverageResult`, lists every `output.raw` field and what it holds
+{py:class}`~dataeval_flow.workflows.data_analysis.DataAnalysisResult`, lists every `output.raw` field and what it holds
 under **Fields**. Narrow a result to that class with `isinstance`, and your editor and type checker know the fields too.
 
 A chain's result, a `data-cleaning` result among them, is a {py:class}`~dataeval_flow.steps.ChainResult` and has no
@@ -560,6 +559,21 @@ flags = outliers.data()  # one row per flag: its item, its box if any, the metri
 duplicates = result.steps["dupes"].output  # DataEval's Duplicates output
 cleaned = result.steps["clean"].output  # without each flagged image and box, and each duplicate but the first
 ```
+
+A `data-coverage` result reads the same way:
+
+```python
+result = run_task(task, config)  # a data-coverage task with an extractor
+
+coverage = result.steps["coverage"].output  # DataEval's Coverage output: a row per class, and uncovered_indices
+gaps = result.steps["gaps"].output.gaps  # each under-represented class-factor-value combination
+counts = result.steps["labels"].output.data()["label_counts_per_class"]  # every declared class, at 0 where unseen
+```
+
+On detection data, `coverage` indexes the `crops` step's items, one per box: `result.steps["crops"].output.item_indices`
+and `.target_indices`, indexed by `coverage.uncovered_indices`, give each uncovered crop's image and box.
+
+A step that was skipped, as `coverage` is without an extractor, has no output; its `reason` says why.
 
 ### How metadata factors were treated
 

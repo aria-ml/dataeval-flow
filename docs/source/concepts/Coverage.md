@@ -24,12 +24,13 @@ that shows up as clustering, low effective dimensionality, or near-duplication �
 signals that the class occupies far less of the representation space than its
 sample count suggests.
 
-In DataEval Flow, {term}`coverage <Coverage>` is a workflow: the `data-coverage`
-workflow evaluates class balance and metadata factor gaps, checks the observed
-labels against an ontology when one is declared, and — when an
-{term}`extractor <Extractor>` is configured — adds per-class embedding variety and
-dimensional completeness analysis. As with every other workflow, the orchestration
-layer's contribution is making this a declarative, reproducible, provenance-carrying
+In DataEval Flow, each axis is a preset, a workflow type whose settings expand to a
+chain of steps. The `label-space` preset checks the observed labels against a
+declared ontology. The `data-coverage` preset evaluates class balance and metadata
+factor gaps and, when an {term}`extractor <Extractor>` is configured, adds per-class
+embedding variety and dimensional completeness analysis. Run both as two tasks on one
+source to measure both axes. As with every other workflow, the orchestration layer's
+contribution is making this a declarative, reproducible, provenance-carrying
 pipeline step; the underlying measures are DataEval's.
 
 The science is explained authoritatively in DataEval's
@@ -65,12 +66,12 @@ be recognized as familiar or flagged as strange in any principled way.
 ### Tutorials
 
 - [Assess dataset coverage](../notebooks/data_coverage.py) — the `data-coverage`
-  workflow end to end, with and without an ontology and an extractor
+  and `label-space` presets end to end on one source, with and without an extractor
 
 ### How-tos
 
 - [Declare an ontology](../how_to/declare_an_ontology.md) — define the sanctioned
-  label space this workflow checks against
+  label space `label-space` checks against
 
 ### Authoritative reference
 

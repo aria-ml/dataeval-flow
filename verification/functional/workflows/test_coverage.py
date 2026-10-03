@@ -8,6 +8,7 @@ import pytest
 
 from dataeval_flow import run_tasks
 from dataeval_flow.config import TaskConfig
+from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows.data_coverage import DataCoverageConfig
 
 pytestmark = pytest.mark.required
@@ -26,84 +27,33 @@ class TestDataCoverageWorkflow:
         image_folder_pipeline_builder: Callable[..., tuple[PipelineConfig, Path]],
     ) -> None:
         cfg, data_dir = image_folder_pipeline_builder(
-            workflows=[
-                DataCoverageConfig(
-                    name="coverage_main",
-                    type="data-coverage",
-                ),
-            ],
-            tasks=[
-                TaskConfig(
-                    name="coverage_task",
-                    workflow="coverage_main",
-                    sources="main",
-                    extractor="flat",
-                ),
-            ],
+            workflows=[DataCoverageConfig(name="coverage_main")],
+            tasks=[TaskConfig(name="coverage_task", workflow="coverage_main", sources="main", extractor="flat")],
         )
         result = run_tasks(cfg, data_dir=data_dir)["coverage_task"]
         assert result.success
-        text = result.report()
-        assert isinstance(text, str)
-        assert text.strip()
-        raw = result.output.raw
-        # Metadata- and label-based analyses always run.
-        assert raw.label_distribution is not None
-        assert raw.metadata_distribution is not None
+        assert isinstance(result, ChainResult)
+        assert result.report().strip()
+        titles = [finding.title for finding in result.findings]
+        # An ImageFolder source's labels are its directory names, which the label finding's title says.
+        assert {"Label/Directory_Name Distribution", "Class Balance Worklist"} <= set(titles)
+        assert result.steps["summary"].output is not None
 
     def test_coverage_runs_without_extractor(
         self,
         image_folder_pipeline_builder: Callable[..., tuple[PipelineConfig, Path]],
     ) -> None:
-        """Embedding analyses are skipped, not fatal, when no extractor is configured."""
+        """Embedding analyses are not assessed, not fatal, when no extractor is configured."""
         cfg, data_dir = image_folder_pipeline_builder(
             include_extractor=False,
-            workflows=[
-                DataCoverageConfig(
-                    name="coverage_no_ext",
-                    type="data-coverage",
-                ),
-            ],
-            tasks=[
-                TaskConfig(
-                    name="coverage_no_ext_task",
-                    workflow="coverage_no_ext",
-                    sources="main",
-                ),
-            ],
+            workflows=[DataCoverageConfig(name="coverage_meta")],
+            tasks=[TaskConfig(name="coverage_meta_task", workflow="coverage_meta", sources="main")],
         )
-        result = run_tasks(cfg, data_dir=data_dir)["coverage_no_ext_task"]
+        result = run_tasks(cfg, data_dir=data_dir)["coverage_meta_task"]
         assert result.success
-        raw = result.output.raw
-        assert raw.coverage is None
-        assert raw.completeness is None
-        assert raw.label_distribution is not None
-
-    def test_coverage_with_ontology(
-        self,
-        image_folder_pipeline_builder: Callable[..., tuple[PipelineConfig, Path]],
-    ) -> None:
-        """A declared ontology drives label-space analysis instead of a synthesized one."""
-        cfg, data_dir = image_folder_pipeline_builder(
-            n_classes=2,
-            workflows=[
-                DataCoverageConfig(
-                    name="coverage_onto",
-                    type="data-coverage",
-                    ontology={"root": {"class_0": [], "class_1": [], "class_2": []}},
-                ),
-            ],
-            tasks=[
-                TaskConfig(
-                    name="coverage_onto_task",
-                    workflow="coverage_onto",
-                    sources="main",
-                    extractor="flat",
-                ),
-            ],
-        )
-        result = run_tasks(cfg, data_dir=data_dir)["coverage_onto_task"]
-        assert result.success
-        raw = result.output.raw
-        # The ontology either produced an assessment or recorded why it could not.
-        assert raw.ontology is not None or raw.ontology_skipped_reason is not None
+        assert isinstance(result, ChainResult)
+        assert result.steps["coverage"].status == "skipped"
+        by_title = {finding.title: finding for finding in result.findings}
+        assert "Label/Directory_Name Distribution" in by_title
+        assert by_title["Embedding Coverage"].brief == "not assessed"
+        assert by_title["Dimensional Completeness"].brief == "not assessed"

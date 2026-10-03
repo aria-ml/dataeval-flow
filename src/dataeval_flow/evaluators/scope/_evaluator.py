@@ -4,6 +4,7 @@
 """
 
 __all__ = [
+    "CompletenessEvaluator",
     "CoverageEvaluator",
     "LabelAlignmentEvaluator",
     "LabelReconciliationEvaluator",
@@ -21,7 +22,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from dataeval.core import RankResult, label_alignment, label_reconciliation, ontology_validation
+from dataeval.core import RankResult, completeness, label_alignment, label_reconciliation, ontology_validation
 from dataeval.scope import (
     Coverage,
     CoverageOutput,
@@ -38,6 +39,7 @@ from dataeval_flow.evaluators._evaluator import Evaluator
 from dataeval_flow.evaluators._fields import dataeval_arguments, require
 from dataeval_flow.evaluators._inputs import EvaluatorInputs
 from dataeval_flow.evaluators.scope._config import (
+    CompletenessConfig,
     CoverageConfig,
     LabelAlignmentConfig,
     LabelReconciliationConfig,
@@ -45,7 +47,11 @@ from dataeval_flow.evaluators.scope._config import (
     PrioritizeConfig,
     RepresentationConfig,
 )
-from dataeval_flow.evaluators.scope._result import LabelReconciliationOutput, OntologyValidationOutput
+from dataeval_flow.evaluators.scope._result import (
+    CompletenessOutput,
+    LabelReconciliationOutput,
+    OntologyValidationOutput,
+)
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -136,20 +142,32 @@ class CoverageEvaluator(Evaluator[CoverageConfig, CoverageOutput]):
         InputKind.EMBEDDINGS: "evaluate",
         InputKind.LABELS: "evaluate",
     }
-    output_extras: ClassVar[tuple[str, ...]] = ("uncovered_indices", "coverage_radius", "critical_value_radii")
+    output_extras: ClassVar[tuple[str, ...]] = (
+        "uncovered_indices",
+        "coverage_radius",
+        "critical_value_radii",
+        "uncovered_classes",
+    )
     reads_factors: ClassVar[bool] = False
 
     def run(self, config: CoverageConfig, inputs: Sequence[EvaluatorInputs]) -> CoverageOutput:
-        """Measure the source's coverage, broken down by class where its labels allow, else as one class, ``0``."""
+        """Measure the source's coverage, broken down by class where its labels allow, else as one class, ``0``, and
+        name each uncovered item's class (coverage spec §5.3)."""
         (source,) = inputs
         embeddings = require(source.embeddings, "embeddings", source.source)
+        if len(embeddings) == 0:
+            raise ValueError(f"`coverage` has no items to embed; the source has {len(embeddings)}.")
         labels = usable_labels(source, len(embeddings), self.name)
+        names = dict(source.index2label or {})
         classes = (
-            _Labels(labels, dict(source.index2label or {}))
-            if labels is not None
-            else _Labels(np.zeros(len(embeddings), dtype=np.intp), {})
+            _Labels(labels, names) if labels is not None else _Labels(np.zeros(len(embeddings), dtype=np.intp), {})
         )
-        return Coverage(**dataeval_arguments(config)).evaluate(classes, embeddings=embeddings)
+        output = Coverage(**dataeval_arguments(config)).evaluate(classes, embeddings=embeddings)
+        output.uncovered_classes = [  # pyright: ignore[reportAttributeAccessIssue]
+            None if labels is None else names.get(int(labels[index]), str(int(labels[index])))
+            for index in output.uncovered_indices
+        ]
+        return output
 
 
 class PrioritizeEvaluator(Evaluator[PrioritizeConfig, PrioritizeOutput]):
@@ -208,6 +226,34 @@ class LabelAlignmentEvaluator(Evaluator[LabelAlignmentConfig, LabelAlignmentOutp
             "dataeval.core.label_alignment", started, time.monotonic() - clock, {"threshold": config.threshold}
         )
         return LabelAlignmentOutput(alignment, source.ontology, meta, ontology_source=source.ontology_source)
+
+
+class CompletenessEvaluator(Evaluator[CompletenessConfig, CompletenessOutput]):
+    """``completeness``: dimensional completeness of the embeddings, per DataEval's completeness."""
+
+    name: ClassVar[str] = "completeness"
+    title: ClassVar[str] = "Completeness"
+    description: ClassVar[str] = "How much of the embedding space's dimensions the data fills (DataEval completeness)"
+    dataeval_class: ClassVar[Any] = completeness
+    dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.EMBEDDINGS: "__call__"}
+    reads_factors: ClassVar[bool] = False
+
+    def run(self, config: CompletenessConfig, inputs: Sequence[EvaluatorInputs]) -> CompletenessOutput:  # noqa: ARG002
+        """Score the source's embeddings, rescaled to the unit interval per dimension, constant dimensions at 0
+        (coverage spec §6.1)."""
+        from dataeval_flow.workflows._common import normalize_unit_interval
+
+        (source,) = inputs
+        embeddings = np.asarray(require(source.embeddings, "embeddings", source.source))
+        if len(embeddings) < 2:
+            raise ValueError(f"`completeness` needs at least two embeddings; the source has {len(embeddings)}.")
+        started, clock = datetime.now(UTC), time.monotonic()
+        result = completeness(normalize_unit_interval(embeddings))
+        meta = execution("dataeval.core.completeness", started, time.monotonic() - clock, {})
+        pairs = [[int(a), int(b)] for a, b in result.get("nearest_neighbor_pairs", [])]
+        return CompletenessOutput(
+            {"completeness": float(result["completeness"]), "nearest_neighbor_pairs": pairs}, meta
+        )
 
 
 class LabelReconciliationEvaluator(Evaluator[LabelReconciliationConfig, LabelReconciliationOutput]):
