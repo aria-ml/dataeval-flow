@@ -148,7 +148,7 @@ requirements:
     origin: DR-1.5
     origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
     file: FR-19-coverage-workflow.md
-    test_cases: ["20-1"]
+    test_cases: ["20-1", "20-2"]
 
   FR-20:
     name: MAITE Component & Task Entrypoints
@@ -529,6 +529,21 @@ test_cases:
       - Label and metadata distribution analyses are populated on every run
       - Embedding coverage and completeness are None (skipped, not fatal) with no extractor
       - A declared ontology yields either an ontology assessment or a recorded skip reason
+
+  "20-2":
+    name: Label Space
+    test_type: Core Functionality
+    business_case: >-
+      Verify that the label-space preset judges a dataset's labels against a
+      declared ontology: leaf coverage, conformance, alignment and structure.
+    initial_conditions:
+      - dataeval-flow installed
+      - Synthetic ImageFolder dataset configured
+    expected_results:
+      - label-space returns success=True and a non-empty report()
+      - A declared ontology yields either an ontology assessment or a recorded skip reason
+      - The findings are Label Space Coverage, Label Conformance, Label Alignment and Ontology Structure, in order
+      - The result records the alignment's label_space_digest
 
   "22-1":
     name: MAITE Component & Task Entrypoints

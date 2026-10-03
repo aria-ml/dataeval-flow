@@ -60,6 +60,7 @@ _TITLES = {
     "data-prioritization": "Data Prioritization",
     "data-splitting": "Data Splitting",
     "drift-monitoring": "Drift Monitoring",
+    "label-space": "Label Space",
     "metadata-triage": "Metadata Triage",
     "ood-detection": "OOD Detection",
 }

@@ -15,6 +15,7 @@ _BUILTINS = {
     "data-prioritization": "dataeval_flow.workflows.data_prioritization._workflow:DataPrioritizationWorkflow",
     "data-splitting": "dataeval_flow.workflows.data_splitting._workflow:DataSplittingWorkflow",
     "drift-monitoring": "dataeval_flow.workflows.drift_monitoring._workflow:DriftMonitoringWorkflow",
+    "label-space": "dataeval_flow.workflows.label_space._workflow:LabelSpaceWorkflow",
     "metadata-triage": "dataeval_flow.workflows.metadata_triage._workflow:MetadataTriageWorkflow",
     "ood-detection": "dataeval_flow.workflows.ood_detection._workflow:OODDetectionWorkflow",
 }

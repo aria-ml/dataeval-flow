@@ -29,6 +29,7 @@ class TestOrchestration:
             "ood-detection",
             "data-prioritization",
             "data-splitting",
+            "label-space",
             "metadata-triage",
         }
 

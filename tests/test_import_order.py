@@ -13,6 +13,7 @@ WORKFLOW_PACKAGES = [
     "data_prioritization",
     "data_splitting",
     "drift_monitoring",
+    "label_space",
     "metadata_triage",
     "ood_detection",
 ]
