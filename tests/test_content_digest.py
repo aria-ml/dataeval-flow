@@ -1,7 +1,7 @@
 """The `content-digest` evaluator: `dataset_digest`'s values for a source, read from every item (audit spec §7.1)."""
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -30,7 +30,7 @@ def test_a_run_gives_dataset_digests_values() -> None:
     assert isinstance(result, ContentDigestResult)
     assert result.success, result.errors
     assert result.output.data() == _values(dataset_digest(data))
-    assert result.to_dict()["output"]["data"] == _values(dataset_digest(data))
+    assert cast("dict[str, Any]", result.to_dict()["output"])["data"] == _values(dataset_digest(data))
 
 
 def test_the_report_gives_both_digests_in_full() -> None:
@@ -64,7 +64,7 @@ def test_a_chain_step_digests_the_node_it_reads() -> None:
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
     assert result.steps["whole"].output.data() == _values(dataset_digest(data))
-    subset = Items([data[0], data[2], data[4]], data.metadata["index2label"])
+    subset = Items([data[0], data[2], data[4]], data.metadata.get("index2label"))
     assert result.steps["sub"].output.data() == _values(dataset_digest(subset))
 
 
@@ -78,7 +78,7 @@ def test_an_edit_the_cache_fingerprint_skips_still_changes_the_digest(tmp_path: 
     image[0, 0, 0] ^= 1
     original, edited = Items(items), Items([items[0], (image, target, meta), *items[2:]])
     assert dataset_fingerprint(edited) == dataset_fingerprint(original)  # the cache can't tell them apart
-    first = run(ContentDigestConfig(), original, cache_dir=tmp_path)
-    second = run(ContentDigestConfig(), edited, cache_dir=tmp_path)
+    first = run(ContentDigestConfig(), cast("Any", original), cache_dir=tmp_path)
+    second = run(ContentDigestConfig(), cast("Any", edited), cache_dir=tmp_path)
     assert second.output.data()["content"] != first.output.data()["content"]
     assert second.output.data() == _values(dataset_digest(edited))

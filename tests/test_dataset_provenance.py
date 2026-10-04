@@ -51,13 +51,20 @@ datasets:
     raw = yaml.safe_load(text)
     assert raw["datasets"][0]["provenance"]["collected"] == date(2025, 6, 1)  # YAML reads a date
     config = PipelineConfig.model_validate(raw)
-    assert config.datasets[0].provenance == {"collected": "2025-06-01", "owner": "Perception team"}
+    assert config.datasets
+    entry = config.datasets[0]
+    assert isinstance(entry, HuggingFaceDatasetConfig)
+    assert entry.provenance == {"collected": "2025-06-01", "owner": "Perception team"}
 
 
 def test_a_nested_value_is_refused() -> None:
     with pytest.raises(ValidationError, match="provenance"):
         HuggingFaceDatasetConfig(
-            name="d", format="huggingface", path="./d", task="image_classification", provenance={"owner": {"team": "x"}}
+            name="d",
+            format="huggingface",
+            path="./d",
+            task="image_classification",
+            provenance={"owner": {"team": "x"}},  # pyright: ignore[reportArgumentType]
         )
 
 

@@ -59,14 +59,14 @@ def test_the_scheme_pins_detection_targets_and_rich_metadata() -> None:
     image = np.zeros((3, 16, 16), dtype=np.uint8)
     boxes = np.array([[1, 1, 6, 9]], dtype=np.float32)
     labels = np.array([0], dtype=np.intp)
-    metadata = {"speed": 1.5, "when": date(2025, 6, 1), "name": "caf\u00e9"}
+    metadata = {"speed": 1.5, "when": date(2025, 6, 1), "name": "caf\u00e9"}  # codespell:ignore caf
     digest = dataset_digest(Items([(image, _Target([[1, 1, 6, 9]], [0]), metadata)]))
     item = _framed(
         b"|u1", b"(3, 16, 16)", image.tobytes(), b"detection", b"<f4", b"(1, 4)", boxes.tobytes(), b"<i8", b"(1,)",
         labels.tobytes(),
     )  # fmt: skip
     count = (1).to_bytes(8, "little")
-    canonical = b'{"name":"caf\\u00e9","speed":1.5,"when":"2025-06-01"}'
+    canonical = b'{"name":"caf\\u00e9","speed":1.5,"when":"2025-06-01"}'  # codespell:ignore caf
     assert digest.content == _framed(b"dataeval-flow content digest 1", count, b'[[0,"a"],[1,"b"]]', item.encode())
     assert digest.metadata == _framed(
         b"dataeval-flow metadata digest 1", count, _framed(item.encode(), canonical).encode()
@@ -232,4 +232,4 @@ def test_a_datetime64_array_digests_as_its_datetimes() -> None:
 
 
 def test_a_surrogate_escaped_string_digests() -> None:
-    assert len(_metadata_digest("caf\udce9.png")) == 64
+    assert len(_metadata_digest("caf\udce9.png")) == 64  # codespell:ignore caf

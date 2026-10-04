@@ -2,6 +2,7 @@
 
 from importlib.metadata import PackageNotFoundError, version
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
@@ -53,7 +54,7 @@ def test_each_built_in_extractor_names_its_runtime() -> None:
 def test_a_result_records_them_in_its_envelope() -> None:
     result = toy_run("label-health")
     assert result.metadata.library_versions == library_versions()
-    assert result.to_dict()["metadata"]["library_versions"]["numpy"] == version("numpy")
+    assert cast("dict[str, Any]", result.to_dict()["metadata"])["library_versions"]["numpy"] == version("numpy")
 
 
 def test_a_flatten_extractor_adds_no_runtime() -> None:

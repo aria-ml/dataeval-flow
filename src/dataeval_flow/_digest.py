@@ -79,8 +79,9 @@ def dataset_digest(dataset: Any) -> DatasetDigest:
     for index in range(len(dataset)):
         datum = dataset[index]
         parts = datum if isinstance(datum, tuple) else (datum,)
+        image = parts[0]  # before the len() checks below, which narrow `parts` to include tuple[()]
         target = parts[1] if len(parts) > 1 else None
-        content = _hash([*_array_parts(parts[0]), *_target_parts(target)])
+        content = _hash([*_array_parts(image), *_target_parts(target)])
         contents.append(content)
         metadata.append(_hash([content.encode(), _canonical_json(parts[2] if len(parts) > 2 else None)]))
     count = len(contents).to_bytes(8, "little")
