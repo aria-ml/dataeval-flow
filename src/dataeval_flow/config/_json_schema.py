@@ -45,6 +45,7 @@ def _step_union(plugins: bool) -> Any:
         "name": (str, StepEntry.model_fields["name"]),
         "extractor": (str | None, StepEntry.model_fields["extractor"]),
         "optional": (bool, StepEntry.model_fields["optional"]),
+        "pairs": (bool, StepEntry.model_fields["pairs"]),
     }
     forbid = ConfigDict(extra="forbid")
 

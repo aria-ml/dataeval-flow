@@ -40,7 +40,9 @@ class Check(InlineStep, ABC, Generic[CheckConfigT]):
 
     A chain's health rolls up over its checks' findings. A ``warning`` counts toward ``--fail-on-warning``. A check
     whose input holds nothing is never skipped: the engine reports one ``info`` finding in its place, titled
-    ``title`` and briefed "not assessed", saying which input produced nothing and why.
+    ``title`` and briefed "not assessed", saying which input produced nothing and why. A check that has its inputs
+    but cannot assess them raises :class:`~dataeval_flow.steps.StepSkipped` with the reason; the engine records that
+    the same way, in ``StepResult.not_assessed``, and never as skipped.
 
     Subclassing
     -----------
@@ -52,7 +54,8 @@ class Check(InlineStep, ABC, Generic[CheckConfigT]):
     - ``title: ClassVar[str]``: the title of the finding the check makes.
     - ``inputs``: ``ClassVar[tuple[Port, ...]]`` of ``output`` ports, each naming the Output classes it takes, and
       each a field of the config. A port declared ``is_list`` takes a whole list and judges it at once, such as a
-      worst case across splits; it receives the elements that exist, and ``.elements`` names every key.
+      worst case across splits; it receives the elements that exist, and ``.elements`` names every key. A whole-list
+      port is not assessed only when every list on it holds nothing; declare ``may_be_empty`` to judge it then.
     - :meth:`run`.
 
     Its one output, ``findings``, is fixed. Register the class under the ``dataeval_flow.checks`` entry-point
@@ -96,6 +99,8 @@ class Check(InlineStep, ABC, Generic[CheckConfigT]):
         for port in cls.inputs:
             if port.type is not DataType.OUTPUT:
                 raise TypeError(f"{cls.__name__}'s input `{port.name}` carries {port.type}: a check reads Outputs.")
+            if port.may_be_empty and not port.is_list:
+                raise TypeError(f"{cls.__name__}'s input `{port.name}` may be empty only where it takes a whole list.")
 
     @abstractmethod
     def run(self, config: CheckConfigT, inputs: Mapping[str, Any], context: CheckContext) -> Sequence[Finding]:

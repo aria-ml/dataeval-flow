@@ -17,7 +17,7 @@ def _judge(
     *,
     classes: int | None = None,
     items: int = 10,
-    empty: Sequence[int] = (),
+    unlabelled: Sequence[int] = (),
     on: bool = True,
     **settings: Any,
 ) -> Any:
@@ -27,8 +27,8 @@ def _judge(
         "label_count": sum(counts.values()),
         "label_counts_per_class": counts,
         "image_counts_per_class": counts,
-        "empty_image_count": len(empty),
-        "empty_image_indices": list(empty),
+        "empty_image_count": len(unlabelled),
+        "empty_image_indices": list(unlabelled),
         "label_source": None,
     }
     node = SimpleNamespace(value=SimpleNamespace(data=lambda: data))
@@ -38,7 +38,7 @@ def _judge(
 
 
 def test_an_unlabelled_dataset_that_declares_classes_warns() -> None:
-    (finding,) = _judge({"a": 0, "b": 0}, items=6, empty=[0, 1, 2, 3, 4, 5])
+    (finding,) = _judge({"a": 0, "b": 0}, items=6, unlabelled=[0, 1, 2, 3, 4, 5])
     assert (finding.severity, finding.title) == ("warning", "Label Distribution")
     assert any("Classes with no labels: a, b" in getattr(block, "text", "") for block in finding.blocks)
 
@@ -73,7 +73,7 @@ def test_info_above_ratio_is_refused() -> None:
 
 
 def test_its_evidence_has_shares_and_the_empty_images() -> None:
-    (finding,) = _judge({"a": 3, "b": 1}, items=6, empty=[4, 5])
+    (finding,) = _judge({"a": 3, "b": 1}, items=6, unlabelled=[4, 5])
     (table,) = [block for block in finding.blocks if isinstance(block, Table)]
     assert [column.header for column in table.columns][:3] == ["Class", "Count", "Share"]
     assert any(isinstance(block, Section) and block.title == "Images with no labels" for block in finding.blocks)
@@ -84,5 +84,21 @@ def test_its_evidence_has_shares_and_the_empty_images() -> None:
 
 
 def test_a_node_without_computed_on_still_judges() -> None:
-    (finding,) = _judge({"a": 3, "b": 1}, empty=[1], on=False)
+    (finding,) = _judge({"a": 3, "b": 1}, unlabelled=[1], on=False)
     assert finding.severity == "info"
+
+
+def _texts(finding: Any) -> list[str]:
+    return [getattr(block, "text", "") for block in finding.blocks]
+
+
+def test_with_empty_off_a_class_with_no_labels_does_not_warn() -> None:
+    (finding,) = _judge({"a": 4, "b": 0}, empty=False)
+    assert finding.severity == "info"
+    assert any("Classes with no labels: b" in text for text in _texts(finding))
+
+
+def test_with_empty_off_the_ratio_still_judges() -> None:
+    assert _judge({"a": 40, "b": 4, "c": 0}, empty=False)[0].severity == "warning"
+    assert _judge({"a": 4, "b": 0}, empty=False, info=2.0)[0].severity == "ok"
+    assert _judge({"a": 0, "b": 0}, empty=False, info=2.0)[0].severity == "info"

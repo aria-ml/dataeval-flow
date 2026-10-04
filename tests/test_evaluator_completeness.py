@@ -62,6 +62,7 @@ _ECHOES: dict[str, frozenset[str]] = {
         {"calculation_results", "cluster_stats", "cluster_threshold", "dataset_steps", "outlier_threshold"}
     ),
     "label-health": frozenset(),
+    "factor-leakage": frozenset(),
     "factor-triage": frozenset(),
     "content-digest": frozenset(),
     "metadata-summary": frozenset(),
@@ -79,6 +80,7 @@ _ECHOES: dict[str, frozenset[str]] = {
     "drift-wasserstein": frozenset(),
     "ood-domain-classifier": frozenset(),
     "ood-kneighbors": frozenset(),
+    "divergence": frozenset(),
     # `ontology` is the config's own input, and `ontology_source` how the config named it, read back rather than
     # serialized: `conform` reaches both off the result.
     "label-alignment": frozenset({"ontology", "ontology_source"}),

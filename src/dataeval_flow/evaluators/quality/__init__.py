@@ -8,6 +8,10 @@ __all__ = [
     "DuplicatesConfig",
     "DuplicatesEvaluator",
     "DuplicatesResult",
+    "FactorLeakageConfig",
+    "FactorLeakageEvaluator",
+    "FactorLeakageOutput",
+    "FactorLeakageResult",
     "FactorTriageConfig",
     "FactorTriageEvaluator",
     "FactorTriageOutput",
@@ -27,16 +31,20 @@ from dataeval_flow.evaluators._threshold import ThresholdSpec
 from dataeval_flow.evaluators.quality._config import (
     ContentDigestConfig,
     DuplicatesConfig,
+    FactorLeakageConfig,
     FactorTriageConfig,
     LabelHealthConfig,
     OutliersConfig,
 )
 from dataeval_flow.evaluators.quality._digest import ContentDigestEvaluator
 from dataeval_flow.evaluators.quality._evaluator import DuplicatesEvaluator, LabelHealthEvaluator, OutliersEvaluator
+from dataeval_flow.evaluators.quality._leakage import FactorLeakageEvaluator
 from dataeval_flow.evaluators.quality._result import (
     ContentDigestOutput,
     ContentDigestResult,
     DuplicatesResult,
+    FactorLeakageOutput,
+    FactorLeakageResult,
     FactorTriageOutput,
     FactorTriageResult,
     LabelHealthOutput,

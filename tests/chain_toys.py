@@ -22,6 +22,7 @@ from dataeval_flow.steps import (
     CombineContext,
     DataType,
     Port,
+    StepSkipped,
     Transform,
     TransformConfig,
     TransformContext,
@@ -81,6 +82,22 @@ class Explode(Transform[ExplodeConfig]):
         if config.only is None or node.address == config.only:
             raise RuntimeError(f"boom on {node.address}")
         return {"output": node.value}
+
+
+class YieldConfig(TransformConfig):
+    input: str
+
+
+class Yield(Transform[YieldConfig]):
+    """Raises `StepSkipped`: a transform that declines to run."""
+
+    name: ClassVar[str] = "toy-yield"
+    description: ClassVar[str] = "Declines."
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
+
+    def run(self, config: YieldConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
+        raise StepSkipped("it declines")
 
 
 class HalvesConfig(TransformConfig):
@@ -239,6 +256,46 @@ class GroupLimit(Check[GroupLimitConfig]):
         return [Finding(severity=severity, title=self.title, brief=f"{count} groups")]
 
 
+class UnassessableConfig(CheckConfig):
+    input: str
+    only: str | None = None
+
+
+class Unassessable(Check[UnassessableConfig]):
+    """Raises `StepSkipped` to say it cannot assess, on every input or only on the node whose address is `only`."""
+
+    name: ClassVar[str] = "toy-unassessable"
+    description: ClassVar[str] = "Cannot assess."
+    title: ClassVar[str] = "Unassessable"
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(GroupCount,)),)
+
+    def run(self, config: UnassessableConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+        node = inputs["input"]
+        if config.only is None or node.address == config.only:
+            raise StepSkipped(f"nothing to judge in {node.address}")
+        return [Finding(severity="ok", title=self.title, brief="judged")]
+
+
+class OptConfig(CheckConfig):
+    input: str
+    others: str | None = None
+
+
+class Opt(Check[OptConfig]):
+    """A count, with an optional whole list of others that may be left unbound."""
+
+    name: ClassVar[str] = "toy-opt"
+    description: ClassVar[str] = "Takes an optional list."
+    title: ClassVar[str] = "Opt"
+    inputs: ClassVar[tuple[Port, ...]] = (
+        Port("input", DataType.OUTPUT, classes=(GroupCount,)),
+        Port("others", DataType.OUTPUT, classes=(GroupCount,), is_list=True),
+    )
+
+    def run(self, config: OptConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+        return [Finding(severity="ok", title=self.title, brief="ran")]
+
+
 class WorstConfig(CheckConfig):
     input: str
 
@@ -256,6 +313,47 @@ class Worst(Check[WorstConfig]):
         worst = max(counts, key=lambda key: counts[key])
         missing = sorted(set(inputs["input"].elements) - set(counts))
         brief = f"worst: {worst} ({counts[worst]} groups)" + (f", missing {', '.join(missing)}" if missing else "")
+        return [Finding(severity="info", title=self.title, brief=brief)]
+
+
+class WorstOfConfig(CheckConfig):
+    input: list[str]
+
+
+class WorstOf(Check[WorstOfConfig]):
+    """Judges several whole lists of group counts at once: the largest across them."""
+
+    name: ClassVar[str] = "toy-worst-of"
+    description: ClassVar[str] = "The largest group count across lists."
+    title: ClassVar[str] = "Worst group count of several"
+    inputs: ClassVar[tuple[Port, ...]] = (
+        Port("input", DataType.OUTPUT, classes=(GroupCount,), is_list=True, count=SourceCount.ONE_OR_MORE),
+    )
+
+    def run(self, config: WorstOfConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+        counts = [node.value.groups for listed in inputs["input"] for node in listed.present.values()]
+        return [Finding(severity="info", title=self.title, brief=f"{len(counts)} counts, worst {max(counts)}")]
+
+
+class AgainstConfig(CheckConfig):
+    reference: str
+    others: str
+
+
+class Against(Check[AgainstConfig]):
+    """Judges one group count against a list of others that may be empty."""
+
+    name: ClassVar[str] = "toy-against"
+    description: ClassVar[str] = "A group count against others."
+    title: ClassVar[str] = "Group count against others"
+    inputs: ClassVar[tuple[Port, ...]] = (
+        Port("reference", DataType.OUTPUT, classes=(GroupCount,)),
+        Port("others", DataType.OUTPUT, classes=(GroupCount,), is_list=True, may_be_empty=True),
+    )
+
+    def run(self, config: AgainstConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+        others = inputs["others"].present
+        brief = f"{inputs['reference'].value.groups} groups against {len(others)} others"
         return [Finding(severity="info", title=self.title, brief=brief)]
 
 
@@ -286,13 +384,18 @@ _TOYS = {
     "toy-spread": "tests.chain_toys:Spread",
     "toy-detections-only": "tests.chain_toys:DetectionsOnly",
     "toy-one-place": "tests.chain_toys:OnePlace",
+    "toy-yield": "tests.chain_toys:Yield",
 }
 
 
 _COMBINE_TOYS = {"toy-count-groups": "tests.chain_toys:CountGroups"}
 _CHECK_TOYS = {
     "toy-at-most": "tests.chain_toys:GroupLimit",
+    "toy-unassessable": "tests.chain_toys:Unassessable",
+    "toy-opt": "tests.chain_toys:Opt",
     "toy-worst": "tests.chain_toys:Worst",
+    "toy-worst-of": "tests.chain_toys:WorstOf",
+    "toy-against": "tests.chain_toys:Against",
     "toy-drifted": "tests.chain_toys:Drifted",
 }
 

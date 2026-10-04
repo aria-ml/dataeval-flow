@@ -441,6 +441,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -486,7 +492,7 @@
             }
           ],
           "default": 5.0,
-          "description": "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` judges nothing but an empty class, which always warns. data-cleaning's `health_thresholds.class_label_imbalance`.",
+          "description": "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` judges nothing but an empty class, which warns unless `empty` is false. data-cleaning's `health_thresholds.class_label_imbalance`.",
           "title": "Ratio"
         },
         "info": {
@@ -502,6 +508,12 @@
           "default": null,
           "description": "A ratio at or under which the finding is ok, between which and `ratio` it informs; `null` makes every ratio under `ratio` information. Must not exceed `ratio`.",
           "title": "Info"
+        },
+        "empty": {
+          "default": true,
+          "description": "Whether a declared class with no labels warns. `false` judges the ratio over the classes with labels alone, and leaves a class with none to `untrained-classes` and `class-sufficiency`; the class is still named in the evidence.",
+          "title": "Empty",
+          "type": "boolean"
         },
         "check": {
           "const": "class-imbalance",
@@ -519,6 +531,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -573,6 +591,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -597,6 +621,105 @@
         "name"
       ],
       "title": "CheckStep_class-shortfall",
+      "type": "object"
+    },
+    "CheckStep_class-sufficiency": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `label-health` Output over train.",
+          "title": "Input",
+          "type": "string"
+        },
+        "evals": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The evaluation splits' `label-health` Outputs, a list that may be empty; unset judges train alone.",
+          "title": "Evals"
+        },
+        "train": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 20,
+          "description": "The fewest labels each class train holds needs in train; `null` judges no minimum there.",
+          "title": "Train"
+        },
+        "eval": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 30,
+          "description": "The fewest labels each class train holds needs in each evaluation split, a class the split lacks included. At 30, a per-class metric's 95% interval is about \u00b118 points.",
+          "title": "Eval"
+        },
+        "check": {
+          "const": "class-sufficiency",
+          "description": "`class-sufficiency`: Warns when a class has too few labels to learn or to evaluate.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_class-sufficiency",
       "type": "object"
     },
     "CheckStep_classwise-outlier-rate": {
@@ -638,6 +761,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -722,6 +851,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -788,6 +923,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -812,6 +953,94 @@
         "name"
       ],
       "title": "CheckStep_coverage-gaps",
+      "type": "object"
+    },
+    "CheckStep_distribution-shift": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `divergence` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "The divergence above which the finding warns; `null` never warns. Legacy data-analysis's `health_thresholds.distribution_shift`.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times `warning`, legacy's band; `null` has no `info` band. Must not exceed `warning`.",
+          "title": "Info"
+        },
+        "check": {
+          "const": "distribution-shift",
+          "description": "`distribution-shift`: Warns when two sources' embeddings sit too far apart.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_distribution-shift",
       "type": "object"
     },
     "CheckStep_drift": {
@@ -886,6 +1115,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -970,6 +1205,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -994,6 +1235,94 @@
         "name"
       ],
       "title": "CheckStep_duplicate-rate",
+      "type": "object"
+    },
+    "CheckStep_eval-coverage": {
+      "additionalProperties": false,
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10.0,
+          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 2.0,
+          "description": "The percent flagged at which the finding is `info`, below which it is `ok`; `null` is never `info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so `2.0` suits `threshold_perc: 99`.",
+          "title": "Info"
+        },
+        "input": {
+          "description": "An `ood-kneighbors` Output fitted on train and run on one evaluation split.",
+          "title": "Input",
+          "type": "string"
+        },
+        "check": {
+          "const": "eval-coverage",
+          "description": "`eval-coverage`: Warns when much of an evaluation split lies beyond what train covers.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_eval-coverage",
       "type": "object"
     },
     "CheckStep_label-conformance": {
@@ -1034,6 +1363,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -1117,6 +1452,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1143,6 +1484,135 @@
       "title": "CheckStep_leaf-coverage",
       "type": "object"
     },
+    "CheckStep_leakage": {
+      "additionalProperties": false,
+      "properties": {
+        "duplicates": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "The `duplicates` Outputs over two sources, each a list or one: train with each evaluation split, and evaluation pairs.",
+          "title": "Duplicates"
+        },
+        "factors": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The `factor-leakage` Outputs over the same pairs; unset judges duplicates alone.",
+          "title": "Factors"
+        },
+        "exact": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "Most items, counted over every exact-duplicate group with members in two splits, that may leak before the finding warns; `null` judges nothing. Legacy data-analysis warned on any.",
+          "title": "Exact"
+        },
+        "near": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "The same for near-duplicate groups; `null` judges nothing.",
+          "title": "Near"
+        },
+        "groups": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "Most group values (a factor's value held by both splits of a pair) that may be shared before the finding warns; `null` judges nothing.",
+          "title": "Groups"
+        },
+        "check": {
+          "const": "leakage",
+          "description": "`leakage`: Warns when items or group values sit in two splits at once.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "duplicates",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_leakage",
+      "type": "object"
+    },
     "CheckStep_mergeability": {
       "additionalProperties": false,
       "properties": {
@@ -1167,6 +1637,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -1228,6 +1704,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1278,6 +1760,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -1375,6 +1863,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1457,6 +1951,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1524,6 +2024,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1548,6 +2054,79 @@
         "name"
       ],
       "title": "CheckStep_outlier-rate",
+      "type": "object"
+    },
+    "CheckStep_shortcut-risk": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `balance` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "mutual_information": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.1,
+          "description": "The mutual information with the class, from 0 to 1, past which a factor warns; `null` judges nothing. Legacy data-analysis's 0.1.",
+          "title": "Mutual Information"
+        },
+        "check": {
+          "const": "shortcut-risk",
+          "description": "`shortcut-risk`: Warns when a metadata factor tells much about the class.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_shortcut-risk",
       "type": "object"
     },
     "CheckStep_stratification": {
@@ -1640,6 +2219,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1713,6 +2298,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1781,6 +2372,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1805,6 +2402,83 @@
         "name"
       ],
       "title": "CheckStep_uncovered-rate",
+      "type": "object"
+    },
+    "CheckStep_untrained-classes": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `label-health` Output over train.",
+          "title": "Input",
+          "type": "string"
+        },
+        "evals": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The evaluation splits' `label-health` Outputs, a list that may be empty.",
+          "title": "Evals"
+        },
+        "declared": {
+          "default": false,
+          "description": "Whether a declared class with no labels in train also warns. Off, it is listed: a vocabulary conformed to an ontology carries abstract concepts with no items.",
+          "title": "Declared",
+          "type": "boolean"
+        },
+        "check": {
+          "const": "untrained-classes",
+          "description": "`untrained-classes`: Warns when an evaluation split holds a class train lacks.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_untrained-classes",
       "type": "object"
     },
     "ChunkedDriftConfig": {
@@ -2373,6 +3047,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2452,6 +3132,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2520,6 +3206,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -2593,6 +3285,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2639,6 +3337,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -2943,7 +3647,7 @@
     },
     "CustomWorkflowConfig": {
       "additionalProperties": false,
-      "description": "A workflow built from steps: its named inputs, and the steps that read them in order.\n\nA task runs it with ``workflow: <name>`` and binds its ``sources:`` to the inputs in order. The last input may\nbe a list (``{name: ..., list: true}``), binding every remaining source keyed by source name. A step names what\nit reads by address (spec \u00a74): an input, an earlier step, one of an earlier step's outputs, or one element of a\nlist.\n\nExamples\n--------\n>>> from dataeval_flow.steps import CustomWorkflowConfig\n>>> workflow = CustomWorkflowConfig.model_validate({\n...     \"name\": \"dupes_only\",\n...     \"inputs\": [\"data\"],\n...     \"steps\": [{\"name\": \"dupes\", \"evaluator\": \"dupes\", \"input\": \"data\"}],\n... })\n>>> print(workflow.to_yaml())  # doctest: +NORMALIZE_WHITESPACE\nworkflows:\n- name: dupes_only\n  inputs:\n  - data\n  steps:\n  - name: dupes\n    evaluator: dupes\n    input: data",
+      "description": "A workflow built from steps: its named inputs, and the steps that read them in order.\n\nA task runs it with ``workflow: <name>`` and binds its ``sources:`` to the inputs in order. The last input may\nbe a list (``{name: ..., list: true}``), binding every remaining source keyed by source name. With\n``empty: <reason>`` it may bind no source, and every check over it then reports that reason as not assessed, unless\nthe check judges an empty list. A step names what it reads by address (spec \u00a74): an input, an earlier step, one of\nan earlier step's outputs, or one element of a list.\n\nExamples\n--------\n>>> from dataeval_flow.steps import CustomWorkflowConfig\n>>> workflow = CustomWorkflowConfig.model_validate({\n...     \"name\": \"dupes_only\",\n...     \"inputs\": [\"data\"],\n...     \"steps\": [{\"name\": \"dupes\", \"evaluator\": \"dupes\", \"input\": \"data\"}],\n... })\n>>> print(workflow.to_yaml())  # doctest: +NORMALIZE_WHITESPACE\nworkflows:\n- name: dupes_only\n  inputs:\n  - data\n  steps:\n  - name: dupes\n    evaluator: dupes\n    input: data",
       "properties": {
         "name": {
           "description": "What tasks call this workflow.",
@@ -3034,6 +3738,9 @@
                 "$ref": "#/$defs/CheckStep_class-shortfall"
               },
               {
+                "$ref": "#/$defs/CheckStep_class-sufficiency"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_classwise-outlier-rate"
               },
               {
@@ -3043,16 +3750,25 @@
                 "$ref": "#/$defs/CheckStep_coverage-gaps"
               },
               {
+                "$ref": "#/$defs/CheckStep_distribution-shift"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_drift"
               },
               {
                 "$ref": "#/$defs/CheckStep_duplicate-rate"
               },
               {
+                "$ref": "#/$defs/CheckStep_eval-coverage"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_label-conformance"
               },
               {
                 "$ref": "#/$defs/CheckStep_leaf-coverage"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_leakage"
               },
               {
                 "$ref": "#/$defs/CheckStep_mergeability"
@@ -3073,6 +3789,9 @@
                 "$ref": "#/$defs/CheckStep_outlier-rate"
               },
               {
+                "$ref": "#/$defs/CheckStep_shortcut-risk"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_stratification"
               },
               {
@@ -3080,6 +3799,9 @@
               },
               {
                 "$ref": "#/$defs/CheckStep_uncovered-rate"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_untrained-classes"
               }
             ]
           },
@@ -4492,6 +5214,36 @@
       "title": "DemoDatasetConfig",
       "type": "object"
     },
+    "DivergenceConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``divergence``: how far apart two sources' embeddings sit.\n\nWraps ``dataeval.core.divergence_mst`` or ``divergence_fnn`` over the task extractor's embeddings of two sources,\nthe first then the second: 0 where they overlap, 1 where they are wholly apart. It is a distance, not a test: the\n``distribution-shift`` check judges it. Needs an extractor on the task.\n\nExample YAML::\n\n    evaluators:\n      - name: shift\n        type: divergence\n        method: mst",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "divergence",
+          "default": "divergence",
+          "description": "The evaluator type this entry configures: `divergence`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "method": {
+          "default": "mst",
+          "description": "How the divergence is counted: `mst`, the cross-source edges of the minimum spanning tree over both sources, or `fnn`, nearest neighbours of the other source. Legacy data-analysis's `divergence_method`.",
+          "enum": [
+            "mst",
+            "fnn"
+          ],
+          "title": "Method",
+          "type": "string"
+        }
+      },
+      "title": "DivergenceConfig",
+      "type": "object"
+    },
     "DiversityConfig": {
       "additionalProperties": false,
       "description": "Config for ``diversity``, DataEval's Diversity.\n\nMeasures how evenly each metadata factor's values are spread, overall and within each class. A factor whose\nvalues crowd into few bins under-represents the rest.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators diversity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: diversity\n        type: diversity\n        method: shannon",
@@ -5829,6 +6581,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -5911,6 +6669,51 @@
         }
       },
       "title": "FactorDeviationSettings",
+      "type": "object"
+    },
+    "FactorLeakageConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``factor-leakage``: the raw values of named metadata factors that two sources hold.\n\nReads each named factor from both sources' metadata as the dataset recorded it, whatever the metadata policy's\n``exclude`` says, because group factors such as scene, sequence or site IDs are the high-cardinality columns a\npolicy usually excludes. A level-prefixed name (``unit_scene``) matches its bare form. Reads no extractor. The\n``leakage`` check judges the values both sources share.\n\nExample YAML::\n\n    evaluators:\n      - name: groups\n        type: factor-leakage\n        factors: [scene, site]",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "factor-leakage",
+          "default": "factor-leakage",
+          "description": "The evaluator type this entry configures: `factor-leakage`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "factors": {
+          "description": "The metadata factors to compare, by name. A source that lacks one fails the run, naming the source; a factor only some items declare counts as lacking unless the metadata policy sets `partial_factors`.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Factors",
+          "type": "array"
+        }
+      },
+      "required": [
+        "factors"
+      ],
+      "title": "FactorLeakageConfig",
       "type": "object"
     },
     "FactorTriageConfig": {
@@ -6299,6 +7102,20 @@
           "description": "Whether it binds every source left after the single inputs, as a list keyed by source name.",
           "title": "List",
           "type": "boolean"
+        },
+        "empty": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For a list input, the reason its checks give when a task binds it no source, which it then may, such as `no evaluation split given`; a check that judges an empty list judges it instead. Unset, a list input binds at least one source.",
+          "title": "Empty"
         }
       },
       "required": [
@@ -9982,6 +10799,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -10068,6 +10891,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -10152,6 +10981,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -10191,6 +11026,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -10236,6 +11077,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -10306,6 +11153,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -10394,6 +11247,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -10458,6 +11317,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -10514,6 +11379,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -10786,6 +11657,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -11240,6 +12117,9 @@
                 "$ref": "#/$defs/CoverageConfig"
               },
               {
+                "$ref": "#/$defs/DivergenceConfig"
+              },
+              {
                 "$ref": "#/$defs/DiversityConfig"
               },
               {
@@ -11259,6 +12139,9 @@
               },
               {
                 "$ref": "#/$defs/DuplicatesConfig"
+              },
+              {
+                "$ref": "#/$defs/FactorLeakageConfig"
               },
               {
                 "$ref": "#/$defs/FactorTriageConfig"

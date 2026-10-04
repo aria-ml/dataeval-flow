@@ -399,6 +399,9 @@ A vocabulary still grows: a category the reference never saw takes the next free
 shared codes keep meaning what they meant and the splits stay comparable. Only a genuinely different cut, or a
 reordered vocabulary, makes them not. The report then names the factors responsible.
 
+A preset that names a reference split encodes every split like it too, and a policy's `reference_split` names a
+different one. Custom workflows encode each Dataset on its own draw.
+
 ### Tell whether two results are comparable
 
 Every result carries `metadata.encoding_digest`, a fingerprint of the encoding every factor was read under. It makes

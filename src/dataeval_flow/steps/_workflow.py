@@ -40,9 +40,29 @@ class InputSlot(BaseModel):
         description="Whether it binds every source left after the single inputs, as a list keyed by source name.",
     )
 
+    empty: str | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "For a list input, the reason its checks give when a task binds it no source, which it then may, such as "
+            "`no evaluation split given`; a check that judges an empty list judges it instead. Unset, a list input "
+            "binds at least one source."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _empty_on_a_list(self) -> "InputSlot":
+        if self.empty is not None and not self.is_list:
+            raise ValueError(
+                f"Input '{self.name}' binds one source, so it takes no `empty:`: only a list input may bind none."
+            )
+        return self
+
     @model_serializer(mode="plain")
     def _as_written(self) -> Any:
-        return {"name": self.name, "list": True} if self.is_list else self.name
+        if not self.is_list:
+            return self.name
+        return {"name": self.name, "list": True, **({"empty": self.empty} if self.empty is not None else {})}
 
 
 class StepEntry(BaseModel):
@@ -75,6 +95,14 @@ class StepEntry(BaseModel):
         description=(
             "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, "
             "`{class: {groups: ..., min_items: ...}}`."
+        ),
+    )
+
+    pairs: bool = Field(
+        default=False,
+        description=(
+            "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: "
+            "for a step that reads two Datasets through one input."
         ),
     )
 
@@ -141,6 +169,8 @@ class StepEntry(BaseModel):
             written["extractor"] = self.extractor
         if self.optional:
             written["optional"] = True
+        if self.pairs:
+            written["pairs"] = True
         if self.by is not None:
             written["by"] = data["by"]
         written.update({key: data[key] for key in self.settings if key in data})
@@ -151,9 +181,10 @@ class CustomWorkflowConfig(BaseModel):
     """A workflow built from steps: its named inputs, and the steps that read them in order.
 
     A task runs it with ``workflow: <name>`` and binds its ``sources:`` to the inputs in order. The last input may
-    be a list (``{name: ..., list: true}``), binding every remaining source keyed by source name. A step names what
-    it reads by address (spec §4): an input, an earlier step, one of an earlier step's outputs, or one element of a
-    list.
+    be a list (``{name: ..., list: true}``), binding every remaining source keyed by source name. With
+    ``empty: <reason>`` it may bind no source, and every check over it then reports that reason as not assessed, unless
+    the check judges an empty list. A step names what it reads by address (spec §4): an input, an earlier step, one of
+    an earlier step's outputs, or one element of a list.
 
     Examples
     --------
@@ -229,11 +260,14 @@ class CustomWorkflowConfig(BaseModel):
         """Why a task naming `source_count` sources cannot run this workflow, or ``None``."""
         singles = [slot.name for slot in self.single_slots]
         wanted = " and ".join(f"one source for '{name}'" for name in singles)
-        if self.list_slot is not None:
-            wanted = (f"{wanted} and " if wanted else "") + f"at least one for '{self.list_slot.name}'"
-            fits = source_count >= len(singles) + 1
-        else:
+        slot = self.list_slot
+        if slot is None:
             fits = source_count == len(singles)
+        else:
+            least = 0 if slot.empty is not None else 1
+            phrase = f"at least one for '{slot.name}'" if least else f"any number for '{slot.name}'"
+            wanted = (f"{wanted} and " if wanted else "") + phrase
+            fits = source_count >= len(singles) + least
         return None if fits else f"takes {wanted}, but the task names {source_count}."
 
     def to_yaml(self, definitions: "Sequence[Definition]" = ()) -> str:

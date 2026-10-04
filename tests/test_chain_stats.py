@@ -258,3 +258,21 @@ def test_without_a_cache_the_producer_computes_only_its_own_request() -> None:
         produced = produce_stats(_producer(_UNION))
     assert [call.args[1].request for call in compute.call_args_list] == [{None: ImageStats.HASH_DUPLICATES_BASIC}]
     assert produced["stats_policy"] == ResolvedStatsPolicy.of_flags(ImageStats.HASH_DUPLICATES_BASIC)
+
+
+def test_a_pairwise_step_s_elements_compute_their_list_s_union() -> None:
+    """A pair key is no list key: the pairwise step must still find the union planned for the list, or it computes
+    hashes alone and `outliers` computes again. It runs first, so the cache can't hide a missed lookup."""
+    steps = [
+        {"name": "dupes", "evaluator": "dupes", "input": "cams", "pairs": True},
+        {"name": "outliers", "evaluator": "outliers", "input": "cams"},
+    ]
+    config = _custom(
+        steps,
+        [{"name": "cams", "list": True}],
+        s1=ToyImages(count=12, seed=1),
+        s2=ToyImages(count=12, seed=2),
+        s3=ToyImages(count=12, seed=3),
+    )
+    union = {None: ImageStats.PIXEL | ImageStats.VISUAL | ImageStats.HASH_DUPLICATES_BASIC}
+    assert _computed(config) == [union, union, union]

@@ -18,7 +18,19 @@ POOLS = ("evaluators", "workflows", "extractors")
 # The keys that say which entry an entry is: varying one would change what every other key names.
 _IDENTITY = {"evaluators": ("name", "type"), "workflows": ("name", "type", "inputs"), "extractors": ("name", "model")}
 # A custom workflow step's kind and wiring, which every run of a matrix shares.
-_WIRING = ("name", "evaluator", "workflow", "transform", "combine", "check", "input", "by", "optional", "extractor")
+_WIRING = (
+    "name",
+    "evaluator",
+    "workflow",
+    "transform",
+    "combine",
+    "check",
+    "input",
+    "by",
+    "optional",
+    "pairs",
+    "extractor",
+)
 _ITEM_IDS = ("name", "type", "model")
 
 

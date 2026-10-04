@@ -7,19 +7,27 @@ __all__ = [
     "ClassImbalanceConfig",
     "ClassShortfallCheck",
     "ClassShortfallConfig",
+    "ClassSufficiencyCheck",
+    "ClassSufficiencyConfig",
     "ClasswiseOutlierRateCheck",
     "ClasswiseOutlierRateConfig",
     "CompletenessScoreCheck",
     "CompletenessScoreConfig",
     "CoverageGapsCheck",
     "CoverageGapsConfig",
+    "DistributionShiftCheck",
+    "DistributionShiftConfig",
     "DriftCheck",
     "DriftCheckConfig",
     "DriftThresholds",
     "DuplicateRateCheck",
     "DuplicateRateConfig",
+    "EvalCoverageCheck",
+    "EvalCoverageConfig",
     "LabelConformanceCheck",
     "LabelConformanceConfig",
+    "LeakageCheck",
+    "LeakageConfig",
     "LeafCoverageCheck",
     "LeafCoverageConfig",
     "MergeabilityCheck",
@@ -35,6 +43,8 @@ __all__ = [
     "OntologyStructureConfig",
     "OutlierRateCheck",
     "OutlierRateConfig",
+    "ShortcutRiskCheck",
+    "ShortcutRiskConfig",
     "StratificationCheck",
     "StratificationConfig",
     "StratificationThresholds",
@@ -42,9 +52,12 @@ __all__ = [
     "TargetOutlierRateConfig",
     "UncoveredRateCheck",
     "UncoveredRateConfig",
+    "UntrainedClassesCheck",
+    "UntrainedClassesConfig",
 ]
 
 from dataeval_flow.steps.checks._alignment import MergeabilityCheck, MergeabilityConfig
+from dataeval_flow.steps.checks._bias import ShortcutRiskCheck, ShortcutRiskConfig
 from dataeval_flow.steps.checks._coverage import (
     ClassCoverageCheck,
     ClassCoverageConfig,
@@ -53,7 +66,13 @@ from dataeval_flow.steps.checks._coverage import (
     UncoveredRateCheck,
     UncoveredRateConfig,
 )
-from dataeval_flow.steps.checks._drift import DriftCheck, DriftCheckConfig, DriftThresholds
+from dataeval_flow.steps.checks._drift import (
+    DistributionShiftCheck,
+    DistributionShiftConfig,
+    DriftCheck,
+    DriftCheckConfig,
+    DriftThresholds,
+)
 from dataeval_flow.steps.checks._duplicates import DuplicateRateCheck, DuplicateRateConfig
 from dataeval_flow.steps.checks._gaps import CoverageGapsCheck, CoverageGapsConfig
 from dataeval_flow.steps.checks._label_space import (
@@ -66,8 +85,18 @@ from dataeval_flow.steps.checks._label_space import (
     OntologyStructureCheck,
     OntologyStructureConfig,
 )
-from dataeval_flow.steps.checks._labels import ClassImbalanceCheck, ClassImbalanceConfig
+from dataeval_flow.steps.checks._labels import (
+    ClassImbalanceCheck,
+    ClassImbalanceConfig,
+    ClassSufficiencyCheck,
+    ClassSufficiencyConfig,
+    UntrainedClassesCheck,
+    UntrainedClassesConfig,
+)
+from dataeval_flow.steps.checks._leakage import LeakageCheck, LeakageConfig
 from dataeval_flow.steps.checks._ood import (
+    EvalCoverageCheck,
+    EvalCoverageConfig,
     OODAgreementCheck,
     OODAgreementConfig,
     OODCheck,

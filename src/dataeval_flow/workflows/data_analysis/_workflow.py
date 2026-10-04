@@ -37,7 +37,7 @@ from dataeval_flow._binning import attach_binning
 from dataeval_flow._blocks import Block, Cell, Column, Fields, ItemRef, Paragraph, Section, Table
 from dataeval_flow._cache import active_cache, get_or_compute_metadata, get_or_compute_stats
 from dataeval_flow._cache import selection_repr as _sel_repr
-from dataeval_flow._policy import _ROW_LEVELS, derive_from, policy_for, resolve_policy
+from dataeval_flow._policy import derive_from, policy_for, resolve_policy, strip_row_level
 from dataeval_flow._stats import OUTLIER_FLAG_MAP as FLAG_MAP
 from dataeval_flow._stats import columns_for, restrict_columns, stats_policy_for
 from dataeval_flow._tables import group_cells, table_limits
@@ -302,22 +302,6 @@ def _assess_label_health(data: SplitData) -> LabelHealthResult:
     )
 
 
-def _strip_row_level(name: str) -> str:
-    """Return *name* with a leading row-level prefix removed, if it carries one.
-
-    `add_factors` level-prefixes names on multi-target data — `background_fraction` becomes
-    `unit_background_fraction`, `background_brightness` becomes `instance_background_brightness`
-    — and the two need not share a level, since each is level-split by its own row count.
-    Strip it before comparing names so `_order_factors` matches on classification data and
-    on detection data alike.
-    """
-    for level in _ROW_LEVELS:
-        prefix = f"{level}_"
-        if name.startswith(prefix):
-            return name[len(prefix) :]
-    return name
-
-
 def _order_factors(names: Sequence[str]) -> list[str]:
     """Order factor names so `background_fraction` leads the background ones.
 
@@ -331,11 +315,11 @@ def _order_factors(names: Sequence[str]) -> list[str]:
     not the bare forms. Match with the row-level prefix stripped so both data shapes work.
     """
     ordered = list(names)
-    fraction_name = next((name for name in ordered if _strip_row_level(name) == "background_fraction"), None)
+    fraction_name = next((name for name in ordered if strip_row_level(name) == "background_fraction"), None)
     if fraction_name is None:
         return ordered
     first_background = next(
-        (i for i, name in enumerate(ordered) if _strip_row_level(name).startswith("background_")),
+        (i for i, name in enumerate(ordered) if strip_row_level(name).startswith("background_")),
         len(ordered),
     )
     ordered.remove(fraction_name)

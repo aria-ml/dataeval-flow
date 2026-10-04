@@ -1,8 +1,9 @@
 """Addresses: how a step names a chain input, an earlier step's output, or one element of a list."""
 
-__all__ = ["STEP_NAME_PATTERN", "Address", "parse_address"]
+__all__ = ["STEP_NAME_PATTERN", "Address", "pair_key", "pair_keys", "pair_members", "parse_address"]
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 STEP_NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_-]*$"
@@ -45,3 +46,33 @@ def parse_address(text: str) -> Address:
             "`.output` and `[key]`, such as `clean`, `split.train` or `kfold.train[0]`."
         )
     return Address(match["name"], match["output"], match["key"])
+
+
+def pair_key(first: str, second: str) -> str:
+    """The key of a pairwise run over two elements of a list: ``a_vs_b``, data-analysis's cross-split key."""
+    return f"{first}_vs_{second}"
+
+
+def pair_keys(elements: Sequence[str]) -> list[str]:
+    """The key of each unordered pair of `elements`, in list order.
+
+    Raises
+    ------
+    ValueError
+        If two pairs give one key, as ``a`` + ``b_vs_c`` and ``a_vs_b`` + ``c`` both give ``a_vs_b_vs_c``.
+    """
+    seen: dict[str, tuple[str, str]] = {}
+    for first, index in ((a, i) for i, a in enumerate(elements)):
+        for second in elements[index + 1 :]:
+            key = pair_key(first, second)
+            if key in seen:
+                (a, b), (c, d) = seen[key], (first, second)
+                raise ValueError(f"elements `{a}` and `{b}`, and `{c}` and `{d}`, both give the pair key `{key}`")
+            seen[key] = (first, second)
+    return list(seen)
+
+
+def pair_members(key: str) -> tuple[str, str]:
+    """The two element keys pair key `key` joins."""
+    first, _, second = key.partition("_vs_")  # ponytail: a first name holding `_vs_` splits wrongly; static checks only
+    return first, second

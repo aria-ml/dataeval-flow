@@ -1,6 +1,8 @@
 """The `ood` check: how much of a test source an OOD detector flagged (ood-detection spec §5.1)."""
 
 __all__ = [
+    "EvalCoverageCheck",
+    "EvalCoverageConfig",
     "OODAgreementCheck",
     "OODAgreementConfig",
     "OODCheck",
@@ -17,6 +19,7 @@ import numpy as np
 from dataeval.shift import OODOutput
 from pydantic import BaseModel, ConfigDict, Field
 
+from dataeval_flow._blocks import Paragraph
 from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps.checks._drift import evaluator_heading
@@ -157,3 +160,66 @@ class OODAgreementCheck(Check[OODAgreementConfig]):
                 )
             )
         return findings
+
+
+class EvalCoverageConfig(CheckConfig, OODThresholds):
+    """An `eval-coverage` step's input, and the share of an evaluation split that may lie beyond train."""
+
+    input: str = Field(description="An `ood-kneighbors` Output fitted on train and run on one evaluation split.")
+    info: float | None = Field(
+        default=2.0,
+        ge=0.0,
+        le=100.0,
+        description=(
+            "The percent flagged at which the finding is `info`, below which it is `ok`; `null` is never `info`. A "
+            "split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so `2.0` "
+            "suits `threshold_perc: 99`."
+        ),
+    )
+
+
+class EvalCoverageCheck(Check[EvalCoverageConfig]):
+    """``eval-coverage``: how much of an evaluation split lies farther from train than most of train does."""
+
+    name: ClassVar[str] = "eval-coverage"
+    description: ClassVar[str] = "Warns when much of an evaluation split lies beyond what train covers."
+    title: ClassVar[str] = "Evaluation Coverage"
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODOutput,)),)
+
+    def run(self, config: EvalCoverageConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+        """The share flagged, against the percentile the evaluator flagged at."""
+        node = inputs["input"]
+        output = node.value
+        on = getattr(node, "computed_on", ())
+        reference, split = (on[0].address, on[-1].address) if on else ("train", "the evaluation split")
+        flagged, assessed = int(np.sum(output.is_ood)), assessed_images(output)
+        percent = 100.0 * flagged / assessed if assessed else 0.0
+        severity = ood_severity(percent, config)
+        if getattr(node, "step_type", None) != "ood-kneighbors":  # only k-neighbors flags at a percentile of train
+            return [
+                Finding(
+                    severity=severity,
+                    title=self.title,
+                    brief=f"{flagged}/{assessed} flagged out-of-distribution from {reference} ({percent:.1f}%)",
+                    description=f"{flagged} of {assessed} items in `{split}` were flagged out-of-distribution from "
+                    f"`{reference}`.",
+                )
+            ]
+        perc = getattr(node.config, "threshold_perc", None)
+        perc = 95.0 if perc is None else float(perc)  # DataEval's default, which OODOutput doesn't record
+        return [
+            Finding(
+                severity=severity,
+                title=self.title,
+                brief=f"{flagged}/{assessed} farther from {reference} than {perc:g}% of it ({percent:.1f}%)",
+                description=(
+                    f"{flagged} of {assessed} items in `{split}` lie farther from `{reference}` than {perc:g}% of "
+                    f"`{reference}` lies from itself."
+                ),
+                blocks=[
+                    Paragraph(
+                        text=f"A split drawn like `{reference}` has about {100 - perc:g}% flagged by construction."
+                    )
+                ],
+            )
+        ]

@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from dataeval_flow._input_spec import InputKind, SourceCount
-from dataeval_flow.steps._address import Address, parse_address
+from dataeval_flow.steps._address import Address, pair_keys, pair_members, parse_address
 from dataeval_flow.steps._by import ByConfig
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import InlineStep, Step, StepKind, Transform, port_addresses
@@ -86,6 +86,7 @@ class StepSpec:
     broadcast: bool = False
     keys: tuple[str, ...] | None = None
     by: ByConfig | None = None
+    pairs: bool = False
 
     def addresses(self, port: str) -> tuple[Address, ...]:
         """The addresses input `port` reads; ``()`` when none."""
@@ -242,7 +243,8 @@ def binding_problems(
     try:
         build_graph(workflow, pipeline, slot_keys={slot.name: bound}, evaluators=evaluators)
     except GraphError as error:
-        return [f"Task '{task.name}' binds sources {', '.join(bound)} to `{slot.name}`. {error}"]
+        held = f"sources {', '.join(bound)}" if bound else "no source"
+        return [f"Task '{task.name}' binds {held} to `{slot.name}`. {error}"]
     return []
 
 
@@ -378,6 +380,7 @@ def _resolve(
         broadcast=broadcast,
         keys=tuple(keys) if broadcast and keys is not None else None,
         by=by,
+        pairs=entry.pairs,
     )
 
 
@@ -453,6 +456,12 @@ def _splice(
     """A preset step's chain, spliced in, refused unless the step reads one Dataset per slot."""
     from dataeval_flow._chain._presets import splice_preset
 
+    if entry.pairs:
+        raise GraphError(
+            f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), a preset, which runs no pairs: "
+            "remove `pairs:`."
+        )
+
     names = preset.slot_names()
     found = _input_addresses(entry)
     if len(found) != len(names):
@@ -494,28 +503,44 @@ def _bind_inputs(
     later: set[str],
     empty: dict[str, frozenset[str]],
 ) -> tuple[tuple[PortBinding, ...], bool, list[str] | None]:
-    """Each input port's addresses, typed and checked against the port; and whether reading any of them broadcasts."""
+    """Each input port's addresses, typed and checked against the port; whether reading any of them broadcasts; and
+    the keys it runs over. With `pairs:`, the one list a port reads alone is read two elements a run (audit spec
+    §9.2)."""
     bindings: list[PortBinding] = []
     broadcast = False
     keys: list[str] | None = []
+    paired = lists = 0
     for port in impl.input_ports():
         found = addresses.get(port.name, ())
+        values = [_typed(address, entry, workflow, types, later, empty) for address in found]
+        pair = entry.pairs and len(values) == 1 and values[0].is_list and not port.is_list
+        named, said = (2, "`pairs:` hands it two") if pair else (len(found), f"the step names {len(found)}")
+        if pair and port.count is None:
+            raise GraphError(
+                f"Step '{entry.name}' has `pairs: true`, but `{port.name}` of {kind} '{type_id}' reads one item, "
+                "not two."
+            )
         if port.count is not None and kind in ("evaluator", "workflow"):
-            problem = _count_problem(port.count, found, config)
+            problem = _count_problem(port.count, named, said, config)
             if problem is not None:
                 raise GraphError(f"Step '{entry.name}' runs {kind} '{entry.target}' ({type_id}), which {problem}")
-        elif port.count is not None and not port.count.allows(len(found)):
+        elif port.count is not None and not port.count.allows(named):
             raise GraphError(
-                f"Step '{entry.name}' runs {kind} '{type_id}', whose `{port.name}` takes {port.count.phrase}, but the "
-                f"step names {len(found)}."
+                f"Step '{entry.name}' runs {kind} '{type_id}', whose `{port.name}` takes {port.count.phrase}, but "
+                f"{said}."
             )
-        for address in found:
-            value = _typed(address, entry, workflow, types, later, empty)
+        for address, value in zip(found, values, strict=True):
             _accepts(port, value, entry, address)
             if value.is_list and not port.is_list:
-                broadcast = True
-                keys = _broadcast_keys(keys, value)
+                broadcast, lists = True, lists + 1
+                keys = _pair_keys(value.keys, entry, address) if pair else _broadcast_keys(keys, value)
+        paired += pair
         bindings.append(PortBinding(port, found))
+    if entry.pairs and (paired != 1 or lists != 1):
+        raise GraphError(
+            f"Step '{entry.name}' has `pairs: true`, so it reads one list, alone on one input, and runs once per pair "
+            "of its elements."
+        )
     return tuple(bindings), broadcast, keys
 
 
@@ -537,11 +562,23 @@ def _first_list(
     )
 
 
-def _count_problem(count: SourceCount, found: tuple[Address, ...], config: Any) -> str | None:
-    """Why `found`'s length breaks `count`'s rule, or the pool entry's own rule; ``None`` if neither does."""
-    if not count.allows(len(found)):
-        return f"takes {count.phrase}, but the step names {len(found)}."
-    return config.check_inputs(len(found))
+def _count_problem(count: SourceCount, named: int, said: str, config: Any) -> str | None:
+    """Why `named` addresses break `count`'s rule, or the pool entry's own rule; ``None`` if neither does."""
+    if not count.allows(named):
+        return f"takes {count.phrase}, but {said}."
+    return config.check_inputs(named)
+
+
+def _pair_keys(keys: tuple[str, ...] | None, entry: StepEntry, address: Address) -> list[str] | None:
+    """The keys of a pairwise run over a list with `keys`: each unordered pair, in list order; ``None`` if unknown."""
+    if keys is None:
+        return None
+    try:
+        return pair_keys(keys)
+    except ValueError as error:
+        raise GraphError(
+            f"Step '{entry.name}' pairs `{address}`, whose {error}: rename a source so no two pairs share a key."
+        ) from None
 
 
 def _broadcast_keys(keys: list[str] | None, value: ValueType) -> list[str] | None:
@@ -630,8 +667,8 @@ def _keyed(value: ValueType, address: Address, entry: StepEntry) -> ValueType:
         raise GraphError(f"Step '{entry.name}' reads `{address}`, but `{address.base}` is not a list.")
     if value.keys is not None and address.key not in value.keys:
         raise GraphError(
-            f"Step '{entry.name}' reads `{address}`, but `{address.base}` has elements {', '.join(value.keys)}, "
-            f"not `{address.key}`."
+            f"Step '{entry.name}' reads `{address}`, but `{address.base}` has elements "
+            f"{', '.join(value.keys) or 'none'}, not `{address.key}`."
         )
     return replace(value, is_list=False, keys=None)
 
@@ -730,7 +767,12 @@ def _computed_on(address: Address, specs: dict[str, StepSpec], types: dict[str, 
     if address.key is None or not producer.broadcast or binding.port.is_list:
         read = binding.addresses
     else:
-        read = tuple(replace(item, key=address.key) if _is_list(item, types) else item for item in binding.addresses)
+        parts = pair_members(address.key) if producer.pairs else (address.key,)
+        read = tuple(
+            narrowed
+            for item in binding.addresses
+            for narrowed in ([replace(item, key=part) for part in parts] if _is_list(item, types) else [item])
+        )
     if read and all(_holds_output(item, types) for item in read):
         found = {_computed_on(item, specs, types) for item in read}
         return found.pop() if len(found) == 1 else ()

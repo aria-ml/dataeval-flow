@@ -94,9 +94,10 @@ def produce_clusters(pc: ProducerContext) -> dict[str, Any]:
 
 
 def produce_metadata(pc: ProducerContext) -> dict[str, Any]:
-    """The source's metadata under the task's metadata policy, read as every workflow reads it. Sets both."""
+    """The source's metadata under the policy its lineage reads under (derived from the reference's, in a preset naming
+    one), read as every workflow reads it. Sets both."""
     context = pc.workflow_context
-    return {"metadata": context.metadata(pc.source), "metadata_policy": context.metadata_policy}
+    return {"metadata": context.metadata(pc.source), "metadata_policy": context.metadata_policy_for(pc.source)}
 
 
 def produce_labels(pc: ProducerContext) -> dict[str, Any]:

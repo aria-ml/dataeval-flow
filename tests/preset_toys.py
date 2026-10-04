@@ -5,7 +5,9 @@ from typing import Any, ClassVar
 from pydantic import Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.evaluators.quality import DuplicatesConfig, LabelHealthConfig
+from dataeval_flow.config._schemas._mixins import MetadataConfigMixin
+from dataeval_flow.evaluators.bias import MetadataSummaryConfig
+from dataeval_flow.evaluators.quality import DuplicatesConfig, FactorTriageConfig, LabelHealthConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._workflow import InputSlot
@@ -187,6 +189,48 @@ _PRESETS = {
     "toy-broken-preset": "tests.preset_toys:BrokenPreset",
     "toy-gone-preset": "tests.preset_toys:GonePreset",
 }
+
+
+class ToyReferencePresetConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
+    """Each split's metadata summary and triage, every split on train's encoding."""
+
+    type: str = Field(default="toy-reference-preset", description="The workflow type this entry configures.")
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.TWO_OR_MORE)
+
+
+class ToyReferencePreset(Preset, Workflow[ToyReferencePresetConfig, ChainResult]):
+    """`train` and a list `evals`, with `train` the reference."""
+
+    name: ClassVar[str] = "toy-reference-preset"
+    description: ClassVar[str] = "Summarizes every split on train's encoding."
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("train", InputSlot.model_validate({"name": "evals", "list": True}))
+
+    @classmethod
+    def chain(cls, config: Any) -> PresetChain:
+        return PresetChain(
+            steps=[
+                {"name": "train-summary", "evaluator": "summary", "input": "train"},
+                {"name": "evals-summary", "evaluator": "summary", "input": "evals"},
+                {"name": "train-triage", "evaluator": "triage", "input": "train"},
+                {"name": "evals-triage", "evaluator": "triage", "input": "evals"},
+                {
+                    "name": "parts",
+                    "transform": "split",
+                    "input": "evals",
+                    "test_frac": 0.4,
+                    "metadata": config.metadata,
+                },
+                {"name": "parts-summary", "evaluator": "summary", "input": "parts.train"},
+            ],
+            evaluators=[
+                MetadataSummaryConfig(name="summary", metadata=config.metadata),
+                FactorTriageConfig(name="triage", metadata=config.metadata, verify=False),
+            ],
+            reference="train",
+        )
+
+
+_PRESETS["toy-reference-preset"] = "tests.preset_toys:ToyReferencePreset"
 
 
 def register_presets(plugins: dict[str, list[tuple[str, str]]]) -> None:

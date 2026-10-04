@@ -1,7 +1,11 @@
-"""The shift evaluators: DataEval's drift and out-of-distribution detectors, over the task's sources' embeddings."""
+"""The shift evaluators: DataEval's drift and out-of-distribution detectors and divergence, over embeddings."""
 
 __all__ = [
     "ChunkedDriftConfig",
+    "DivergenceConfig",
+    "DivergenceEvaluator",
+    "DivergenceOutput",
+    "DivergenceResult",
     "DriftDomainClassifierConfig",
     "DriftDomainClassifierEvaluator",
     "DriftDomainClassifierResult",
@@ -27,6 +31,7 @@ __all__ = [
 
 from dataeval_flow.evaluators.shift._config import (
     ChunkedDriftConfig,
+    DivergenceConfig,
     DriftDomainClassifierConfig,
     DriftKNeighborsConfig,
     DriftMMDConfig,
@@ -36,6 +41,7 @@ from dataeval_flow.evaluators.shift._config import (
     OODKNeighborsConfig,
 )
 from dataeval_flow.evaluators.shift._evaluator import (
+    DivergenceEvaluator,
     DriftDomainClassifierEvaluator,
     DriftKNeighborsEvaluator,
     DriftMMDEvaluator,
@@ -45,6 +51,8 @@ from dataeval_flow.evaluators.shift._evaluator import (
     OODKNeighborsEvaluator,
 )
 from dataeval_flow.evaluators.shift._result import (
+    DivergenceOutput,
+    DivergenceResult,
     DriftDomainClassifierResult,
     DriftKNeighborsResult,
     DriftMMDResult,

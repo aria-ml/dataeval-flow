@@ -32,6 +32,9 @@ tasks:
 A task runs either one with `workflow:`. A chain's `inputs:` are slots, and the task's `sources:` bind to them in
 order, so one chain can run on different sources from different tasks. The last slot may be a list,
 `{name: cameras, list: true}`, which binds every source left over, keyed by source name.
+A list input may also bind no source: `{name: evals, list: true, empty: no evaluation split given}`. Every step run
+over it then makes one record instead of none, and every check over it reports the reason as not assessed, unless
+the check judges an empty list.
 
 Steps run in the order they are written, and a step reads only the inputs and the steps above it. A chain whose steps
 do not connect fails when the config loads, before any data is read.
@@ -49,7 +52,7 @@ Each step names exactly one kind:
 | `check:` | a registered check, with its thresholds beside it | findings, each `ok`, `info` or `warning` |
 
 An evaluator or workflow step takes its settings from the entry it names. The step itself holds only what it reads,
-and optionally `extractor:` and `optional:`. A custom workflow cannot run as a step of another.
+and optionally `extractor:`, `optional:` and `pairs:`. A custom workflow cannot run as a step of another.
 
 Transform steps make Datasets. The [Transform Catalog](../reference/transforms.md) lists each one's settings:
 
@@ -101,7 +104,8 @@ result's JSON lists the check findings at the top, each naming its step. A workf
 step. A threshold of `null` judges nothing: the finding is still made, as `info`.
 
 A check is never skipped because an input produced nothing. It makes one `info` finding briefed `not assessed`,
-saying which input holds nothing and why, so the report shows what could not be judged.
+saying which input holds nothing and why, so the report shows what could not be judged. A check that has its inputs but
+cannot assess them raises `StepSkipped(reason)`, and the engine records it the same way, never as skipped.
 
 The report gives each finding a section of its own, with the evidence it judged below it: `duplicates`' finding holds
 the `dupes` step's duplicate groups. The steps no finding shows follow, then a table of every step.
@@ -163,6 +167,10 @@ A key missing from one of the lists skips that element, and the reason names the
 makes each element's findings, and the report groups them under the element's key. Lists do not nest: a step that
 outputs lists refuses a list where it reads one Dataset. An `export` handed a list writes each element in a directory of
 its own, named by its key.
+
+A step reading two Datasets through one input can run over the pairs of one list: with `pairs: true`, a `duplicates`
+step over `evals` runs once per unordered pair, in list order, keyed `val_vs_test`. A list of one element gives it no
+pair, and it leaves one record saying so.
 
 ## Workflow types as presets
 

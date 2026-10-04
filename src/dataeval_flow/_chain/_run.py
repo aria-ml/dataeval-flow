@@ -7,6 +7,7 @@ import logging
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field, replace
+from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -15,7 +16,7 @@ from dataeval_flow._chain._identity import element_key, output_key, settings_of,
 from dataeval_flow._chain._nodes import Missing, Node, NodeList, Root
 from dataeval_flow._chain._reads import MetadataRead, ReadingContext, note_read, noting_reads
 from dataeval_flow._result import LabelSpaceRecord, LineageRecord, failure_message
-from dataeval_flow.steps._address import Address
+from dataeval_flow.steps._address import Address, pair_key, pair_keys
 from dataeval_flow.steps._by import roll_up
 from dataeval_flow.steps._check import Check, CheckContext
 from dataeval_flow.steps._combine import Combine, CombineContext
@@ -51,7 +52,8 @@ class ExtractorSetup:
 
 @dataclass(frozen=True)
 class StepContext:
-    """What preflight resolved for one step: its metadata and stats policies, its ontology, and its stats unions."""
+    """What preflight resolved for one step: its metadata and stats policies, its ontology, its stats unions, and,
+    under a preset's reference, the derived policy and the reference source."""
 
     metadata_policy: "ResolvedPolicy | None" = None
     stats_policy: "ResolvedStatsPolicy | None" = None
@@ -60,6 +62,18 @@ class StepContext:
     """By the address of a Dataset an evaluator step reads, the union of the statistics every evaluator step reading
     that Dataset asks for, where it is wider than this step's own request. A list the step runs over is keyed by the
     list's address; an element of it another step names alone, by the element's."""
+    derived_policy: "ResolvedPolicy | None" = None
+    """This step's metadata policy put on its reference's encoding (audit spec §9.3), which every Dataset not made
+    from the reference alone reads under; ``None`` where the chain names no reference or the step no policy."""
+    reference: str | None = None
+    """The source the reference is, where :attr:`derived_policy` is set."""
+
+    def policy_for(self, node: Node) -> "ResolvedPolicy | None":
+        """The metadata policy `node` reads under: this step's own for the reference and what is made from it alone,
+        the derived one for every other Dataset."""
+        if self.derived_policy is None or {root.source for root in node.roots} == {self.reference}:
+            return self.metadata_policy
+        return self.derived_policy
 
 
 @dataclass(frozen=True)
@@ -121,6 +135,7 @@ def bind_inputs(
             bound[slot.name] = NodeList(
                 slot.name,
                 {name: _source_node(f"{slot.name}[{name}]", name, contexts, resolved) for name in rest},
+                reason=None if rest else slot.empty,
             )
         else:
             bound[slot.name] = _source_node(slot.name, names[index], contexts, resolved)
@@ -185,7 +200,7 @@ def _run_step(
     """
     inputs_text = [str(address) for binding in spec.bindings for address in binding.addresses]
     bound = {binding.port.name: [_lookup(nodes, address) for address in binding.addresses] for binding in spec.bindings}
-    gap = _first_gap(spec, bound, steps)
+    gap = _first_gap(spec, bound)
     if gap is not None:
         address, missing = gap
         if spec.kind == "check":
@@ -193,27 +208,56 @@ def _run_step(
             return record, _by_address(spec, outputs), []
         reason = f"needs `{address}`, which {missing.reason}"
         return _skipped(spec, inputs_text, reason), _by_address(spec, _missing_outputs(spec, "was skipped")), []
-    keys = _broadcast_keys(spec, bound)
+    empty = _empty_port(spec, bound, steps)
+    if empty is not None:
+        record, outputs = _unassessed(spec, inputs_text, empty, None)
+        return record, _by_address(spec, outputs), []
+    try:
+        keys = _broadcast_keys(spec, bound)
+    except ValueError as error:  # two pairs of a list share a key: a source's name is the cause, known only now
+        return (
+            _failed(spec, inputs_text, [f"Step '{spec.name}' pairs {error}"], time.monotonic(), None),
+            _by_address(spec, _missing_outputs(spec, _failure_word(spec))),
+            [],
+        )
     if keys is None:
         record, outputs, records = _attempt(spec, _shaped(spec, bound), settings, None, inputs_text, lineage, applied)
         return record, _by_address(spec, outputs), records
+    if not keys:
+        return _empty_broadcast(spec, inputs_text, _empty_reason(spec, bound))
     return _broadcast(spec, bound, keys, settings, inputs_text, lineage, applied, steps)
 
 
-def _first_gap(
-    spec: StepSpec, bound: Mapping[str, list[_Value]], steps: Mapping[str, StepResult]
-) -> tuple[Address, Missing] | None:
-    """The first address `spec` reads that holds nothing, and why; ``None`` when every one holds something.
-
-    A check is never skipped for want of input (spec §9.1), so a list it takes whole holds nothing when no element
-    of it exists.
-    """
+def _first_gap(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> tuple[Address, Missing] | None:
+    """The first address `spec` reads that holds nothing, and why; ``None`` when every one holds something."""
     for binding in spec.bindings:
         for address, value in zip(binding.addresses, bound[binding.port.name], strict=True):
             if isinstance(value, Missing):
                 return address, value
-            if spec.kind == "check" and binding.port.is_list and isinstance(value, NodeList) and not value.present:
-                return address, _empty_list(address, value, steps)
+    return None
+
+
+def _empty_port(spec: StepSpec, bound: Mapping[str, list[_Value]], steps: Mapping[str, StepResult]) -> str | None:
+    """What a check cannot assess because a whole-list port holds nothing: no list on it holds an element (audit spec
+    §9.1). The reason the first list carries, else why it holds none; ``None`` where each such port holds an element,
+    or may be empty."""
+    if spec.kind != "check":
+        return None
+    for binding in spec.bindings:
+        if not binding.port.is_list or binding.port.may_be_empty:
+            continue
+        # `_first_gap` has handled every Missing, so a whole-list port holds only lists.
+        lists = [
+            (address, value)
+            for address, value in zip(binding.addresses, bound[binding.port.name], strict=True)
+            if isinstance(value, NodeList)
+        ]
+        if any(value.present for _, value in lists):
+            continue
+        if not lists:  # an optional field left unset: no address, nothing to say
+            continue
+        address, value = lists[0]
+        return value.reason or _gap_text(address, _empty_list(address, value, steps), steps)
     return None
 
 
@@ -262,6 +306,7 @@ def _unassessed(
         output=[finding],
         summary=_tally([finding]),
         optional=spec.optional,
+        not_assessed=gap,
     )
     (port,) = spec.outputs
     node = Node(_at(spec, port, element), DataType.FINDINGS, payload=[finding], step=spec.name, step_type=spec.type)
@@ -279,10 +324,47 @@ def _broadcast_keys(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> list[s
     ]
     if not lists:
         return None
+    if spec.pairs:
+        (listed,) = lists  # a pairwise step reads its one list alone (the graph refused anything else)
+        return pair_keys(list(listed.elements))
     keys: list[str] = []
     for value in lists:
         keys.extend(key for key in value.elements if key not in keys)
     return keys
+
+
+def _empty_reason(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> str:
+    """Why `spec`'s lists give it no run: the reason one carries, else that the first holds no element."""
+    lists = [
+        (address, value)
+        for binding in spec.bindings
+        if not binding.port.is_list
+        for address, value in zip(binding.addresses, bound[binding.port.name], strict=True)
+        if isinstance(value, NodeList)
+    ]
+    reason = next((value.reason for _, value in lists if value.reason is not None), None)
+    if reason is not None:
+        return reason
+    address, value = lists[0]
+    if spec.pairs and value.elements:
+        return f"`{address}` holds one element, so it has no pair"
+    return f"`{address}` holds no element"
+
+
+def _empty_broadcast(
+    spec: StepSpec, inputs_text: list[str], reason: str
+) -> tuple[StepResult, dict[str, _Value], list[LabelSpaceRecord]]:
+    """A step run once per element of lists holding none: one record, never none, and each output an empty list carrying
+    `reason` on to the steps that read it (audit spec §9.1)."""
+    if spec.kind == "check":
+        record, _ = _unassessed(spec, inputs_text, reason, None)
+    else:
+        record = _skipped(spec, inputs_text, reason)
+        record.not_assessed = reason
+    produced: dict[str, _Value] = {
+        spec.output_address(port): NodeList(spec.output_address(port), {}, reason=reason) for port in spec.outputs
+    }
+    return record, produced, []
 
 
 def _broadcast(
@@ -303,9 +385,9 @@ def _broadcast(
         chosen, gap = _pick(spec, bound, key)
         element_inputs = _element_inputs(spec, bound, key)
         if gap is not None and spec.kind == "check":
-            elements[key], outputs = _unassessed(spec, element_inputs, _element_gap(gap, key, steps), key)
+            elements[key], outputs = _unassessed(spec, element_inputs, _element_gap(gap, steps), key)
         elif gap is not None:
-            elements[key] = _skipped(spec, element_inputs, _element_reason(gap, key))
+            elements[key] = _skipped(spec, element_inputs, _element_reason(gap))
             outputs = _missing_outputs(spec, "was skipped")
         else:
             elements[key], outputs, records = _attempt(
@@ -342,40 +424,52 @@ def _pick(
     for binding in spec.bindings:
         picked: list[Any] = []
         for address, value in zip(binding.addresses, bound[binding.port.name], strict=True):
-            if isinstance(value, NodeList) and not binding.port.is_list:
-                element = value.elements.get(key)
-                if gap is None and not isinstance(element, Node):
-                    gap = (address, element)
-                picked.append(element)
-            else:
+            if not isinstance(value, NodeList) or binding.port.is_list:
                 picked.append(value)
+                continue
+            for part in _parts(spec, value, key):
+                element = value.elements.get(part)
+                if gap is None and not isinstance(element, Node):
+                    gap = (replace(address, key=part), element)
+                picked.append(element)
         chosen[binding.port.name] = picked
     return chosen, gap
 
 
+def _parts(spec: StepSpec, value: NodeList, key: str) -> tuple[str, ...]:
+    """The keys of `value`'s elements run `key` reads: `key` itself, or, for a pairwise step, the pair it names."""
+    if not spec.pairs:
+        return (key,)
+    return next(pair for pair in combinations(value.elements, 2) if pair_key(*pair) == key)
+
+
 def _element_inputs(spec: StepSpec, bound: Mapping[str, list[_Value]], key: str) -> list[str]:
-    """The addresses element `key` of a broadcast reads: each list on a port that takes one item, narrowed to `key`."""
-    return [
-        f"{address}[{key}]" if isinstance(value, NodeList) and not binding.port.is_list else str(address)
-        for binding in spec.bindings
-        for address, value in zip(binding.addresses, bound[binding.port.name], strict=True)
-    ]
+    """The addresses element `key` of a broadcast reads: each list on a port that takes one item, narrowed to `key`
+    (to its two elements, for a pairwise step)."""
+    inputs: list[str] = []
+    for binding in spec.bindings:
+        for address, value in zip(binding.addresses, bound[binding.port.name], strict=True):
+            if isinstance(value, NodeList) and not binding.port.is_list:
+                inputs.extend(str(replace(address, key=part)) for part in _parts(spec, value, key))
+            else:
+                inputs.append(str(address))
+    return inputs
 
 
-def _element_reason(gap: tuple[Address, Missing | None], key: str) -> str:
-    """Why element `key` of a step cannot run: its list has no such element, or holds nothing there."""
+def _element_reason(gap: tuple[Address, Missing | None]) -> str:
+    """Why an element of a step cannot run: its list has no such element, or holds nothing there."""
     address, missing = gap
     if missing is None:
-        return f"`{address}` has no element `{key}`"
-    return f"needs `{address}[{key}]`, which {missing.reason}"
+        return f"`{address.base}` has no element `{address.key}`"
+    return f"needs `{address}`, which {missing.reason}"
 
 
-def _element_gap(gap: tuple[Address, Missing | None], key: str, steps: Mapping[str, StepResult]) -> str:
-    """What element `key` of a check could not assess, with the cause its producer recorded for that element."""
+def _element_gap(gap: tuple[Address, Missing | None], steps: Mapping[str, StepResult]) -> str:
+    """What an element of a check could not assess, with the cause its producer recorded for that element."""
     address, missing = gap
     if missing is None:
-        return f"`{address}` has no element `{key}`"
-    return _gap_text(replace(address, key=key), missing, steps)
+        return f"`{address.base}` has no element `{address.key}`"
+    return _gap_text(address, missing, steps)
 
 
 def _overall(elements: Iterable[StepResult]) -> StepStatus:
@@ -425,6 +519,9 @@ def _attempt(
         else:
             outputs, records, details = _transform(spec, inputs, settings, element, lineage, applied)
     except StepSkipped as skip:
+        if spec.kind == "check":  # a check that cannot assess says so structurally, and is never skipped
+            record, unassessed = _unassessed(spec, inputs_text, skip.reason, element)
+            return record, unassessed, []
         return _skipped(spec, inputs_text, skip.reason), _missing_outputs(spec, "was skipped"), []
     except Exception as error:  # a step's failure must not stop the chain
         message = failure_message(error)
@@ -494,7 +591,7 @@ def _combine(
     context = CombineContext(
         task=settings.task,
         step=spec.name,
-        derive_metadata=lambda node: _metadata(node, step.metadata_policy, _policy_name(spec)),
+        derive_metadata=lambda node: _metadata(node, step, _policy_name(spec)),
         derive_stats=lambda node: _stats(node, step.stats_policy),
     )
     made = impl.run(spec.config, inputs, context)
@@ -643,6 +740,7 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
         dataset_contexts=contexts,
         batch_size=setup.batch_size if setup is not None else None,
         metadata_policy=step.metadata_policy,
+        metadata_policies={node.address: policy for node in nodes if (policy := step.policy_for(node)) is not None},
         ontology=step.ontology,
         stats_policy=step.stats_policy,
         policy_name=_policy_name(spec),
@@ -660,16 +758,11 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
 
 
 def _stats_union(step: StepContext, node: Node, element: str | None) -> "ResolvedStatsPolicy | None":
-    """The stats union preflight planned for `node`: by its address, or, as element `element` of a list the step runs
-    over, by the list's; ``None`` where it planned none."""
+    """The stats union preflight planned for `node`: by its address, or, run once per element (or pair of elements)
+    of a list, by that list's; ``None`` where it planned none."""
     union = step.stats_unions.get(node.address)
     if union is None and element is not None:
-        listed = (
-            planned
-            for address, planned in step.stats_unions.items()
-            if str(Address(address, key=element)) == node.address
-        )
-        union = next(listed, None)
+        union = step.stats_unions.get(node.address.partition("[")[0])
     return union
 
 
@@ -724,7 +817,7 @@ def _transform(
         output_dir=settings.output_dir,
         pipeline=settings.pipeline,
         data_dir=settings.data_dir,
-        derive_metadata=lambda node: _metadata(node, step.metadata_policy, _policy_name(spec)),
+        derive_metadata=lambda node: _metadata(node, step, _policy_name(spec)),
         lineage=lambda address: _ancestry(address, lineage),
         label_space=tuple(record for record in applied if record.source in ancestors),
         element=element,
@@ -873,16 +966,22 @@ def _policy_name(spec: StepSpec) -> str | None:
     return name if isinstance(name, str) else None
 
 
-def _metadata(node: Node, policy: Any, policy_name: str | None) -> Any:
-    """`node`'s Metadata under `policy`, cached on the node, and noted for the chain's binning record."""
+def _read_metadata(node: Node, policy: "ResolvedPolicy | None") -> Any:
+    """`node`'s Metadata under `policy`, cached on the node."""
     from dataeval_flow._cache import active_cache, get_or_compute_metadata, selection_repr
 
     dataset = node.value
     cache = node.context.cache if node.context is not None else None
     scope = active_cache(cache, selection_repr(dataset)) if cache is not None else contextlib.nullcontext()
     with scope:
-        metadata = get_or_compute_metadata(dataset, policy)
-    note_read(node.address, policy_name, policy, metadata)
+        return get_or_compute_metadata(dataset, policy)
+
+
+def _metadata(node: Node, step: StepContext, policy_name: str | None) -> Any:
+    """`node`'s Metadata under the policy `step` reads it under, noted for the chain's binning record under the step's
+    own policy, which is what the step asked for."""
+    metadata = _read_metadata(node, step.policy_for(node))
+    note_read(node.address, policy_name, step.metadata_policy, metadata)
     return metadata
 
 

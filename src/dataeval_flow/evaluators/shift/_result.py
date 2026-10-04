@@ -6,9 +6,12 @@ from typing import Any
 from dataeval.shift import DriftOutput, OODOutput
 
 from dataeval_flow._blocks import Block
+from dataeval_flow.evaluators._core import CoreOutput
 from dataeval_flow.evaluators._result import EvaluatorResult
 
 __all__ = [
+    "DivergenceOutput",
+    "DivergenceResult",
     "DriftDomainClassifierResult",
     "DriftKNeighborsResult",
     "DriftMMDResult",
@@ -188,3 +191,42 @@ class OODDomainClassifierResult(_OODSection, EvaluatorResult[OODOutput]):
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
     """
+
+
+class DivergenceOutput(CoreOutput):
+    """``divergence``'s output: ``data()`` holds ``divergence``, from 0 (the sources overlap) to 1 (they are apart),
+    ``errors``, the cross-source edges or neighbour disagreements it counted, and ``method``, ``mst`` or ``fnn``."""
+
+
+class DivergenceResult(EvaluatorResult[DivergenceOutput]):
+    """The result of a ``divergence`` run; ``output`` is a :class:`~dataeval_flow.evaluators.shift.DivergenceOutput`.
+
+    ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
+    fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
+    fields of :class:`~dataeval_flow.ResultMetadata`.
+
+    Fields
+    ------
+    output
+        ``data()`` holds ``divergence``, ``errors`` and ``method``.
+    metadata.evaluator
+        The evaluator type, e.g. ``duplicates``.
+    metadata.dataeval
+        DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
+        parameters as written are in ``resolved_config``.
+    """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """The divergence, its method and the errors it counted."""
+        from dataeval_flow._blocks import Fields
+
+        data = output.get("data") or {}
+        return [
+            Fields(
+                items=[
+                    ("Divergence", round(float(data["divergence"]), 4)),
+                    ("Method", data.get("method")),
+                    ("Cross-source errors", data.get("errors")),
+                ]
+            )
+        ]

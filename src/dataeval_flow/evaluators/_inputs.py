@@ -62,8 +62,8 @@ class EvaluatorInputs:
     (``scores``), each row's item (``rows``, or ``None`` where each row is one item), the source's item count
     (``items``) and the confidence a detector's boxes met (``confidence``). ``None`` for any other extractor."""
     metadata: "Metadata | None" = None
-    """DataEval's ``Metadata`` for the source, built under the task's metadata policy, when the run wants
-    ``metadata``."""
+    """DataEval's ``Metadata`` for the source, built under the policy its lineage reads under (the task's, or a derived
+    one), when the run wants ``metadata``."""
     metadata_policy: "ResolvedPolicy | None" = None
     """The metadata policy ``metadata`` was built under, set with ``metadata``; ``None`` where the task names none and
     DataEval's defaults applied. An evaluator may read its ``factor_source``: how the bias statistics read each factor.

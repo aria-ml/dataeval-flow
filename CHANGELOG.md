@@ -4,6 +4,25 @@
 
 ### Added
 
+- `empty:` on a custom workflow's list input: the reason its checks give when a task binds it no source, which it then
+  may; a step run over an empty list leaves one record, and `not_assessed` on each step record says why a check judged
+  nothing
+- A check port reading several whole lists is not assessed only when every list on it is empty, and a port declared
+  `may_be_empty` is judged even then
+- `pairs: true` on a step reading two Datasets through one input: it runs once per unordered pair of one list's
+  elements, keyed `a_vs_b`
+- A preset may name a reference split: every other split's metadata, and every Dataset made from one, is then encoded
+  with the reference's cuts, so their factor statistics compare. A policy's `reference_split` names another reference
+- `divergence` evaluator: how far apart two sources' embeddings sit, by DataEval's `divergence_mst` or
+  `divergence_fnn`; and the `distribution-shift` check, which bands it high, moderate or low as data-analysis did
+- `factor-leakage` evaluator: the raw values of named metadata factors two sources hold, whatever the policy
+  excludes; and the `leakage` check, which warns on items in duplicate groups spanning two splits and on group values
+  two splits share
+- `class-sufficiency` and `untrained-classes` checks: classes with too few labels to learn or to evaluate, and
+  evaluation classes train lacks; and `empty:` on `class-imbalance`, which with `false` leaves a class with no labels to
+  them
+- `shortcut-risk` and `eval-coverage` checks: metadata factors tied to the class, and the share of an evaluation
+  split lying farther from train than most of train does
 - `library_versions` on every result's metadata: the installed version of DataEval, PyTorch, NumPy, Pillow, datamaite,
   OpenCV (where installed) and the task's extractor runtime (such as ONNX Runtime)
 - `provenance:` on `datasets:` entries: facts Flow can't measure, such as owner, licence, origin and collection date,
@@ -28,7 +47,7 @@
 - Every tool computes on CUDA when PyTorch sees a GPU, else the CPU; `dataeval_flow.set_device` chooses from Python,
   and `CUDA_VISIBLE_DEVICES` hides GPUs. A config names no device
 - `device` on every result's metadata: the device its task computed on, such as `cuda:0 (NVIDIA L4)`
-- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's twenty-three types
+- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's twenty-five types
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
 - `dataeval-flow evaluators` command listing evaluator types, what each consumes, and their parameter schemas

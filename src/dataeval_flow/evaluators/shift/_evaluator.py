@@ -1,10 +1,11 @@
-"""The shift evaluators: DataEval's drift and out-of-distribution detectors.
+"""The shift evaluators: DataEval's drift and out-of-distribution detectors, and its divergence measure.
 
-Each fits on the first source's embeddings and predicts on the last's. ``run`` is the only code here that calls
-DataEval.
+A detector fits on the first source's embeddings and predicts on the last's; `divergence` scores the two sources'
+embeddings against each other. ``run`` is the only code here that calls DataEval.
 """
 
 __all__ = [
+    "DivergenceEvaluator",
     "DriftDomainClassifierEvaluator",
     "DriftKNeighborsEvaluator",
     "DriftMMDEvaluator",
@@ -17,9 +18,13 @@ __all__ = [
     "detect_ood",
 ]
 
+import time
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any, ClassVar
 
+import numpy as np
+from dataeval.core import divergence_fnn, divergence_mst
 from dataeval.shift import (
     DriftDomainClassifier,
     DriftKNeighbors,
@@ -33,11 +38,13 @@ from dataeval.shift import (
 )
 
 from dataeval_flow._input_spec import InputKind
+from dataeval_flow.evaluators._core import execution
 from dataeval_flow.evaluators._evaluator import Evaluator
 from dataeval_flow.evaluators._fields import dataeval_arguments, require
 from dataeval_flow.evaluators._inputs import EvaluatorInputs
 from dataeval_flow.evaluators.shift._config import (
     ChunkedDriftConfig,
+    DivergenceConfig,
     DriftDomainClassifierConfig,
     DriftKNeighborsConfig,
     DriftMMDConfig,
@@ -46,6 +53,7 @@ from dataeval_flow.evaluators.shift._config import (
     OODDomainClassifierConfig,
     OODKNeighborsConfig,
 )
+from dataeval_flow.evaluators.shift._result import DivergenceOutput
 
 _PREDICT: Mapping[InputKind, str] = {InputKind.EMBEDDINGS: "predict"}
 
@@ -193,3 +201,33 @@ class OODDomainClassifierEvaluator(Evaluator[OODDomainClassifierConfig, OODOutpu
     def run(self, config: OODDomainClassifierConfig, inputs: Sequence[EvaluatorInputs]) -> OODOutput:
         """Fit on the reference's embeddings, and score the second source's items."""
         return detect_ood(OODDomainClassifier(**dataeval_arguments(config)), inputs)
+
+
+class DivergenceEvaluator(Evaluator[DivergenceConfig, DivergenceOutput]):
+    """``divergence``: how far apart two sources' embeddings sit, per DataEval's divergence_mst or divergence_fnn."""
+
+    name: ClassVar[str] = "divergence"
+    title: ClassVar[str] = "Divergence"
+    description: ClassVar[str] = "How far apart two sources' embeddings sit (DataEval divergence_mst, divergence_fnn)"
+    dataeval_class: ClassVar[Any] = divergence_mst
+    dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.EMBEDDINGS: "__call__"}
+    reads_factors: ClassVar[bool] = False
+
+    def run(self, config: DivergenceConfig, inputs: Sequence[EvaluatorInputs]) -> DivergenceOutput:
+        """The divergence of the first source's embeddings from the second's."""
+        first, second = inputs
+        a = np.asarray(require(first.embeddings, "embeddings", first.source))
+        b = np.asarray(require(second.embeddings, "embeddings", second.source))
+        for source, rows in ((first.source, a), (second.source, b)):
+            if len(rows) == 0:  # DataEval divides by each source's size
+                raise ValueError(f"`divergence` needs embeddings from both sources; '{source}' has none.")
+        function = divergence_mst if config.method == "mst" else divergence_fnn
+        started, clock = datetime.now(UTC), time.monotonic()
+        result = function(a, b)
+        meta = execution(
+            f"dataeval.core.divergence_{config.method}", started, time.monotonic() - clock, {"method": config.method}
+        )
+        return DivergenceOutput(
+            {"divergence": float(result["divergence"]), "errors": int(result["errors"]), "method": config.method},
+            meta,
+        )

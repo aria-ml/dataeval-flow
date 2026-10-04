@@ -18,6 +18,7 @@ from tests.evaluator_toys import _EXTRA_CONFIG, toy_run, toy_task_run
 _CATALOG: dict[str, tuple[str, str]] = {
     "duplicates": ("1+", "optional"),
     "label-health": ("1", "refused"),
+    "factor-leakage": ("2", "refused"),
     "factor-triage": ("1", "refused"),
     "content-digest": ("1", "refused"),
     "metadata-summary": ("1", "refused"),
@@ -39,6 +40,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "drift-wasserstein": ("3", "required"),
     "ood-domain-classifier": ("2", "required"),
     "ood-kneighbors": ("2", "required"),
+    "divergence": ("2", "required"),
 }
 
 # A count each rule refuses, where one exists; and a count it allows.

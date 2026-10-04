@@ -83,6 +83,9 @@ class NodeList:
 
     address: str
     elements: dict[str, "Node | Missing"]
+    reason: str | None = None
+    """Why the list holds no element, where its readers should say so: an empty list input's `empty:`, carried on by
+    each step run over it. ``None`` for any list that holds an element."""
 
     @property
     def present(self) -> dict[str, Node]:

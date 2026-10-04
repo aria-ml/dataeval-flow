@@ -19,6 +19,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | `outliers` | `dataeval.quality.Outliers` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 | `label-health` | `dataeval.core.label_stats` | metadata | 1 | refused |
 | `factor-triage` | `dataeval.Metadata` | metadata | 1 | refused |
+| `factor-leakage` | `dataeval.Metadata` | metadata | 2 | refused |
 | `content-digest` | `dataeval_flow.dataset_digest` | the Dataset itself, every item | 1 | refused |
 | `representation` | `dataeval.scope.Representation` | labels | 1 | refused |
 | `coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
@@ -34,6 +35,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | `drift-wasserstein` | `dataeval.shift.DriftWasserstein` | embeddings | 3: the reference, a validation set, then the data to test | required |
 | `ood-domain-classifier` | `dataeval.shift.OODDomainClassifier` | embeddings | 2: the reference, then the data to test | required |
 | `ood-kneighbors` | `dataeval.shift.OODKNeighbors` | embeddings | 2: the reference, then the data to test | required |
+| `divergence` | `dataeval.core.divergence_mst`, `dataeval.core.divergence_fnn` | embeddings | 2: the first source, then the second | required |
 
 A task's `extractor:` still lands in the result envelope's `model_id`, whether or not that
 run's mode actually reads it.
@@ -214,13 +216,21 @@ Output: a mapping of:
 - `factor_count`;
 - `places`, where each mixed column's problem values sit.
 
-## Scope
+### `factor-leakage`
 
-The scope evaluators read one source's labels, and, for coverage and prioritization, its embeddings through the
-task's extractor. `representation` is explained in DataEval's
-[Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html), and the classes are
-documented in the
-[DataEval `dataeval.scope` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/scope/index.html).
+The raw values of named metadata factors that two sources hold, with the number of items each holds them in. It reads
+each factor as the dataset recorded it, whatever the policy's `exclude` says, because group factors such as scene,
+sequence or site IDs are the high-cardinality columns a policy usually excludes. A level-prefixed name (`unit_scene`)
+matches its bare form. A source that lacks a named factor fails the run, naming the source. The `leakage` check judges
+the values both sources share. Configured by {py:class}`~dataeval_flow.evaluators.quality.FactorLeakageConfig`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `metadata` | (DataEval Flow) the name of a `metadata:` policy | DataEval's default encoding |
+| `factors` | (DataEval Flow) the factors to compare, by name | required |
+
+Output: a mapping of `sources`, `items` and `factors`, each factor's values with their item counts in the first and the
+second source.
 
 ### `content-digest`
 
@@ -232,6 +242,14 @@ attached to that item. Neither depends on the items' order. Configured by
 
 Output: a mapping of `content` and `metadata`, each 64 hex characters, `items`, how many items were read, and
 `scheme`, the version of the digest scheme.
+
+## Scope
+
+The scope evaluators read one source's labels, and, for coverage and prioritization, its embeddings through the
+task's extractor. `representation` is explained in DataEval's
+[Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html), and the classes are
+documented in the
+[DataEval `dataeval.scope` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/scope/index.html).
 
 ### `representation`
 
@@ -454,6 +472,19 @@ it separates well. Configured by {py:class}`~dataeval_flow.evaluators.shift.OODD
 | `threshold_perc` | `threshold_perc`, 0 to 100; overrides `n_std` | `n_std` sets the threshold |
 
 Output: a mapping. `is_ood` and `instance_score` hold one value per test item, and `feature_score` is `null`.
+
+### `divergence`
+
+How far apart two sources' embeddings sit, from 0 (they overlap) to 1 (they are wholly apart), counted over the minimum
+spanning tree of both sources together (`mst`) or by nearest-neighbour disagreement (`fnn`). It is a distance, not a
+test: the `distribution-shift` check judges it. Configured by
+{py:class}`~dataeval_flow.evaluators.shift.DivergenceConfig`; runs `dataeval.core.divergence_mst` or `divergence_fnn`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `method` | (DataEval Flow) `mst` or `fnn` | `mst` |
+
+Output: a mapping of `divergence`, `errors` and `method`.
 
 ## Not in the catalog yet
 
