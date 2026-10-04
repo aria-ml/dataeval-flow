@@ -1,3 +1,4 @@
+dataeval_flow:DatasetDigest
 dataeval_flow:InputKind
 dataeval_flow:InputSpec
 dataeval_flow:MatrixResult
@@ -7,6 +8,7 @@ dataeval_flow:Result
 dataeval_flow:ResultMetadata
 dataeval_flow:SourceCount
 dataeval_flow:__version__
+dataeval_flow:dataset_digest
 dataeval_flow:load_config
 dataeval_flow:load_dataset
 dataeval_flow:run

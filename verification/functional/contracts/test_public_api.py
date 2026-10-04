@@ -9,11 +9,13 @@ pytestmark = pytest.mark.required
 PUBLIC_API = [
     "load_config",
     "load_dataset",
+    "dataset_digest",
     "run",
     "run_task",
     "run_tasks",
     "set_device",
     "PipelineConfig",
+    "DatasetDigest",
     "Result",
     "MatrixResult",
     "MatrixRun",

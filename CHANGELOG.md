@@ -8,6 +8,9 @@
   task's extractor runtime (PyTorch, ONNX Runtime or OpenCV)
 - `provenance:` on `datasets:` entries: facts Flow can't measure, such as owner, licence, origin and collection date,
   as names and plain values recorded in `resolved_config` as written; it is no part of the cache key
+- `dataset_digest()`: SHA-256 digests over every item of a dataset, of its images, labels and class names
+  (`content`) and of its metadata (`metadata`), whatever the items' order, so a training job can check its data is
+  the data that was audited
 - `label-space` preset: a dataset's labels judged against a declared ontology, as legacy data-coverage judged them
   with `ontology:` set: leaf coverage and the worklist, conformance, alignment with the `Relabel` stanza, and the
   ontology's structure. Its `health_thresholds` are keyed by check type: `leaf-coverage` (`coverage`,
