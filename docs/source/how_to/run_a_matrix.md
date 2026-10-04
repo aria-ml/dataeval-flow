@@ -313,7 +313,7 @@ relies on them. The load refuses:
 - an entry's `name` and `type` (an extractor's `name` and `model`, a custom workflow's `inputs`), and a list item's
   `name`: `` `type` varies `type`, which says which entry this is: a matrix varies settings, not identities ``;
 - on a custom workflow's step, its kind (`evaluator`, `workflow`, `transform`, `combine`, `check`), `name`, `input`,
-  `by`, `optional` and `extractor`;
+  `by`, `optional`, `pairs` and `extractor`;
 - an `export` step's `to`, since each run already writes under a directory of its own (section 6);
 - `steps.<step>.…` where the step runs an evaluator or workflow entry, with the key to use instead:
   `` `steps.knn.k`: step 'knn' runs the evaluator entry `knn`, whose settings live there: vary `evaluators.knn.k` ``;

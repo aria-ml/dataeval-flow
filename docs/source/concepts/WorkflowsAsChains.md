@@ -51,7 +51,7 @@ Each step names exactly one kind:
 | `check:` | a registered check, with its thresholds beside it | findings, each `ok`, `info` or `warning` |
 
 An evaluator or workflow step takes its settings from the entry it names. The step itself holds only what it reads,
-and optionally `extractor:` and `optional:`. A custom workflow cannot run as a step of another.
+and optionally `extractor:`, `optional:` and `pairs:`. A custom workflow cannot run as a step of another.
 
 Transform steps make Datasets. The [Transform Catalog](../reference/transforms.md) lists each one's settings:
 
@@ -165,6 +165,10 @@ A key missing from one of the lists skips that element, and the reason names the
 makes each element's findings, and the report groups them under the element's key. Lists do not nest: a step that
 outputs lists refuses a list where it reads one Dataset. An `export` handed a list writes each element in a directory of
 its own, named by its key.
+
+A step reading two Datasets through one input can run over the pairs of one list: with `pairs: true`, a `duplicates`
+step over `evals` runs once per unordered pair, in list order, keyed `val_vs_test`. A list of one element gives it no
+pair, and it leaves one record saying so.
 
 ## Workflow types as presets
 

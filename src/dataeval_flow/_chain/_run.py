@@ -7,6 +7,7 @@ import logging
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field, replace
+from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -15,7 +16,7 @@ from dataeval_flow._chain._identity import element_key, output_key, settings_of,
 from dataeval_flow._chain._nodes import Missing, Node, NodeList, Root
 from dataeval_flow._chain._reads import MetadataRead, ReadingContext, note_read, noting_reads
 from dataeval_flow._result import LabelSpaceRecord, LineageRecord, failure_message
-from dataeval_flow.steps._address import Address
+from dataeval_flow.steps._address import Address, pair_key, pair_keys
 from dataeval_flow.steps._by import roll_up
 from dataeval_flow.steps._check import Check, CheckContext
 from dataeval_flow.steps._combine import Combine, CombineContext
@@ -198,7 +199,14 @@ def _run_step(
     if empty is not None:
         record, outputs = _unassessed(spec, inputs_text, empty, None)
         return record, _by_address(spec, outputs), []
-    keys = _broadcast_keys(spec, bound)
+    try:
+        keys = _broadcast_keys(spec, bound)
+    except ValueError as error:  # two pairs of a list share a key: a source's name is the cause, known only now
+        return (
+            _failed(spec, inputs_text, [f"Step '{spec.name}' pairs {error}"], time.monotonic(), None),
+            _by_address(spec, _missing_outputs(spec, _failure_word(spec))),
+            [],
+        )
     if keys is None:
         record, outputs, records = _attempt(spec, _shaped(spec, bound), settings, None, inputs_text, lineage, applied)
         return record, _by_address(spec, outputs), records
@@ -296,6 +304,9 @@ def _broadcast_keys(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> list[s
     ]
     if not lists:
         return None
+    if spec.pairs:
+        (listed,) = lists  # a pairwise step reads its one list alone (the graph refused anything else)
+        return pair_keys(list(listed.elements))
     keys: list[str] = []
     for value in lists:
         keys.extend(key for key in value.elements if key not in keys)
@@ -314,7 +325,9 @@ def _empty_reason(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> str:
     reason = next((value.reason for _, value in lists if value.reason is not None), None)
     if reason is not None:
         return reason
-    address, _ = lists[0]
+    address, value = lists[0]
+    if spec.pairs and value.elements:
+        return f"`{address}` holds one element, so it has no pair"
     return f"`{address}` holds no element"
 
 
@@ -352,9 +365,9 @@ def _broadcast(
         chosen, gap = _pick(spec, bound, key)
         element_inputs = _element_inputs(spec, bound, key)
         if gap is not None and spec.kind == "check":
-            elements[key], outputs = _unassessed(spec, element_inputs, _element_gap(gap, key, steps), key)
+            elements[key], outputs = _unassessed(spec, element_inputs, _element_gap(gap, steps), key)
         elif gap is not None:
-            elements[key] = _skipped(spec, element_inputs, _element_reason(gap, key))
+            elements[key] = _skipped(spec, element_inputs, _element_reason(gap))
             outputs = _missing_outputs(spec, "was skipped")
         else:
             elements[key], outputs, records = _attempt(
@@ -391,40 +404,52 @@ def _pick(
     for binding in spec.bindings:
         picked: list[Any] = []
         for address, value in zip(binding.addresses, bound[binding.port.name], strict=True):
-            if isinstance(value, NodeList) and not binding.port.is_list:
-                element = value.elements.get(key)
-                if gap is None and not isinstance(element, Node):
-                    gap = (address, element)
-                picked.append(element)
-            else:
+            if not isinstance(value, NodeList) or binding.port.is_list:
                 picked.append(value)
+                continue
+            for part in _parts(spec, value, key):
+                element = value.elements.get(part)
+                if gap is None and not isinstance(element, Node):
+                    gap = (replace(address, key=part), element)
+                picked.append(element)
         chosen[binding.port.name] = picked
     return chosen, gap
 
 
+def _parts(spec: StepSpec, value: NodeList, key: str) -> tuple[str, ...]:
+    """The keys of `value`'s elements run `key` reads: `key` itself, or, for a pairwise step, the pair it names."""
+    if not spec.pairs:
+        return (key,)
+    return next(pair for pair in combinations(value.elements, 2) if pair_key(*pair) == key)
+
+
 def _element_inputs(spec: StepSpec, bound: Mapping[str, list[_Value]], key: str) -> list[str]:
-    """The addresses element `key` of a broadcast reads: each list on a port that takes one item, narrowed to `key`."""
-    return [
-        f"{address}[{key}]" if isinstance(value, NodeList) and not binding.port.is_list else str(address)
-        for binding in spec.bindings
-        for address, value in zip(binding.addresses, bound[binding.port.name], strict=True)
-    ]
+    """The addresses element `key` of a broadcast reads: each list on a port that takes one item, narrowed to `key`
+    (to its two elements, for a pairwise step)."""
+    inputs: list[str] = []
+    for binding in spec.bindings:
+        for address, value in zip(binding.addresses, bound[binding.port.name], strict=True):
+            if isinstance(value, NodeList) and not binding.port.is_list:
+                inputs.extend(str(replace(address, key=part)) for part in _parts(spec, value, key))
+            else:
+                inputs.append(str(address))
+    return inputs
 
 
-def _element_reason(gap: tuple[Address, Missing | None], key: str) -> str:
-    """Why element `key` of a step cannot run: its list has no such element, or holds nothing there."""
+def _element_reason(gap: tuple[Address, Missing | None]) -> str:
+    """Why an element of a step cannot run: its list has no such element, or holds nothing there."""
     address, missing = gap
     if missing is None:
-        return f"`{address}` has no element `{key}`"
-    return f"needs `{address}[{key}]`, which {missing.reason}"
+        return f"`{address.base}` has no element `{address.key}`"
+    return f"needs `{address}`, which {missing.reason}"
 
 
-def _element_gap(gap: tuple[Address, Missing | None], key: str, steps: Mapping[str, StepResult]) -> str:
-    """What element `key` of a check could not assess, with the cause its producer recorded for that element."""
+def _element_gap(gap: tuple[Address, Missing | None], steps: Mapping[str, StepResult]) -> str:
+    """What an element of a check could not assess, with the cause its producer recorded for that element."""
     address, missing = gap
     if missing is None:
-        return f"`{address}` has no element `{key}`"
-    return _gap_text(replace(address, key=key), missing, steps)
+        return f"`{address.base}` has no element `{address.key}`"
+    return _gap_text(address, missing, steps)
 
 
 def _overall(elements: Iterable[StepResult]) -> StepStatus:
@@ -709,16 +734,11 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
 
 
 def _stats_union(step: StepContext, node: Node, element: str | None) -> "ResolvedStatsPolicy | None":
-    """The stats union preflight planned for `node`: by its address, or, as element `element` of a list the step runs
-    over, by the list's; ``None`` where it planned none."""
+    """The stats union preflight planned for `node`: by its address, or, run once per element (or pair of elements)
+    of a list, by that list's; ``None`` where it planned none."""
     union = step.stats_unions.get(node.address)
     if union is None and element is not None:
-        listed = (
-            planned
-            for address, planned in step.stats_unions.items()
-            if str(Address(address, key=element)) == node.address
-        )
-        union = next(listed, None)
+        union = step.stats_unions.get(node.address.partition("[")[0])
     return union
 
 

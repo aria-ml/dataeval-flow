@@ -97,6 +97,14 @@ class StepEntry(BaseModel):
         ),
     )
 
+    pairs: bool = Field(
+        default=False,
+        description=(
+            "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: "
+            "for a step that reads two Datasets through one input."
+        ),
+    )
+
     _config: StepConfig | None = PrivateAttr(default=None)
 
     @property
@@ -160,6 +168,8 @@ class StepEntry(BaseModel):
             written["extractor"] = self.extractor
         if self.optional:
             written["optional"] = True
+        if self.pairs:
+            written["pairs"] = True
         if self.by is not None:
             written["by"] = data["by"]
         written.update({key: data[key] for key in self.settings if key in data})

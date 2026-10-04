@@ -9,6 +9,8 @@
   nothing
 - A check port reading several whole lists is not assessed only when every list on it is empty, and a port declared
   `may_be_empty` is judged even then
+- `pairs: true` on a step reading two Datasets through one input: it runs once per unordered pair of one list's
+  elements, keyed `a_vs_b`
 - `library_versions` on every result's metadata: the installed version of DataEval, PyTorch, NumPy, Pillow, datamaite,
   OpenCV (where installed) and the task's extractor runtime (such as ONNX Runtime)
 - `provenance:` on `datasets:` entries: facts Flow can't measure, such as owner, licence, origin and collection date,

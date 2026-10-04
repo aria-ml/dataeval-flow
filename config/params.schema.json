@@ -441,6 +441,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -521,6 +527,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -571,6 +583,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -638,6 +656,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -722,6 +746,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -786,6 +816,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -888,6 +924,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -970,6 +1012,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1034,6 +1082,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -1117,6 +1171,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1167,6 +1227,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -1228,6 +1294,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1278,6 +1350,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -1375,6 +1453,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1457,6 +1541,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1522,6 +1612,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -1640,6 +1736,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1713,6 +1815,12 @@
           "title": "Optional",
           "type": "boolean"
         },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
         "by": {
           "anyOf": [
             {
@@ -1779,6 +1887,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         },
         "by": {
@@ -2373,6 +2487,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2452,6 +2572,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2520,6 +2646,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -2593,6 +2725,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2639,6 +2777,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -5828,6 +5972,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -9996,6 +10146,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -10082,6 +10238,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -10166,6 +10328,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -10205,6 +10373,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -10250,6 +10424,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -10320,6 +10500,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -10408,6 +10594,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -10472,6 +10664,12 @@
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
           "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
         }
       },
       "required": [
@@ -10528,6 +10726,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
@@ -10800,6 +11004,12 @@
           "default": false,
           "description": "Whether a failure is recorded as a skip that does not fail the task.",
           "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
           "type": "boolean"
         }
       },
