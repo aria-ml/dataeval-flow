@@ -165,10 +165,10 @@ class ResultMetadata(BaseModel):
     library_versions: dict[str, str] = Field(
         default_factory=dict,
         description=(
-            "The installed version of each library the run's numbers depend on, by distribution name: DataEval, NumPy, "
-            "Pillow and datamaite, and the runtime of the task's extractor, such as PyTorch or ONNX Runtime, where it "
-            "names one. A DataEval upgrade can move a score, and a different image decoder can change the pixels a "
-            "content digest hashes, so a result records them beside `tool_version`."
+            "The installed version of each library the run's numbers depend on, by distribution name: DataEval, "
+            "PyTorch, NumPy, Pillow, datamaite and OpenCV where installed, and the runtime of the task's extractor, "
+            "such as ONNX Runtime, where it names one. A DataEval upgrade can move a score, and a different image "
+            "decoder can change the pixels a content digest hashes, so a result records them beside `tool_version`."
         ),
     )
     metadata_binning: dict[str, Any] | None = Field(

@@ -4,8 +4,8 @@
 
 ### Added
 
-- `library_versions` on every result's metadata: the installed version of DataEval, NumPy, Pillow, datamaite and the
-  task's extractor runtime (PyTorch, ONNX Runtime or OpenCV)
+- `library_versions` on every result's metadata: the installed version of DataEval, PyTorch, NumPy, Pillow, datamaite,
+  OpenCV (where installed) and the task's extractor runtime (such as ONNX Runtime)
 - `provenance:` on `datasets:` entries: facts Flow can't measure, such as owner, licence, origin and collection date,
   as names and plain values recorded in `resolved_config` as written; it is no part of the cache key
 - `dataset_digest()`: SHA-256 digests over every item of a dataset, of its images, labels and class names

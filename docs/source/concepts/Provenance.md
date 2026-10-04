@@ -43,8 +43,8 @@ interpret the findings, including:
 - the **resolved configuration** that produced the result — the fully-resolved
   description of the run, serving as an audit trail, and
 - the **tool name and version** plus the **execution time**, and the **versions of the
-  libraries** the numbers depend on: DataEval, NumPy, the image decoders and the
-  extractor's runtime.
+  libraries** the numbers depend on: DataEval, PyTorch, NumPy, the image decoders
+  (Pillow, datamaite, OpenCV) and the extractor's runtime.
 
 Recording this context in a fixed, versioned structure is what lets results be
 archived, compared across runs, and consumed by other tools without out-of-band

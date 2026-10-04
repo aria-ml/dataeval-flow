@@ -1,6 +1,6 @@
 """`library_versions` on every result: the installed version of each library its numbers depend on (audit spec §7.3)."""
 
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 from types import SimpleNamespace
 
 import pytest
@@ -15,11 +15,21 @@ from dataeval_flow.config.extractors import (
 )
 from tests.evaluator_toys import toy_run
 
-_ALWAYS = ("dataeval", "numpy", "pillow", "datamaite")
+_ALWAYS = ("dataeval", "numpy", "pillow", "datamaite", "opencv-python-headless", "opencv-python", "torch")
 
 
-def test_every_run_depends_on_dataeval_numpy_pillow_and_datamaite() -> None:
-    assert library_versions() == {name: version(name) for name in _ALWAYS}
+def _installed(name: str) -> bool:
+    try:
+        version(name)
+    except PackageNotFoundError:
+        return False
+    return True
+
+
+def test_every_run_records_the_libraries_that_decode_and_compute() -> None:
+    assert library_versions() == {name: version(name) for name in _ALWAYS if _installed(name)}
+    if _installed("opencv-python-headless"):
+        assert library_versions()["opencv-python-headless"] == version("opencv-python-headless")
 
 
 def test_the_extractors_runtime_is_recorded_where_installed() -> None:
@@ -47,4 +57,4 @@ def test_a_result_records_them_in_its_envelope() -> None:
 
 
 def test_a_flatten_extractor_adds_no_runtime() -> None:
-    assert set(toy_run("coverage").metadata.library_versions) == set(_ALWAYS)
+    assert set(toy_run("coverage").metadata.library_versions) == set(library_versions())
