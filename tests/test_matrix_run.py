@@ -297,3 +297,10 @@ def test_run_task_with_a_matrix_task_naming_no_entry_says_which() -> None:
     )
     with pytest.raises(ValueError, match="Unknown workflow: 'missing'"):
         run_task(task, config)
+
+
+def test_a_matrix_result_records_library_versions() -> None:
+    from dataeval_flow._versions import library_versions
+
+    result = _matrix(_config({"outlier_threshold": [2.0, 3.0]}))
+    assert result.metadata.library_versions == library_versions()

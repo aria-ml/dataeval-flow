@@ -42,7 +42,9 @@ interpret the findings, including:
 - human-readable **source descriptions**,
 - the **resolved configuration** that produced the result — the fully-resolved
   description of the run, serving as an audit trail, and
-- the **tool name and version** plus the **execution time**.
+- the **tool name and version** plus the **execution time**, and the **versions of the
+  libraries** the numbers depend on: DataEval, PyTorch, NumPy, the image decoders
+  (Pillow, datamaite, OpenCV) and the extractor's runtime.
 
 Recording this context in a fixed, versioned structure is what lets results be
 archived, compared across runs, and consumed by other tools without out-of-band
@@ -99,6 +101,43 @@ the downstream result's digest equals the digest of the audit that justified its
 vocabulary, so matching the two is a comparison of one value. An exported dataset
 carries the same digest in its provenance sidecar, which extends the join to the
 dataset itself.
+
+## Where a dataset came from
+
+Some provenance can't be measured: who owns a dataset, its licence, and where and when
+it was collected. A `datasets:` entry records these in `provenance:`, as names mapped to
+text, numbers or booleans:
+
+    datasets:
+      - name: fleet
+        format: coco
+        path: fleet
+        provenance: {owner: Perception team, license: CC-BY-4.0, collected: 2025-06-01}
+
+Flow doesn't check the values. Each result records them as written, in the dataset's
+entry in `resolved_config`, and a date is kept as ISO 8601 text. The names `owner`,
+`license`, `origin` and `collected` are suggestions, not a schema. `provenance:` is no
+part of the dataset's cache key, so adding or editing it never recomputes anything.
+
+The word also names two other things: this page's metadata envelope, and the
+`provenance.json` an export writes beside a dataset. `provenance:` on a dataset is the
+part people supply.
+
+## Pinning the data a result read
+
+A result names its datasets, but a name doesn't prove the data behind it is unchanged.
+The `content-digest` evaluator reads every item of a source and records two SHA-256
+digests: one over each item's image and labels and the class names, which is what a
+model trains on, and one over each item's metadata, as attached to that item. The items'
+order doesn't change them; adding, removing or editing any item does. It never reads
+through the cache, whose key samples only some items, so an edit between the samples
+can't hide from it.
+
+`dataeval_flow.dataset_digest()` computes the same digests in Python. A training job can
+call it on the data it is about to train on and refuse to start when the content digest
+differs from the one a run recorded. Images are hashed as decoded pixels, which a
+different decoder can change slightly, so compare digests made with the same
+`library_versions`.
 
 ## Provenance enables interoperability
 

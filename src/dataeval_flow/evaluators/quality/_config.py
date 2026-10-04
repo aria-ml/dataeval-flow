@@ -5,7 +5,7 @@ default applies. Each model constructs its DataEval evaluator when it validates,
 argument DataEval refuses fails the config load with DataEval's own message.
 """
 
-__all__ = ["DuplicatesConfig", "FactorTriageConfig", "LabelHealthConfig", "OutliersConfig"]
+__all__ = ["ContentDigestConfig", "DuplicatesConfig", "FactorTriageConfig", "LabelHealthConfig", "OutliersConfig"]
 
 import functools
 import operator
@@ -20,6 +20,7 @@ from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConf
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators._threshold import ThresholdSpec
 from dataeval_flow.evaluators.quality._result import (
+    ContentDigestResult,
     DuplicatesResult,
     FactorTriageResult,
     LabelHealthResult,
@@ -352,6 +353,27 @@ class LabelHealthConfig(EvaluatorConfig[LabelHealthResult], MetadataConfigMixin)
 
     type: str = Field(default="label-health", description="The evaluator type this entry configures: `label-health`.")
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)
+
+
+class ContentDigestConfig(EvaluatorConfig[ContentDigestResult]):
+    """Config for ``content-digest``: SHA-256 digests of every item a Dataset holds.
+
+    Reads each item from the Dataset itself, never through a cache, and digests its image and labels (the content
+    digest, with the class names) and its metadata (the metadata digest), whatever the items' order.
+    :func:`~dataeval_flow.dataset_digest` computes the same values, so a training job can check it holds the data a
+    run read. It takes no settings.
+
+    Example YAML::
+
+        evaluators:
+          - name: digest
+            type: content-digest
+    """
+
+    type: str = Field(
+        default="content-digest", description="The evaluator type this entry configures: `content-digest`."
+    )
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.DATASET}), sources=SourceCount.ONE)
 
 
 class FactorTriageConfig(EvaluatorConfig[FactorTriageResult], MetadataConfigMixin):

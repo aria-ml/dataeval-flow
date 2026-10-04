@@ -4,6 +4,15 @@
 
 ### Added
 
+- `library_versions` on every result's metadata: the installed version of DataEval, PyTorch, NumPy, Pillow, datamaite,
+  OpenCV (where installed) and the task's extractor runtime (such as ONNX Runtime)
+- `provenance:` on `datasets:` entries: facts Flow can't measure, such as owner, licence, origin and collection date,
+  as names and plain values recorded in `resolved_config` as written; it is no part of the cache key
+- `dataset_digest()`: SHA-256 digests over every item of a dataset, of its images, labels and class names
+  (`content`) and of its metadata (`metadata`), whatever the items' order, so a training job can check its data is
+  the data that was audited
+- `content-digest` evaluator: `dataset_digest()`'s digests of a source, read from every item with no cache between,
+  through a new `dataset` input kind that hands an evaluator the Dataset itself
 - `label-space` preset: a dataset's labels judged against a declared ontology, as legacy data-coverage judged them
   with `ontology:` set: leaf coverage and the worklist, conformance, alignment with the `Relabel` stanza, and the
   ontology's structure. Its `health_thresholds` are keyed by check type: `leaf-coverage` (`coverage`,
@@ -19,7 +28,7 @@
 - Every tool computes on CUDA when PyTorch sees a GPU, else the CPU; `dataeval_flow.set_device` chooses from Python,
   and `CUDA_VISIBLE_DEVICES` hides GPUs. A config names no device
 - `device` on every result's metadata: the device its task computed on, such as `cuda:0 (NVIDIA L4)`
-- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's twenty-two types
+- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's twenty-three types
 - `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
 - `dataeval-flow evaluators` command listing evaluator types, what each consumes, and their parameter schemas

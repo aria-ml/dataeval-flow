@@ -1,6 +1,7 @@
 """Dataset configuration schemas — one class per format."""
 
 from collections.abc import Mapping, Sequence
+from datetime import date
 from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -46,6 +47,16 @@ class _DatasetConfigBase(BaseModel):
         ),
     )
 
+    provenance: dict[str, str | int | float | bool] | None = Field(
+        default=None,
+        description=(
+            "Facts about this dataset that Flow can't measure, such as who owns it, its licence, and where and when it "
+            "was collected: names mapped to text, numbers or booleans, recorded in each result's `resolved_config` as "
+            "written. A date is kept as ISO 8601 text. Suggested names are `owner`, `license`, `origin` and "
+            "`collected`. Not part of the dataset's cache key, since it changes nothing Flow computes."
+        ),
+    )
+
     @field_validator("path")
     @classmethod
     def _path_must_be_relative(cls, v: str) -> str:
@@ -83,6 +94,15 @@ class _DatasetConfigBase(BaseModel):
                 raise ValueError(f"Channel group {name!r} names no bands. Give it an index or a list of indices.")
             if any(index < 0 for index in indices):
                 raise ValueError(f"Channel group {name!r} names a negative band index. Band indices start at 0.")
+        return value
+
+    @field_validator("provenance", mode="before")
+    @classmethod
+    def _dates_as_text(cls, value: Any) -> Any:
+        """Keep a date (YAML reads `collected: 2025-06-01` as one) as its ISO 8601 text, so the mapping stays plain
+        JSON wherever it is written."""
+        if isinstance(value, Mapping):
+            return {key: item.isoformat() if isinstance(item, date) else item for key, item in value.items()}
         return value
 
 

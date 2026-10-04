@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     import numpy as np
     from dataeval import Metadata, Ontology
     from dataeval.core import ClusterResult, StatsResult
+    from dataeval.protocols import AnnotatedDataset
     from numpy.typing import NDArray
 
     from dataeval_flow._policy import ResolvedPolicy
@@ -27,12 +28,16 @@ class EvaluatorInputs:
     ``stats`` sets ``stats`` and ``stats_policy``; ``clusters`` sets ``clusters`` and ``embeddings``;
     ``embeddings`` sets ``embeddings``, and ``predictions`` where the
     extractor runs a model; ``metadata`` sets ``metadata`` and ``metadata_policy``; ``labels`` sets
-    ``labels`` and ``index2label``. ``ontology`` and ``ontology_source`` are the task's, set on every source whatever
-    the run wants. ``label_source`` is the source's, set on every source whatever the run wants.
+    ``labels`` and ``index2label``; ``dataset`` sets ``dataset``. ``ontology`` and ``ontology_source`` are the task's,
+    set on every source whatever the run wants. ``label_source`` is the source's, set on every source whatever the run
+    wants.
     """
 
     source: str
     """The source's name, as the task names it."""
+    dataset: "AnnotatedDataset[Any] | None" = None
+    """The source's Dataset itself, after its view, when the run wants ``dataset``: for an evaluator that reads every
+    item as it is, with no cache between them, as ``content-digest`` does."""
     stats: "StatsResult | None" = None
     """DataEval's image statistics for the source, when the run wants ``stats``."""
     stats_policy: "ResolvedStatsPolicy | None" = None

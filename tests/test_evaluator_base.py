@@ -61,7 +61,8 @@ class TestInputKind:
         assert {kind for kind in InputKind if kind.needs_extractor} == {InputKind.CLUSTERS, InputKind.EMBEDDINGS}
 
     def test_values_are_the_names_proposed_to_dataeval(self):
-        assert [kind.value for kind in InputKind] == ["stats", "clusters", "metadata", "labels", "embeddings"]
+        kinds = ["stats", "clusters", "metadata", "labels", "embeddings", "dataset"]
+        assert [kind.value for kind in InputKind] == kinds
 
 
 class TestInputSpec:

@@ -38,6 +38,7 @@ Discovery helpers live with each kind, and list every installed type, plugins in
 """
 
 from dataeval_flow._dataset import load_dataset
+from dataeval_flow._digest import DatasetDigest, dataset_digest
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow._matrix._result import MatrixResult, MatrixRun
 from dataeval_flow._orchestrator import run_task, run_tasks, set_device
@@ -49,11 +50,13 @@ from dataeval_flow.config._models import PipelineConfig
 __all__ = [
     "load_config",
     "load_dataset",
+    "dataset_digest",
     "run",
     "run_task",
     "run_tasks",
     "set_device",
     "PipelineConfig",
+    "DatasetDigest",
     "Result",
     "MatrixResult",
     "MatrixRun",

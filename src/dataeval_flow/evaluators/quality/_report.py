@@ -4,6 +4,7 @@ data-cleaning and data-analysis report with them too.
 """
 
 __all__ = [
+    "content_digest_section",
     "OutlierIssueRecord",
     "OutlierIssuesDict",
     "duplicate_section",
@@ -346,6 +347,17 @@ def _members(row: Mapping[str, Any], sources: Sequence[str]) -> list[ItemRef]:
         )
         for item, target, dataset in zip(items, targets, datasets, strict=True)
     ]
+
+
+def content_digest_section(output: Mapping[str, Any]) -> list[Block]:
+    """A ``content-digest`` Output's report: the item count and both digests, in full."""
+    data = output.get("data") or {}
+    fields: list[tuple[str, Scalar]] = [
+        ("Items", data.get("items")),
+        ("Content digest", data.get("content")),
+        ("Metadata digest", data.get("metadata")),
+    ]
+    return [Fields(items=fields)]
 
 
 def label_health_section(output: Mapping[str, Any]) -> list[Block]:

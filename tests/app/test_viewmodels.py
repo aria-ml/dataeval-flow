@@ -676,3 +676,17 @@ def test_editing_a_task_keeps_its_matrix() -> None:
     built = vm.build_result("t", None, {"workflow": "w", "sources": "src"})
     assert built is not None
     assert built["matrix"] == {"outlier_threshold": [1.0, 2.0]}
+
+
+def test_the_dataset_form_leaves_provenance_to_yaml() -> None:
+    names = [descriptor.name for descriptor in SectionViewModel("datasets").load_fields("huggingface")]
+    assert "provenance" not in names
+    assert "path" in names
+
+
+def test_editing_a_dataset_keeps_its_provenance() -> None:
+    existing = {"name": "d", "format": "huggingface", "path": "./d", "provenance": {"owner": "Perception team"}}
+    vm = SectionViewModel("datasets", existing=existing)
+    built = vm.build_result("d", "huggingface", {"path": "./d"})
+    assert built is not None
+    assert built["provenance"] == {"owner": "Perception team"}

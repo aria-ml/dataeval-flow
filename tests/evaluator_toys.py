@@ -83,6 +83,26 @@ class ToyFactors:
         return self._images[index], target, {"site": ["north", "south", "east"][index % 3], "angle": float(index % 7)}
 
 
+class Items:
+    """A dataset of exactly the items given, with the class names given (``{0: "a", 1: "b"}`` by default).
+
+    ``Items(items, metadata=False)`` gives it no ``metadata`` attribute at all, as some datasets have none.
+    """
+
+    def __init__(
+        self, items: Sequence[Any], index2label: Mapping[int, str] | None = None, *, metadata: bool = True
+    ) -> None:
+        self._items = list(items)
+        if metadata:
+            self.metadata = {"id": "items", "index2label": dict(index2label or {0: "a", 1: "b"})}
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+    def __getitem__(self, index: int) -> Any:
+        return self._items[index]
+
+
 def toy_pipeline(
     *,
     evaluators: Sequence[Any] = (),
@@ -142,6 +162,7 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "duplicates": lambda count: (ToyImages(count=count), None),
     "label-health": lambda count: (ToyImages(count=count), None),
     "factor-triage": lambda count: (ToyFactors(count=count), None),
+    "content-digest": lambda count: (ToyImages(count=count), None),
     "metadata-summary": lambda count: (ToyFactors(count=count), None),
     "outliers": lambda count: (ToyImages(count=count), None),
     "balance": lambda count: (ToyFactors(count=count), None),

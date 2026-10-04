@@ -169,6 +169,7 @@ def _envelope(
 
     from dataeval_flow import __version__
     from dataeval_flow._orchestrator import _device_name, _source_description
+    from dataeval_flow._versions import library_versions
 
     metadata = result.metadata
     datasets = list(
@@ -182,6 +183,7 @@ def _envelope(
     metadata.dataset_id = datasets[0] if len(datasets) == 1 else ",".join(datasets)
     metadata.source_descriptions = [_source_description(source.resolved) for source in drawn.values()]
     metadata.tool_version = __version__
+    metadata.library_versions = library_versions(setup.config if setup is not None else None)
     metadata.execution_time_s = round(elapsed, 3)
     metadata.device = _device_name(get_device())
     if setup is not None:

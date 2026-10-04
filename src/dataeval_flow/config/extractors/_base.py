@@ -37,6 +37,9 @@ class ExtractorConfig(BaseModel):
     - A model file, if the extractor loads one, as a ``model_path`` field, relative to the data root. Before the
       extractor builds, Flow resolves it there, and in the root's ``models`` folder when it is not found there; it
       keys the cache by the file's contents as well.
+    - ``runtime_distributions``, optionally: the distributions the extractor's model runs on, as a class variable
+      (``runtime_distributions: ClassVar[tuple[str, ...]] = ("onnxruntime",)``). Each one installed is recorded in a
+      result's ``library_versions``.
 
     A config has no entry point of its own: Flow finds it through its extractor's ``config_type`` (see
     :class:`Extractor`).
@@ -60,6 +63,9 @@ class ExtractorConfig(BaseModel):
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+    runtime_distributions: ClassVar[tuple[str, ...]] = ()
+    """The distributions the extractor's model runs on, such as ``("onnxruntime", "onnxruntime-gpu")``. Each one
+    installed is recorded in a result's ``library_versions``."""
 
     # Filled from ``model`` before validation when omitted. The factory marks the field optional, so type
     # checkers accept a config built without a name.

@@ -122,6 +122,12 @@ def produce_embeddings(pc: ProducerContext) -> dict[str, Any]:
     return {"embeddings": np.asarray(pc.workflow_context.embeddings(pc.source))}
 
 
+def produce_dataset(pc: ProducerContext) -> dict[str, Any]:
+    """The source's Dataset itself, after its view, for an evaluator that reads every item as it is. Nothing is
+    derived from it and no cache stands between the evaluator and the items."""
+    return {"dataset": pc.dataset}
+
+
 # The producer for each input kind.
 PRODUCERS: Mapping[InputKind, Producer] = {
     InputKind.STATS: produce_stats,
@@ -129,4 +135,5 @@ PRODUCERS: Mapping[InputKind, Producer] = {
     InputKind.METADATA: produce_metadata,
     InputKind.LABELS: produce_labels,
     InputKind.EMBEDDINGS: produce_embeddings,
+    InputKind.DATASET: produce_dataset,
 }

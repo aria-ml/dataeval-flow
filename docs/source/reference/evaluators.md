@@ -19,6 +19,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | `outliers` | `dataeval.quality.Outliers` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 | `label-health` | `dataeval.core.label_stats` | metadata | 1 | refused |
 | `factor-triage` | `dataeval.Metadata` | metadata | 1 | refused |
+| `content-digest` | `dataeval_flow.dataset_digest` | the Dataset itself, every item | 1 | refused |
 | `representation` | `dataeval.scope.Representation` | labels | 1 | refused |
 | `coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
 | `prioritize` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
@@ -220,6 +221,17 @@ task's extractor. `representation` is explained in DataEval's
 [Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html), and the classes are
 documented in the
 [DataEval `dataeval.scope` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/scope/index.html).
+
+### `content-digest`
+
+SHA-256 digests of every item the source holds, read from the Dataset itself and never through a cache: a content
+digest over each item's image and labels and the class names, and a metadata digest over each item's metadata, as
+attached to that item. Neither depends on the items' order. Configured by
+{py:class}`~dataeval_flow.evaluators.quality.ContentDigestConfig`, which takes no parameters.
+{py:func}`~dataeval_flow.dataset_digest` computes the same values in Python.
+
+Output: a mapping of `content` and `metadata`, each 64 hex characters, `items`, how many items were read, and
+`scheme`, the version of the digest scheme.
 
 ### `representation`
 
