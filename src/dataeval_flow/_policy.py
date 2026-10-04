@@ -13,7 +13,7 @@ walked, so a misspelled factor or a descriptor that does not exist costs a confi
 not an hour.
 """
 
-__all__ = ["ResolvedPolicy", "build_correction", "policy_for", "policy_key", "resolve_policy"]
+__all__ = ["ResolvedPolicy", "build_correction", "policy_for", "policy_key", "resolve_policy", "strip_row_level"]
 
 import json
 import logging
@@ -50,6 +50,16 @@ _LEGACY_FIELDS: tuple[str, ...] = (
 # dataset, because this check runs before the dataset is walked and must not need to know
 # whether the data is IC or OD to catch the collision.
 _ROW_LEVELS: tuple[str, ...] = ("sequence", "unit", "track", "instance")
+
+
+def strip_row_level(name: str) -> str:
+    """`name` without one leading row-level prefix (`unit_scene` → `scene`): how a level-prefixed factor matches its
+    bare form."""
+    for level in _ROW_LEVELS:
+        prefix = f"{level}_"
+        if name.startswith(prefix):
+            return name[len(prefix) :]
+    return name
 
 
 @dataclass(frozen=True)

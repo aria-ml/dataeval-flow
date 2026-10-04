@@ -180,6 +180,7 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "ood-domain-classifier": lambda count: (shifted_sources(count), FLAT),
     "ood-kneighbors": lambda count: (shifted_sources(count), FLAT),
     "divergence": lambda count: (shifted_sources(count), FLAT),
+    "factor-leakage": lambda count: ({"a": ToyFactors(count=count), "b": ToyFactors(count=count)}, None),
     "label-alignment": lambda count: (ToyImages(count=count), None),
     "label-reconciliation": lambda count: (ToyImages(count=count), None),
     "ontology-validation": lambda count: (ToyImages(count=count), None),
@@ -188,6 +189,7 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
 # Config values a bare `config_type()` cannot supply, because the field has no default. `label-alignment`
 # needs a target ontology; a flat one matching `ToyImages`'s own `index2label` aligns losslessly.
 _EXTRA_CONFIG: "dict[str, dict[str, Any]]" = {
+    "factor-leakage": {"factors": ["site"]},
     "label-alignment": {"ontology": {"a": None, "b": None}},
     "label-reconciliation": {"ontology": {"a": None, "b": None}},
     "ontology-validation": {"ontology": {"a": None, "b": None}},

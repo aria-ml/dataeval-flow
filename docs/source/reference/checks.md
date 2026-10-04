@@ -33,6 +33,7 @@ detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s
 | `mergeability` | check | `input`: a `label-alignment` Output | Label Alignment |
 | `ontology-structure` | check | `input`: an `ontology-validation` Output | Ontology Structure |
 | `distribution-shift` | check | `input`: a `divergence` Output | Distribution Shift |
+| `leakage` | check | `duplicates`: `duplicates` Outputs over two splits; `factors`: `factor-leakage` Outputs | Leakage |
 | `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
 | `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
@@ -275,6 +276,23 @@ judges nothing at its level, and with both `null` the finding is `info`.
 | `input` | an address | required | A `divergence` Output |
 | `warning` | a number from 0 to 1, or `null` | `0.5` | The divergence above which the finding warns; `null` never warns |
 | `info` | a number from 0 to 1, or `null` | 0.4 times `warning` | The divergence above which the finding is `info`, at or below which it is `ok`; `null` has no `info` band; must not exceed `warning` |
+
+### `leakage`
+
+Whether items or group values sit in two splits at once. Configured by
+{py:class}`~dataeval_flow.steps.checks.LeakageConfig`. It counts the items in duplicate groups that have members in two
+splits, exact and near apart, and the values of a `factor-leakage` factor that both splits of a pair hold. It makes one
+finding, which warns where a count passes its limit and lists each pair's groups and values. A `null` limit judges
+nothing, and with all three `null` the finding is `info`. It is not assessed where no `duplicates` list holds an
+element, as there is then no pair of splits; an empty or failed `factors` list leaves the duplicates judged.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `duplicates` | an address, or a list | required | `duplicates` Outputs over two sources: train with each evaluation split, and evaluation pairs |
+| `factors` | an address, a list, or `null` | `null` | `factor-leakage` Outputs over the same pairs; unset judges duplicates alone |
+| `exact` | an integer of at least 0, or `null` | `0` | Most items in exact-duplicate groups spanning two splits before the finding warns |
+| `near` | an integer of at least 0, or `null` | `0` | The same for near-duplicate groups |
+| `groups` | an integer of at least 0, or `null` | `0` | Most group values held by both splits of a pair before the finding warns |
 
 ### `drift`
 

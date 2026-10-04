@@ -1291,6 +1291,135 @@
       "title": "CheckStep_leaf-coverage",
       "type": "object"
     },
+    "CheckStep_leakage": {
+      "additionalProperties": false,
+      "properties": {
+        "duplicates": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "The `duplicates` Outputs over two sources, each a list or one: train with each evaluation split, and evaluation pairs.",
+          "title": "Duplicates"
+        },
+        "factors": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The `factor-leakage` Outputs over the same pairs; unset judges duplicates alone.",
+          "title": "Factors"
+        },
+        "exact": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "Most items, counted over every exact-duplicate group with members in two splits, that may leak before the finding warns; `null` judges nothing. Legacy data-analysis warned on any.",
+          "title": "Exact"
+        },
+        "near": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "The same for near-duplicate groups; `null` judges nothing.",
+          "title": "Near"
+        },
+        "groups": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "Most group values (a factor's value held by both splits of a pair) that may be shared before the finding warns; `null` judges nothing.",
+          "title": "Groups"
+        },
+        "check": {
+          "const": "leakage",
+          "description": "`leakage`: Warns when items or group values sit in two splits at once.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "duplicates",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_leakage",
+      "type": "object"
+    },
     "CheckStep_mergeability": {
       "additionalProperties": false,
       "properties": {
@@ -3288,6 +3417,9 @@
               },
               {
                 "$ref": "#/$defs/CheckStep_leaf-coverage"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_leakage"
               },
               {
                 "$ref": "#/$defs/CheckStep_mergeability"
@@ -6182,6 +6314,51 @@
         }
       },
       "title": "FactorDeviationSettings",
+      "type": "object"
+    },
+    "FactorLeakageConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``factor-leakage``: the raw values of named metadata factors that two sources hold.\n\nReads each named factor from both sources' metadata as the dataset recorded it, whatever the metadata policy's\n``exclude`` says, because group factors such as scene, sequence or site IDs are the high-cardinality columns a\npolicy usually excludes. A level-prefixed name (``unit_scene``) matches its bare form. Reads no extractor. The\n``leakage`` check judges the values both sources share.\n\nExample YAML::\n\n    evaluators:\n      - name: groups\n        type: factor-leakage\n        factors: [scene, site]",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "factor-leakage",
+          "default": "factor-leakage",
+          "description": "The evaluator type this entry configures: `factor-leakage`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "factors": {
+          "description": "The metadata factors to compare, by name. A source that lacks one fails the run, naming the source; a factor only some items declare counts as lacking unless the metadata policy sets `partial_factors`.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Factors",
+          "type": "array"
+        }
+      },
+      "required": [
+        "factors"
+      ],
+      "title": "FactorLeakageConfig",
       "type": "object"
     },
     "FactorTriageConfig": {
@@ -11607,6 +11784,9 @@
               },
               {
                 "$ref": "#/$defs/DuplicatesConfig"
+              },
+              {
+                "$ref": "#/$defs/FactorLeakageConfig"
               },
               {
                 "$ref": "#/$defs/FactorTriageConfig"

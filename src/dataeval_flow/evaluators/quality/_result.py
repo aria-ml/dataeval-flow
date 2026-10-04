@@ -14,6 +14,8 @@ __all__ = [
     "ContentDigestOutput",
     "ContentDigestResult",
     "DuplicatesResult",
+    "FactorLeakageOutput",
+    "FactorLeakageResult",
     "FactorTriageOutput",
     "FactorTriageResult",
     "LabelHealthOutput",
@@ -223,3 +225,63 @@ class FactorTriageResult(EvaluatorResult[FactorTriageOutput]):
         from dataeval_flow._triage_report import triage_section
 
         return triage_section(output)
+
+
+class FactorLeakageOutput(CoreOutput):
+    """``factor-leakage``'s output: ``data()`` holds ``sources``, the two source names; ``items``, how many items each
+    holds; and ``factors``, by factor name, each value either source holds (as text) with its item count in the first
+    source and in the second."""
+
+
+class FactorLeakageResult(EvaluatorResult[FactorLeakageOutput]):
+    """The result of a ``factor-leakage`` run; ``output`` is a
+    :class:`~dataeval_flow.evaluators.quality.FactorLeakageOutput`.
+
+    ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
+    fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
+    fields of :class:`~dataeval_flow.ResultMetadata`.
+
+    Fields
+    ------
+    output
+        ``data()`` holds ``sources``, ``items`` and ``factors``: each named factor's values, as text, with their item
+        counts in the first source and in the second.
+    metadata.evaluator
+        The evaluator type, e.g. ``duplicates``.
+    metadata.dataeval
+        DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
+        parameters as written are in ``resolved_config``.
+    """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """Each source's item count, then per factor the values both sources hold, most common first."""
+        from dataeval_flow._blocks import Cell, Column, Fields, Paragraph, Section, Table
+        from dataeval_flow._tables import table_limits
+
+        data = output.get("data") or {}
+        a, b = data.get("sources") or ("first", "second")
+        limits = table_limits()
+        blocks: list[Block] = [Fields(items=[(f"Items in {a}", data["items"][0]), (f"Items in {b}", data["items"][1])])]
+        for factor, values in (data.get("factors") or {}).items():
+            shared = {value: counts for value, counts in values.items() if counts[0] and counts[1]}
+            brief = f"{len(values):,} values, {len(shared):,} shared"
+            if not shared:
+                text = "No value is held by both sources."
+                blocks.append(Section(title=factor, brief=brief, blocks=[Paragraph(text=text)]))
+                continue
+            ranked = sorted(shared.items(), key=lambda item: -sum(item[1]))
+            rows: list[dict[str, Cell]] = [{"value": v, "a": c[0], "b": c[1]} for v, c in ranked[: limits.rows]]
+            columns = [
+                Column(key="value", header="Value", align="left"),
+                Column(key="a", header=a),
+                Column(key="b", header=b),
+            ]
+            body: list[Block] = [Table(columns=columns, rows=rows, preview=limits.preview)]
+            if limits.rows is not None and len(ranked) > limits.rows:
+                text = (
+                    f"{len(ranked):,} shared values; the {limits.rows:,} most common are listed, "
+                    "and every one is in `output.data`."
+                )
+                body.append(Paragraph(text=text))
+            blocks.append(Section(title=factor, brief=brief, blocks=body))
+        return blocks

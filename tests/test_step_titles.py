@@ -27,6 +27,7 @@ _TITLES = {
     "duplicates": "Duplicates",
     "label-health": "Label Health",
     "outliers": "Outliers",
+    "factor-leakage": "Factor Leakage",
     "factor-triage": "Factor Triage",
     "content-digest": "Content Digest",
     "metadata-summary": "Metadata Summary",

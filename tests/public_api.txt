@@ -86,6 +86,10 @@ dataeval_flow.evaluators.quality:ContentDigestResult
 dataeval_flow.evaluators.quality:DuplicatesConfig
 dataeval_flow.evaluators.quality:DuplicatesEvaluator
 dataeval_flow.evaluators.quality:DuplicatesResult
+dataeval_flow.evaluators.quality:FactorLeakageConfig
+dataeval_flow.evaluators.quality:FactorLeakageEvaluator
+dataeval_flow.evaluators.quality:FactorLeakageOutput
+dataeval_flow.evaluators.quality:FactorLeakageResult
 dataeval_flow.evaluators.quality:FactorTriageConfig
 dataeval_flow.evaluators.quality:FactorTriageEvaluator
 dataeval_flow.evaluators.quality:FactorTriageOutput
@@ -208,6 +212,8 @@ dataeval_flow.steps.checks:LabelConformanceCheck
 dataeval_flow.steps.checks:LabelConformanceConfig
 dataeval_flow.steps.checks:LeafCoverageCheck
 dataeval_flow.steps.checks:LeafCoverageConfig
+dataeval_flow.steps.checks:LeakageCheck
+dataeval_flow.steps.checks:LeakageConfig
 dataeval_flow.steps.checks:MergeabilityCheck
 dataeval_flow.steps.checks:MergeabilityConfig
 dataeval_flow.steps.checks:MetadataIssuesCheck

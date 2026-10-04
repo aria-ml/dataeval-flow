@@ -62,6 +62,7 @@ _ECHOES: dict[str, frozenset[str]] = {
         {"calculation_results", "cluster_stats", "cluster_threshold", "dataset_steps", "outlier_threshold"}
     ),
     "label-health": frozenset(),
+    "factor-leakage": frozenset(),
     "factor-triage": frozenset(),
     "content-digest": frozenset(),
     "metadata-summary": frozenset(),

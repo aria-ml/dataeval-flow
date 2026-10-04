@@ -14,6 +14,7 @@ _BUILTINS = {
     "metadata-summary": "dataeval_flow.evaluators.bias._evaluator:MetadataSummaryEvaluator",
     "parity": "dataeval_flow.evaluators.bias._evaluator:ParityEvaluator",
     "duplicates": "dataeval_flow.evaluators.quality._evaluator:DuplicatesEvaluator",
+    "factor-leakage": "dataeval_flow.evaluators.quality._leakage:FactorLeakageEvaluator",
     "factor-triage": "dataeval_flow.evaluators.quality._triage:FactorTriageEvaluator",
     "content-digest": "dataeval_flow.evaluators.quality._digest:ContentDigestEvaluator",
     "label-health": "dataeval_flow.evaluators.quality._evaluator:LabelHealthEvaluator",

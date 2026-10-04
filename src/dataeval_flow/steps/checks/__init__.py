@@ -22,6 +22,8 @@ __all__ = [
     "DuplicateRateConfig",
     "LabelConformanceCheck",
     "LabelConformanceConfig",
+    "LeakageCheck",
+    "LeakageConfig",
     "LeafCoverageCheck",
     "LeafCoverageConfig",
     "MergeabilityCheck",
@@ -75,6 +77,7 @@ from dataeval_flow.steps.checks._label_space import (
     OntologyStructureConfig,
 )
 from dataeval_flow.steps.checks._labels import ClassImbalanceCheck, ClassImbalanceConfig
+from dataeval_flow.steps.checks._leakage import LeakageCheck, LeakageConfig
 from dataeval_flow.steps.checks._ood import (
     OODAgreementCheck,
     OODAgreementConfig,

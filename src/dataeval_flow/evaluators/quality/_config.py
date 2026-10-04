@@ -5,7 +5,14 @@ default applies. Each model constructs its DataEval evaluator when it validates,
 argument DataEval refuses fails the config load with DataEval's own message.
 """
 
-__all__ = ["ContentDigestConfig", "DuplicatesConfig", "FactorTriageConfig", "LabelHealthConfig", "OutliersConfig"]
+__all__ = [
+    "ContentDigestConfig",
+    "DuplicatesConfig",
+    "FactorLeakageConfig",
+    "FactorTriageConfig",
+    "LabelHealthConfig",
+    "OutliersConfig",
+]
 
 import functools
 import operator
@@ -22,6 +29,7 @@ from dataeval_flow.evaluators._threshold import ThresholdSpec
 from dataeval_flow.evaluators.quality._result import (
     ContentDigestResult,
     DuplicatesResult,
+    FactorLeakageResult,
     FactorTriageResult,
     LabelHealthResult,
     OutliersResult,
@@ -415,4 +423,33 @@ class FactorTriageConfig(EvaluatorConfig[FactorTriageResult], MetadataConfigMixi
         ge=0.0,
         le=1.0,
         description="Share of rows recording no value above which a factor is called degenerate.",
+    )
+
+
+class FactorLeakageConfig(EvaluatorConfig[FactorLeakageResult], MetadataConfigMixin):
+    """Config for ``factor-leakage``: the raw values of named metadata factors that two sources hold.
+
+    Reads each named factor from both sources' metadata as the dataset recorded it, whatever the metadata policy's
+    ``exclude`` says, because group factors such as scene, sequence or site IDs are the high-cardinality columns a
+    policy usually excludes. A level-prefixed name (``unit_scene``) matches its bare form. Reads no extractor. The
+    ``leakage`` check judges the values both sources share.
+
+    Example YAML::
+
+        evaluators:
+          - name: groups
+            type: factor-leakage
+            factors: [scene, site]
+    """
+
+    type: str = Field(
+        default="factor-leakage", description="The evaluator type this entry configures: `factor-leakage`."
+    )
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.TWO)
+    factors: list[str] = Field(
+        min_length=1,
+        description=(
+            "The metadata factors to compare, by name. A source that lacks one fails the run, naming the source; a "
+            "factor only some items declare counts as lacking unless the metadata policy sets `partial_factors`."
+        ),
     )

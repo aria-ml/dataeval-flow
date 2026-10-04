@@ -47,7 +47,9 @@ _WIRING: dict[str, frozenset[str]] = {
 }
 
 # Flow's own evaluators: their settings are Flow's, not a DataEval `Config`'s, so they have no wiring list.
-_FLOW_ONLY: frozenset[str] = frozenset({"content-digest", "divergence", "factor-triage", "metadata-summary"})
+_FLOW_ONLY: frozenset[str] = frozenset(
+    {"content-digest", "divergence", "factor-leakage", "factor-triage", "metadata-summary"}
+)
 
 # Fields Flow converts before DataEval sees them, whose types are Flow's by design.
 _CONVERTED: set[tuple[str, str]] = {("duplicates", "flags"), ("outliers", "flags")}

@@ -18,6 +18,7 @@ from tests.evaluator_toys import _EXTRA_CONFIG, toy_run, toy_task_run
 _CATALOG: dict[str, tuple[str, str]] = {
     "duplicates": ("1+", "optional"),
     "label-health": ("1", "refused"),
+    "factor-leakage": ("2", "refused"),
     "factor-triage": ("1", "refused"),
     "content-digest": ("1", "refused"),
     "metadata-summary": ("1", "refused"),
