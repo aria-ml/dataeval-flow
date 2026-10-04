@@ -49,7 +49,8 @@ class Preset:
 
     - ``slots``: what the steps call the task's sources, in the order a task names them. The last may be a list slot,
       ``InputSlot.model_validate({"name": "pools", "list": True})``, which takes every source left, keyed by name.
-      With ``empty: <reason>`` it may bind no source, and every check over it then reports that reason as not assessed;
+      With ``empty: <reason>`` it may bind no source, and every check over it then reports that reason as not assessed,
+      unless the check judges an empty list;
     - ``outputs``: the Datasets a custom workflow may read when it runs the preset as a step. Each is read where
       :meth:`chain`'s ``outputs`` maps it, or else from the step of the chain named after it, which has one output; it
       is a list where that address is one;

@@ -22,6 +22,7 @@ from dataeval_flow.steps import (
     CombineContext,
     DataType,
     Port,
+    StepSkipped,
     Transform,
     TransformConfig,
     TransformContext,
@@ -81,6 +82,22 @@ class Explode(Transform[ExplodeConfig]):
         if config.only is None or node.address == config.only:
             raise RuntimeError(f"boom on {node.address}")
         return {"output": node.value}
+
+
+class YieldConfig(TransformConfig):
+    input: str
+
+
+class Yield(Transform[YieldConfig]):
+    """Raises `StepSkipped`: a transform that declines to run."""
+
+    name: ClassVar[str] = "toy-yield"
+    description: ClassVar[str] = "Declines."
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
+
+    def run(self, config: YieldConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
+        raise StepSkipped("it declines")
 
 
 class HalvesConfig(TransformConfig):
@@ -239,6 +256,26 @@ class GroupLimit(Check[GroupLimitConfig]):
         return [Finding(severity=severity, title=self.title, brief=f"{count} groups")]
 
 
+class UnassessableConfig(CheckConfig):
+    input: str
+    only: str | None = None
+
+
+class Unassessable(Check[UnassessableConfig]):
+    """Raises `StepSkipped` to say it cannot assess, on every input or only on the node whose address is `only`."""
+
+    name: ClassVar[str] = "toy-unassessable"
+    description: ClassVar[str] = "Cannot assess."
+    title: ClassVar[str] = "Unassessable"
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(GroupCount,)),)
+
+    def run(self, config: UnassessableConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+        node = inputs["input"]
+        if config.only is None or node.address == config.only:
+            raise StepSkipped(f"nothing to judge in {node.address}")
+        return [Finding(severity="ok", title=self.title, brief="judged")]
+
+
 class WorstConfig(CheckConfig):
     input: str
 
@@ -327,12 +364,14 @@ _TOYS = {
     "toy-spread": "tests.chain_toys:Spread",
     "toy-detections-only": "tests.chain_toys:DetectionsOnly",
     "toy-one-place": "tests.chain_toys:OnePlace",
+    "toy-yield": "tests.chain_toys:Yield",
 }
 
 
 _COMBINE_TOYS = {"toy-count-groups": "tests.chain_toys:CountGroups"}
 _CHECK_TOYS = {
     "toy-at-most": "tests.chain_toys:GroupLimit",
+    "toy-unassessable": "tests.chain_toys:Unassessable",
     "toy-worst": "tests.chain_toys:Worst",
     "toy-worst-of": "tests.chain_toys:WorstOf",
     "toy-against": "tests.chain_toys:Against",

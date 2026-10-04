@@ -10,6 +10,7 @@ from pydantic import Field
 
 from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
+from dataeval_flow.steps._step import StepSkipped
 from dataeval_flow.steps.checks._limits import Severity, exceeds
 from dataeval_flow.workflows._base import Finding
 
@@ -38,7 +39,13 @@ class ShortcutRiskCheck(Check[ShortcutRiskConfig]):
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(BalanceOutput,)),)
 
     def run(self, config: ShortcutRiskConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
-        """The factors past the limit, most informative first, and every factor's mutual information."""
+        """The factors past the limit, most informative first, and every factor's mutual information.
+
+        Raises
+        ------
+        StepSkipped
+            When no factor is left to score once `class_label` is dropped: recorded as not assessed.
+        """
         from dataeval_flow.evaluators.bias._report import ranked_table
         from dataeval_flow.steps.combines._gaps import mi_from_balance
 
@@ -46,6 +53,8 @@ class ShortcutRiskCheck(Check[ShortcutRiskConfig]):
         # Balance scores exactly the policy's factors plus `class_label`, which is 1.0 by definition (spec §19 I7).
         names = [str(name) for name in balance.balance["factor_name"].to_list() if name != "class_label"]
         mi = mi_from_balance(balance, names)
+        if not mi:
+            raise StepSkipped("no factor to score")
         over = [
             (name, value)
             for name, value in sorted(mi.items(), key=lambda item: -item[1])
@@ -66,6 +75,6 @@ class ShortcutRiskCheck(Check[ShortcutRiskConfig]):
                     "A factor that tells much about the class is a shortcut a model can learn instead of the task. "
                     "Mutual information is the share of the class's entropy the factor accounts for."
                 ),
-                blocks=[ranked_table(mi, headers=("Factor", "MI with the class"))] if mi else [],
+                blocks=[ranked_table(mi, headers=("Factor", "MI with the class"))],
             )
         ]

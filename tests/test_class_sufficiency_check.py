@@ -3,8 +3,10 @@
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from dataeval_flow.evaluators.quality import LabelHealthOutput
-from dataeval_flow.steps import CheckContext
+from dataeval_flow.steps import CheckContext, StepSkipped
 from dataeval_flow.steps.checks import ClassSufficiencyCheck, ClassSufficiencyConfig
 
 
@@ -61,12 +63,11 @@ def test_with_both_limits_off_it_judges_nothing() -> None:
     assert "None" not in finding.description
 
 
-def test_a_train_with_no_labelled_class_is_not_assessed() -> None:
+def test_a_train_with_no_labelled_class_raises_step_skipped() -> None:
     config = ClassSufficiencyConfig(input="labels", evals="evals-labels")
     empty = _health("train", {"a": 0})
-    (finding,) = ClassSufficiencyCheck().run(config, {"input": empty, "evals": _evals()}, None)
-    assert finding.severity == "info"
-    assert finding.brief == "not assessed"
+    with pytest.raises(StepSkipped, match="train holds no labelled class"):
+        ClassSufficiencyCheck().run(config, {"input": empty, "evals": _evals()}, CheckContext("t", "s"))
 
 
 def test_a_class_train_holds_that_a_split_lacks_is_thin_there() -> None:

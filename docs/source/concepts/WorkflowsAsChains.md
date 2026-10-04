@@ -33,7 +33,8 @@ A task runs either one with `workflow:`. A chain's `inputs:` are slots, and the 
 order, so one chain can run on different sources from different tasks. The last slot may be a list,
 `{name: cameras, list: true}`, which binds every source left over, keyed by source name.
 A list input may also bind no source: `{name: evals, list: true, empty: no evaluation split given}`. Every step run
-over it then makes one record instead of none, and every check over it reports the reason as not assessed.
+over it then makes one record instead of none, and every check over it reports the reason as not assessed, unless
+the check judges an empty list.
 
 Steps run in the order they are written, and a step reads only the inputs and the steps above it. A chain whose steps
 do not connect fails when the config loads, before any data is read.
@@ -103,7 +104,8 @@ result's JSON lists the check findings at the top, each naming its step. A workf
 step. A threshold of `null` judges nothing: the finding is still made, as `info`.
 
 A check is never skipped because an input produced nothing. It makes one `info` finding briefed `not assessed`,
-saying which input holds nothing and why, so the report shows what could not be judged.
+saying which input holds nothing and why, so the report shows what could not be judged. A check that has its inputs but
+cannot assess them raises `StepSkipped(reason)`, and the engine records it the same way, never as skipped.
 
 The report gives each finding a section of its own, with the evidence it judged below it: `duplicates`' finding holds
 the `dupes` step's duplicate groups. The steps no finding shows follow, then a table of every step.

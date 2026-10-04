@@ -19,6 +19,7 @@ from dataeval_flow._blocks import Block, Cell, Column, Paragraph, Table
 from dataeval_flow.evaluators.quality._result import LabelHealthOutput
 from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
+from dataeval_flow.steps._step import StepSkipped
 from dataeval_flow.steps.checks._leakage import _nodes
 from dataeval_flow.steps.checks._limits import Severity, exceeds
 from dataeval_flow.workflows._base import Finding, render_label_source
@@ -184,18 +185,17 @@ class ClassSufficiencyCheck(Check[ClassSufficiencyConfig]):
     )
 
     def run(self, config: ClassSufficiencyConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
-        """Each class train holds, counted in train and in each evaluation split, against the two minimums."""
+        """Each class train holds, counted in train and in each evaluation split, against the two minimums.
+
+        Raises
+        ------
+        StepSkipped
+            When train holds no labelled class: recorded as not assessed.
+        """
         train_name, train = _counts(inputs["input"])
         held = {name: count for name, count in train.items() if count > 0}
         if not held:
-            return [
-                Finding(
-                    severity="info",
-                    title=self.title,
-                    brief="not assessed",
-                    description="Not assessed: train holds no labelled class.",
-                )
-            ]
+            raise StepSkipped("train holds no labelled class")
         splits = [_counts(node) for node in _nodes(inputs.get("evals"))]
         thin_train = sorted(name for name, count in held.items() if config.train is not None and count < config.train)
         parts = [f"{len(thin_train)} under {config.train} in {train_name}"] if thin_train else []
@@ -258,7 +258,13 @@ class UntrainedClassesCheck(Check[UntrainedClassesConfig]):
     inputs: ClassVar[tuple[Port, ...]] = ClassSufficiencyCheck.inputs
 
     def run(self, config: UntrainedClassesConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
-        """The classes with labels in an evaluation split and none in train, and the declared classes in no split."""
+        """The classes with labels in an evaluation split and none in train, and the declared classes in no split.
+
+        Raises
+        ------
+        StepSkipped
+            When evaluation splits are present but none holds a labelled class: recorded as not assessed.
+        """
         train_name, train = _counts(inputs["input"])
         lacking = [name for name, count in train.items() if count == 0]
         splits = [_counts(node) for node in _nodes(inputs.get("evals"))]
@@ -268,6 +274,8 @@ class UntrainedClassesCheck(Check[UntrainedClassesConfig]):
                 if count > 0 and train.get(name, 0) == 0:
                     unseen[name].append(split_name)
         absent = [name for name in lacking if name not in unseen]
+        if splits and not any(count > 0 for _, counts in splits for count in counts.values()):
+            raise StepSkipped("no evaluation split holds a labelled class")
         severity: Severity
         if not splits and not config.declared:
             return [

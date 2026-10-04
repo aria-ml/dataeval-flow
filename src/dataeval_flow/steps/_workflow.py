@@ -45,7 +45,8 @@ class InputSlot(BaseModel):
         min_length=1,
         description=(
             "For a list input, the reason its checks give when a task binds it no source, which it then may, such as "
-            "`no evaluation split given`. Unset, a list input binds at least one source."
+            "`no evaluation split given`; a check that judges an empty list judges it instead. Unset, a list input "
+            "binds at least one source."
         ),
     )
 
@@ -181,9 +182,9 @@ class CustomWorkflowConfig(BaseModel):
 
     A task runs it with ``workflow: <name>`` and binds its ``sources:`` to the inputs in order. The last input may
     be a list (``{name: ..., list: true}``), binding every remaining source keyed by source name. With
-    ``empty: <reason>`` it may bind no source, and every check over it then reports that reason as not assessed. A
-    step names what it reads by address (spec §4): an input, an earlier step, one of an earlier step's outputs, or one
-    element of a list.
+    ``empty: <reason>`` it may bind no source, and every check over it then reports that reason as not assessed, unless
+    the check judges an empty list. A step names what it reads by address (spec §4): an input, an earlier step, one of
+    an earlier step's outputs, or one element of a list.
 
     Examples
     --------

@@ -65,6 +65,10 @@ assessed: `count` failed: RuntimeError: …". A check that reads a list on a por
 per element, and each finding names its element under `step`, as `imbalance[train]`. The report groups those findings
 by the element's key, `train`, in its summary and below it.
 
+A check that has its inputs but cannot assess them raises `StepSkipped(reason)`. The engine records it as not assessed,
+with that reason in the step's `not_assessed`, and never as skipped. `class-sufficiency`, `untrained-classes` and
+`shortcut-risk` do so, as their sections say.
+
 A check with `by: class` runs once per class, or per group of classes, of an Output made with the same `by:`, and
 rolls the findings up into one, titled with the first's title and " by class". Its brief counts the classes that warn,
 as `1/3 classes warn`, and its description names those that warned and those not assessed. See
@@ -308,7 +312,8 @@ Whether each class has enough labels to learn and to evaluate. Configured by
 {py:class}`~dataeval_flow.steps.checks.ClassSufficiencyConfig`. It judges the classes train holds: each needs `train`
 labels in train and `eval` in every evaluation split, a class the split lacks included. It makes one finding, which
 warns where a class falls short and tabulates each class's count in train and in each split. A `null` limit judges
-nothing, and with both `null` the finding is `info`. It is not assessed where train holds no labelled class. An empty
+nothing, and with both `null` the finding is `info`. It is not assessed (`train holds no labelled class`) where train
+holds no labelled class. An empty
 `evals` list leaves train judged alone.
 
 | Field | Takes | Default | Description |
@@ -324,7 +329,8 @@ Whether an evaluation split holds a class train lacks. Configured by
 {py:class}`~dataeval_flow.steps.checks.UntrainedClassesConfig`. It makes one finding, which warns where a class has
 labels in an evaluation split and none in train, and lists each such class with the splits that hold it. A declared
 class with labels in no split is listed, and warns only with `declared: true`. With no evaluation split there is
-nothing to compare, and the finding is `info` unless `declared` is true.
+nothing to compare, and the finding is `info` unless `declared` is true. Where evaluation splits are given but none
+holds a labelled class, it is not assessed (`no evaluation split holds a labelled class`).
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -337,7 +343,8 @@ nothing to compare, and the finding is `info` unless `declared` is true.
 Whether a metadata factor tells much about the class, which a model could learn instead of the task. Configured by
 {py:class}`~dataeval_flow.steps.checks.ShortcutRiskConfig`. It makes one finding, which warns where a factor's mutual
 information with the class is past `mutual_information`, and lists the three most informative; a table ranks every
-factor. `balance`'s own `class_label` row is not a factor. With `mutual_information: null` the finding is `info`.
+factor. `balance`'s own `class_label` row is not a factor, and where no factor is left it is not assessed
+(`no factor to score`). With `mutual_information: null` the finding is `info`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |

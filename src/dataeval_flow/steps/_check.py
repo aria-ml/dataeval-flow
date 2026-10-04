@@ -40,7 +40,9 @@ class Check(InlineStep, ABC, Generic[CheckConfigT]):
 
     A chain's health rolls up over its checks' findings. A ``warning`` counts toward ``--fail-on-warning``. A check
     whose input holds nothing is never skipped: the engine reports one ``info`` finding in its place, titled
-    ``title`` and briefed "not assessed", saying which input produced nothing and why.
+    ``title`` and briefed "not assessed", saying which input produced nothing and why. A check that has its inputs
+    but cannot assess them raises :class:`~dataeval_flow.steps.StepSkipped` with the reason; the engine records that
+    the same way, in ``StepResult.not_assessed``, and never as skipped.
 
     Subclassing
     -----------

@@ -512,6 +512,9 @@ def _attempt(
         else:
             outputs, records, details = _transform(spec, inputs, settings, element, lineage, applied)
     except StepSkipped as skip:
+        if spec.kind == "check":  # a check that cannot assess says so structurally, and is never skipped
+            record, unassessed = _unassessed(spec, inputs_text, skip.reason, element)
+            return record, unassessed, []
         return _skipped(spec, inputs_text, skip.reason), _missing_outputs(spec, "was skipped"), []
     except Exception as error:  # a step's failure must not stop the chain
         message = failure_message(error)

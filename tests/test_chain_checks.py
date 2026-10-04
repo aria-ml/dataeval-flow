@@ -311,3 +311,38 @@ def test_a_port_that_may_be_empty_is_judged_empty() -> None:
     judge = result.steps["judge"]
     assert judge.not_assessed is None
     assert judge.output[0].brief.endswith("against 0 others")
+
+
+def test_a_check_that_raises_step_skipped_is_recorded_as_not_assessed() -> None:
+    result = _result(_DUPES, _COUNT, {"name": "judge", "check": "toy-unassessable", "input": "count"})
+    judge = result.steps["judge"]
+    assert judge.status == "ok"
+    assert judge.not_assessed == "nothing to judge in count"
+    (finding,) = result.findings
+    assert (finding.severity, finding.brief, finding.step) == ("info", "not assessed", "judge")
+    assert finding.description == "Not assessed: nothing to judge in count."
+
+
+def test_a_broadcast_check_that_raises_step_skipped_records_it_on_that_element() -> None:
+    result = _result(
+        {"name": "dupes", "evaluator": "dupes", "input": "cams"},
+        _COUNT,
+        {"name": "judge", "check": "toy-unassessable", "input": "count", "only": "count[s2]"},
+        inputs=_LIST,
+        datasets=_CAMS,
+    )
+    elements = result.steps["judge"].elements
+    assert elements is not None
+    assert elements["s1"].not_assessed is None
+    assert elements["s2"].not_assessed == "nothing to judge in count[s2]"
+    assert [(finding.step, finding.brief) for finding in result.findings] == [
+        ("judge[s1]", "judged"),
+        ("judge[s2]", "not assessed"),
+    ]
+
+
+def test_a_transform_that_raises_step_skipped_is_still_skipped() -> None:
+    result = _result({"name": "decline", "transform": "toy-yield", "input": "a"})
+    decline = result.steps["decline"]
+    assert decline.status == "skipped"
+    assert decline.not_assessed is None
