@@ -50,6 +50,14 @@ include:
       apt_packages: git
       git_depth: "0"
 
+  # Ensures each ironbank/<variant>/ copy of LICENSE, entrypoint.sh and requirements.txt matches its source.
+  - component: gitlab.jatic.net/jatic/aria/ci/uv-nox@0.8.0
+    inputs:
+      job_name: ironbank:drift
+      session: ironbank_check
+      stage: lint
+      image: ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim
+
   # [TR-1-H-4] Python 3.11 - 3.14.
   - component: gitlab.jatic.net/jatic/aria/ci/python-matrix@0.8.0
     inputs:

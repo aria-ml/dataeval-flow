@@ -439,6 +439,32 @@ def ironbank_gen(session: nox.Session) -> None:
     session.run("python", "ironbank/generate.py")
 
 
+# Declared with nox.session rather than nox_uv.session: comparing files needs no environment.
+@nox.session(venv_backend="none")
+def ironbank_check(session: nox.Session) -> None:
+    """Fail when a file `ironbank_gen` copies into an Iron Bank variant has fallen behind its source.
+
+    `ironbank/generate.py` copies `LICENSE`, `docker/entrypoint.sh` and `requirements.<variant>.txt` into each
+    `ironbank/<variant>/`, and nothing re-ran it when a source changed: the entrypoints once drifted three commits
+    behind `docker/entrypoint.sh`. Only these verbatim copies are compared. The templated files carry the latest
+    release tag, so regenerating them would differ after every release.
+    """
+    import filecmp
+
+    stale = [
+        f"ironbank/{variant}/{copy}"
+        for variant in DEVICE_VARIANTS
+        for copy, source in (
+            ("LICENSE", "LICENSE"),
+            ("entrypoint.sh", "docker/entrypoint.sh"),
+            ("requirements.txt", f"requirements.{variant}.txt"),
+        )
+        if not filecmp.cmp(source, f"ironbank/{variant}/{copy}", shallow=False)
+    ]
+    if stale:
+        session.error(f"Stale Iron Bank copies: {', '.join(stale)}. Run `nox -s ironbank_gen` and commit the result")
+
+
 @nox_uv.session(uv_groups=["test"], uv_extras=UV_EXTRAS)
 def docker_smoke(session: nox.Session) -> None:
     """Container-focused smoke test invoked from the Dockerfile `test` stage.
