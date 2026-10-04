@@ -68,6 +68,21 @@ def _nodes(value: Any) -> list[Any]:
     return list(present.values()) if present is not None else [value]
 
 
+def _gaps(value: Any, port: str) -> list[str]:
+    """What a port's keyed lists hold no node for, as "`port[key]` was not compared: why", so a missing element does not
+    read as a pair that shared nothing."""
+    if isinstance(value, list):
+        return [gap for item in value for gap in _gaps(item, port)]
+    present, elements = getattr(value, "present", None), getattr(value, "elements", None)
+    if present is None or elements is None:
+        return []
+    return [
+        f"`{port}[{key}]` was not compared: {getattr(element, 'reason', None) or 'missing'}."
+        for key, element in elements.items()
+        if key not in present
+    ]
+
+
 def _pair(node: Any) -> tuple[str, str]:
     """The addresses of the two Datasets a node was computed on."""
     on = node.computed_on
@@ -126,13 +141,21 @@ class LeakageCheck(Check[LeakageConfig]):
     )
 
     def run(self, config: LeakageConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
-        """Items in groups spanning two splits, and group values two splits share."""
+        """Items in groups spanning two splits, and group values two splits share.
+
+        Raises
+        ------
+        ValueError
+            When a `duplicates` Output was not computed on exactly two sources.
+        """
         duplicates, factors = _nodes(inputs.get("duplicates")), _nodes(inputs.get("factors"))
-        if not duplicates and not factors:
-            return [Finding(severity="info", title=self.title, brief="not assessed", description="Nothing to assess.")]
         counts: Counter[str] = Counter()
         blocks: list[Block] = []
         for node in duplicates:
+            if len(node.computed_on) != 2:
+                raise ValueError(
+                    f"`{node.address}` was computed on {len(node.computed_on)} sources: leakage compares exactly two."
+                )
             found = _spanning(node)
             for kind, members in found:
                 counts[kind] += len(members)
@@ -174,4 +197,6 @@ class LeakageCheck(Check[LeakageConfig]):
         description = (
             f"{brief} (data leakage)." if parts or shared else "No cross-split duplicates or shared group values."
         )
+        gaps = _gaps(inputs.get("duplicates"), "duplicates") + _gaps(inputs.get("factors"), "factors")
+        description = " ".join([description, *gaps])
         return [Finding(severity=severity, title=self.title, brief=brief, description=description, blocks=blocks)]

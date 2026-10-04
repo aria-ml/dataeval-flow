@@ -3,7 +3,10 @@
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from dataeval_flow import run
+from dataeval_flow._chain._nodes import Missing
 from dataeval_flow.evaluators.quality import DuplicatesConfig, FactorLeakageOutput
 from dataeval_flow.steps import CheckContext
 from dataeval_flow.steps.checks import LeakageCheck, LeakageConfig
@@ -73,6 +76,26 @@ def test_it_reads_each_shape_the_engine_hands_it() -> None:
     listed = SimpleNamespace(present={"test": node}, elements={"test": node})
     for value in (node, listed, [listed], [listed, SimpleNamespace(present={}, elements={})]):
         assert _judge({"duplicates": value}).severity == "warning"
+
+
+def test_a_missing_element_is_named_rather_than_read_as_nothing_shared() -> None:
+    node = _duplicates_node()
+    elements = {"test": node, "val": Missing("failed")}
+    listed = SimpleNamespace(present={"test": node}, elements=elements)
+    groups = SimpleNamespace(present={}, elements={"val_vs_test": Missing("was skipped"), "other": None})
+    finding = _judge({"duplicates": listed, "factors": groups})
+    assert finding.severity == "warning"  # unchanged by what could not be compared
+    assert "`duplicates[val]` was not compared: failed." in (finding.description or "")
+    assert "`factors[val_vs_test]` was not compared: was skipped." in (finding.description or "")
+    assert "`factors[other]` was not compared: missing." in (finding.description or "")
+
+
+def test_a_duplicates_output_over_other_than_two_sources_is_refused() -> None:
+    node = _duplicates_node()
+    for on in (node.computed_on[:1], (*node.computed_on, SimpleNamespace(address="evals[more]"))):
+        bad = SimpleNamespace(value=node.value, computed_on=on, address="dupes[test]")
+        with pytest.raises(ValueError, match=f"`dupes\\[test\\]` was computed on {len(on)} sources"):
+            _judge({"duplicates": bad})
 
 
 def _chain(steps: list[dict[str, Any]]) -> Any:
