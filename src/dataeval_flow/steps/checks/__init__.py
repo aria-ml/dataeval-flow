@@ -7,6 +7,8 @@ __all__ = [
     "ClassImbalanceConfig",
     "ClassShortfallCheck",
     "ClassShortfallConfig",
+    "ClassSufficiencyCheck",
+    "ClassSufficiencyConfig",
     "ClasswiseOutlierRateCheck",
     "ClasswiseOutlierRateConfig",
     "CompletenessScoreCheck",
@@ -46,6 +48,8 @@ __all__ = [
     "TargetOutlierRateConfig",
     "UncoveredRateCheck",
     "UncoveredRateConfig",
+    "UntrainedClassesCheck",
+    "UntrainedClassesConfig",
 ]
 
 from dataeval_flow.steps.checks._alignment import MergeabilityCheck, MergeabilityConfig
@@ -76,7 +80,14 @@ from dataeval_flow.steps.checks._label_space import (
     OntologyStructureCheck,
     OntologyStructureConfig,
 )
-from dataeval_flow.steps.checks._labels import ClassImbalanceCheck, ClassImbalanceConfig
+from dataeval_flow.steps.checks._labels import (
+    ClassImbalanceCheck,
+    ClassImbalanceConfig,
+    ClassSufficiencyCheck,
+    ClassSufficiencyConfig,
+    UntrainedClassesCheck,
+    UntrainedClassesConfig,
+)
 from dataeval_flow.steps.checks._leakage import LeakageCheck, LeakageConfig
 from dataeval_flow.steps.checks._ood import (
     OODAgreementCheck,

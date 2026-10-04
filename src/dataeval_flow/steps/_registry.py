@@ -42,6 +42,7 @@ _CHECK_BUILTINS: dict[str, str] = {
     "class-coverage": "dataeval_flow.steps.checks._coverage:ClassCoverageCheck",
     "class-imbalance": "dataeval_flow.steps.checks._labels:ClassImbalanceCheck",
     "class-shortfall": "dataeval_flow.steps.checks._label_space:ClassShortfallCheck",
+    "class-sufficiency": "dataeval_flow.steps.checks._labels:ClassSufficiencyCheck",
     "classwise-outlier-rate": "dataeval_flow.steps.checks._outliers:ClasswiseOutlierRateCheck",
     "completeness-score": "dataeval_flow.steps.checks._coverage:CompletenessScoreCheck",
     "coverage-gaps": "dataeval_flow.steps.checks._gaps:CoverageGapsCheck",
@@ -60,6 +61,7 @@ _CHECK_BUILTINS: dict[str, str] = {
     "stratification": "dataeval_flow.steps.checks._stratification:StratificationCheck",
     "target-outlier-rate": "dataeval_flow.steps.checks._outliers:TargetOutlierRateCheck",
     "uncovered-rate": "dataeval_flow.steps.checks._coverage:UncoveredRateCheck",
+    "untrained-classes": "dataeval_flow.steps.checks._labels:UntrainedClassesCheck",
 }
 
 TRANSFORMS: Registry[Transform[Any]] = Registry(

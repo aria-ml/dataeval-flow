@@ -492,7 +492,7 @@
             }
           ],
           "default": 5.0,
-          "description": "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` judges nothing but an empty class, which always warns. data-cleaning's `health_thresholds.class_label_imbalance`.",
+          "description": "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` judges nothing but an empty class, which warns unless `empty` is false. data-cleaning's `health_thresholds.class_label_imbalance`.",
           "title": "Ratio"
         },
         "info": {
@@ -508,6 +508,12 @@
           "default": null,
           "description": "A ratio at or under which the finding is ok, between which and `ratio` it informs; `null` makes every ratio under `ratio` information. Must not exceed `ratio`.",
           "title": "Info"
+        },
+        "empty": {
+          "default": true,
+          "description": "Whether a declared class with no labels warns. `false` judges the ratio over the classes with labels alone, and leaves a class with none to `untrained-classes` and `class-sufficiency`; the class is still named in the evidence.",
+          "title": "Empty",
+          "type": "boolean"
         },
         "check": {
           "const": "class-imbalance",
@@ -615,6 +621,105 @@
         "name"
       ],
       "title": "CheckStep_class-shortfall",
+      "type": "object"
+    },
+    "CheckStep_class-sufficiency": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `label-health` Output over train.",
+          "title": "Input",
+          "type": "string"
+        },
+        "evals": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The evaluation splits' `label-health` Outputs, a list that may be empty; unset judges train alone.",
+          "title": "Evals"
+        },
+        "train": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 20,
+          "description": "The fewest labels each class train holds needs in train; `null` judges no minimum there.",
+          "title": "Train"
+        },
+        "eval": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 30,
+          "description": "The fewest labels each class train holds needs in each evaluation split, a class the split lacks included. At 30, a per-class metric's 95% interval is about \u00b118 points.",
+          "title": "Eval"
+        },
+        "check": {
+          "const": "class-sufficiency",
+          "description": "`class-sufficiency`: Warns when a class has too few labels to learn or to evaluate.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_class-sufficiency",
       "type": "object"
     },
     "CheckStep_classwise-outlier-rate": {
@@ -2138,6 +2243,83 @@
       "title": "CheckStep_uncovered-rate",
       "type": "object"
     },
+    "CheckStep_untrained-classes": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `label-health` Output over train.",
+          "title": "Input",
+          "type": "string"
+        },
+        "evals": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The evaluation splits' `label-health` Outputs, a list that may be empty.",
+          "title": "Evals"
+        },
+        "declared": {
+          "default": false,
+          "description": "Whether a declared class with no labels in train also warns. Off, it is listed: a vocabulary conformed to an ontology carries abstract concepts with no items.",
+          "title": "Declared",
+          "type": "boolean"
+        },
+        "check": {
+          "const": "untrained-classes",
+          "description": "`untrained-classes`: Warns when an evaluation split holds a class train lacks.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_untrained-classes",
+      "type": "object"
+    },
     "ChunkedDriftConfig": {
       "additionalProperties": false,
       "description": "How a drift detector splits its data into chunks: the arguments of DataEval's ``chunked()``.\n\nNamed for DataEval's ``ChunkedDrift``, which ``chunked()`` returns. Set it as a drift entry's ``chunking:`` to\ntest each chunk of the data against the spread of the reference's chunks, rather than the data as a whole. Give\n``chunk_size`` or ``chunk_count``.\n\nExample YAML::\n\n    evaluators:\n      - name: mmd_chunked\n        type: drift-mmd\n        chunking:\n          chunk_count: 10\n          threshold: [zscore, 2.5]",
@@ -3395,6 +3577,9 @@
                 "$ref": "#/$defs/CheckStep_class-shortfall"
               },
               {
+                "$ref": "#/$defs/CheckStep_class-sufficiency"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_classwise-outlier-rate"
               },
               {
@@ -3447,6 +3632,9 @@
               },
               {
                 "$ref": "#/$defs/CheckStep_uncovered-rate"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_untrained-classes"
               }
             ]
           },

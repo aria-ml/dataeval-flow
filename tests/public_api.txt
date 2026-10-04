@@ -195,6 +195,8 @@ dataeval_flow.steps.checks:ClassImbalanceCheck
 dataeval_flow.steps.checks:ClassImbalanceConfig
 dataeval_flow.steps.checks:ClassShortfallCheck
 dataeval_flow.steps.checks:ClassShortfallConfig
+dataeval_flow.steps.checks:ClassSufficiencyCheck
+dataeval_flow.steps.checks:ClassSufficiencyConfig
 dataeval_flow.steps.checks:ClasswiseOutlierRateCheck
 dataeval_flow.steps.checks:ClasswiseOutlierRateConfig
 dataeval_flow.steps.checks:CompletenessScoreCheck
@@ -234,6 +236,8 @@ dataeval_flow.steps.checks:TargetOutlierRateCheck
 dataeval_flow.steps.checks:TargetOutlierRateConfig
 dataeval_flow.steps.checks:UncoveredRateCheck
 dataeval_flow.steps.checks:UncoveredRateConfig
+dataeval_flow.steps.checks:UntrainedClassesCheck
+dataeval_flow.steps.checks:UntrainedClassesConfig
 dataeval_flow.steps.combines:ClasswiseOutliers
 dataeval_flow.steps.combines:ClasswiseOutliersCombine
 dataeval_flow.steps.combines:ClasswiseOutliersConfig
