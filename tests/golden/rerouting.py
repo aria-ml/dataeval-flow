@@ -10,7 +10,14 @@ from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from tests.evaluator_toys import toy_pipeline
 
-_VOLATILE = {"timestamp", "execution_time_s", "tool_version", "execution_time", "execution_duration"}
+_VOLATILE = {
+    "timestamp",
+    "execution_time_s",
+    "tool_version",
+    "library_versions",
+    "execution_time",
+    "execution_duration",
+}
 
 
 def normalized(payload: Any) -> Any:

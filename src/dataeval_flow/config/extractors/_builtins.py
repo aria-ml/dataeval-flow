@@ -38,6 +38,7 @@ class OnnxExtractorConfig(ExtractorConfig):
     """
 
     model: str = Field(default="onnx", description="The extractor this entry configures: `onnx`.")
+    runtime_distributions: ClassVar[tuple[str, ...]] = ("onnxruntime", "onnxruntime-gpu")
     model_path: str = Field(description="Path to ONNX model file (relative to data root).")
     output_name: str | None = Field(default=None, description="Output layer name.")
     flatten: bool = Field(default=True, description="Flatten output to (N, D) shape.")
@@ -76,6 +77,7 @@ class BoVWExtractorConfig(ExtractorConfig):
     """
 
     model: str = Field(default="bovw", description="The extractor this entry configures: `bovw`.")
+    runtime_distributions: ClassVar[tuple[str, ...]] = ("opencv-python-headless", "opencv-python")
     vocab_size: int = Field(default=2048, ge=256, le=4096, description="Visual word count.")
 
 
@@ -105,6 +107,7 @@ class TorchExtractorConfig(ExtractorConfig):
     """
 
     model: str = Field(default="torch", description="The extractor this entry configures: `torch`.")
+    runtime_distributions: ClassVar[tuple[str, ...]] = ("torch",)
     model_path: str = Field(description="Path to PyTorch model file (relative to data root).")
     layer_name: str | None = Field(default=None, description="Layer for forward hook extraction.")
     use_output: bool = Field(default=True, description="Capture layer output (True) or input (False).")
@@ -134,6 +137,7 @@ class UncertaintyExtractorConfig(ExtractorConfig):
     """
 
     model: str = Field(default="uncertainty", description="The extractor this entry configures: `uncertainty`.")
+    runtime_distributions: ClassVar[tuple[str, ...]] = ("onnxruntime", "onnxruntime-gpu")
     model_path: str = Field(description="Path to the ONNX model file (relative to data root).")
     metadata_path: str = Field(
         description="Path to DataEval's model metadata file (relative to data root): its task, input size and classes."

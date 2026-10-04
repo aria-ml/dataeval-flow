@@ -4,6 +4,8 @@
 
 ### Added
 
+- `library_versions` on every result's metadata: the installed version of DataEval, NumPy, Pillow, datamaite and the
+  task's extractor runtime (PyTorch, ONNX Runtime or OpenCV)
 - `label-space` preset: a dataset's labels judged against a declared ontology, as legacy data-coverage judged them
   with `ontology:` set: leaf coverage and the worklist, conformance, alignment with the `Relabel` stanza, and the
   ontology's structure. Its `health_thresholds` are keyed by check type: `leaf-coverage` (`coverage`,

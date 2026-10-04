@@ -1064,6 +1064,7 @@ def _populate_result_metadata(
 
     from dataeval_flow import __version__
     from dataeval_flow._sources import label_space_records
+    from dataeval_flow._versions import library_versions
 
     dataset_names = [
         operand.source.dataset for rs in resolved_sources for operand in rs.operands if operand.source.dataset
@@ -1072,6 +1073,7 @@ def _populate_result_metadata(
         result._entry = workflow_instance.name  # noqa: SLF001 - the envelope's filler names the entry
     result.metadata.dataset_id = dataset_names[0] if len(dataset_names) == 1 else ",".join(dataset_names)
     result.metadata.tool_version = __version__
+    result.metadata.library_versions = library_versions(extractor_cfg)
     result.metadata.execution_time_s = round(elapsed, 3)
     # The device this task applied before it ran, as `_apply_device` named it.
     result.metadata.device = _device_name(get_device())

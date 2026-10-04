@@ -462,6 +462,7 @@ The `metadata` block is what makes a finding auditable and interoperable with ot
 | `timestamp` | UTC time the workflow ran |
 | `execution_time_s` | Wall-clock duration |
 | `tool` / `tool_version` | `dataeval-flow` and the exact version that produced the result |
+| `library_versions` | The installed version of DataEval, NumPy, Pillow, datamaite and the extractor's runtime |
 | `dataset_id` | Identifier(s) of the evaluated dataset(s) |
 | `source_descriptions` | Human-readable description of each resolved source |
 | `selection_id` | Identifier for the {term}`view <View>` applied to the dataset |
