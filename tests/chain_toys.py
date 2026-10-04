@@ -276,6 +276,26 @@ class Unassessable(Check[UnassessableConfig]):
         return [Finding(severity="ok", title=self.title, brief="judged")]
 
 
+class OptConfig(CheckConfig):
+    input: str
+    others: str | None = None
+
+
+class Opt(Check[OptConfig]):
+    """A count, with an optional whole list of others that may be left unbound."""
+
+    name: ClassVar[str] = "toy-opt"
+    description: ClassVar[str] = "Takes an optional list."
+    title: ClassVar[str] = "Opt"
+    inputs: ClassVar[tuple[Port, ...]] = (
+        Port("input", DataType.OUTPUT, classes=(GroupCount,)),
+        Port("others", DataType.OUTPUT, classes=(GroupCount,), is_list=True),
+    )
+
+    def run(self, config: OptConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+        return [Finding(severity="ok", title=self.title, brief="ran")]
+
+
 class WorstConfig(CheckConfig):
     input: str
 
@@ -372,6 +392,7 @@ _COMBINE_TOYS = {"toy-count-groups": "tests.chain_toys:CountGroups"}
 _CHECK_TOYS = {
     "toy-at-most": "tests.chain_toys:GroupLimit",
     "toy-unassessable": "tests.chain_toys:Unassessable",
+    "toy-opt": "tests.chain_toys:Opt",
     "toy-worst": "tests.chain_toys:Worst",
     "toy-worst-of": "tests.chain_toys:WorstOf",
     "toy-against": "tests.chain_toys:Against",

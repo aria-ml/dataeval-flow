@@ -246,8 +246,15 @@ def _empty_port(spec: StepSpec, bound: Mapping[str, list[_Value]], steps: Mappin
     for binding in spec.bindings:
         if not binding.port.is_list or binding.port.may_be_empty:
             continue
-        lists = list(zip(binding.addresses, bound[binding.port.name], strict=True))
+        # `_first_gap` has handled every Missing, so a whole-list port holds only lists.
+        lists = [
+            (address, value)
+            for address, value in zip(binding.addresses, bound[binding.port.name], strict=True)
+            if isinstance(value, NodeList)
+        ]
         if any(value.present for _, value in lists):
+            continue
+        if not lists:  # an optional field left unset: no address, nothing to say
             continue
         address, value = lists[0]
         return value.reason or _gap_text(address, _empty_list(address, value, steps), steps)

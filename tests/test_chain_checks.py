@@ -346,3 +346,10 @@ def test_a_transform_that_raises_step_skipped_is_still_skipped() -> None:
     decline = result.steps["decline"]
     assert decline.status == "skipped"
     assert decline.not_assessed is None
+
+
+def test_an_unbound_optional_whole_list_port_leaves_the_check_run() -> None:
+    result = _result(_DUPES, _COUNT, {"name": "judge", "check": "toy-opt", "input": "count"})
+    assert result.steps["judge"].status == "ok"
+    assert result.steps["judge"].not_assessed is None
+    assert [(finding.brief, finding.step) for finding in result.findings] == [("ran", "judge")]
