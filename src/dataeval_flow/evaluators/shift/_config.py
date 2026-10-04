@@ -1,4 +1,4 @@
-"""Configs for the ``shift`` evaluators: DataEval's drift and out-of-distribution detectors.
+"""Configs for the ``shift`` evaluators: DataEval's drift, out-of-distribution and divergence measures.
 
 Field names are DataEval's argument names. An unset field is not passed, so DataEval's own default applies. Each
 reads the embeddings of the task's sources, the reference first.

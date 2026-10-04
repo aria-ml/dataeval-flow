@@ -1,7 +1,7 @@
-"""The shift evaluators: DataEval's drift and out-of-distribution detectors.
+"""The shift evaluators: DataEval's drift and out-of-distribution detectors, and its divergence measure.
 
-Each fits on the first source's embeddings and predicts on the last's. ``run`` is the only code here that calls
-DataEval.
+A detector fits on the first source's embeddings and predicts on the last's; `divergence` scores the two sources'
+embeddings against each other. ``run`` is the only code here that calls DataEval.
 """
 
 __all__ = [
