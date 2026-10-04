@@ -230,7 +230,7 @@ attached to that item. Neither depends on the items' order. Configured by
 {py:class}`~dataeval_flow.evaluators.quality.ContentDigestConfig`, which takes no parameters.
 {py:func}`~dataeval_flow.dataset_digest` computes the same values in Python.
 
-Output: a mapping of `content` and `metadata`, each 64 hex characters, and `items`, how many items were read.
+Output: a mapping of `content` and `metadata`, each 64 hex characters, `items`, how many items were read, and `scheme`, the version of the digest scheme.
 
 ### `representation`
 

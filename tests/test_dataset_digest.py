@@ -55,6 +55,25 @@ def test_the_digest_follows_the_documented_scheme() -> None:
     )
 
 
+def test_the_scheme_pins_detection_targets_and_rich_metadata() -> None:
+    image = np.zeros((3, 16, 16), dtype=np.uint8)
+    boxes = np.array([[1, 1, 6, 9]], dtype=np.float32)
+    labels = np.array([0], dtype=np.intp)
+    metadata = {"speed": 1.5, "when": date(2025, 6, 1), "name": "caf\u00e9"}
+    digest = dataset_digest(Items([(image, _Target([[1, 1, 6, 9]], [0]), metadata)]))
+    item = _framed(
+        b"|u1", b"(3, 16, 16)", image.tobytes(), b"detection", b"<f4", b"(1, 4)", boxes.tobytes(), b"<i8", b"(1,)",
+        labels.tobytes(),
+    )  # fmt: skip
+    count = (1).to_bytes(8, "little")
+    canonical = b'{"name":"caf\\u00e9","speed":1.5,"when":"2025-06-01"}'
+    assert digest.content == _framed(b"dataeval-flow content digest 1", count, b'[[0,"a"],[1,"b"]]', item.encode())
+    assert digest.metadata == _framed(
+        b"dataeval-flow metadata digest 1", count, _framed(item.encode(), canonical).encode()
+    )
+    assert digest.scheme == 1
+
+
 def test_the_same_items_in_another_order_give_the_same_digests() -> None:
     items = _toy_items()
     assert dataset_digest(Items(items)) == dataset_digest(Items(items[::-1]))
@@ -188,3 +207,29 @@ def test_datetime64_and_infinities_digest_by_value() -> None:
     assert metadata(np.datetime64("2025-06-01T12:00:00", "ns")) == metadata(datetime(2025, 6, 1, 12))
     assert metadata(float("inf")) != metadata(float("-inf"))
     assert metadata(float("nan")) == metadata(None)
+
+
+def _metadata_digest(value: Any) -> str:
+    image, target = np.zeros((1, 2, 2), dtype=np.uint8), np.zeros(2, dtype=np.float32)
+    return dataset_digest(Items([(image, target, {"v": value})])).metadata
+
+
+def test_an_object_as_a_metadata_key_is_refused() -> None:
+    class Opaque:
+        pass
+
+    with pytest.raises(TypeError, match="no stable form"):
+        _metadata_digest({Opaque(): 1})
+
+
+def test_a_day_precision_datetime64_digests_as_a_date() -> None:
+    assert _metadata_digest(np.datetime64("2025-06-01")) == _metadata_digest(date(2025, 6, 1))
+
+
+def test_a_datetime64_array_digests_as_its_datetimes() -> None:
+    array = np.array(["2025-06-01T12:00:00", "2025-06-02T00:00:00"], dtype="datetime64[ns]")
+    assert _metadata_digest(array) == _metadata_digest([datetime(2025, 6, 1, 12), datetime(2025, 6, 2)])
+
+
+def test_a_surrogate_escaped_string_digests() -> None:
+    assert len(_metadata_digest("caf\udce9.png")) == 64

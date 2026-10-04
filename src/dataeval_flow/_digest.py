@@ -14,8 +14,9 @@ from typing import Any
 import numpy as np
 
 # Each digest opens with its scheme, so a later change to what is hashed gives new digests, never colliding ones.
-_CONTENT_SCHEME = b"dataeval-flow content digest 1"
-_METADATA_SCHEME = b"dataeval-flow metadata digest 1"
+SCHEME = 1
+_CONTENT_SCHEME = f"dataeval-flow content digest {SCHEME}".encode()
+_METADATA_SCHEME = f"dataeval-flow metadata digest {SCHEME}".encode()
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,8 @@ class DatasetDigest:
     """The metadata digest, 64 hex characters: every item's metadata as canonical JSON, bound to its item's content."""
     items: int
     """How many items the dataset held."""
+    scheme: int
+    """The version of the digest scheme, so a change of scheme can't be mistaken for changed data."""
 
 
 def dataset_digest(dataset: Any) -> DatasetDigest:
@@ -86,6 +89,7 @@ def dataset_digest(dataset: Any) -> DatasetDigest:
         content=_hash([_CONTENT_SCHEME, count, names, *(item.encode() for item in sorted(contents))]),
         metadata=_hash([_METADATA_SCHEME, count, *(item.encode() for item in sorted(metadata))]),
         items=len(contents),
+        scheme=SCHEME,
     )
 
 
@@ -132,7 +136,7 @@ def _index2label(dataset: Any) -> dict[int, str]:
 
 def _canonical_json(value: Any) -> bytes:
     """`value` as JSON with sorted keys and no spaces, so equal values give equal bytes (see :func:`_plain`)."""
-    return json.dumps(_plain(value), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return json.dumps(_plain(value), sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
 
 
 def _plain(value: Any) -> Any:
@@ -140,22 +144,34 @@ def _plain(value: Any) -> Any:
     ISO 8601, bytes as hex, paths as text and sets sorted. Anything else raises ``TypeError``: its ``str`` could hold a
     memory address or a summary, and so give digests that differ between runs or agree for different values."""
     if isinstance(value, Mapping):
-        return {str(key): _plain(item) for key, item in value.items()}
+        # JSON keys are text, so {1: x} and {"1": x} still share a key.
+        return {_plain_key(key): _plain(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_plain(item) for item in value]
     if isinstance(value, (set, frozenset)):
         return sorted((_plain(item) for item in value), key=repr)
     if isinstance(value, np.datetime64):
-        return _plain(value.astype("datetime64[us]").item())
+        unit = "D" if np.datetime_data(value.dtype)[0] in ("Y", "M", "W", "D") else "us"
+        return _plain(value.astype(f"datetime64[{unit}]").item())
     if isinstance(value, np.generic):
         return _plain(value.item())
     if isinstance(value, np.ndarray):
+        if value.dtype.kind == "M":
+            return _plain(value[()]) if value.ndim == 0 else [_plain(item) for item in value]
         return _plain(value.tolist())
     if hasattr(value, "__array__"):
         from dataeval.utils import as_numpy
 
         return _plain(as_numpy(value).tolist())
     return _plain_leaf(value)
+
+
+def _plain_key(key: Any) -> str:
+    """A mapping key as JSON text, through the same strict path as a value: an opaque key raises ``TypeError``."""
+    if isinstance(key, np.generic):
+        key = key.item()
+    leaf = _plain_leaf(key)
+    return leaf if isinstance(leaf, str) else json.dumps(leaf)
 
 
 def _plain_leaf(value: Any) -> Any:

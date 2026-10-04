@@ -21,7 +21,7 @@ def _fresh_cache():
 
 
 def _values(digest: DatasetDigest) -> dict[str, Any]:
-    return {"content": digest.content, "metadata": digest.metadata, "items": digest.items}
+    return {"content": digest.content, "metadata": digest.metadata, "items": digest.items, "scheme": digest.scheme}
 
 
 def test_a_run_gives_dataset_digests_values() -> None:

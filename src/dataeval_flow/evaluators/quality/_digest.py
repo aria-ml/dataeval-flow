@@ -34,5 +34,6 @@ class ContentDigestEvaluator(Evaluator[ContentDigestConfig, ContentDigestOutput]
         digest = dataset_digest(dataset)
         meta = execution("dataeval_flow.dataset_digest", started, time.monotonic() - clock, {})
         return ContentDigestOutput(
-            {"content": digest.content, "metadata": digest.metadata, "items": digest.items}, meta
+            {"content": digest.content, "metadata": digest.metadata, "items": digest.items, "scheme": digest.scheme},
+            meta,
         )

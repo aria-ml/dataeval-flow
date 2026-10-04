@@ -124,8 +124,8 @@ class ContentDigestOutput(CoreOutput):
     """``content-digest``'s output: a Dataset's digests over every item.
 
     ``data()`` holds ``content``, the SHA-256 over each item's image and labels and the class names; ``metadata``, the
-    SHA-256 over each item's metadata, as attached to that item; and ``items``, how many items were read. Both
-    digests are 64 hex characters, and neither depends on the items' order.
+    SHA-256 over each item's metadata, as attached to that item; ``items``, how many items were read; and ``scheme``,
+    the version of the digest scheme. Both digests are 64 hex characters, and neither depends on the items' order.
     """
 
 
@@ -140,7 +140,7 @@ class ContentDigestResult(EvaluatorResult[ContentDigestOutput]):
     Fields
     ------
     output
-        The digests: ``data()`` holds ``content`` and ``metadata``, each 64 hex characters, and ``items``.
+        The digests: ``data()`` holds ``content`` and ``metadata``, each 64 hex characters, ``items`` and ``scheme``.
     metadata.evaluator
         The evaluator type, e.g. ``duplicates``.
     metadata.dataeval
