@@ -121,6 +121,7 @@ def bind_inputs(
             bound[slot.name] = NodeList(
                 slot.name,
                 {name: _source_node(f"{slot.name}[{name}]", name, contexts, resolved) for name in rest},
+                reason=None if rest else slot.empty,
             )
         else:
             bound[slot.name] = _source_node(slot.name, names[index], contexts, resolved)
@@ -197,6 +198,8 @@ def _run_step(
     if keys is None:
         record, outputs, records = _attempt(spec, _shaped(spec, bound), settings, None, inputs_text, lineage, applied)
         return record, _by_address(spec, outputs), records
+    if not keys:
+        return _empty_broadcast(spec, inputs_text, _empty_reason(spec, bound))
     return _broadcast(spec, bound, keys, settings, inputs_text, lineage, applied, steps)
 
 
@@ -262,6 +265,7 @@ def _unassessed(
         output=[finding],
         summary=_tally([finding]),
         optional=spec.optional,
+        not_assessed=gap,
     )
     (port,) = spec.outputs
     node = Node(_at(spec, port, element), DataType.FINDINGS, payload=[finding], step=spec.name, step_type=spec.type)
@@ -283,6 +287,38 @@ def _broadcast_keys(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> list[s
     for value in lists:
         keys.extend(key for key in value.elements if key not in keys)
     return keys
+
+
+def _empty_reason(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> str:
+    """Why `spec`'s lists give it no run: the reason one carries, else that the first holds no element."""
+    lists = [
+        (address, value)
+        for binding in spec.bindings
+        if not binding.port.is_list
+        for address, value in zip(binding.addresses, bound[binding.port.name], strict=True)
+        if isinstance(value, NodeList)
+    ]
+    reason = next((value.reason for _, value in lists if value.reason is not None), None)
+    if reason is not None:
+        return reason
+    address, _ = lists[0]
+    return f"`{address}` holds no element"
+
+
+def _empty_broadcast(
+    spec: StepSpec, inputs_text: list[str], reason: str
+) -> tuple[StepResult, dict[str, _Value], list[LabelSpaceRecord]]:
+    """A step run once per element of lists holding none: one record, never none, and each output an empty list carrying
+    `reason` on to the steps that read it (audit spec §9.1)."""
+    if spec.kind == "check":
+        record, _ = _unassessed(spec, inputs_text, reason, None)
+    else:
+        record = _skipped(spec, inputs_text, reason)
+        record.not_assessed = reason
+    produced: dict[str, _Value] = {
+        spec.output_address(port): NodeList(spec.output_address(port), {}, reason=reason) for port in spec.outputs
+    }
+    return record, produced, []
 
 
 def _broadcast(

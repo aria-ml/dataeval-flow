@@ -45,6 +45,10 @@ class StepResult:
     summary: Any = None
     optional: bool = False
     details: dict[str, Any] | None = None
+    not_assessed: str | None = None
+    """Why this check, or element of one, judged nothing; or, for a step run once per element of a list holding none,
+    the reason that list gives, such as an empty list input's `empty:` (audit spec §9.1). ``None`` otherwise. On a
+    step run once per element, each element records its own."""
 
     def to_dict(self) -> dict[str, Any]:
         """This step as JSON: its kind, status and inputs, then what it made, or why it made nothing."""
@@ -58,6 +62,8 @@ class StepResult:
             body["optional"] = True
         if self.reason is not None:
             body["reason"] = self.reason
+        if self.not_assessed is not None:
+            body["not_assessed"] = self.not_assessed
         if self.errors:
             body["errors"] = list(self.errors)
         if self.elements is not None:

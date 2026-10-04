@@ -242,7 +242,8 @@ def binding_problems(
     try:
         build_graph(workflow, pipeline, slot_keys={slot.name: bound}, evaluators=evaluators)
     except GraphError as error:
-        return [f"Task '{task.name}' binds sources {', '.join(bound)} to `{slot.name}`. {error}"]
+        held = f"sources {', '.join(bound)}" if bound else "no source"
+        return [f"Task '{task.name}' binds {held} to `{slot.name}`. {error}"]
     return []
 
 
@@ -630,8 +631,8 @@ def _keyed(value: ValueType, address: Address, entry: StepEntry) -> ValueType:
         raise GraphError(f"Step '{entry.name}' reads `{address}`, but `{address.base}` is not a list.")
     if value.keys is not None and address.key not in value.keys:
         raise GraphError(
-            f"Step '{entry.name}' reads `{address}`, but `{address.base}` has elements {', '.join(value.keys)}, "
-            f"not `{address.key}`."
+            f"Step '{entry.name}' reads `{address}`, but `{address.base}` has elements "
+            f"{', '.join(value.keys) or 'none'}, not `{address.key}`."
         )
     return replace(value, is_list=False, keys=None)
 

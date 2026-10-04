@@ -2943,7 +2943,7 @@
     },
     "CustomWorkflowConfig": {
       "additionalProperties": false,
-      "description": "A workflow built from steps: its named inputs, and the steps that read them in order.\n\nA task runs it with ``workflow: <name>`` and binds its ``sources:`` to the inputs in order. The last input may\nbe a list (``{name: ..., list: true}``), binding every remaining source keyed by source name. A step names what\nit reads by address (spec \u00a74): an input, an earlier step, one of an earlier step's outputs, or one element of a\nlist.\n\nExamples\n--------\n>>> from dataeval_flow.steps import CustomWorkflowConfig\n>>> workflow = CustomWorkflowConfig.model_validate({\n...     \"name\": \"dupes_only\",\n...     \"inputs\": [\"data\"],\n...     \"steps\": [{\"name\": \"dupes\", \"evaluator\": \"dupes\", \"input\": \"data\"}],\n... })\n>>> print(workflow.to_yaml())  # doctest: +NORMALIZE_WHITESPACE\nworkflows:\n- name: dupes_only\n  inputs:\n  - data\n  steps:\n  - name: dupes\n    evaluator: dupes\n    input: data",
+      "description": "A workflow built from steps: its named inputs, and the steps that read them in order.\n\nA task runs it with ``workflow: <name>`` and binds its ``sources:`` to the inputs in order. The last input may\nbe a list (``{name: ..., list: true}``), binding every remaining source keyed by source name. With\n``empty: <reason>`` it may bind no source, and every check over it then reports that reason as not assessed. A\nstep names what it reads by address (spec \u00a74): an input, an earlier step, one of an earlier step's outputs, or one\nelement of a list.\n\nExamples\n--------\n>>> from dataeval_flow.steps import CustomWorkflowConfig\n>>> workflow = CustomWorkflowConfig.model_validate({\n...     \"name\": \"dupes_only\",\n...     \"inputs\": [\"data\"],\n...     \"steps\": [{\"name\": \"dupes\", \"evaluator\": \"dupes\", \"input\": \"data\"}],\n... })\n>>> print(workflow.to_yaml())  # doctest: +NORMALIZE_WHITESPACE\nworkflows:\n- name: dupes_only\n  inputs:\n  - data\n  steps:\n  - name: dupes\n    evaluator: dupes\n    input: data",
       "properties": {
         "name": {
           "description": "What tasks call this workflow.",
@@ -6299,6 +6299,20 @@
           "description": "Whether it binds every source left after the single inputs, as a list keyed by source name.",
           "title": "List",
           "type": "boolean"
+        },
+        "empty": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For a list input, the reason its checks give when a task binds it no source, which it then may, such as `no evaluation split given`. Unset, a list input binds at least one source.",
+          "title": "Empty"
         }
       },
       "required": [

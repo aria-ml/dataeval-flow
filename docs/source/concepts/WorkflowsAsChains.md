@@ -32,6 +32,8 @@ tasks:
 A task runs either one with `workflow:`. A chain's `inputs:` are slots, and the task's `sources:` bind to them in
 order, so one chain can run on different sources from different tasks. The last slot may be a list,
 `{name: cameras, list: true}`, which binds every source left over, keyed by source name.
+A list input may also bind no source: `{name: evals, list: true, empty: no evaluation split given}`. Every step run
+over it then makes one record instead of none, and every check over it reports the reason as not assessed.
 
 Steps run in the order they are written, and a step reads only the inputs and the steps above it. A chain whose steps
 do not connect fails when the config loads, before any data is read.
