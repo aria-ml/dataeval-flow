@@ -248,3 +248,66 @@ def test_the_one_step_path_builds_a_source_s_view_once() -> None:
     with patch("dataeval_flow._view.build_view", wraps=build_view) as built:
         run_chain_task(config)
     assert built.call_count == 1
+
+
+_ONE_OR_NONE = [
+    "a",
+    {"name": "rest", "list": True, "empty": "no other source given"},
+]
+
+
+def _spread(name: str, parts: int) -> list[dict[str, Any]]:
+    """`name` spreads input `a` into `parts` parts (none at 0), and `count-<name>` counts each part's groups."""
+    return [
+        {"name": name, "transform": "toy-spread", "input": "a", "parts": parts},
+        {"name": f"dupes-{name}", "evaluator": "dupes", "input": name},
+        {"name": f"count-{name}", "combine": "toy-count-groups", "input": f"dupes-{name}"},
+    ]
+
+
+def test_a_check_fed_one_empty_and_one_full_list_is_assessed() -> None:
+    # The usual two-split audit: train against test holds one element, the evaluation pairs none (spec §19 C1).
+    result = _result(
+        *_spread("none", 0),
+        *_spread("two", 2),
+        {"name": "worst", "check": "toy-worst-of", "input": ["count-none", "count-two"]},
+    )
+    worst = result.steps["worst"]
+    assert worst.not_assessed is None
+    assert worst.output[0].brief.startswith("2 counts")
+
+
+def test_a_check_whose_every_list_is_empty_is_not_assessed_with_the_reason() -> None:
+    result = _result(
+        {"name": "against-a", "evaluator": "dupes", "input": ["a", "rest"]},
+        {"name": "count-a", "combine": "toy-count-groups", "input": "against-a"},
+        {"name": "worst", "check": "toy-worst-of", "input": ["count-a"]},
+        inputs=_ONE_OR_NONE,
+        datasets={"a": ToyImages(seed=0)},
+    )
+    worst = result.steps["worst"]
+    assert worst.not_assessed == "no other source given"
+    assert worst.output[0].description == "Not assessed: no other source given."
+
+
+def test_lists_empty_for_no_carried_reason_say_which_holds_none() -> None:
+    result = _result(
+        *_spread("none", 0),
+        {"name": "worst", "check": "toy-worst-of", "input": ["count-none"]},
+    )
+    assert result.steps["worst"].not_assessed == "`none` holds no element"
+
+
+def test_a_port_that_may_be_empty_is_judged_empty() -> None:
+    result = _result(
+        {"name": "self", "evaluator": "dupes", "input": "a"},
+        {"name": "against-a", "evaluator": "dupes", "input": ["a", "rest"]},
+        {"name": "count-self", "combine": "toy-count-groups", "input": "self"},
+        {"name": "count-a", "combine": "toy-count-groups", "input": "against-a"},
+        {"name": "judge", "check": "toy-against", "reference": "count-self", "others": "count-a"},
+        inputs=_ONE_OR_NONE,
+        datasets={"a": ToyImages(seed=0)},
+    )
+    judge = result.steps["judge"]
+    assert judge.not_assessed is None
+    assert judge.output[0].brief.endswith("against 0 others")

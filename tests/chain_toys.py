@@ -259,6 +259,47 @@ class Worst(Check[WorstConfig]):
         return [Finding(severity="info", title=self.title, brief=brief)]
 
 
+class WorstOfConfig(CheckConfig):
+    input: list[str]
+
+
+class WorstOf(Check[WorstOfConfig]):
+    """Judges several whole lists of group counts at once: the largest across them."""
+
+    name: ClassVar[str] = "toy-worst-of"
+    description: ClassVar[str] = "The largest group count across lists."
+    title: ClassVar[str] = "Worst group count of several"
+    inputs: ClassVar[tuple[Port, ...]] = (
+        Port("input", DataType.OUTPUT, classes=(GroupCount,), is_list=True, count=SourceCount.ONE_OR_MORE),
+    )
+
+    def run(self, config: WorstOfConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+        counts = [node.value.groups for listed in inputs["input"] for node in listed.present.values()]
+        return [Finding(severity="info", title=self.title, brief=f"{len(counts)} counts, worst {max(counts)}")]
+
+
+class AgainstConfig(CheckConfig):
+    reference: str
+    others: str
+
+
+class Against(Check[AgainstConfig]):
+    """Judges one group count against a list of others that may be empty."""
+
+    name: ClassVar[str] = "toy-against"
+    description: ClassVar[str] = "A group count against others."
+    title: ClassVar[str] = "Group count against others"
+    inputs: ClassVar[tuple[Port, ...]] = (
+        Port("reference", DataType.OUTPUT, classes=(GroupCount,)),
+        Port("others", DataType.OUTPUT, classes=(GroupCount,), is_list=True, may_be_empty=True),
+    )
+
+    def run(self, config: AgainstConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+        others = inputs["others"].present
+        brief = f"{inputs['reference'].value.groups} groups against {len(others)} others"
+        return [Finding(severity="info", title=self.title, brief=brief)]
+
+
 class DriftedConfig(CheckConfig):
     input: str
 
@@ -293,6 +334,8 @@ _COMBINE_TOYS = {"toy-count-groups": "tests.chain_toys:CountGroups"}
 _CHECK_TOYS = {
     "toy-at-most": "tests.chain_toys:GroupLimit",
     "toy-worst": "tests.chain_toys:Worst",
+    "toy-worst-of": "tests.chain_toys:WorstOf",
+    "toy-against": "tests.chain_toys:Against",
     "toy-drifted": "tests.chain_toys:Drifted",
 }
 

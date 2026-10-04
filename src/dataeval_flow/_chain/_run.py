@@ -186,7 +186,7 @@ def _run_step(
     """
     inputs_text = [str(address) for binding in spec.bindings for address in binding.addresses]
     bound = {binding.port.name: [_lookup(nodes, address) for address in binding.addresses] for binding in spec.bindings}
-    gap = _first_gap(spec, bound, steps)
+    gap = _first_gap(spec, bound)
     if gap is not None:
         address, missing = gap
         if spec.kind == "check":
@@ -194,6 +194,10 @@ def _run_step(
             return record, _by_address(spec, outputs), []
         reason = f"needs `{address}`, which {missing.reason}"
         return _skipped(spec, inputs_text, reason), _by_address(spec, _missing_outputs(spec, "was skipped")), []
+    empty = _empty_port(spec, bound, steps)
+    if empty is not None:
+        record, outputs = _unassessed(spec, inputs_text, empty, None)
+        return record, _by_address(spec, outputs), []
     keys = _broadcast_keys(spec, bound)
     if keys is None:
         record, outputs, records = _attempt(spec, _shaped(spec, bound), settings, None, inputs_text, lineage, applied)
@@ -203,20 +207,29 @@ def _run_step(
     return _broadcast(spec, bound, keys, settings, inputs_text, lineage, applied, steps)
 
 
-def _first_gap(
-    spec: StepSpec, bound: Mapping[str, list[_Value]], steps: Mapping[str, StepResult]
-) -> tuple[Address, Missing] | None:
-    """The first address `spec` reads that holds nothing, and why; ``None`` when every one holds something.
-
-    A check is never skipped for want of input (spec §9.1), so a list it takes whole holds nothing when no element
-    of it exists.
-    """
+def _first_gap(spec: StepSpec, bound: Mapping[str, list[_Value]]) -> tuple[Address, Missing] | None:
+    """The first address `spec` reads that holds nothing, and why; ``None`` when every one holds something."""
     for binding in spec.bindings:
         for address, value in zip(binding.addresses, bound[binding.port.name], strict=True):
             if isinstance(value, Missing):
                 return address, value
-            if spec.kind == "check" and binding.port.is_list and isinstance(value, NodeList) and not value.present:
-                return address, _empty_list(address, value, steps)
+    return None
+
+
+def _empty_port(spec: StepSpec, bound: Mapping[str, list[_Value]], steps: Mapping[str, StepResult]) -> str | None:
+    """What a check cannot assess because a whole-list port holds nothing: no list on it holds an element (audit spec
+    §9.1). The reason the first list carries, else why it holds none; ``None`` where each such port holds an element,
+    or may be empty."""
+    if spec.kind != "check":
+        return None
+    for binding in spec.bindings:
+        if not binding.port.is_list or binding.port.may_be_empty:
+            continue
+        lists = list(zip(binding.addresses, bound[binding.port.name], strict=True))
+        if any(value.present for _, value in lists):
+            continue
+        address, value = lists[0]
+        return value.reason or _gap_text(address, _empty_list(address, value, steps), steps)
     return None
 
 

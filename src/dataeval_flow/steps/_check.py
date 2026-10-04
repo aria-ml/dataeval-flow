@@ -52,7 +52,8 @@ class Check(InlineStep, ABC, Generic[CheckConfigT]):
     - ``title: ClassVar[str]``: the title of the finding the check makes.
     - ``inputs``: ``ClassVar[tuple[Port, ...]]`` of ``output`` ports, each naming the Output classes it takes, and
       each a field of the config. A port declared ``is_list`` takes a whole list and judges it at once, such as a
-      worst case across splits; it receives the elements that exist, and ``.elements`` names every key.
+      worst case across splits; it receives the elements that exist, and ``.elements`` names every key. A whole-list
+      port is not assessed only when every list on it holds nothing; declare ``may_be_empty`` to judge it then.
     - :meth:`run`.
 
     Its one output, ``findings``, is fixed. Register the class under the ``dataeval_flow.checks`` entry-point
@@ -96,6 +97,8 @@ class Check(InlineStep, ABC, Generic[CheckConfigT]):
         for port in cls.inputs:
             if port.type is not DataType.OUTPUT:
                 raise TypeError(f"{cls.__name__}'s input `{port.name}` carries {port.type}: a check reads Outputs.")
+            if port.may_be_empty and not port.is_list:
+                raise TypeError(f"{cls.__name__}'s input `{port.name}` may be empty only where it takes a whole list.")
 
     @abstractmethod
     def run(self, config: CheckConfigT, inputs: Mapping[str, Any], context: CheckContext) -> Sequence[Finding]:

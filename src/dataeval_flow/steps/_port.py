@@ -48,6 +48,9 @@ class Port:
     """For a port fed several addresses, how many it allows. A port with a count is always handed a list of nodes."""
     derives: frozenset[InputKind] = frozenset()
     """For an evaluator's Dataset port, the kinds Flow derives from it."""
+    may_be_empty: bool = False
+    """For a check's whole-list port (``is_list``), whether the check judges it when every list on it holds no element,
+    as one comparing train with evaluation splits that may be none does; otherwise the check is not assessed then."""
 
     def accepts_class(self, cls: builtins.type | None) -> bool:
         """Whether an output of class `cls` may flow into this port."""
