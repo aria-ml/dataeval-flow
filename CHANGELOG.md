@@ -21,6 +21,8 @@
 - `class-sufficiency` and `untrained-classes` checks: classes with too few labels to learn or to evaluate, and
   evaluation classes train lacks; and `empty:` on `class-imbalance`, which with `false` leaves a class with no labels to
   them
+- `shortcut-risk` and `eval-coverage` checks: metadata factors tied to the class, and the share of an evaluation
+  split lying farther from train than most of train does
 - `library_versions` on every result's metadata: the installed version of DataEval, PyTorch, NumPy, Pillow, datamaite,
   OpenCV (where installed) and the task's extractor runtime (such as ONNX Runtime)
 - `provenance:` on `datasets:` entries: facts Flow can't measure, such as owner, licence, origin and collection date,

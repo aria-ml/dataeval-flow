@@ -210,6 +210,8 @@ dataeval_flow.steps.checks:DriftCheckConfig
 dataeval_flow.steps.checks:DriftThresholds
 dataeval_flow.steps.checks:DuplicateRateCheck
 dataeval_flow.steps.checks:DuplicateRateConfig
+dataeval_flow.steps.checks:EvalCoverageCheck
+dataeval_flow.steps.checks:EvalCoverageConfig
 dataeval_flow.steps.checks:LabelConformanceCheck
 dataeval_flow.steps.checks:LabelConformanceConfig
 dataeval_flow.steps.checks:LeafCoverageCheck
@@ -229,6 +231,8 @@ dataeval_flow.steps.checks:OntologyStructureCheck
 dataeval_flow.steps.checks:OntologyStructureConfig
 dataeval_flow.steps.checks:OutlierRateCheck
 dataeval_flow.steps.checks:OutlierRateConfig
+dataeval_flow.steps.checks:ShortcutRiskCheck
+dataeval_flow.steps.checks:ShortcutRiskConfig
 dataeval_flow.steps.checks:StratificationCheck
 dataeval_flow.steps.checks:StratificationConfig
 dataeval_flow.steps.checks:StratificationThresholds

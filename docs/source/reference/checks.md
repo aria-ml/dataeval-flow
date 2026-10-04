@@ -11,7 +11,9 @@ The built-in checks are the ones `data-cleaning` runs, whose findings are theirs
 detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s split and coverage;
 `leaf-coverage`, `label-conformance`, `ontology-structure` and `mergeability`, which make `label-space`'s; and
 `class-coverage`, `completeness-score`, `coverage-gaps` and `class-shortfall`, which make `data-coverage`'s with
-`class-imbalance` and `uncovered-rate`. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
+`class-imbalance` and `uncovered-rate`; and `class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`,
+`eval-coverage` and `distribution-shift`, which judge a set of splits as a pre-training audit. See
+[data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
 
@@ -35,6 +37,8 @@ detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s
 | `mergeability` | check | `input`: a `label-alignment` Output | Label Alignment |
 | `ontology-structure` | check | `input`: an `ontology-validation` Output | Ontology Structure |
 | `distribution-shift` | check | `input`: a `divergence` Output | Distribution Shift |
+| `shortcut-risk` | check | `input`: a `balance` Output | Shortcut Risk |
+| `eval-coverage` | check | `input`: an `ood-kneighbors` Output | Evaluation Coverage |
 | `leakage` | check | `duplicates`: `duplicates` Outputs over two splits; `factors`: `factor-leakage` Outputs | Leakage |
 | `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
@@ -327,6 +331,31 @@ nothing to compare, and the finding is `info` unless `declared` is true.
 | `input` | an address | required | A `label-health` Output over train |
 | `evals` | an address, a list, or `null` | `null` | The evaluation splits' `label-health` Outputs, a list that may be empty |
 | `declared` | `true` or `false` | `false` | Whether a declared class with no labels in train also warns |
+
+### `shortcut-risk`
+
+Whether a metadata factor tells much about the class, which a model could learn instead of the task. Configured by
+{py:class}`~dataeval_flow.steps.checks.ShortcutRiskConfig`. It makes one finding, which warns where a factor's mutual
+information with the class is past `mutual_information`, and lists the three most informative; a table ranks every
+factor. `balance`'s own `class_label` row is not a factor. With `mutual_information: null` the finding is `info`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `balance` Output |
+| `mutual_information` | 0 to 1, or `null` | `0.1` | The mutual information with the class past which a factor warns; `null` judges nothing |
+
+### `eval-coverage`
+
+How much of an evaluation split lies farther from train than most of train lies from itself. Configured by
+{py:class}`~dataeval_flow.steps.checks.EvalCoverageConfig`. The percent flagged is judged as `ood` judges its percent.
+The percentile is the `ood-kneighbors` entry's `threshold_perc`, or DataEval's 95 where unset; a split drawn like train
+has about 100 minus that percent flagged by construction, so `info: 2.0` suits `threshold_perc: 99`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | An `ood-kneighbors` Output fitted on train and run on one evaluation split |
+| `warning` | a percentage, or `null` | `10.0` | The percent flagged at which the finding warns |
+| `info` | a percentage, or `null` | `2.0` | The percent at which the finding is `info`, below which it is `ok` |
 
 ### `drift`
 

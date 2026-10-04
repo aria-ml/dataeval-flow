@@ -1237,6 +1237,94 @@
       "title": "CheckStep_duplicate-rate",
       "type": "object"
     },
+    "CheckStep_eval-coverage": {
+      "additionalProperties": false,
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10.0,
+          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 2.0,
+          "description": "The percent flagged at which the finding is `info`, below which it is `ok`; `null` is never `info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so `2.0` suits `threshold_perc: 99`.",
+          "title": "Info"
+        },
+        "input": {
+          "description": "An `ood-kneighbors` Output fitted on train and run on one evaluation split.",
+          "title": "Input",
+          "type": "string"
+        },
+        "check": {
+          "const": "eval-coverage",
+          "description": "`eval-coverage`: Warns when much of an evaluation split lies beyond what train covers.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_eval-coverage",
+      "type": "object"
+    },
     "CheckStep_label-conformance": {
       "additionalProperties": false,
       "properties": {
@@ -1966,6 +2054,79 @@
         "name"
       ],
       "title": "CheckStep_outlier-rate",
+      "type": "object"
+    },
+    "CheckStep_shortcut-risk": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `balance` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "mutual_information": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.1,
+          "description": "The mutual information with the class, from 0 to 1, past which a factor warns; `null` judges nothing. Legacy data-analysis's 0.1.",
+          "title": "Mutual Information"
+        },
+        "check": {
+          "const": "shortcut-risk",
+          "description": "`shortcut-risk`: Warns when a metadata factor tells much about the class.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_shortcut-risk",
       "type": "object"
     },
     "CheckStep_stratification": {
@@ -3598,6 +3759,9 @@
                 "$ref": "#/$defs/CheckStep_duplicate-rate"
               },
               {
+                "$ref": "#/$defs/CheckStep_eval-coverage"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_label-conformance"
               },
               {
@@ -3623,6 +3787,9 @@
               },
               {
                 "$ref": "#/$defs/CheckStep_outlier-rate"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_shortcut-risk"
               },
               {
                 "$ref": "#/$defs/CheckStep_stratification"

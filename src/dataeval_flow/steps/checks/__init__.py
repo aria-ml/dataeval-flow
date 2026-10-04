@@ -21,6 +21,8 @@ __all__ = [
     "DriftCheckConfig",
     "DriftThresholds",
     "DuplicateRateCheck",
+    "EvalCoverageCheck",
+    "EvalCoverageConfig",
     "DuplicateRateConfig",
     "LabelConformanceCheck",
     "LabelConformanceConfig",
@@ -41,6 +43,8 @@ __all__ = [
     "OntologyStructureConfig",
     "OutlierRateCheck",
     "OutlierRateConfig",
+    "ShortcutRiskCheck",
+    "ShortcutRiskConfig",
     "StratificationCheck",
     "StratificationConfig",
     "StratificationThresholds",
@@ -53,6 +57,7 @@ __all__ = [
 ]
 
 from dataeval_flow.steps.checks._alignment import MergeabilityCheck, MergeabilityConfig
+from dataeval_flow.steps.checks._bias import ShortcutRiskCheck, ShortcutRiskConfig
 from dataeval_flow.steps.checks._coverage import (
     ClassCoverageCheck,
     ClassCoverageConfig,
@@ -90,6 +95,8 @@ from dataeval_flow.steps.checks._labels import (
 )
 from dataeval_flow.steps.checks._leakage import LeakageCheck, LeakageConfig
 from dataeval_flow.steps.checks._ood import (
+    EvalCoverageCheck,
+    EvalCoverageConfig,
     OODAgreementCheck,
     OODAgreementConfig,
     OODCheck,

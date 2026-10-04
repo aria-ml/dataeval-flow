@@ -138,8 +138,8 @@ class StratificationCheck(Check[StratificationConfig]):
                 title=self.title,
                 brief=f"max deviation {deviation}pp" + (f" (class '{worst}' in {where})" if deviation else ""),
                 description=(
-                    "Each part's class proportions against the whole's, in percentage points. Counts are labels: one "
-                    "per box on detection data."
+                    f"Each part's class proportions against `{whole.name}`'s, in percentage points. Counts are labels: "
+                    "one per box on detection data."
                 ),
                 blocks=[_table(whole, parts, shown), Fields(items=fields)],
             )
