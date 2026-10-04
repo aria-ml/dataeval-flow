@@ -52,7 +52,8 @@ class ExtractorSetup:
 
 @dataclass(frozen=True)
 class StepContext:
-    """What preflight resolved for one step: its metadata and stats policies, its ontology, and its stats unions."""
+    """What preflight resolved for one step: its metadata and stats policies, its ontology, its stats unions, and,
+    under a preset's reference, the derived policy and the reference source."""
 
     metadata_policy: "ResolvedPolicy | None" = None
     stats_policy: "ResolvedStatsPolicy | None" = None
@@ -61,6 +62,18 @@ class StepContext:
     """By the address of a Dataset an evaluator step reads, the union of the statistics every evaluator step reading
     that Dataset asks for, where it is wider than this step's own request. A list the step runs over is keyed by the
     list's address; an element of it another step names alone, by the element's."""
+    derived_policy: "ResolvedPolicy | None" = None
+    """This step's metadata policy put on its reference's encoding (audit spec §9.3), which every Dataset not made
+    from the reference alone reads under; ``None`` where the chain names no reference or the step no policy."""
+    reference: str | None = None
+    """The source the reference is, where :attr:`derived_policy` is set."""
+
+    def policy_for(self, node: Node) -> "ResolvedPolicy | None":
+        """The metadata policy `node` reads under: this step's own for the reference and what is made from it alone,
+        the derived one for every other Dataset."""
+        if self.derived_policy is None or {root.source for root in node.roots} == {self.reference}:
+            return self.metadata_policy
+        return self.derived_policy
 
 
 @dataclass(frozen=True)
@@ -568,7 +581,7 @@ def _combine(
     context = CombineContext(
         task=settings.task,
         step=spec.name,
-        derive_metadata=lambda node: _metadata(node, step.metadata_policy, _policy_name(spec)),
+        derive_metadata=lambda node: _metadata(node, step, _policy_name(spec)),
         derive_stats=lambda node: _stats(node, step.stats_policy),
     )
     made = impl.run(spec.config, inputs, context)
@@ -717,6 +730,7 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
         dataset_contexts=contexts,
         batch_size=setup.batch_size if setup is not None else None,
         metadata_policy=step.metadata_policy,
+        metadata_policies={node.address: policy for node in nodes if (policy := step.policy_for(node)) is not None},
         ontology=step.ontology,
         stats_policy=step.stats_policy,
         policy_name=_policy_name(spec),
@@ -793,7 +807,7 @@ def _transform(
         output_dir=settings.output_dir,
         pipeline=settings.pipeline,
         data_dir=settings.data_dir,
-        derive_metadata=lambda node: _metadata(node, step.metadata_policy, _policy_name(spec)),
+        derive_metadata=lambda node: _metadata(node, step, _policy_name(spec)),
         lineage=lambda address: _ancestry(address, lineage),
         label_space=tuple(record for record in applied if record.source in ancestors),
         element=element,
@@ -942,16 +956,22 @@ def _policy_name(spec: StepSpec) -> str | None:
     return name if isinstance(name, str) else None
 
 
-def _metadata(node: Node, policy: Any, policy_name: str | None) -> Any:
-    """`node`'s Metadata under `policy`, cached on the node, and noted for the chain's binning record."""
+def _read_metadata(node: Node, policy: "ResolvedPolicy | None") -> Any:
+    """`node`'s Metadata under `policy`, cached on the node."""
     from dataeval_flow._cache import active_cache, get_or_compute_metadata, selection_repr
 
     dataset = node.value
     cache = node.context.cache if node.context is not None else None
     scope = active_cache(cache, selection_repr(dataset)) if cache is not None else contextlib.nullcontext()
     with scope:
-        metadata = get_or_compute_metadata(dataset, policy)
-    note_read(node.address, policy_name, policy, metadata)
+        return get_or_compute_metadata(dataset, policy)
+
+
+def _metadata(node: Node, step: StepContext, policy_name: str | None) -> Any:
+    """`node`'s Metadata under the policy `step` reads it under, noted for the chain's binning record under the step's
+    own policy, which is what the step asked for."""
+    metadata = _read_metadata(node, step.policy_for(node))
+    note_read(node.address, policy_name, step.metadata_policy, metadata)
     return metadata
 
 

@@ -1,7 +1,8 @@
 """Preflight: what each step needs resolved before any step runs, and the Dataset kinds reaching each (spec §5.4)."""
 
-__all__ = ["check_kinds", "detect_kind", "step_contexts"]
+__all__ = ["check_kinds", "derive_policies", "detect_kind", "step_contexts"]
 
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
@@ -9,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from dataeval_flow._chain._graph import ChainGraph, GraphError, StepSpec
 from dataeval_flow._chain._nodes import Node, NodeList
-from dataeval_flow._chain._run import StepContext
+from dataeval_flow._chain._run import StepContext, _datasets, _policy_name, _read_metadata
 from dataeval_flow.steps._address import Address
 from dataeval_flow.steps._step import Transform
 
@@ -17,6 +18,8 @@ if TYPE_CHECKING:
     from dataeval_flow._stats import ResolvedStatsPolicy
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.workflows._context import DatasetContext
+
+_logger: logging.Logger = logging.getLogger(__name__)
 
 _Read = tuple[str, str | None]
 """A Dataset a step reads: the address of the node or list holding it, past any preset alias, and its element key."""
@@ -237,3 +240,56 @@ def _check_step(
                         f"takes {', '.join(sorted(allowed))}."
                     )
     return input_kinds
+
+
+def derive_policies(
+    graph: ChainGraph, contexts: Mapping[str, StepContext], inputs: Mapping[str, Node | NodeList], reference: str
+) -> dict[str, StepContext]:
+    """`contexts`, each step with a metadata policy also given that policy put on its reference's encoding (audit spec
+    §9.3).
+
+    The reference is the source bound to slot `reference`, or the one the step's policy's `reference_split` names. Its
+    Metadata is built here, once per policy, through its node's cache, so the steps reading it later read the same
+    object. Raises GraphError where a `reference_split` names no source the task binds, and RuntimeError where the
+    reference's Metadata cannot be built: nothing else is comparable without it.
+    """
+    from dataeval_flow._binning import _descriptor
+    from dataeval_flow._policy import derive_from, policy_key
+    from dataeval_flow._result import failure_message
+
+    slot = inputs.get(reference)
+    if not isinstance(slot, Node) or slot.source is None:
+        raise GraphError(f"The preset names reference `{reference}`, which is no slot taking one source.")
+    bound = {node.source: node for node in _datasets(inputs.values()) if node.source is not None}
+    chosen = []
+    for spec in graph.steps:
+        policy = contexts[spec.name].metadata_policy
+        if policy is None:
+            continue
+        source = policy.reference_split or slot.source
+        if source not in bound:
+            raise GraphError(
+                f"Metadata policy {_policy_name(spec)!r} names reference_split={source!r}, which this task does not "
+                f"bind. Its sources are {list(bound)}."
+            )
+        chosen.append((spec, policy, source))
+    built: dict[tuple[str, str], tuple[Any, Any]] = {}
+    derived = dict(contexts)
+    for spec, policy, source in chosen:
+        key = (policy_key(policy), source)
+        try:
+            if key not in built:
+                metadata = _read_metadata(bound[source], policy)
+                built[key] = metadata, _descriptor(metadata).factors or None
+            metadata, descriptor = built[key]
+            derived_policy = derive_from(policy, metadata, descriptor)
+        except Exception as error:
+            _logger.debug("Reference derivation failed", exc_info=error)
+            named = _policy_name(spec)
+            under = f"metadata policy {named!r}" if named else "DataEval's default metadata policy"
+            raise RuntimeError(
+                f"The reference split `{bound[source].address}` could not be encoded under {under}, and without its "
+                f"encoding no other split's factors are comparable: {failure_message(error)}"
+            ) from error
+        derived[spec.name] = replace(contexts[spec.name], derived_policy=derived_policy, reference=source)
+    return derived

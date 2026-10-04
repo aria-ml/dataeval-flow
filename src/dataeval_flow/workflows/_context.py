@@ -113,6 +113,9 @@ class WorkflowContext:
     relative to — neither of which a workflow has.  None where the caller built a context
     directly, which takes DataEval's defaults.
     """
+    metadata_policies: "Mapping[str, ResolvedPolicy]" = field(default_factory=dict)
+    """By source, the policy that source's metadata is read under where it is not :attr:`metadata_policy`: in a chain
+    with a reference, every other Dataset reads under the reference's encoding. Empty for a task's own context."""
     ontology: "ResolvedOntology | None" = None
     """The label space this task names, resolved before the dataset was read.
 
@@ -369,7 +372,11 @@ class WorkflowContext:
         from dataeval_flow._cache import get_or_compute_metadata
 
         with self._cached(source) as dataset:
-            return get_or_compute_metadata(dataset, self.metadata_policy)
+            return get_or_compute_metadata(dataset, self.metadata_policy_for(source))
+
+    def metadata_policy_for(self, source: str) -> "ResolvedPolicy | None":
+        """The policy :meth:`metadata` reads *source*'s metadata under."""
+        return self.metadata_policies.get(source, self.metadata_policy)
 
     def labels(self, source: str) -> "NDArray[np.intp]":
         """Each item's class label, as :meth:`metadata` reads them.

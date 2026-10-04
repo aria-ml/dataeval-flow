@@ -21,7 +21,9 @@ if TYPE_CHECKING:
     import torch
 
     from dataeval_flow._cache import DatasetCache
-    from dataeval_flow._chain._run import ChainRun, ExtractorSetup
+    from dataeval_flow._chain._graph import ChainGraph
+    from dataeval_flow._chain._nodes import Node, NodeList
+    from dataeval_flow._chain._run import ChainRun, ExtractorSetup, RunSettings
     from dataeval_flow._policy import ResolvedPolicy
     from dataeval_flow._result import Result, ResultMetadata
     from dataeval_flow._sources import ResolvedSource, SourceOperand
@@ -573,6 +575,7 @@ def _run_resolved(
             limits=limits,
             evaluators=evaluators,
             entry=instance,
+            reference=type(runner).chain(instance).reference,
             run=run,
         )
 
@@ -816,17 +819,19 @@ def _run_custom_task(
     limits: "TableLimits",
     evaluators: "Sequence[EvaluatorConfig[Any]]" = (),
     entry: "WorkflowConfig[Any] | None" = None,
+    reference: str | None = None,
     run: int | None = None,
 ) -> "ChainResult":
     """Run a custom workflow's chain for `task`. Config errors raise; step failures become the result's.
 
     `entry` is the preset entry `workflow` was expanded from: the result carries its type id, and the envelope records
     its settings rather than the chain's, and each conformed source's label space under its ontology. `evaluators`
-    are the entries the preset's steps name.
+    are the entries the preset's steps name. `reference` is the slot or source the preset's other Datasets are encoded
+    like, whose metadata policies are derived before any step runs.
     """
     from dataeval_flow._chain._graph import binding_problems, build_graph
     from dataeval_flow._chain._preflight import check_kinds, step_contexts
-    from dataeval_flow._chain._run import RunSettings, _datasets, bind_inputs, run_chain
+    from dataeval_flow._chain._run import RunSettings, _datasets, bind_inputs
     from dataeval_flow._sources import label_space_records
     from dataeval_flow._tables import limited_tables
     from dataeval_flow.steps._result import ChainMetadata, ChainResult
@@ -843,12 +848,16 @@ def _run_custom_task(
         if problem is not None
         else binding_problems(task, workflow, config, evaluators)
     )
-    if problems:
-        refused = ChainResult.failed(type=type_id, errors=problems)
-        refused.metadata = ChainMetadata(workflow=workflow.name)
+
+    def refuse(errors: list[str], diagnostics: "Sequence[str]" = ()) -> ChainResult:
+        refused = ChainResult.failed(type=type_id, errors=errors)
+        refused.metadata = ChainMetadata(workflow=workflow.name, diagnostics=list(diagnostics))
         refused._preset = entry is not None  # noqa: SLF001 - the banner names a preset, not a custom workflow
         _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, described, config, data_dir=data_dir)
         return refused
+
+    if problems:
+        return refuse(problems)
     # A preset entry's ontology resolves up front, as a workflow-type task's does, for the envelope to record.
     ontology = _resolve_ontology(entry, config, data_dir) if entry is not None else None
     graph = build_graph(workflow, config, evaluators=evaluators)
@@ -875,7 +884,9 @@ def _run_custom_task(
     _logger.debug("Task '%s': executing", task.name)
     start = time.monotonic()
     with capture_diagnostics() as diagnostics, shared_extractor_scope(), limited_tables(limits):
-        chain = run_chain(graph, inputs, run_settings)
+        chain = _run_on_reference(graph, inputs, run_settings, reference)
+    if isinstance(chain, str):
+        return refuse([chain], diagnostics)
     elapsed = time.monotonic() - start
     result = ChainResult.from_run(workflow.name, chain, type_id=type_id, preset=entry is not None)
     if diagnostics:
@@ -897,6 +908,25 @@ def _run_custom_task(
     else:
         _stamp_alignment_digest(result.metadata, result.steps)
     return result
+
+
+def _run_on_reference(
+    graph: "ChainGraph", inputs: "Mapping[str, Node | NodeList]", settings: "RunSettings", reference: str | None
+) -> "ChainRun | str":
+    """Run the chain, each step's metadata policy first derived from `reference`'s encoding where the preset names one
+    (audit spec §9.3); or why the task fails instead, where the reference's Metadata cannot be built."""
+    from dataeval_flow._chain._preflight import derive_policies
+    from dataeval_flow._chain._run import run_chain
+
+    if reference is not None:
+        try:
+            settings = replace(
+                settings, step_contexts=derive_policies(graph, settings.step_contexts, inputs, reference)
+            )
+        except RuntimeError as error:
+            _logger.debug("Reference derivation failed", exc_info=error)
+            return str(error)
+    return run_chain(graph, inputs, settings)
 
 
 def _alignment_digests(steps: "Mapping[str, StepResult]") -> set[str]:

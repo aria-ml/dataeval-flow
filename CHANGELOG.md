@@ -11,6 +11,8 @@
   `may_be_empty` is judged even then
 - `pairs: true` on a step reading two Datasets through one input: it runs once per unordered pair of one list's
   elements, keyed `a_vs_b`
+- A preset may name a reference split: every other split's metadata, and every Dataset made from one, is then encoded
+  with the reference's cuts, so their factor statistics compare. A policy's `reference_split` names another reference
 - `library_versions` on every result's metadata: the installed version of DataEval, PyTorch, NumPy, Pillow, datamaite,
   OpenCV (where installed) and the task's extractor runtime (such as ONNX Runtime)
 - `provenance:` on `datasets:` entries: facts Flow can't measure, such as owner, licence, origin and collection date,

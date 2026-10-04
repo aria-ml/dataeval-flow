@@ -35,6 +35,9 @@ class PresetChain:
     outputs: Mapping[str, str] = field(default_factory=dict)
     """Where each declared output is read in the chain, by output name: an address such as `split.train`. An output
     the map leaves out is the step of its own name, with one output."""
+    reference: str | None = None
+    """The slot whose Dataset every other Dataset's metadata is encoded like (audit spec §9.3); a metadata policy's
+    `reference_split` names a source in its place. ``None`` encodes each Dataset on its own draw."""
 
 
 class Preset:
