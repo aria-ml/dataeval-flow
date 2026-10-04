@@ -31,6 +31,7 @@ _BUILTINS = {
     "drift-univariate": "dataeval_flow.evaluators.shift._evaluator:DriftUnivariateEvaluator",
     "drift-wasserstein": "dataeval_flow.evaluators.shift._evaluator:DriftWassersteinEvaluator",
     "ood-domain-classifier": "dataeval_flow.evaluators.shift._evaluator:OODDomainClassifierEvaluator",
+    "divergence": "dataeval_flow.evaluators.shift._evaluator:DivergenceEvaluator",
     "ood-kneighbors": "dataeval_flow.evaluators.shift._evaluator:OODKNeighborsEvaluator",
 }
 

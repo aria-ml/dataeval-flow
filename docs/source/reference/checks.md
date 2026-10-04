@@ -32,6 +32,7 @@ detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s
 | `label-conformance` | check | `input`: a `label-reconciliation` Output | Label Conformance |
 | `mergeability` | check | `input`: a `label-alignment` Output | Label Alignment |
 | `ontology-structure` | check | `input`: an `ontology-validation` Output | Ontology Structure |
+| `distribution-shift` | check | `input`: a `divergence` Output | Distribution Shift |
 | `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
 | `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
@@ -261,6 +262,19 @@ It has no thresholds. Configured by {py:class}`~dataeval_flow.steps.checks.Metad
 | --- | --- | --- | --- |
 | `input` | an address | required | A `factor-triage` Output |
 | `max_examples` | an integer of at least 1 | `20` | Distinct values shown per kind per factor; display only |
+
+### `distribution-shift`
+
+How far apart two sources' embeddings sit. Configured by
+{py:class}`~dataeval_flow.steps.checks.DistributionShiftConfig`. The finding warns above `warning`, is `info` above
+`info`, and is `ok` at or below both, as data-analysis banded it: high, moderate or low divergence. A `null` limit
+judges nothing at its level, and with both `null` the finding is `info`.
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `divergence` Output |
+| `warning` | a number from 0 to 1, or `null` | `0.5` | The divergence above which the finding warns; `null` never warns |
+| `info` | a number from 0 to 1, or `null` | 0.4 times `warning` | The divergence above which the finding is `info`, at or below which it is `ok`; `null` has no `info` band; must not exceed `warning` |
 
 ### `drift`
 

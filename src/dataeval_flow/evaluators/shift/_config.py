@@ -6,6 +6,7 @@ reads the embeddings of the task's sources, the reference first.
 
 __all__ = [
     "ChunkedDriftConfig",
+    "DivergenceConfig",
     "DriftDomainClassifierConfig",
     "DriftKNeighborsConfig",
     "DriftMMDConfig",
@@ -23,6 +24,7 @@ from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators._threshold import ThresholdSpec
 from dataeval_flow.evaluators.shift._result import (
+    DivergenceResult,
     DriftDomainClassifierResult,
     DriftKNeighborsResult,
     DriftMMDResult,
@@ -440,4 +442,30 @@ class OODDomainClassifierConfig(EvaluatorConfig[OODDomainClassifierResult]):
         ge=0.0,
         le=100.0,
         description="Percentage of the reference treated as normal, 0 to 100; overrides `n_std`. Unset uses `n_std`.",
+    )
+
+
+class DivergenceConfig(EvaluatorConfig[DivergenceResult]):
+    """Config for ``divergence``: how far apart two sources' embeddings sit.
+
+    Wraps ``dataeval.core.divergence_mst`` or ``divergence_fnn`` over the task extractor's embeddings of two sources,
+    the first then the second: 0 where they overlap, 1 where they are wholly apart. It is a distance, not a test: the
+    ``distribution-shift`` check judges it. Needs an extractor on the task.
+
+    Example YAML::
+
+        evaluators:
+          - name: shift
+            type: divergence
+            method: mst
+    """
+
+    type: str = Field(default="divergence", description="The evaluator type this entry configures: `divergence`.")
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.TWO)
+    method: Literal["mst", "fnn"] = Field(
+        default="mst",
+        description=(
+            "How the divergence is counted: `mst`, the cross-source edges of the minimum spanning tree over both "
+            "sources, or `fnn`, nearest neighbours of the other source. Legacy data-analysis's `divergence_method`."
+        ),
     )

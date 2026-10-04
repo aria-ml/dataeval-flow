@@ -125,6 +125,10 @@ dataeval_flow.evaluators.scope:RepresentationConfig
 dataeval_flow.evaluators.scope:RepresentationEvaluator
 dataeval_flow.evaluators.scope:RepresentationResult
 dataeval_flow.evaluators.shift:ChunkedDriftConfig
+dataeval_flow.evaluators.shift:DivergenceConfig
+dataeval_flow.evaluators.shift:DivergenceEvaluator
+dataeval_flow.evaluators.shift:DivergenceOutput
+dataeval_flow.evaluators.shift:DivergenceResult
 dataeval_flow.evaluators.shift:DriftDomainClassifierConfig
 dataeval_flow.evaluators.shift:DriftDomainClassifierEvaluator
 dataeval_flow.evaluators.shift:DriftDomainClassifierResult
@@ -193,6 +197,8 @@ dataeval_flow.steps.checks:CompletenessScoreCheck
 dataeval_flow.steps.checks:CompletenessScoreConfig
 dataeval_flow.steps.checks:CoverageGapsCheck
 dataeval_flow.steps.checks:CoverageGapsConfig
+dataeval_flow.steps.checks:DistributionShiftCheck
+dataeval_flow.steps.checks:DistributionShiftConfig
 dataeval_flow.steps.checks:DriftCheck
 dataeval_flow.steps.checks:DriftCheckConfig
 dataeval_flow.steps.checks:DriftThresholds

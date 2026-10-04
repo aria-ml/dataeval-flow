@@ -44,6 +44,7 @@ _TITLES = {
     "drift-wasserstein": "Drift (Wasserstein)",
     "ood-domain-classifier": "OOD (Domain Classifier)",
     "ood-kneighbors": "OOD (K-Neighbors)",
+    "divergence": "Divergence",
     "conform": "Conform",
     "export": "Export",
     "kfold": "K-Fold Split",

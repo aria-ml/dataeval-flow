@@ -850,6 +850,94 @@
       "title": "CheckStep_coverage-gaps",
       "type": "object"
     },
+    "CheckStep_distribution-shift": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `divergence` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "The divergence above which the finding warns; `null` never warns. Legacy data-analysis's `health_thresholds.distribution_shift`.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times `warning`, legacy's band; `null` has no `info` band. Must not exceed `warning`.",
+          "title": "Info"
+        },
+        "check": {
+          "const": "distribution-shift",
+          "description": "`distribution-shift`: Warns when two sources' embeddings sit too far apart.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_distribution-shift",
+      "type": "object"
+    },
     "CheckStep_drift": {
       "additionalProperties": false,
       "properties": {
@@ -3187,6 +3275,9 @@
                 "$ref": "#/$defs/CheckStep_coverage-gaps"
               },
               {
+                "$ref": "#/$defs/CheckStep_distribution-shift"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_drift"
               },
               {
@@ -4634,6 +4725,36 @@
         "dataset"
       ],
       "title": "DemoDatasetConfig",
+      "type": "object"
+    },
+    "DivergenceConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``divergence``: how far apart two sources' embeddings sit.\n\nWraps ``dataeval.core.divergence_mst`` or ``divergence_fnn`` over the task extractor's embeddings of two sources,\nthe first then the second: 0 where they overlap, 1 where they are wholly apart. It is a distance, not a test: the\n``distribution-shift`` check judges it. Needs an extractor on the task.\n\nExample YAML::\n\n    evaluators:\n      - name: shift\n        type: divergence\n        method: mst",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "divergence",
+          "default": "divergence",
+          "description": "The evaluator type this entry configures: `divergence`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "method": {
+          "default": "mst",
+          "description": "How the divergence is counted: `mst`, the cross-source edges of the minimum spanning tree over both sources, or `fnn`, nearest neighbours of the other source. Legacy data-analysis's `divergence_method`.",
+          "enum": [
+            "mst",
+            "fnn"
+          ],
+          "title": "Method",
+          "type": "string"
+        }
+      },
+      "title": "DivergenceConfig",
       "type": "object"
     },
     "DiversityConfig": {
@@ -11462,6 +11583,9 @@
               },
               {
                 "$ref": "#/$defs/CoverageConfig"
+              },
+              {
+                "$ref": "#/$defs/DivergenceConfig"
               },
               {
                 "$ref": "#/$defs/DiversityConfig"

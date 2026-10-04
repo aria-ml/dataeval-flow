@@ -79,6 +79,7 @@ _ECHOES: dict[str, frozenset[str]] = {
     "drift-wasserstein": frozenset(),
     "ood-domain-classifier": frozenset(),
     "ood-kneighbors": frozenset(),
+    "divergence": frozenset(),
     # `ontology` is the config's own input, and `ontology_source` how the config named it, read back rather than
     # serialized: `conform` reaches both off the result.
     "label-alignment": frozenset({"ontology", "ontology_source"}),

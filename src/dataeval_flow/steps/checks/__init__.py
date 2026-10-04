@@ -13,6 +13,8 @@ __all__ = [
     "CompletenessScoreConfig",
     "CoverageGapsCheck",
     "CoverageGapsConfig",
+    "DistributionShiftCheck",
+    "DistributionShiftConfig",
     "DriftCheck",
     "DriftCheckConfig",
     "DriftThresholds",
@@ -53,7 +55,13 @@ from dataeval_flow.steps.checks._coverage import (
     UncoveredRateCheck,
     UncoveredRateConfig,
 )
-from dataeval_flow.steps.checks._drift import DriftCheck, DriftCheckConfig, DriftThresholds
+from dataeval_flow.steps.checks._drift import (
+    DistributionShiftCheck,
+    DistributionShiftConfig,
+    DriftCheck,
+    DriftCheckConfig,
+    DriftThresholds,
+)
 from dataeval_flow.steps.checks._duplicates import DuplicateRateCheck, DuplicateRateConfig
 from dataeval_flow.steps.checks._gaps import CoverageGapsCheck, CoverageGapsConfig
 from dataeval_flow.steps.checks._label_space import (

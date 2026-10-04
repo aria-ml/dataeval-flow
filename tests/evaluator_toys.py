@@ -179,6 +179,7 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "drift-wasserstein": lambda count: (shifted_sources(count, validation=True), FLAT),
     "ood-domain-classifier": lambda count: (shifted_sources(count), FLAT),
     "ood-kneighbors": lambda count: (shifted_sources(count), FLAT),
+    "divergence": lambda count: (shifted_sources(count), FLAT),
     "label-alignment": lambda count: (ToyImages(count=count), None),
     "label-reconciliation": lambda count: (ToyImages(count=count), None),
     "ontology-validation": lambda count: (ToyImages(count=count), None),

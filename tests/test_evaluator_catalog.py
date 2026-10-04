@@ -39,6 +39,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "drift-wasserstein": ("3", "required"),
     "ood-domain-classifier": ("2", "required"),
     "ood-kneighbors": ("2", "required"),
+    "divergence": ("2", "required"),
 }
 
 # A count each rule refuses, where one exists; and a count it allows.

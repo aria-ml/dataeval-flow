@@ -45,6 +45,7 @@ _CHECK_BUILTINS: dict[str, str] = {
     "classwise-outlier-rate": "dataeval_flow.steps.checks._outliers:ClasswiseOutlierRateCheck",
     "completeness-score": "dataeval_flow.steps.checks._coverage:CompletenessScoreCheck",
     "coverage-gaps": "dataeval_flow.steps.checks._gaps:CoverageGapsCheck",
+    "distribution-shift": "dataeval_flow.steps.checks._drift:DistributionShiftCheck",
     "drift": "dataeval_flow.steps.checks._drift:DriftCheck",
     "duplicate-rate": "dataeval_flow.steps.checks._duplicates:DuplicateRateCheck",
     "label-conformance": "dataeval_flow.steps.checks._label_space:LabelConformanceCheck",

@@ -1,15 +1,23 @@
 """The drift check: judges a drift detector's verdict, whole or chunk by chunk (spec §10.11)."""
 
-__all__ = ["DriftCheck", "DriftCheckConfig", "DriftThresholds", "evaluator_heading"]
+__all__ = [
+    "DistributionShiftCheck",
+    "DistributionShiftConfig",
+    "DriftCheck",
+    "DriftCheckConfig",
+    "DriftThresholds",
+    "evaluator_heading",
+]
 
 from collections.abc import Mapping
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Self
 
 import polars as pl
 from dataeval.shift import DriftOutput
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from dataeval_flow._step_title import step_title
+from dataeval_flow.evaluators.shift import DivergenceOutput
 from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.workflows._base import Finding
@@ -93,4 +101,66 @@ class DriftCheck(Check[DriftCheckConfig]):
                 brief=f"{drifted}/{len(chunks)} chunks drifted",
                 description=f"{drifted}/{len(chunks)} chunks drifted ({percent:.0f}%) | max consecutive: {longest}",
             )
+        ]
+
+
+class DistributionShiftConfig(CheckConfig):
+    """A `distribution-shift` step's input, and the bands of divergence that warn and inform."""
+
+    input: str = Field(description="A `divergence` Output.")
+    warning: float | None = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "The divergence above which the finding warns; `null` never warns. Legacy data-analysis's "
+            "`health_thresholds.distribution_shift`."
+        ),
+    )
+    info: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times "
+            "`warning`, legacy's band; `null` has no `info` band. Must not exceed `warning`."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _info_under_warning(self) -> Self:
+        if self.warning is None:
+            return self
+        if "info" not in self.model_fields_set:
+            # derived, so it stays out of model_fields_set; rounded, because 0.4 * 0.2 is 0.08000000000000002
+            object.__setattr__(self, "info", round(0.4 * self.warning, 10))
+        elif self.info is not None and self.info > self.warning:
+            raise ValueError(f"`info` ({self.info}) must not exceed `warning` ({self.warning}).")
+        return self
+
+
+class DistributionShiftCheck(Check[DistributionShiftConfig]):
+    """``distribution-shift``: legacy data-analysis's Distribution Shift finding, judging one `divergence` Output."""
+
+    name: ClassVar[str] = "distribution-shift"
+    description: ClassVar[str] = "Warns when two sources' embeddings sit too far apart."
+    title: ClassVar[str] = "Distribution Shift"
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(DivergenceOutput,)),)
+
+    def run(self, config: DistributionShiftConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+        """The divergence, banded high, moderate or low, as legacy banded it."""
+        data = inputs["input"].value.data()
+        value, method = float(data["divergence"]), data["method"]
+        if config.warning is None and config.info is None:
+            brief = f"divergence {value:.4f} ({method})"
+            return [Finding(severity="info", title=self.title, brief=brief, description=f"Divergence {value:.4f}.")]
+        if config.warning is not None and value > config.warning:
+            severity, level = "warning", "high"
+        elif config.info is not None and value > config.info:
+            severity, level = "info", "moderate"
+        else:
+            severity, level = "ok", "low"
+        brief = f"{level} divergence: {value:.4f} ({method})"
+        return [
+            Finding(severity=severity, title=self.title, brief=brief, description=f"{brief[0].upper()}{brief[1:]}.")
         ]

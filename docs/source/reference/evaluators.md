@@ -34,6 +34,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | `drift-wasserstein` | `dataeval.shift.DriftWasserstein` | embeddings | 3: the reference, a validation set, then the data to test | required |
 | `ood-domain-classifier` | `dataeval.shift.OODDomainClassifier` | embeddings | 2: the reference, then the data to test | required |
 | `ood-kneighbors` | `dataeval.shift.OODKNeighbors` | embeddings | 2: the reference, then the data to test | required |
+| `divergence` | `dataeval.core.divergence_mst`, `dataeval.core.divergence_fnn` | embeddings | 2: the first source, then the second | required |
 
 A task's `extractor:` still lands in the result envelope's `model_id`, whether or not that
 run's mode actually reads it.
@@ -454,6 +455,19 @@ it separates well. Configured by {py:class}`~dataeval_flow.evaluators.shift.OODD
 | `threshold_perc` | `threshold_perc`, 0 to 100; overrides `n_std` | `n_std` sets the threshold |
 
 Output: a mapping. `is_ood` and `instance_score` hold one value per test item, and `feature_score` is `null`.
+
+### `divergence`
+
+How far apart two sources' embeddings sit, from 0 (they overlap) to 1 (they are wholly apart), counted over the minimum
+spanning tree of both sources together (`mst`) or by nearest-neighbour disagreement (`fnn`). It is a distance, not a
+test: the `distribution-shift` check judges it. Configured by
+{py:class}`~dataeval_flow.evaluators.shift.DivergenceConfig`; runs `dataeval.core.divergence_mst` or `divergence_fnn`.
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `method` | (DataEval Flow) `mst` or `fnn` | `mst` |
+
+Output: a mapping of `divergence`, `errors` and `method`.
 
 ## Not in the catalog yet
 
