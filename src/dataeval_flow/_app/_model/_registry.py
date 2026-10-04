@@ -286,6 +286,8 @@ def _build_skip_set(section: str, *, skip_name: bool) -> set[str]:
         skip.update(WORKFLOW_SKIP_FIELDS)
     if section in STEP_BUILDER_SECTIONS:
         skip.add(STEP_BUILDER_SECTIONS[section]["collection_key"])
+    if section == "datasets":
+        skip.add("provenance")  # written in YAML only; the form edits the rest and keeps it
     return skip
 
 

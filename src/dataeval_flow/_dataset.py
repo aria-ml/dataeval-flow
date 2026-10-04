@@ -666,6 +666,12 @@ class ResolvedDataset:
     cache_key: str
 
 
+def _config_key(config: BaseModel) -> str:
+    """A file-backed dataset config's part of its cache key: every setting but ``provenance``, which changes nothing
+    Flow computes."""
+    return config.model_dump_json(exclude_defaults=False, exclude={"provenance"})
+
+
 def resolve_dataset(config: BaseModel, data_dir: Path | None = None) -> ResolvedDataset:
     """Resolve a dataset config into a :class:`ResolvedDataset`.
 
@@ -708,7 +714,7 @@ def resolve_dataset(config: BaseModel, data_dir: Path | None = None) -> Resolved
             download=config.download,
         )
         label_source = _LABEL_SOURCE.get(config.format)
-        cache_key = config.model_dump_json(exclude_defaults=False)
+        cache_key = _config_key(config)
     elif isinstance(config, _DatasetConfigBase):
         # All file-backed dataset configs share path/format; dispatch through load_dataset
         kwargs: dict[str, Any] = {}
@@ -736,7 +742,7 @@ def resolve_dataset(config: BaseModel, data_dir: Path | None = None) -> Resolved
             label_source = "filepath"
         else:
             label_source = _LABEL_SOURCE.get(config.format)
-        cache_key = config.model_dump_json(exclude_defaults=False)
+        cache_key = _config_key(config)
     else:
         raise ValueError(f"Unsupported dataset config type: {type(config).__name__}")
 

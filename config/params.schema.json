@@ -2280,6 +2280,35 @@
           "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
           "title": "Channel Groups"
         },
+        "provenance": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Facts about this dataset that Flow can't measure, such as who owns it, its licence, and where and when it was collected: names mapped to text, numbers or booleans, recorded in each result's `resolved_config` as written. A date is kept as ISO 8601 text. Suggested names are `owner`, `license`, `origin` and `collected`. Not part of the dataset's cache key, since it changes nothing Flow computes.",
+          "title": "Provenance"
+        },
         "annotations_file": {
           "anyOf": [
             {
@@ -4381,6 +4410,35 @@
           "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
           "title": "Channel Groups"
         },
+        "provenance": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Facts about this dataset that Flow can't measure, such as who owns it, its licence, and where and when it was collected: names mapped to text, numbers or booleans, recorded in each result's `resolved_config` as written. A date is kept as ISO 8601 text. Suggested names are `owner`, `license`, `origin` and `collected`. Not part of the dataset's cache key, since it changes nothing Flow computes.",
+          "title": "Provenance"
+        },
         "dataset": {
           "description": "Which tutorial dataset to load. Accepts a name from the built-in table; anything else is refused, because a config file must not be able to import code by naming it.",
           "title": "Dataset",
@@ -6027,6 +6085,35 @@
           "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
           "title": "Channel Groups"
         },
+        "provenance": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Facts about this dataset that Flow can't measure, such as who owns it, its licence, and where and when it was collected: names mapped to text, numbers or booleans, recorded in each result's `resolved_config` as written. A date is kept as ISO 8601 text. Suggested names are `owner`, `license`, `origin` and `collected`. Not part of the dataset's cache key, since it changes nothing Flow computes.",
+          "title": "Provenance"
+        },
         "split": {
           "anyOf": [
             {
@@ -6127,6 +6214,35 @@
           "default": null,
           "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
           "title": "Channel Groups"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Facts about this dataset that Flow can't measure, such as who owns it, its licence, and where and when it was collected: names mapped to text, numbers or booleans, recorded in each result's `resolved_config` as written. A date is kept as ISO 8601 text. Suggested names are `owner`, `license`, `origin` and `collected`. Not part of the dataset's cache key, since it changes nothing Flow computes.",
+          "title": "Provenance"
         },
         "recursive": {
           "default": false,
@@ -10730,6 +10846,35 @@
           "default": null,
           "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
           "title": "Channel Groups"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Facts about this dataset that Flow can't measure, such as who owns it, its licence, and where and when it was collected: names mapped to text, numbers or booleans, recorded in each result's `resolved_config` as written. A date is kept as ISO 8601 text. Suggested names are `owner`, `license`, `origin` and `collected`. Not part of the dataset's cache key, since it changes nothing Flow computes.",
+          "title": "Provenance"
         },
         "split": {
           "anyOf": [

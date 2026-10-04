@@ -102,6 +102,27 @@ vocabulary, so matching the two is a comparison of one value. An exported datase
 carries the same digest in its provenance sidecar, which extends the join to the
 dataset itself.
 
+## Where a dataset came from
+
+Some provenance can't be measured: who owns a dataset, its licence, and where and when
+it was collected. A `datasets:` entry records these in `provenance:`, as names mapped to
+text, numbers or booleans:
+
+    datasets:
+      - name: fleet
+        format: coco
+        path: fleet
+        provenance: {owner: Perception team, license: CC-BY-4.0, collected: 2025-06-01}
+
+Flow doesn't check the values. Each result records them as written, in the dataset's
+entry in `resolved_config`, and a date is kept as ISO 8601 text. The names `owner`,
+`license`, `origin` and `collected` are suggestions, not a schema. `provenance:` is no
+part of the dataset's cache key, so adding or editing it never recomputes anything.
+
+The word also names two other things: this page's metadata envelope, and the
+`provenance.json` an export writes beside a dataset. `provenance:` on a dataset is the
+part people supply.
+
 ## Provenance enables interoperability
 
 Provenance is also what lets a DataEval Flow result leave the tool and compose
