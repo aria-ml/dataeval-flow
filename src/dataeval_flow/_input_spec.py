@@ -16,6 +16,9 @@ class InputKind(StrEnum):
     The only vocabulary Flow's layers share about inputs: config validation, the producers,
     the registry and the CLI all key on it, and none of them names a DataEval method. The
     values use the names proposed for DataEval's own input protocols.
+
+    ``DATASET`` hands over the Dataset itself, after its view, for an evaluator that must read every item as it is,
+    with no cache between them.
     """
 
     STATS = "stats"
@@ -23,6 +26,7 @@ class InputKind(StrEnum):
     METADATA = "metadata"
     LABELS = "labels"
     EMBEDDINGS = "embeddings"
+    DATASET = "dataset"
 
     @property
     def needs_extractor(self) -> bool:

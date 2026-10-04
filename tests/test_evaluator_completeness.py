@@ -63,6 +63,7 @@ _ECHOES: dict[str, frozenset[str]] = {
     ),
     "label-health": frozenset(),
     "factor-triage": frozenset(),
+    "content-digest": frozenset(),
     "metadata-summary": frozenset(),
     "balance": frozenset({"plot_type"}),
     "diversity": frozenset({"plot_type"}),

@@ -162,7 +162,7 @@ def test_every_builtin_evaluator_is_offered():
 
 @pytest.mark.parametrize("name", sorted(_BUILTINS))
 def test_every_builtin_evaluator_has_a_form(name: str):
-    """Each type's form builds, nested `chunking:` and mapping fields included; `completeness` takes no settings, so
-    its form is empty."""
+    """Each type's form builds, nested `chunking:` and mapping fields included; `completeness` and `content-digest`
+    take no settings, so their forms are empty."""
     assert get_model_for_variant("evaluators", name) is not None
-    assert get_fields("evaluators", name, ConfigState()) or name == "completeness"
+    assert get_fields("evaluators", name, ConfigState()) or name in ("completeness", "content-digest")

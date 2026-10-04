@@ -11,6 +11,8 @@ from dataeval_flow.evaluators._core import CoreOutput
 from dataeval_flow.evaluators._result import EvaluatorResult
 
 __all__ = [
+    "ContentDigestOutput",
+    "ContentDigestResult",
     "DuplicatesResult",
     "FactorTriageOutput",
     "FactorTriageResult",
@@ -116,6 +118,41 @@ class LabelHealthResult(EvaluatorResult[LabelHealthOutput]):
         from dataeval_flow.evaluators.quality._report import label_health_section
 
         return label_health_section(output)
+
+
+class ContentDigestOutput(CoreOutput):
+    """``content-digest``'s output: a Dataset's digests over every item.
+
+    ``data()`` holds ``content``, the SHA-256 over each item's image and labels and the class names; ``metadata``, the
+    SHA-256 over each item's metadata, as attached to that item; and ``items``, how many items were read. Both
+    digests are 64 hex characters, and neither depends on the items' order.
+    """
+
+
+class ContentDigestResult(EvaluatorResult[ContentDigestOutput]):
+    """The result of a ``content-digest`` run; ``output`` is a
+    :class:`~dataeval_flow.evaluators.quality.ContentDigestOutput`.
+
+    ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
+    fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
+    fields of :class:`~dataeval_flow.ResultMetadata`.
+
+    Fields
+    ------
+    output
+        The digests: ``data()`` holds ``content`` and ``metadata``, each 64 hex characters, and ``items``.
+    metadata.evaluator
+        The evaluator type, e.g. ``duplicates``.
+    metadata.dataeval
+        DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
+        parameters as written are in ``resolved_config``.
+    """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """The item count and both digests, in full."""
+        from dataeval_flow.evaluators.quality._report import content_digest_section
+
+        return content_digest_section(output)
 
 
 class VerificationEntry(BaseModel):

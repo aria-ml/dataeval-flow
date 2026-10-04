@@ -2708,6 +2708,26 @@
       "title": "CompletenessScoreLimits",
       "type": "object"
     },
+    "ContentDigestConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``content-digest``: SHA-256 digests of every item a Dataset holds.\n\nReads each item from the Dataset itself, never through a cache, and digests its image and labels (the content\ndigest, with the class names) and its metadata (the metadata digest), whatever the items' order.\n:func:`~dataeval_flow.dataset_digest` computes the same values, so a training job can check it holds the data a\nrun read. It takes no settings.\n\nExample YAML::\n\n    evaluators:\n      - name: digest\n        type: content-digest",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "content-digest",
+          "default": "content-digest",
+          "description": "The evaluator type this entry configures: `content-digest`.",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "ContentDigestConfig",
+      "type": "object"
+    },
     "CoverageConfig": {
       "additionalProperties": false,
       "description": "Config for ``coverage``, DataEval's Coverage.\n\nFinds the items in sparse regions of the embedding space, which the rest of the data does not cover, and breaks\nthe coverage down by class. Needs an extractor on the task. Uses the dataset's labels where there is one per item;\nwithout them it runs over every item as one class, ``0``, and logs a warning.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators coverage`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: coverage\n        type: coverage\n        num_observations: 30",
@@ -11212,6 +11232,9 @@
               },
               {
                 "$ref": "#/$defs/CompletenessConfig"
+              },
+              {
+                "$ref": "#/$defs/ContentDigestConfig"
               },
               {
                 "$ref": "#/$defs/CoverageConfig"

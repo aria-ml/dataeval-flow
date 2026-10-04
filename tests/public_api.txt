@@ -79,6 +79,10 @@ dataeval_flow.evaluators.bias:MetadataSummaryResult
 dataeval_flow.evaluators.bias:ParityConfig
 dataeval_flow.evaluators.bias:ParityEvaluator
 dataeval_flow.evaluators.bias:ParityResult
+dataeval_flow.evaluators.quality:ContentDigestConfig
+dataeval_flow.evaluators.quality:ContentDigestEvaluator
+dataeval_flow.evaluators.quality:ContentDigestOutput
+dataeval_flow.evaluators.quality:ContentDigestResult
 dataeval_flow.evaluators.quality:DuplicatesConfig
 dataeval_flow.evaluators.quality:DuplicatesEvaluator
 dataeval_flow.evaluators.quality:DuplicatesResult

@@ -162,6 +162,7 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "duplicates": lambda count: (ToyImages(count=count), None),
     "label-health": lambda count: (ToyImages(count=count), None),
     "factor-triage": lambda count: (ToyFactors(count=count), None),
+    "content-digest": lambda count: (ToyImages(count=count), None),
     "metadata-summary": lambda count: (ToyFactors(count=count), None),
     "outliers": lambda count: (ToyImages(count=count), None),
     "balance": lambda count: (ToyFactors(count=count), None),

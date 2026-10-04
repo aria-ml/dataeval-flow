@@ -123,6 +123,22 @@ The word also names two other things: this page's metadata envelope, and the
 `provenance.json` an export writes beside a dataset. `provenance:` on a dataset is the
 part people supply.
 
+## Pinning the data a result read
+
+A result names its datasets, but a name doesn't prove the data behind it is unchanged.
+The `content-digest` evaluator reads every item of a source and records two SHA-256
+digests: one over each item's image and labels and the class names, which is what a
+model trains on, and one over each item's metadata, as attached to that item. The items'
+order doesn't change them; adding, removing or editing any item does. It never reads
+through the cache, whose key samples only some items, so an edit between the samples
+can't hide from it.
+
+`dataeval_flow.dataset_digest()` computes the same digests in Python. A training job can
+call it on the data it is about to train on and refuse to start when the content digest
+differs from the one a run recorded. Images are hashed as decoded pixels, which a
+different decoder can change slightly, so compare digests made with the same
+`library_versions`.
+
 ## Provenance enables interoperability
 
 Provenance is also what lets a DataEval Flow result leave the tool and compose
