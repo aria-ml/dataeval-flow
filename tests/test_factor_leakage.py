@@ -1,8 +1,11 @@
 """The `factor-leakage` evaluator: the raw values of named factors that two sources hold (audit spec §10.1)."""
 
+from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 from dataeval_flow import run
+from dataeval_flow._cache import DatasetCache
 from dataeval_flow._policy import strip_row_level
 from dataeval_flow.evaluators.quality import FactorLeakageConfig
 from tests.evaluator_toys import ToyFactors
@@ -57,3 +60,22 @@ def _policy_excluding_scene() -> Any:
     from dataeval_flow.config import MetadataPolicyConfig
 
     return MetadataPolicyConfig(name="p", exclude=["scene"])
+
+
+def test_it_reads_an_excluded_factor_from_metadata_loaded_back_from_the_cache(tmp_path: Path) -> None:
+    import dataeval_flow._cache as cache_module
+
+    config = FactorLeakageConfig(factors=["scene"], metadata="p")
+    data = {"train": _Scenes(30), "test": _Scenes(30)}
+    policy = [_policy_excluding_scene()]
+    first = run(config, data, definitions=policy, cache_dir=tmp_path)
+    assert first.success, first.errors
+    DatasetCache.clear_instances()
+    try:
+        with patch.object(cache_module, "_do_compute_metadata", side_effect=AssertionError("recomputed")) as compute:
+            second = run(config, data, definitions=policy, cache_dir=tmp_path)
+    finally:
+        DatasetCache.clear_instances()
+    assert second.success, second.errors
+    assert compute.call_count == 0
+    assert set(second.output.data()["factors"]["scene"]) == {"s0", "s1", "s2"}
