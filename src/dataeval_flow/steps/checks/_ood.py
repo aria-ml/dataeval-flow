@@ -192,13 +192,24 @@ class EvalCoverageCheck(Check[EvalCoverageConfig]):
         output = node.value
         on = getattr(node, "computed_on", ())
         reference, split = (on[0].address, on[-1].address) if on else ("train", "the evaluation split")
-        perc = getattr(node.config, "threshold_perc", None)
-        perc = 95.0 if perc is None else float(perc)  # DataEval's default, which OODOutput doesn't record
         flagged, assessed = int(np.sum(output.is_ood)), assessed_images(output)
         percent = 100.0 * flagged / assessed if assessed else 0.0
+        severity = ood_severity(percent, config)
+        if getattr(node, "step_type", None) != "ood-kneighbors":  # only k-neighbors flags at a percentile of train
+            return [
+                Finding(
+                    severity=severity,
+                    title=self.title,
+                    brief=f"{flagged}/{assessed} flagged out-of-distribution from {reference} ({percent:.1f}%)",
+                    description=f"{flagged} of {assessed} items in `{split}` were flagged out-of-distribution from "
+                    f"`{reference}`.",
+                )
+            ]
+        perc = getattr(node.config, "threshold_perc", None)
+        perc = 95.0 if perc is None else float(perc)  # DataEval's default, which OODOutput doesn't record
         return [
             Finding(
-                severity=ood_severity(percent, config),
+                severity=severity,
                 title=self.title,
                 brief=f"{flagged}/{assessed} farther from {reference} than {perc:g}% of it ({percent:.1f}%)",
                 description=(

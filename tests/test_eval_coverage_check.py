@@ -27,10 +27,12 @@ def _shifted() -> dict[str, Any]:
     return {"train": ToyImages(count=40), "test": _White()}
 
 
-def _judge(sources: dict[str, Any], config: OODKNeighborsConfig, **limits: Any) -> Any:
+def _judge(
+    sources: dict[str, Any], config: OODKNeighborsConfig, step_type: str = "ood-kneighbors", **limits: Any
+) -> Any:
     output = run(config, sources, extractor=FLAT).output
     on = (SimpleNamespace(address="train"), SimpleNamespace(address="evals[test]"))
-    node = SimpleNamespace(value=output, computed_on=on, address="coverage[test]", config=config)
+    node = SimpleNamespace(value=output, computed_on=on, address="coverage[test]", config=config, step_type=step_type)
     (finding,) = EvalCoverageCheck().run(
         EvalCoverageConfig(input="coverage", **limits), {"input": node}, CheckContext("t", "s")
     )
@@ -57,3 +59,13 @@ def test_a_shifted_split_warns_and_names_the_percentile() -> None:
 def test_an_unset_percentile_reads_as_dataeval_s_default() -> None:
     finding = _judge(_shifted(), OODKNeighborsConfig(**_EUCLID))
     assert "than 95% of it" in finding.brief
+
+
+def test_another_ood_output_is_not_given_a_percentile_it_never_had() -> None:
+    finding = _judge(_shifted(), OODKNeighborsConfig(threshold_perc=99, **_EUCLID), step_type="ood-domain-classifier")
+    assert finding.severity == "warning"
+    assert "%" in finding.brief  # the share flagged
+    assert "99%" not in finding.brief + (finding.description or "")
+    assert "farther" not in finding.brief
+    assert finding.blocks == []
+    assert "flagged out-of-distribution from `train`" in (finding.description or "")
