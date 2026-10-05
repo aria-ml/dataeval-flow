@@ -315,16 +315,16 @@ class TestNarrowWidths:
         assert "4.0:1" in lines[-2]
 
     def test_a_long_value_moves_under_its_label(self):
-        item = SummaryItem(label="Label Distribution", value="3 classes, 60 items, imbalance 4.0:1", severity="warning")
+        item = SummaryItem(label="Class Imbalance", value="3 classes, 60 items, imbalance 4.0:1", severity="warning")
         lines = render_text([Summary(items=[item], warnings=1)], Frame(width=40, indent="  "))
         assert all(len(line) <= 40 for line in lines), max(lines, key=len)
-        assert lines[0] == "  Label Distribution"
+        assert lines[0] == "  Class Imbalance"
         assert lines[lines.index("") - 1].endswith("[!!]")
 
     @pytest.mark.parametrize("width", [40, 60])
     def test_a_realistic_report_fits(self, width):
         findings = [
-            ("Label Distribution", "3 classes, 60 items, imbalance 4.0:1"),
+            ("Class Imbalance", "3 classes, 60 items, imbalance 4.0:1"),
             ("Classwise Outliers Across Every Split In The Dataset", "12 classes over threshold"),
             ("Duplicates", "3 groups (7 images)"),
         ]

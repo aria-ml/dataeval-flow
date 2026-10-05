@@ -18,11 +18,11 @@ from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.shift import OODKNeighborsConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.steps.combines import (
-    FactorDeviations,
-    FactorPredictors,
+    FactorDeviationOutput,
     FactorPredictorsCombine,
     FactorPredictorsConfig,
-    OODUnion,
+    FactorPredictorsOutput,
+    OODUnionOutput,
 )
 from dataeval_flow.steps.combines._factors import collect_factors
 from tests.chain_toys import chain_pipeline
@@ -134,7 +134,7 @@ def test_on_detection_rows_predictors_read_assessed_images_only(monkeypatch: pyt
         return dict.fromkeys(factors, 0.5)
 
     monkeypatch.setattr("dataeval.core.factor_predictors", record)
-    union = OODUnion(
+    union = OODUnionOutput(
         source="tests[cam1]",
         detectors=["u"],
         left_out=[],
@@ -203,8 +203,8 @@ def test_the_factors_behind_flagged_images_are_dataeval_s_on_the_factors_collect
     reference, test = FactorImages(40), FactorImages(40, seed=1, shifted=_SHIFTED)
     result = _chain({"reference": reference, "cam1": test}, max_items=3)
     union, predictors, deviation = (_output(result, step) for step in ("agreement", "predictors", "deviation"))
-    assert isinstance(predictors, FactorPredictors)
-    assert isinstance(deviation, FactorDeviations)
+    assert isinstance(predictors, FactorPredictorsOutput)
+    assert isinstance(deviation, FactorDeviationOutput)
     assert {"altitude", "hour", "class_label", "f_brightness"} <= set(predictors.factors)
     assert "id" not in predictors.factors
     assert list(predictors.factors.values()) == sorted(predictors.factors.values(), reverse=True)

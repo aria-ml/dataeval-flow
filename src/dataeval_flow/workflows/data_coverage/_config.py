@@ -23,7 +23,7 @@ class CoverageSettings(BaseModel):
         default="adaptive",
         description=(
             "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or "
-            "`naive`, a fixed analytic radius, judged by an `uncovered-rate` step. DataEval's naive radius overflows "
+            "`naive`, a fixed analytic radius, judged by an `uncovered-items` step. DataEval's naive radius overflows "
             "past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`."
         ),
     )
@@ -82,7 +82,7 @@ class DataCoverageClassImbalanceLimits(BaseModel):
         default=5.0,
         ge=1.0,
         description=(
-            "Largest class count over smallest, among the classes with labels, past which the Label Distribution "
+            "Largest class count over smallest, among the classes with labels, past which the Class Imbalance "
             "finding warns; `null` judges nothing but an empty class, which always warns. Legacy "
             "`class_imbalance_ratio`."
         ),
@@ -112,7 +112,7 @@ class DataCoverageClassImbalanceLimits(BaseModel):
 
 
 class CoverageGapsLimits(BaseModel):
-    """The `coverage-gaps` check's field, with legacy data-coverage's default."""
+    """The `factor-coverage-gaps` check's field, with legacy data-coverage's default."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -120,7 +120,7 @@ class CoverageGapsLimits(BaseModel):
         default=3,
         ge=0,
         description=(
-            "The number of under-represented class-factor-value combinations at which the Metadata Coverage Gaps "
+            "The number of under-represented class-factor-value combinations at which the Factor Coverage Gaps "
             "finding warns, this many or more; fewer inform, and `null` never warns. Legacy `gap_count`."
         ),
     )
@@ -135,7 +135,7 @@ class ClassCoverageLimits(BaseModel):
         default=0.5,
         ge=0.0,
         description=(
-            "An assessable class's dispersion under which it is clustered, and the Embedding Coverage finding warns; "
+            "An assessable class's dispersion under which it is clustered, and the Class Coverage finding warns; "
             "`null` turns this criterion off. Legacy `min_dispersion`."
         ),
     )
@@ -143,7 +143,7 @@ class ClassCoverageLimits(BaseModel):
         default=0.5,
         ge=0.0,
         description=(
-            "An assessable class's isotropy under which it is one-dimensional, and the Embedding Coverage finding "
+            "An assessable class's isotropy under which it is one-dimensional, and the Class Coverage finding "
             "warns; `null` turns this criterion off. Legacy `min_isotropy`."
         ),
     )
@@ -152,14 +152,14 @@ class ClassCoverageLimits(BaseModel):
         ge=0.0,
         le=1.0,
         description=(
-            "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Embedding "
+            "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Class "
             "Coverage finding warns; `null` turns this criterion off. Legacy `max_near_duplicate_fraction`."
         ),
     )
 
 
 class DataCoverageUncoveredRateLimits(BaseModel):
-    """The `uncovered-rate` check's field, with legacy data-coverage's default, read under `naive` coverage only.
+    """The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.
     Named for the preset, as `DataCoverageClassImbalanceLimits` is."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -169,14 +169,14 @@ class DataCoverageUncoveredRateLimits(BaseModel):
         ge=0.0,
         le=100.0,
         description=(
-            "The percent of the items uncovered past which the Uncovered Rate finding warns, under `naive` coverage "
+            "The percent of the items uncovered past which the Uncovered Items finding warns, under `naive` coverage "
             "only; `null` judges nothing. Legacy `uncovered_rate`."
         ),
     )
 
 
 class CompletenessScoreLimits(BaseModel):
-    """The `completeness-score` check's fields, with legacy data-coverage's defaults."""
+    """The `dimensional-completeness` check's fields, with legacy data-coverage's defaults."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -225,7 +225,9 @@ class DataCoverageThresholds(BaseModel):
         description="The `class-imbalance` check's thresholds.",
     )
     coverage_gaps: CoverageGapsLimits = Field(
-        default_factory=CoverageGapsLimits, alias="coverage-gaps", description="The `coverage-gaps` check's threshold."
+        default_factory=CoverageGapsLimits,
+        alias="factor-coverage-gaps",
+        description="The `factor-coverage-gaps` check's threshold.",
     )
     class_coverage: ClassCoverageLimits = Field(
         default_factory=ClassCoverageLimits,
@@ -234,13 +236,13 @@ class DataCoverageThresholds(BaseModel):
     )
     uncovered_rate: DataCoverageUncoveredRateLimits = Field(
         default_factory=DataCoverageUncoveredRateLimits,
-        alias="uncovered-rate",
-        description="The `uncovered-rate` check's threshold, under `naive` coverage.",
+        alias="uncovered-items",
+        description="The `uncovered-items` check's threshold, under `naive` coverage.",
     )
     completeness_score: CompletenessScoreLimits = Field(
         default_factory=CompletenessScoreLimits,
-        alias="completeness-score",
-        description="The `completeness-score` check's thresholds.",
+        alias="dimensional-completeness",
+        description="The `dimensional-completeness` check's thresholds.",
     )
 
 
@@ -276,12 +278,12 @@ _MOVED: dict[str, str] = {
 
 _THRESHOLDS_MOVED: dict[str, str] = {
     "class_imbalance_ratio": "`health_thresholds.class-imbalance.ratio`",
-    "gap_count": "`health_thresholds.coverage-gaps.count`",
+    "gap_count": "`health_thresholds.factor-coverage-gaps.count`",
     "min_dispersion": "`health_thresholds.class-coverage.dispersion`",
     "min_isotropy": "`health_thresholds.class-coverage.isotropy`",
     "max_near_duplicate_fraction": "`health_thresholds.class-coverage.near_duplicates`",
-    "uncovered_rate": "`health_thresholds.uncovered-rate.rate`",
-    "completeness_score": "`health_thresholds.completeness-score.warning`",
+    "uncovered_rate": "`health_thresholds.uncovered-items.rate`",
+    "completeness_score": "`health_thresholds.dimensional-completeness.warning`",
     "leaf_coverage": "`label-space`'s `health_thresholds.leaf-coverage.coverage`",
     "dark_branch_count": "`label-space`'s `health_thresholds.leaf-coverage.empty_branches`",
     "unmatched_class_count": "`label-space`'s `health_thresholds.label-conformance.unmatched`",

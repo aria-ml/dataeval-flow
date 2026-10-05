@@ -4,7 +4,7 @@ __all__ = [
     "DistributionShiftCheck",
     "DistributionShiftConfig",
     "DriftCheck",
-    "DriftCheckConfig",
+    "DriftConfig",
     "DriftThresholds",
     "evaluator_heading",
 ]
@@ -48,7 +48,7 @@ class DriftThresholds(BaseModel):
     )
 
 
-class DriftCheckConfig(CheckConfig, DriftThresholds):
+class DriftConfig(CheckConfig, DriftThresholds):
     """A `drift` step's input, its thresholds, and what its finding is titled."""
 
     input: str = Field(description="A drift evaluator's Output.")
@@ -67,7 +67,7 @@ def evaluator_heading(entry: Any) -> str:
     return title if entry.name == entry.type else f"{title} · {entry.name}"
 
 
-class DriftCheck(Check[DriftCheckConfig]):
+class DriftCheck(Check[DriftConfig]):
     """``drift``: warns on drift, or, chunked, when enough chunks drift or enough drift in a row."""
 
     name: ClassVar[str] = "drift"
@@ -75,7 +75,7 @@ class DriftCheck(Check[DriftCheckConfig]):
     title: ClassVar[str] = "Drift"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(DriftOutput,)),)
 
-    def run(self, config: DriftCheckConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(self, config: DriftConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """One finding: the verdict, or the chunks' verdicts."""
         node = inputs["input"]
         output = node.value

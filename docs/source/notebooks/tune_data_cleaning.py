@@ -190,7 +190,7 @@ print(result.report(detailed=False, width=160))
 # ### Reading the table
 #
 # Every run warns, with 3 warnings each and 27 in all: Image Outliers, Classwise Outliers
-# and Duplicates are past their thresholds in every run, and Label Distribution is `info`.
+# and Duplicates are past their thresholds in every run, and Class Imbalance is `info`.
 #
 # **`outlier_threshold` changes the outlier findings.** The adaptive method flags 157
 # images (15.7%) at 2.5, 112 (11.2%) at 3.5 and 96 (9.6%) at 4.5. The count falls by 45

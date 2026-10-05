@@ -4,7 +4,7 @@ Field names are DataEval's argument names. An unset field is not passed, so Data
 reads the source's metadata under the metadata policy ``metadata:`` names.
 """
 
-__all__ = ["BalanceConfig", "DiversityConfig", "MetadataSummaryConfig", "ParityConfig"]
+__all__ = ["BalanceConfig", "DiversityConfig", "FactorSummaryConfig", "ParityConfig"]
 
 from typing import ClassVar, Literal
 
@@ -16,7 +16,7 @@ from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators.bias._result import (
     BalanceResult,
     DiversityResult,
-    MetadataSummaryResult,
+    FactorSummaryResult,
     ParityResult,
 )
 
@@ -172,8 +172,8 @@ class ParityConfig(EvaluatorConfig[ParityResult], MetadataConfigMixin):
     )
 
 
-class MetadataSummaryConfig(EvaluatorConfig[MetadataSummaryResult], MetadataConfigMixin):
-    """Config for ``metadata-summary``: each metadata factor's type, binning, nulls, and range or top values.
+class FactorSummaryConfig(EvaluatorConfig[FactorSummaryResult], MetadataConfigMixin):
+    """Config for ``factor-summary``: each metadata factor's type, binning, nulls, and range or top values.
 
     A Flow-only evaluator over DataEval's ``Metadata``, as legacy data-coverage's Metadata Distribution was; audit
     reuses it.
@@ -182,11 +182,11 @@ class MetadataSummaryConfig(EvaluatorConfig[MetadataSummaryResult], MetadataConf
 
         evaluators:
           - name: summary
-            type: metadata-summary
+            type: factor-summary
             metadata: standard
     """
 
     type: str = Field(
-        default="metadata-summary", description="The evaluator type this entry configures: `metadata-summary`."
+        default="factor-summary", description="The evaluator type this entry configures: `factor-summary`."
     )
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.METADATA}), sources=SourceCount.ONE)

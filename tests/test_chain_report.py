@@ -89,8 +89,8 @@ def test_data_cleaning_puts_each_finding_beside_the_evidence_it_judged() -> None
         ("Summary", None, None),
         ("Image Outliers", "1 images (4.2%)", "warning"),
         ("Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
-        ("Duplicates", "2 exact (8.3%), 0 near (0.0%)", "warning"),
-        ("Label Distribution", "2 classes, 24 items, imbalance 1.0:1", "info"),
+        ("Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "warning"),
+        ("Class Imbalance", "2 classes, 24 items, imbalance 1.0:1", "info"),
         ("Remove · clean", None, None),
         ("Steps", None, None),
         ("Metadata Factors", None, None),
@@ -99,12 +99,12 @@ def test_data_cleaning_puts_each_finding_beside_the_evidence_it_judged() -> None
     assert _evidence(_section(result, "Image Outliers")) == ["From Outliers"]
     # `classwise` reads `by-class`, a combine with nothing to show, which read `outliers`: shown already.
     assert _evidence(_section(result, "Classwise Outliers")) == ["Evidence: Outliers, under Image Outliers."]
-    assert _evidence(_section(result, "Duplicates")) == ["From Duplicates · dupes"]
-    assert _evidence(_section(result, "Label Distribution")) == ["From Label Health · labels"]
+    assert _evidence(_section(result, "Image Duplicates")) == ["From Duplicates · dupes"]
+    assert _evidence(_section(result, "Class Imbalance")) == ["From Label Health · labels"]
 
 
 def test_a_finding_s_evidence_follows_its_own_blocks() -> None:
-    duplicates = _section(_cleaning(), "Duplicates")
+    duplicates = _section(_cleaning(), "Image Duplicates")
     *own, evidence = duplicates.blocks
     assert own == [Paragraph(text="1 exact duplicate groups, 0 near-duplicate groups found.")]
     assert isinstance(evidence, Section)
@@ -129,13 +129,13 @@ def test_the_steps_table_says_what_each_step_is_what_it_read_and_why_it_made_not
     assert [tuple(row[key] for key in cells) for row in table.rows] == [
         ("outliers", "Outliers", "outliers", "ok", "`data` (src)", ""),
         ("labels", "Label Health", "label-health", "ok", "`data` (src)", ""),
-        ("by-class", "Outliers by Class", "classwise-outliers", "ok", "`data` (src)\n`outliers`", ""),
+        ("by-class", "Outliers by Class", "outliers-by-class", "ok", "`data` (src)\n`outliers`", ""),
         ("dupes", "Duplicates", "duplicates", "ok", "`data` (src)", ""),
-        ("image-outliers", "Image Outliers", "outlier-rate", "ok", "`outliers`", ""),
-        ("target-outliers", "Target Outliers", "target-outlier-rate", "ok", "`outliers`\n`labels`", "no findings"),
-        ("classwise", "Classwise Outliers", "classwise-outlier-rate", "ok", "`by-class`", ""),
-        ("duplicates", "Duplicates", "duplicate-rate", "ok", "`dupes`", ""),
-        ("imbalance", "Label Distribution", "class-imbalance", "ok", "`labels`", ""),
+        ("image-outliers", "Image Outliers", "image-outliers", "ok", "`outliers`", ""),
+        ("target-outliers", "Target Outliers", "target-outliers", "ok", "`outliers`\n`labels`", "no findings"),
+        ("classwise", "Classwise Outliers", "classwise-outliers", "ok", "`by-class`", ""),
+        ("duplicates", "Image Duplicates", "image-duplicates", "ok", "`dupes`", ""),
+        ("imbalance", "Class Imbalance", "class-imbalance", "ok", "`labels`", ""),
         ("clean", "Remove", "remove", "ok", "`data` (src)\n`dupes`\n`outliers`", ""),
     ]
 
@@ -144,22 +144,22 @@ def test_the_text_steps_table_leaves_out_the_title_each_step_s_section_already_g
     lines = _cleaning().report().splitlines()
     start = lines.index("  STEPS") + 2
     assert lines[start : lines.index("  METADATA FACTORS") - 2] == [
-        "  Step             Type                    Status  Reads         Note",
-        "  ---------------  ----------------------  ------  ------------  -----------",
-        "  outliers         outliers                ok      `data` (src)",
-        "  labels           label-health            ok      `data` (src)",
-        "  by-class         classwise-outliers      ok      `data` (src)",
-        "                                                   `outliers`",
-        "  dupes            duplicates              ok      `data` (src)",
-        "  image-outliers   outlier-rate            ok      `outliers`",
-        "  target-outliers  target-outlier-rate     ok      `outliers`    no findings",
-        "                                                   `labels`",
-        "  classwise        classwise-outlier-rate  ok      `by-class`",
-        "  duplicates       duplicate-rate          ok      `dupes`",
-        "  imbalance        class-imbalance         ok      `labels`",
-        "  clean            remove                  ok      `data` (src)",
-        "                                                   `dupes`",
-        "                                                   `outliers`",
+        "  Step             Type                Status  Reads         Note",
+        "  ---------------  ------------------  ------  ------------  -----------",
+        "  outliers         outliers            ok      `data` (src)",
+        "  labels           label-health        ok      `data` (src)",
+        "  by-class         outliers-by-class   ok      `data` (src)",
+        "                                               `outliers`",
+        "  dupes            duplicates          ok      `data` (src)",
+        "  image-outliers   image-outliers      ok      `outliers`",
+        "  target-outliers  target-outliers     ok      `outliers`    no findings",
+        "                                               `labels`",
+        "  classwise        classwise-outliers  ok      `by-class`",
+        "  duplicates       image-duplicates    ok      `dupes`",
+        "  imbalance        class-imbalance     ok      `labels`",
+        "  clean            remove              ok      `data` (src)",
+        "                                               `dupes`",
+        "                                               `outliers`",
     ]
 
 
@@ -271,23 +271,23 @@ def test_an_element_no_finding_read_stays_with_the_other_steps() -> None:
 
 
 def test_a_failed_check_is_listed_among_the_other_steps_with_its_failure() -> None:
-    from dataeval_flow.steps.checks import DuplicateRateCheck
+    from dataeval_flow.steps.checks import ImageDuplicatesCheck
 
-    with patch.object(DuplicateRateCheck, "run", side_effect=RuntimeError("boom")):
+    with patch.object(ImageDuplicatesCheck, "run", side_effect=RuntimeError("boom")):
         result = _cleaning()
     assert _outline(result) == [
         ("Summary", None, None),
         ("Image Outliers", "1 images (4.2%)", "warning"),
         ("Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
-        ("Label Distribution", "2 classes, 24 items, imbalance 1.0:1", "info"),
+        ("Class Imbalance", "2 classes, 24 items, imbalance 1.0:1", "info"),
         ("Duplicates · dupes", None, None),
-        ("Duplicates · duplicates", "failed", None),
+        ("Image Duplicates · duplicates", "failed", None),
         ("Remove · clean", None, None),
         ("Steps", None, None),
         ("Metadata Factors", None, None),
         ("Configuration", None, None),
     ]
-    assert _section(result, "Duplicates · duplicates").blocks == [
+    assert _section(result, "Image Duplicates · duplicates").blocks == [
         Section(title="Failed", blocks=[Paragraph(text="RuntimeError: boom")])
     ]
 
@@ -396,9 +396,9 @@ def test_a_chain_whose_required_step_failed_says_so_in_its_health_line_though_no
 
 
 def test_a_chain_whose_check_failed_says_so_in_its_health_line_beside_its_warnings() -> None:
-    from dataeval_flow.steps.checks import DuplicateRateCheck
+    from dataeval_flow.steps.checks import ImageDuplicatesCheck
 
-    with patch.object(DuplicateRateCheck, "run", side_effect=RuntimeError("boom")):
+    with patch.object(ImageDuplicatesCheck, "run", side_effect=RuntimeError("boom")):
         result = _cleaning()
     assert "  Health: failed [!!] — step `duplicates` failed; 2 warning(s) to review" in result.report().splitlines()
     assert '<h1>Data Cleaning</h1><span class="badge failed">failed: duplicates</span>' in result.to_html()
@@ -439,14 +439,14 @@ _SPLIT_BRIEFS = {
     "train": [
         ("Image Outliers", "1 images (4.2%)", "warning"),
         ("Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
-        ("Duplicates", "2 exact (8.3%), 0 near (0.0%)", "warning"),
-        ("Label Distribution", "2 classes, 24 items, imbalance 1.0:1", "info"),
+        ("Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "warning"),
+        ("Class Imbalance", "2 classes, 24 items, imbalance 1.0:1", "info"),
     ],
     "val": [
         ("Image Outliers", "1 images (8.3%)", "warning"),
         ("Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "warning"),
-        ("Duplicates", "2 exact (16.7%), 0 near (0.0%)", "warning"),
-        ("Label Distribution", "2 classes, 12 items, imbalance 1.0:1", "info"),
+        ("Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "warning"),
+        ("Class Imbalance", "2 classes, 12 items, imbalance 1.0:1", "info"),
     ],
 }
 
@@ -536,15 +536,15 @@ def test_the_by_split_steps_table_narrows_its_text_columns_together() -> None:
     ]
     start = next(i for i, line in enumerate(table) if line.startswith("  cleaning/target-"))
     assert table[start : start + 9] == [
-        "  cleaning/target-  target-outlier-   ok      `cleaning/        [train] no",
-        "  outliers          rate                      outliers`         findings",
+        "  cleaning/target-  target-outliers   ok      `cleaning/        [train] no",
+        "  outliers                                    outliers`         findings",
         "                                              `cleaning/        [val] no",
         "                                              labels`           findings",
         "",
         "  cleaning/         classwise-        ok      `cleaning/by-",
-        "  classwise         outlier-rate              class`",
+        "  classwise         outliers                  class`",
         "",
-        "  cleaning/         duplicate-rate    ok      `cleaning/dupes`",
+        "  cleaning/         image-duplicates  ok      `cleaning/dupes`",
     ]
     assert all("[train" not in line or "[train]" in line for line in table)
     assert all("[val" not in line or "[val]" in line for line in table)

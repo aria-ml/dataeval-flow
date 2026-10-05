@@ -292,7 +292,7 @@ workflows:
       - {name: split, transform: split, input: clean, test_frac: 0.2, val_frac: 0.1}
       - {name: train_balance, evaluator: balance, input: split.train}
       - {name: labels, evaluator: labels, input: clean}
-      - {name: merged_duplicates, check: duplicate-rate, input: dupes}
+      - {name: merged_duplicates, check: image-duplicates, input: dupes}
       - {name: imbalance, check: class-imbalance, input: labels, ratio: 3.0}
 ```
 
@@ -300,7 +300,7 @@ workflows:
 images are exact duplicates, or 5% near duplicates. `imbalance` warns where the cleaned dataset's largest class
 outnumbers its smallest by more than 3 to 1. The task's health now says `warning` where either does, and
 `--fail-on-warning` fails the run. The report gives each finding a section, with the step it judged below it: the
-Duplicates finding holds `dupes`' duplicate groups, and the Label Distribution finding holds `labels`' class counts.
+Duplicates finding holds `dupes`' duplicate groups, and the Class Imbalance finding holds `labels`' class counts.
 The [Check and Combine Catalog](../reference/checks.md) lists every check and its thresholds.
 
 ## 6. Run data-cleaning as a step

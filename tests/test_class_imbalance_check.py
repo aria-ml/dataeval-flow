@@ -1,4 +1,4 @@
-"""`class-imbalance`: every Dataset with classes gets its Label Distribution, judged over the classes with labels,
+"""`class-imbalance`: every Dataset with classes gets its Class Imbalance, judged over the classes with labels,
 with an optional info band (coverage spec §5.3)."""
 
 from collections.abc import Sequence
@@ -39,7 +39,7 @@ def _judge(
 
 def test_an_unlabelled_dataset_that_declares_classes_warns() -> None:
     (finding,) = _judge({"a": 0, "b": 0}, items=6, unlabelled=[0, 1, 2, 3, 4, 5])
-    assert (finding.severity, finding.title) == ("warning", "Label Distribution")
+    assert (finding.severity, finding.title) == ("warning", "Class Imbalance")
     assert any("Classes with no labels: a, b" in getattr(block, "text", "") for block in finding.blocks)
 
 

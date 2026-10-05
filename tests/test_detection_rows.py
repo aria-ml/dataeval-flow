@@ -9,7 +9,7 @@ from dataeval_flow import run_task
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.config.extractors import UncertaintyExtractorConfig
 from dataeval_flow.evaluators.quality import OutliersConfig
-from dataeval_flow.evaluators.scope import PrioritizeConfig
+from dataeval_flow.evaluators.scope import PrioritizationConfig
 from dataeval_flow.evaluators.shift import DriftUnivariateConfig, OODKNeighborsConfig
 from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 from tests.chain_toys import chain_pipeline
@@ -37,7 +37,7 @@ def _workflow(step: dict[str, Any]) -> dict[str, Any]:
 
 def test_an_evaluator_task_reading_one_row_per_item_refuses_a_model_extractor():
     with pytest.raises(ValidationError, match="extractor `unc` runs a model.*only drift and OOD evaluators read it"):
-        _load(task=_task("rank", "unc", "evaluator"), evaluators=[PrioritizeConfig(name="rank")])
+        _load(task=_task("rank", "unc", "evaluator"), evaluators=[PrioritizationConfig(name="rank")])
 
 
 def test_a_drift_evaluator_task_takes_it():
@@ -48,7 +48,7 @@ def test_a_step_naming_a_model_extractor_is_refused_unless_it_drifts():
     with pytest.raises(ValidationError, match="step 's' embeds with `unc`.*only drift and OOD evaluators read it"):
         _load(
             task=_task("w", "flat"),
-            evaluators=[PrioritizeConfig(name="rank")],
+            evaluators=[PrioritizationConfig(name="rank")],
             workflows=[_workflow({"evaluator": "rank", "extractor": "unc"})],
         )
     _load(
@@ -62,7 +62,7 @@ def test_the_tasks_model_extractor_reaching_a_non_drift_step_is_refused():
     with pytest.raises(ValidationError, match="step 's' embeds with `unc`"):
         _load(
             task=_task("w", "unc"),
-            evaluators=[PrioritizeConfig(name="rank")],
+            evaluators=[PrioritizationConfig(name="rank")],
             workflows=[_workflow({"evaluator": "rank"})],
         )
 
@@ -77,7 +77,9 @@ def test_a_drift_monitoring_task_takes_it():
 
 
 def test_run_refuses_it_for_a_non_drift_evaluator():
-    config = chain_pipeline(evaluators=[PrioritizeConfig(name="rank")], datasets=_DATA, extra={"extractors": [_UNC]})
+    config = chain_pipeline(
+        evaluators=[PrioritizationConfig(name="rank")], datasets=_DATA, extra={"extractors": [_UNC]}
+    )
     result = run_task(
         TaskConfig(name="t", workflow="rank", kind="evaluator", sources=["reference", "cam1"], extractor="unc"), config
     )

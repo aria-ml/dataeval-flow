@@ -11,7 +11,7 @@ from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators._result import EvaluatorMetadata
 from dataeval_flow.evaluators.bias import BalanceConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesResult, OutliersConfig
-from dataeval_flow.evaluators.scope import CoverageConfig, PrioritizeConfig
+from dataeval_flow.evaluators.scope import CoverageConfig, PrioritizationConfig
 from dataeval_flow.evaluators.scope._report import prioritize_section
 from dataeval_flow.evaluators.shift import DriftUnivariateConfig
 from tests.chain_toys import ToyDetections, chain_pipeline, run_chain_task
@@ -208,7 +208,7 @@ def test_a_ranking_of_30_lists_its_last_5_as_its_lowest() -> None:
 
 
 def test_a_prioritize_result_pictures_its_ranking_in_its_own_section() -> None:
-    result = _task(PrioritizeConfig(name="e", method="knn", k=2), dataset=ToyImages(count=6), extractor=True)
+    result = _task(PrioritizationConfig(name="e", method="knn", k=2), dataset=ToyImages(count=6), extractor=True)
     (table,) = _tables(_section(result._report_output(detailed=True), "Highest priority").blocks)
     assert [row["item"] for row in table.rows] == [int(index) for index in result.output.indices]
     assert {ref.source for ref in _refs(table)} == {"src"}

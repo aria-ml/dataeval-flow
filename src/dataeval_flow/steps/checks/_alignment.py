@@ -70,7 +70,7 @@ class MergeabilityCheck(Check[MergeabilityConfig]):
 
     name: ClassVar[str] = "mergeability"
     description: ClassVar[str] = "Whether a Dataset's classes carry over to an ontology's vocabulary, with the stanza."
-    title: ClassVar[str] = "Label Alignment"
+    title: ClassVar[str] = "Mergeability"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(LabelAlignmentOutput,)),)
 
     def run(self, config: MergeabilityConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002

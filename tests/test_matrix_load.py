@@ -142,7 +142,7 @@ def test_a_step_setting_left_at_its_default_is_set_and_one_the_step_lacks_is_ref
         "inputs": ["a"],
         "steps": [
             {"name": "out", "evaluator": "outl", "input": "a"},
-            {"name": "gate", "check": "outlier-rate", "input": "out"},
+            {"name": "gate", "check": "image-outliers", "input": "out"},
         ],
     }
 

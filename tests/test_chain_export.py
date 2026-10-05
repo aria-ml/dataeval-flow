@@ -14,7 +14,7 @@ from dataeval_flow._chain._graph import GraphError
 from dataeval_flow.config import ExportConfig
 from dataeval_flow.evaluators.scope import LabelAlignmentConfig
 from dataeval_flow.steps import ChainResult, TransformContext
-from dataeval_flow.steps.transforms import ExportStepConfig, ExportTransform
+from dataeval_flow.steps.transforms import ExportTransform, ExportTransformConfig
 from tests.chain_toys import ToyDetections, chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages
 
@@ -272,7 +272,7 @@ def test_an_export_of_a_list_input_writes_each_source_under_its_name(tmp_path: P
 def test_a_list_key_that_is_not_one_plain_directory_fails_its_element() -> None:
     context = TransformContext(task="t", step="dataset", element="..")
     with pytest.raises(ValueError, match=r"List key '\.\.' names a relative path rather than a directory"):
-        ExportTransform()._where(ExportStepConfig(input="a"), context)
+        ExportTransform()._where(ExportTransformConfig(input="a"), context)
 
 
 def test_a_transform_that_runs_only_once_refuses_a_list(plugins) -> None:

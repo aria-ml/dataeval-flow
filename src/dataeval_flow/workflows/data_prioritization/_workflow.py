@@ -6,7 +6,7 @@ __all__ = ["DataPrioritizationWorkflow"]
 from typing import Any, ClassVar
 
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
-from dataeval_flow.evaluators.scope import PrioritizeConfig
+from dataeval_flow.evaluators.scope import PrioritizationConfig
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
@@ -27,7 +27,7 @@ class DataPrioritizationWorkflow(Preset, Workflow[DataPrioritizationConfig, Chai
     - with ``cleaning`` set, ``reference-outliers`` and ``pool-outliers`` (``outliers``), ``reference-dupes`` and
       ``pool-dupes`` (``duplicates``), then ``reference-clean`` and ``pool-clean`` (``remove``): each source without
       its outliers, and without each duplicate but the first of its group;
-    - ``rank`` (``prioritize``): each pool, cleaned or not, ranked against the reference;
+    - ``rank`` (``prioritization``): each pool, cleaned or not, ranked against the reference;
     - ``selected`` (``select``): the first ``n``, or ``fraction``, of each pool's ranking; all of it when neither is
       set.
 
@@ -50,7 +50,7 @@ class DataPrioritizationWorkflow(Preset, Workflow[DataPrioritizationConfig, Chai
     def chain(cls, config: DataPrioritizationConfig) -> PresetChain:
         """The cleaning steps ``cleaning`` configures, the ranking, and the selection."""
         evaluators: list[Any] = [
-            PrioritizeConfig(
+            PrioritizationConfig(
                 name="rank",
                 method=config.method,
                 k=config.k,

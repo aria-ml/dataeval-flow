@@ -1,12 +1,12 @@
-"""The `uncovered-rate` check: how much of a Dataset coverage left uncovered (data-splitting spec §6.2)."""
+"""The `uncovered-items` check: how much of a Dataset coverage left uncovered (data-splitting spec §6.2)."""
 
 __all__ = [
     "ClassCoverageCheck",
     "ClassCoverageConfig",
-    "CompletenessScoreCheck",
-    "CompletenessScoreConfig",
-    "UncoveredRateCheck",
-    "UncoveredRateConfig",
+    "DimensionalCompletenessCheck",
+    "DimensionalCompletenessConfig",
+    "UncoveredItemsCheck",
+    "UncoveredItemsConfig",
 ]
 
 from collections.abc import Mapping, Sequence
@@ -23,8 +23,8 @@ from dataeval_flow.steps.checks._limits import Severity, exceeds
 from dataeval_flow.workflows._base import Finding
 
 
-class UncoveredRateConfig(CheckConfig):
-    """An `uncovered-rate` step's input, and the share uncovered that may hold."""
+class UncoveredItemsConfig(CheckConfig):
+    """An `uncovered-items` step's input, and the share uncovered that may hold."""
 
     input: str = Field(description="A `coverage` Output.")
     rate: float | None = Field(
@@ -34,20 +34,20 @@ class UncoveredRateConfig(CheckConfig):
         description=(
             "The percent of the Dataset's items uncovered past which the finding warns; `null` judges nothing. Judge "
             "only `naive` coverage: adaptive coverage marks `percent` of the items uncovered by construction. "
-            "data-coverage's `health_thresholds.uncovered-rate.rate`, legacy `health_thresholds.uncovered_rate`."
+            "data-coverage's `health_thresholds.uncovered-items.rate`, legacy `health_thresholds.uncovered_rate`."
         ),
     )
 
 
-class UncoveredRateCheck(Check[UncoveredRateConfig]):
-    """``uncovered-rate``: warns when more than ``rate`` percent of a Dataset's items are uncovered."""
+class UncoveredItemsCheck(Check[UncoveredItemsConfig]):
+    """``uncovered-items``: warns when more than ``rate`` percent of a Dataset's items are uncovered."""
 
-    name: ClassVar[str] = "uncovered-rate"
+    name: ClassVar[str] = "uncovered-items"
     description: ClassVar[str] = "Warns when more than `rate` percent of a Dataset's items are uncovered."
-    title: ClassVar[str] = "Uncovered Rate"
+    title: ClassVar[str] = "Uncovered Items"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(CoverageOutput,)),)
 
-    def run(self, config: UncoveredRateConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(self, config: UncoveredItemsConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """How many items were uncovered, of how many."""
         node = inputs["input"]
         total = node.items or 0
@@ -62,8 +62,8 @@ class UncoveredRateCheck(Check[UncoveredRateConfig]):
         ]
 
 
-class CompletenessScoreConfig(CheckConfig):
-    """A `completeness-score` step's input, and the bands of its score."""
+class DimensionalCompletenessConfig(CheckConfig):
+    """A `dimensional-completeness` step's input, and the bands of its score."""
 
     input: str = Field(description="A `completeness` Output.")
     warning: float | None = Field(
@@ -86,15 +86,20 @@ class CompletenessScoreConfig(CheckConfig):
         return self
 
 
-class CompletenessScoreCheck(Check[CompletenessScoreConfig]):
-    """``completeness-score``: legacy data-coverage's Dimensional Completeness finding (coverage spec §6.2)."""
+class DimensionalCompletenessCheck(Check[DimensionalCompletenessConfig]):
+    """``dimensional-completeness``: legacy data-coverage's Dimensional Completeness finding (coverage spec §6.2)."""
 
-    name: ClassVar[str] = "completeness-score"
+    name: ClassVar[str] = "dimensional-completeness"
     description: ClassVar[str] = "Warns when the embeddings fill too little of their space's dimensions."
     title: ClassVar[str] = "Dimensional Completeness"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(CompletenessOutput,)),)
 
-    def run(self, config: CompletenessScoreConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(
+        self,
+        config: DimensionalCompletenessConfig,
+        inputs: Mapping[str, Any],
+        context: CheckContext,  # noqa: ARG002
+    ) -> list[Finding]:
         """The score, rounded to three places, against the two bands."""
         data = inputs["input"].value.data()
         score = round(float(data["completeness"]), 3)
@@ -151,13 +156,13 @@ class ClassCoverageConfig(CheckConfig):
 
 
 class ClassCoverageCheck(Check[ClassCoverageConfig]):
-    """``class-coverage``: legacy data-coverage's Embedding Coverage finding. Warns where an assessable class is
+    """``class-coverage``: legacy data-coverage's Class Coverage finding. Warns where an assessable class is
     clustered, one-dimensional or duplicate-padded; informs where any item is uncovered. The uncovered rate itself is
-    `uncovered-rate`'s (coverage spec §6.2)."""
+    `uncovered-items`'s (coverage spec §6.2)."""
 
     name: ClassVar[str] = "class-coverage"
     description: ClassVar[str] = "Warns when a class is clustered, one-dimensional or padded with near-duplicates."
-    title: ClassVar[str] = "Embedding Coverage"
+    title: ClassVar[str] = "Class Coverage"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(CoverageOutput,)),)
 
     def run(self, config: ClassCoverageConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002

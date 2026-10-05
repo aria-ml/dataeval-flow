@@ -5,7 +5,7 @@ __all__ = ["DataCoverageWorkflow"]
 
 from typing import Any, ClassVar
 
-from dataeval_flow.evaluators.bias import BalanceConfig, DiversityConfig, MetadataSummaryConfig
+from dataeval_flow.evaluators.bias import BalanceConfig, DiversityConfig, FactorSummaryConfig
 from dataeval_flow.evaluators.quality import LabelHealthConfig
 from dataeval_flow.evaluators.scope import CompletenessConfig, CoverageConfig, RepresentationConfig
 from dataeval_flow.steps._result import ChainResult
@@ -21,11 +21,11 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
     The settings expand to, in legacy's finding order:
 
     - ``crops`` (``wrap``, ``DetectionCrops``, passing other kinds through), then ``coverage`` (optional) with
-      ``class-coverage`` and, under ``naive`` coverage, ``uncovered`` (``uncovered-rate``); and ``completeness``
-      (optional) with ``completeness-check`` (``completeness-score``), where ``completeness`` is set;
+      ``class-coverage`` and, under ``naive`` coverage, ``uncovered`` (``uncovered-items``); and ``completeness``
+      (optional) with ``completeness-check`` (``dimensional-completeness``), where ``completeness`` is set;
     - ``labels`` (``label-health``) and ``labels-check`` (``class-imbalance``);
-    - ``summary`` (``metadata-summary``), ``balance`` and ``diversity`` (optional), and ``gaps`` (``factor-gaps``,
-      optional) with ``gaps-check`` (``coverage-gaps``), where ``gaps`` is set;
+    - ``summary`` (``factor-summary``), ``balance`` and ``diversity`` (optional), and ``gaps`` (``factor-gaps``,
+      optional) with ``gaps-check`` (``factor-coverage-gaps``), where ``gaps`` is set;
     - ``worklist`` (``representation`` with no ontology, optional) and ``shortfall`` (``class-shortfall``).
 
     The embedding steps are skipped with "requires an extractor" when the task names none. It makes no Dataset, so it
@@ -48,7 +48,7 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
             CoverageConfig(name="coverage", **config.coverage.model_dump()),
             CompletenessConfig(name="completeness"),
             LabelHealthConfig(name="labels", metadata=config.metadata),
-            MetadataSummaryConfig(name="summary", metadata=config.metadata),
+            FactorSummaryConfig(name="summary", metadata=config.metadata),
             BalanceConfig(name="balance", metadata=config.metadata),
             DiversityConfig(name="diversity", method=config.diversity, metadata=config.metadata),
             RepresentationConfig(name="worklist", expected=config.expected),
@@ -74,7 +74,7 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
             steps.append(
                 {
                     "name": "uncovered",
-                    "check": "uncovered-rate",
+                    "check": "uncovered-items",
                     "input": "coverage",
                     **limits.uncovered_rate.model_dump(),
                 }
@@ -84,7 +84,7 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
                 {"name": "completeness", "evaluator": "completeness", "input": "crops", "optional": True},
                 {
                     "name": "completeness-check",
-                    "check": "completeness-score",
+                    "check": "dimensional-completeness",
                     "input": "completeness",
                     **limits.completeness_score.model_dump(),
                 },
@@ -112,7 +112,12 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
                     "metadata": config.metadata,
                     **config.gaps.model_dump(),
                 },
-                {"name": "gaps-check", "check": "coverage-gaps", "input": "gaps", **limits.coverage_gaps.model_dump()},
+                {
+                    "name": "gaps-check",
+                    "check": "factor-coverage-gaps",
+                    "input": "gaps",
+                    **limits.coverage_gaps.model_dump(),
+                },
             ]
         steps += [
             {"name": "worklist", "evaluator": "worklist", "input": "data", "optional": True},

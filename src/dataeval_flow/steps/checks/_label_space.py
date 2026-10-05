@@ -1,4 +1,4 @@
-"""The label-space checks: legacy data-coverage's Label Space Coverage, Label Conformance and Ontology Structure
+"""The label-space checks: legacy data-coverage's Leaf Coverage, Label Conformance and Ontology Structure
 findings, as steps (coverage spec §3.4)."""
 
 __all__ = [
@@ -98,7 +98,7 @@ class LeafCoverageCheck(Check[LeafCoverageConfig]):
 
     name: ClassVar[str] = "leaf-coverage"
     description: ClassVar[str] = "Warns when too few of an ontology's leaves have examples, or a branch is empty."
-    title: ClassVar[str] = "Label Space Coverage"
+    title: ClassVar[str] = "Leaf Coverage"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(RepresentationOutput,)),)
 
     def run(self, config: LeafCoverageConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
@@ -283,12 +283,12 @@ class ClassShortfallConfig(CheckConfig):
 
 
 class ClassShortfallCheck(Check[ClassShortfallConfig]):
-    """``class-shortfall``: legacy data-coverage's Class Balance Worklist, the classes short of an even spread over
+    """``class-shortfall``: legacy data-coverage's Class Shortfall, the classes short of an even spread over
     the classes the dataset declares (coverage spec §6.2)."""
 
     name: ClassVar[str] = "class-shortfall"
     description: ClassVar[str] = "Lists the classes short of an even spread, and warns on an unmet minimum share."
-    title: ClassVar[str] = "Class Balance Worklist"
+    title: ClassVar[str] = "Class Shortfall"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(RepresentationOutput,)),)
 
     def run(self, config: ClassShortfallConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002

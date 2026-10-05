@@ -8,44 +8,44 @@ reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for 
 
 The built-in checks are the ones `data-cleaning` runs, whose findings are theirs; `metadata-issues`, which makes
 `metadata-triage`'s; `drift`, which judges `drift-monitoring`'s detectors; `ood`, which judges `ood-detection`'s
-detectors; `stratification` and `uncovered-rate`, which judge `data-splitting`'s split and coverage;
+detectors; `stratification` and `uncovered-items`, which judge `data-splitting`'s split and coverage;
 `leaf-coverage`, `label-conformance`, `ontology-structure` and `mergeability`, which make `label-space`'s; and
-`class-coverage`, `completeness-score`, `coverage-gaps` and `class-shortfall`, which make `data-coverage`'s with
-`class-imbalance` and `uncovered-rate`; and `class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`,
-`eval-coverage` and `distribution-shift`, which judge a set of splits as a pre-training audit. See
-[data-cleaning is this chain](#data-cleaning-is-this-chain).
+`class-coverage`, `dimensional-completeness`, `factor-coverage-gaps` and `class-shortfall`, which make
+`data-coverage`'s with `class-imbalance` and `uncovered-items`; and `class-sufficiency`, `untrained-classes`,
+`shortcut-risk`, `leakage`, `eval-coverage` and `distribution-shift`, which judge a set of splits as a pre-training
+audit. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 
 ## At a glance
 
 | Type | Kind | Reads | Makes |
 | --- | --- | --- | --- |
-| `outlier-rate` | check | `input`: an `outliers` Output | Image Outliers |
-| `target-outlier-rate` | check | `input`: an `outliers` Output run with `per_target: true`; `labels`: a `label-health` Output | Target Outliers |
-| `classwise-outlier-rate` | check | `input`: a `classwise-outliers` Output | Classwise Outliers |
-| `duplicate-rate` | check | `input`: a `duplicates` Output | Duplicates |
-| `class-imbalance` | check | `input`: a `label-health` Output | Label Distribution |
+| `image-outliers` | check | `input`: an `outliers` Output | Image Outliers |
+| `target-outliers` | check | `input`: an `outliers` Output run with `per_target: true`; `labels`: a `label-health` Output | Target Outliers |
+| `classwise-outliers` | check | `input`: a `outliers-by-class` Output | Classwise Outliers |
+| `image-duplicates` | check | `input`: a `duplicates` Output | Duplicates |
+| `class-imbalance` | check | `input`: a `label-health` Output | Class Imbalance |
 | `class-sufficiency` | check | `input`: a `label-health` Output over train; `evals`: the evaluation splits' | Class Sufficiency |
 | `untrained-classes` | check | `input`: a `label-health` Output over train; `evals`: the evaluation splits' | Untrained Classes |
 | `stratification` | check | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
-| `uncovered-rate` | check | `input`: a `coverage` Output | Uncovered Rate |
-| `coverage-gaps` | check | `input`: a `factor-gaps` Output | Metadata Coverage Gaps |
-| `completeness-score` | check | `input`: a `completeness` Output | Dimensional Completeness |
-| `class-coverage` | check | `input`: a `coverage` Output | Embedding Coverage |
-| `class-shortfall` | check | `input`: a `representation` Output with no ontology | Class Balance Worklist |
-| `leaf-coverage` | check | `input`: a `representation` Output against a declared ontology | Label Space Coverage |
+| `uncovered-items` | check | `input`: a `coverage` Output | Uncovered Items |
+| `factor-coverage-gaps` | check | `input`: a `factor-gaps` Output | Factor Coverage Gaps |
+| `dimensional-completeness` | check | `input`: a `completeness` Output | Dimensional Completeness |
+| `class-coverage` | check | `input`: a `coverage` Output | Class Coverage |
+| `class-shortfall` | check | `input`: a `representation` Output with no ontology | Class Shortfall |
+| `leaf-coverage` | check | `input`: a `representation` Output against a declared ontology | Leaf Coverage |
 | `label-conformance` | check | `input`: a `label-reconciliation` Output | Label Conformance |
 | `mergeability` | check | `input`: a `label-alignment` Output | Label Alignment |
 | `ontology-structure` | check | `input`: an `ontology-validation` Output | Ontology Structure |
 | `distribution-shift` | check | `input`: a `divergence` Output | Distribution Shift |
 | `shortcut-risk` | check | `input`: a `balance` Output | Shortcut Risk |
-| `eval-coverage` | check | `input`: an `ood-kneighbors` Output | Evaluation Coverage |
+| `eval-coverage` | check | `input`: an `ood-kneighbors` Output | Eval Coverage |
 | `leakage` | check | `duplicates`: `duplicates` Outputs over two splits; `factors`: `factor-leakage` Outputs | Leakage |
 | `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
 | `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
 | `factor-gaps` | combine | `input`: a Dataset; `balance`: a `balance` Output computed on it | each factor's MI with the class, and the under-represented combinations |
-| `classwise-outliers` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
+| `outliers-by-class` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
 | `ood-union` | combine | `input`: the OOD Outputs of one comparison of a test source with a reference | each flagged image as mutual, partial or unique, with its agreement score |
 | `factor-predictors` | combine | `ood`: an `ood-union` or OOD Output; `reference`, `input`: the Datasets it was computed on | each factor's association with being flagged |
 | `factor-deviation` | combine | the same | the factors setting each of the most out-of-distribution agreed images apart |
@@ -76,10 +76,10 @@ as `1/3 classes warn`, and its description names those that warned and those not
 
 ## Checks
 
-### `outlier-rate`
+### `image-outliers`
 
 The share of a Dataset's images with at least one image-level outlier flag. Configured by
-{py:class}`~dataeval_flow.steps.checks.OutlierRateConfig`.
+{py:class}`~dataeval_flow.steps.checks.ImageOutliersConfig`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -88,10 +88,10 @@ The share of a Dataset's images with at least one image-level outlier flag. Conf
 
 With nothing flagged, the finding is `ok`.
 
-### `target-outlier-rate`
+### `target-outliers`
 
 The share of a Dataset's boxes with at least one outlier flag. Configured by
-{py:class}`~dataeval_flow.steps.checks.TargetOutlierRateConfig`. It makes no finding where nothing was flagged per
+{py:class}`~dataeval_flow.steps.checks.TargetOutliersConfig`. It makes no finding where nothing was flagged per
 box, as on a classification Dataset.
 
 | Field | Takes | Default | Description |
@@ -100,31 +100,31 @@ box, as on a classification Dataset.
 | `labels` | an address | required | A `label-health` Output on the same Dataset: its label count is the number of boxes |
 | `target` | a percentage, or `null` | `3.0` | Most boxes, as a percentage of all, that may be flagged before the finding warns |
 
-### `classwise-outlier-rate`
+### `classwise-outliers`
 
 The worst class's share of outliers, how many classes pass the limit, and whether all classes together do.
-Configured by {py:class}`~dataeval_flow.steps.checks.ClasswiseOutlierRateConfig`. Its evidence is the per-class table.
+Configured by {py:class}`~dataeval_flow.steps.checks.ClasswiseOutliersConfig`. Its evidence is the per-class table.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `input` | an address | required | A `classwise-outliers` Output |
+| `input` | an address | required | A `outliers-by-class` Output |
 | `total` | a percentage, or `null` | `3.0` | Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too |
 
-### `coverage-gaps`
+### `factor-coverage-gaps`
 
 Whether class-factor-value combinations are under-represented: a warning at `count` gaps or more, `info` with fewer,
 `ok` with none, and the gaps as a table, largest deficit first. Configured by
-{py:class}`~dataeval_flow.steps.checks.CoverageGapsConfig`.
+{py:class}`~dataeval_flow.steps.checks.FactorCoverageGapsConfig`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `factor-gaps` Output |
 | `count` | a count, or `null` | `3` | The number of gaps at which the finding warns, this many or more; `null` judges nothing |
 
-### `duplicate-rate`
+### `image-duplicates`
 
 The shares of a Dataset's images in exact and in near duplicate groups. Configured by
-{py:class}`~dataeval_flow.steps.checks.DuplicateRateConfig`. It makes no finding where there are no duplicate
+{py:class}`~dataeval_flow.steps.checks.ImageDuplicatesConfig`. It makes no finding where there are no duplicate
 images.
 
 | Field | Takes | Default | Description |
@@ -138,7 +138,7 @@ images.
 The largest class's label count over the smallest's, taken over the classes with labels; a class with none is named and
 warns unless `empty` is `false`. Configured by
 {py:class}`~dataeval_flow.steps.checks.ClassImbalanceConfig`. It makes a finding whenever the Dataset has classes,
-declared or observed, and lists the images with no labels. Its title reads "Label/Directory_Name Distribution" where
+declared or observed, and lists the images with no labels. Its title reads "Class Imbalance" where
 the labels come from file paths.
 
 | Field | Takes | Default | Description |
@@ -163,25 +163,25 @@ table of counts across the parts is its evidence. Run once per fold over `kfold`
 | `info` | percentage points, or `null` | `2.0` | The largest deviation above which the finding is `info`; `null` has no `info` band |
 | `warning` | percentage points, or `null` | `10.0` | The largest deviation above which the finding warns; `null` never warns |
 
-### `uncovered-rate`
+### `uncovered-items`
 
 How much of a Dataset coverage left uncovered, as a share of its items. Judge only `naive` coverage: adaptive
 coverage, DataEval's default, marks the sparsest `percent` of the items uncovered by construction, so its share says
 nothing about the data. DataEval's naive radius overflows past about 340 embedding dimensions, so `naive` suits
 low-dimensional embeddings: with a wide CNN or ONNX extractor, the coverage steps are skipped with "failed:
-OverflowError". Configured by {py:class}`~dataeval_flow.steps.checks.UncoveredRateConfig`.
+OverflowError". Configured by {py:class}`~dataeval_flow.steps.checks.UncoveredItemsConfig`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `coverage` Output |
 | `rate` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
 
-### `completeness-score`
+### `dimensional-completeness`
 
 How much of the embedding space's dimensions the data fills, judged against two bands: the finding warns under
 `warning`, informs under `info`, and is `ok` above. The score is rounded to three places first. With both bands `null`
 nothing is judged and the finding informs. Configured by
-{py:class}`~dataeval_flow.steps.checks.CompletenessScoreConfig`.
+{py:class}`~dataeval_flow.steps.checks.DimensionalCompletenessConfig`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -366,7 +366,7 @@ has about 100 minus that percent flagged by construction, so `info: 2.0` suits `
 
 ### `drift`
 
-Whether a drift detector found drift. Configured by {py:class}`~dataeval_flow.steps.checks.DriftCheckConfig`. Without
+Whether a drift detector found drift. Configured by {py:class}`~dataeval_flow.steps.checks.DriftConfig`. Without
 chunking, drift is a warning, or `info` where `warn_on_drift` is false. With chunking, the finding warns when the share
 of drifted chunks or the longest run of drifted chunks reaches its limit, is `info` when some chunks drifted but
 neither does, and is `ok` when no chunk drifted. With both limits `null` it judges nothing, and is `info` whether or
@@ -384,7 +384,7 @@ not a chunk drifted.
 
 How much of a test source an OOD detector flagged, as a percent of the images it assessed. On a detector's
 `uncertainty` rows, an image with no detection at the confidence is not assessed, and the brief also counts the
-detections flagged. Configured by {py:class}`~dataeval_flow.steps.checks.OODCheckConfig`. The finding warns from
+detections flagged. Configured by {py:class}`~dataeval_flow.steps.checks.OODConfig`. The finding warns from
 `warning` percent, is `info` from `info` percent, and is `ok` below both; a `null` threshold judges nothing at its
 level, and with both `null` the finding is `info`.
 
@@ -409,12 +409,12 @@ did. Configured by {py:class}`~dataeval_flow.steps.checks.OODAgreementConfig`.
 
 ## Combines
 
-### `classwise-outliers`
+### `outliers-by-class`
 
 An Outliers Output pivoted by class: how many of each class's items, or boxes for detection, were flagged, as a count
 and a share of the class, most flagged first, and the total. Configured by
-{py:class}`~dataeval_flow.steps.combines.ClasswiseOutliersConfig`; makes a
-{py:class}`~dataeval_flow.steps.combines.ClasswiseOutliers`.
+{py:class}`~dataeval_flow.steps.combines.OutliersByClassConfig`; makes a
+{py:class}`~dataeval_flow.steps.combines.OutliersByClassOutput`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -433,7 +433,7 @@ mean, over the detectors that scored it, of its score over the detector's thresh
 detector's flags. A detector whose derived threshold is not positive is left out, and the section names it. The
 section pictures each flagged image once, most out of distribution first. Load refuses Outputs computed on different
 Datasets. Configured by {py:class}`~dataeval_flow.steps.combines.OODUnionConfig`; makes an
-{py:class}`~dataeval_flow.steps.combines.OODUnion`.
+{py:class}`~dataeval_flow.steps.combines.OODUnionOutput`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -456,7 +456,7 @@ spread, is over it. The section ranks each factor's mutual information with the 
 | `min_representation` | a count | `5` | A combination is a gap where its count is under this while its expected count is over it |
 | `metadata` | a policy name, or `null` | `null` | The metadata policy the factors are read under; it should be the one `balance` read under |
 
-The config refuses a `balance` computed on another Dataset when it loads, as `classwise-outliers` does.
+The config refuses a `balance` computed on another Dataset when it loads, as `outliers-by-class` does.
 
 ### `factor-predictors`
 
@@ -467,7 +467,7 @@ named `f_<statistic>`; a factor counts where both Datasets have it, numeric, one
 constant in the test. Where a Dataset's metadata or statistics cannot be read, the rest is read without it, and the
 section says so. Load refuses an `ood` Output computed on other Datasets than `reference` and `input`. Configured by
 {py:class}`~dataeval_flow.steps.combines.FactorPredictorsConfig`; makes a
-{py:class}`~dataeval_flow.steps.combines.FactorPredictors`.
+{py:class}`~dataeval_flow.steps.combines.FactorPredictorsOutput`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -482,7 +482,7 @@ section says so. Load refuses an `ood` Output computed on other Datasets than `r
 The factors that set each of the most out-of-distribution agreed images apart from the reference: DataEval's
 `factor_deviation`, each factor's scaled distance from the reference's median, most deviating first. It reads the
 factors `factor-predictors` reads. Configured by {py:class}`~dataeval_flow.steps.combines.FactorDeviationConfig`; makes
-a {py:class}`~dataeval_flow.steps.combines.FactorDeviations`.
+a {py:class}`~dataeval_flow.steps.combines.FactorDeviationOutput`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -510,12 +510,12 @@ workflows:
     steps:
       - {name: outliers, evaluator: outliers, input: data}
       - {name: labels, evaluator: labels, input: data}
-      - {name: by-class, combine: classwise-outliers, input: data, outliers: outliers}
+      - {name: by-class, combine: outliers-by-class, input: data, outliers: outliers}
       - {name: dupes, evaluator: dupes, input: data}
-      - {name: image-outliers, check: outlier-rate, input: outliers}
-      - {name: target-outliers, check: target-outlier-rate, input: outliers, labels: labels}
-      - {name: classwise, check: classwise-outlier-rate, input: by-class}
-      - {name: duplicates, check: duplicate-rate, input: dupes}
+      - {name: image-outliers, check: image-outliers, input: outliers}
+      - {name: target-outliers, check: target-outliers, input: outliers, labels: labels}
+      - {name: classwise, check: classwise-outliers, input: by-class}
+      - {name: duplicates, check: image-duplicates, input: dupes}
       - {name: imbalance, check: class-imbalance, input: labels}
       - name: clean
         transform: remove
@@ -533,7 +533,7 @@ but the first of its group.
 
 Its report gives each finding a section, with the evaluators it judged below it: the flagged images and boxes under
 Image Outliers, and the duplicate groups under Duplicates. The class counts sit under the first finding that read
-`labels`: Target Outliers where any box was flagged, else Label Distribution. A finding that read a step shown already
+`labels`: Target Outliers where any box was flagged, else Class Imbalance. A finding that read a step shown already
 names the finding it is under, as Classwise Outliers names Image Outliers for the outliers `by-class` counted.
 `clean`'s section follows, saying how many images it kept and what each plan named. On MILCO's reference campaigns,
 as {doc}`View a report as HTML <../notebooks/view_html_reports>` runs it: "Kept 162 of 261 images. Removed 99 images
@@ -551,7 +551,7 @@ the `reference` and the rest the `pools`. With `cleaning:` set (`outlier_method:
 
 ```yaml
 evaluators:
-  - {name: rank, type: prioritize, method: knn, k: 5, order: hard_first, policy: difficulty, num_bins: 50, n_init: auto}
+  - {name: rank, type: prioritization, method: knn, k: 5, order: hard_first, policy: difficulty, num_bins: 50, n_init: auto}
   - {name: outliers, type: outliers, flags: [pixel, visual], outlier_threshold: zscore}
   - {name: dupes, type: duplicates, merge_near_duplicates: true}
 

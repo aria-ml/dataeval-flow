@@ -1,4 +1,4 @@
-"""The label check: data-cleaning's Label Distribution finding, as a step (spec §9.2)."""
+"""The label check: data-cleaning's Class Imbalance finding, as a step (spec §9.2)."""
 
 __all__ = [
     "ClassImbalanceCheck",
@@ -71,7 +71,7 @@ class ClassImbalanceCheck(Check[ClassImbalanceConfig]):
 
     name: ClassVar[str] = "class-imbalance"
     description: ClassVar[str] = "Warns when the largest class outnumbers the smallest by more than `ratio`."
-    title: ClassVar[str] = "Label Distribution"
+    title: ClassVar[str] = "Class Imbalance"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(LabelHealthOutput,)),)
 
     def run(self, config: ClassImbalanceConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
@@ -116,7 +116,7 @@ class ClassImbalanceCheck(Check[ClassImbalanceConfig]):
         return [
             Finding(
                 severity=severity,
-                title="Label/Directory_Name Distribution" if source == "filepath" else self.title,
+                title=self.title,
                 brief=f"{classes} classes, {items} items, imbalance {ratio}:1",
                 blocks=blocks,
             )

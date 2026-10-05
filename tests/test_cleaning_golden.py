@@ -5,10 +5,11 @@ Deliberate differences from its legacy run (spec §10.3 item 3), each with its r
 - **It names its items by the chain's input, `data`, not by the source.** Spec §7.4 has an item reference name the
   node address it was read from.
   `tests/test_run.py::test_a_cleaning_run_carries_a_thumbnail_of_each_item_its_report_names` pins it.
-- **A declared class with no labels makes Label Distribution a warning.** `label-health` lists every declared class,
+- **A declared class with no labels makes Class Imbalance a warning.** `label-health` lists every declared class,
   at 0 where unseen (coverage spec §5.3, §6.3), so the `detection` case's `bus` is an empty class.
-- **An unlabelled Dataset that declares classes gets a Label Distribution warning,** where the check made no finding:
+- **An unlabelled Dataset that declares classes gets a Class Imbalance warning,** where the check made no finding:
   every declared class is empty (coverage spec §5.3, §17). The `unlabelled` case gains that finding.
+- **Names follow the naming pass** (naming spec §3.2): recorded titles are read through `tests/golden/_renames.py`.
 """
 
 import json
@@ -20,6 +21,7 @@ from dataeval_flow import run
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from tests.evaluator_toys import ToyImages
+from tests.golden._renames import title
 from tests.golden.cleaning import CASES
 
 _GOLDEN = json.loads((Path(__file__).parent / "golden" / "cleaning_findings.json").read_text())
@@ -31,13 +33,13 @@ def test_every_case_is_recorded() -> None:
 
 @pytest.mark.parametrize("name", sorted(CASES))
 def test_data_cleaning_gives_the_findings_it_gave_before_its_port(name: str) -> None:
-    expected = [list(row) for row in _GOLDEN[name]]
+    expected = [[severity, title(name), brief] for severity, name, brief in _GOLDEN[name]]
     if name == "detection":
         for row in expected:
-            if row[1] == "Label Distribution":
+            if row[1] == "Class Imbalance":
                 row[0] = "warning"
     if name == "unlabelled":
-        expected.append(["warning", "Label Distribution", "2 classes, 24 items, imbalance 0.0:1"])
+        expected.append(["warning", "Class Imbalance", "2 classes, 24 items, imbalance 0.0:1"])
     assert [[f.severity, f.title, f.brief] for f in CASES[name]()] == expected
 
 

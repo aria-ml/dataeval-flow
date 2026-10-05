@@ -6,7 +6,7 @@ __all__ = [
     "OODAgreementCheck",
     "OODAgreementConfig",
     "OODCheck",
-    "OODCheckConfig",
+    "OODConfig",
     "OODThresholds",
     "assessed_images",
     "ood_severity",
@@ -23,7 +23,7 @@ from dataeval_flow._blocks import Paragraph
 from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps.checks._drift import evaluator_heading
-from dataeval_flow.steps.combines._ood import OODUnion
+from dataeval_flow.steps.combines._ood import OODUnionOutput
 from dataeval_flow.workflows import Finding
 
 Severity = Literal["ok", "info", "warning"]
@@ -74,7 +74,7 @@ def assessed_images(output: OODOutput) -> int:
     return len(output.is_ood) - (len(rows["unassessed"]) if rows else 0)
 
 
-class OODCheckConfig(CheckConfig, OODThresholds):
+class OODConfig(CheckConfig, OODThresholds):
     """An `ood` step's input, its thresholds, and what its finding is titled."""
 
     input: str = Field(description="An OOD evaluator's Output.")
@@ -87,7 +87,7 @@ class OODCheckConfig(CheckConfig, OODThresholds):
     )
 
 
-class OODCheck(Check[OODCheckConfig]):
+class OODCheck(Check[OODConfig]):
     """``ood``: how many of a test source's images an OOD detector flagged, `info` and warning past its thresholds."""
 
     name: ClassVar[str] = "ood"
@@ -95,7 +95,7 @@ class OODCheck(Check[OODCheckConfig]):
     title: ClassVar[str] = "OOD"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODOutput,)),)
 
-    def run(self, config: OODCheckConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(self, config: OODConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """One finding: the images flagged of those assessed, and on detection rows the detections flagged."""
         node = inputs["input"]
         output = node.value
@@ -130,7 +130,7 @@ class OODAgreementCheck(Check[OODAgreementConfig]):
         "Judges the share of a test source's images every OOD detector flagged, and counts those one alone flagged."
     )
     title: ClassVar[str] = "OOD Agreement"
-    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODUnion,)),)
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODUnionOutput,)),)
 
     def run(self, config: OODAgreementConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """The aggregate finding, and the unique one where any image is unique."""
@@ -183,7 +183,7 @@ class EvalCoverageCheck(Check[EvalCoverageConfig]):
 
     name: ClassVar[str] = "eval-coverage"
     description: ClassVar[str] = "Warns when much of an evaluation split lies beyond what train covers."
-    title: ClassVar[str] = "Evaluation Coverage"
+    title: ClassVar[str] = "Eval Coverage"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODOutput,)),)
 
     def run(self, config: EvalCoverageConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002

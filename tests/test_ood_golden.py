@@ -3,7 +3,7 @@
 
 Deliberate differences, each with its reason:
 
-- **The metadata insights are sections, not findings.** Legacy's "OOD Factor Predictors" and "OOD Sample Metadata
+- **The metadata insights are sections, not findings.** Legacy's "Factor Predictors" and "OOD Sample Metadata
   Deviations" were `info` findings that judged nothing. The `factor-` steps' sections show them.
 - **A detector's finding is titled by its evaluator entry,** "OOD (K-Neighbors)", not legacy's display name, which
   listed non-default settings ("K-Neighbors (k=5, distance_metric=euclidean)").
@@ -24,6 +24,7 @@ Deliberate differences, each with its reason:
 - **Deviations are computed for the most out-of-distribution agreed images.** Legacy took the first
   `max_ood_insights` flagged images in index order, and showed the agreed ones among them. The deviations of the
   images both computed agree.
+- **Names follow the naming pass** (naming spec §3.2): recorded titles are read through `tests/golden/_renames.py`.
 """
 
 import json
@@ -38,11 +39,12 @@ import pytest
 from dataeval_flow import PipelineConfig, run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.steps import ChainResult
+from tests.golden._renames import title
 from tests.golden.ood import CASES, SINGLE_SOURCE, pipeline
 from tests.golden.rerouting import approximately
 
 _GOLDEN = json.loads((Path(__file__).parent / "golden" / "ood.json").read_text())
-_INSIGHTS = ("OOD Factor Predictors", "OOD Sample Metadata Deviations")
+_INSIGHTS = ("Factor Predictors", "Factor Deviation")
 _HEADINGS = {"ood-kneighbors": "OOD (K-Neighbors)", "ood-domain-classifier": "OOD (Domain Classifier)"}
 _EXPLAINED = tuple(name for name in SINGLE_SOURCE if CASES[name].preset.get("metadata_insights", True))
 
@@ -108,12 +110,12 @@ def _as_brief(description: str) -> str:
 @pytest.mark.parametrize("name", SINGLE_SOURCE)
 def test_the_findings_agree_with_legacy(name: str) -> None:
     case, golden = CASES[name], _GOLDEN[name]
-    legacy = [finding for finding in golden["findings"] if finding["title"] not in _INSIGHTS]
+    legacy = [finding for finding in golden["findings"] if title(finding["title"]) not in _INSIGHTS]
     titles = [_HEADINGS[step] for step in case.steps.values()]
     expected = [
         (
             finding["severity"],
-            titles[index] if index < len(titles) else finding["title"],
+            titles[index] if index < len(titles) else title(finding["title"]),
             _as_brief(finding["description"]),
         )
         for index, finding in enumerate(legacy)

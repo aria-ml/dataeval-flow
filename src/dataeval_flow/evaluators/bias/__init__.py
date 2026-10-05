@@ -7,26 +7,26 @@ __all__ = [
     "DiversityConfig",
     "DiversityEvaluator",
     "DiversityResult",
-    "MetadataSummaryConfig",
-    "MetadataSummaryEvaluator",
-    "MetadataSummaryOutput",
-    "MetadataSummaryResult",
+    "FactorSummaryConfig",
+    "FactorSummaryEvaluator",
+    "FactorSummaryOutput",
+    "FactorSummaryResult",
     "ParityConfig",
     "ParityEvaluator",
     "ParityResult",
 ]
 
-from dataeval_flow.evaluators.bias._config import BalanceConfig, DiversityConfig, MetadataSummaryConfig, ParityConfig
+from dataeval_flow.evaluators.bias._config import BalanceConfig, DiversityConfig, FactorSummaryConfig, ParityConfig
 from dataeval_flow.evaluators.bias._evaluator import (
     BalanceEvaluator,
     DiversityEvaluator,
-    MetadataSummaryEvaluator,
+    FactorSummaryEvaluator,
     ParityEvaluator,
 )
 from dataeval_flow.evaluators.bias._result import (
     BalanceResult,
     DiversityResult,
-    MetadataSummaryOutput,
-    MetadataSummaryResult,
+    FactorSummaryOutput,
+    FactorSummaryResult,
     ParityResult,
 )

@@ -110,7 +110,7 @@
   `metadata:` policy
 - `representation` evaluator, counting a source's labels against an ontology, or one synthesized from its
   `index2label`
-- `coverage` and `prioritize` evaluators; a second `prioritize` source is the reference its ranking
+- `coverage` and `prioritization` evaluators; a second `prioritization` source is the reference its ranking
   is relative to
 - `ood-kneighbors` and `ood-domain-classifier` evaluators
 - An "Evaluator recipes" how-to with one worked example per evaluator family, from the config entry to reading its
@@ -143,7 +143,7 @@
 - `data-cleaning`'s `clean` step hands on the dataset without each image and box it flagged and each duplicate but the
   first of its group, counting what it removed; a custom workflow that runs data-cleaning as a step reads it as
   `<step>.clean`, and an `export` step on it replaces `mode: preparatory`
-- A friendly title on every step type, such as `K-Fold Split`, as `title` in `dataeval-flow steps NAME`, `--json`
+- A friendly title on every step type, such as `K-Fold`, as `title` in `dataeval-flow steps NAME`, `--json`
   and `list_steps()`
 - A chain's short report, `report(detailed=False)` and what the console prints without `-v`: its step count, its
   summary and health, and a Steps table giving each step's status and why it made nothing where it did not
@@ -152,7 +152,7 @@
   of the JSON at its default
 - `n` and `fraction` on `data-prioritization`: its `selected` step keeps each pool's top `n`, or that share rounded up;
   unset, it keeps every item in ranked order
-- A `prioritize` step's report pictures its ranking's 25 highest and 25 lowest items, with rank and score
+- A `prioritization` step's report pictures its ranking's 25 highest and 25 lowest items, with rank and score
 - `factor-triage`, an evaluator: what a Dataset's metadata failed to read, the policy stanza that repairs it, and, with
   `verify`, what the repair recovers
 - `metadata-issues`, a check: metadata-triage's findings, made from a `factor-triage` Output
@@ -180,7 +180,7 @@
   `run-<n>/`
 - `stratification` check: each part's class shares against the whole's, warning past `warning` percentage points of
   deviation and informing past `info`
-- `uncovered-rate` check: the share of a Dataset a coverage run left uncovered, warning past `rate` percent
+- `uncovered-items` check: the share of a Dataset a coverage run left uncovered, warning past `rate` percent
 - `split`, `kfold` and `view` steps record each output's indices, into the dataset at the bottom of its views, in their
   `details`, and `split` and `kfold` have a report section of each part's size
 - A preset's declared outputs read any address in its chain, lists included, so `data-splitting`'s `<step>.train` is
@@ -191,9 +191,9 @@
   load refused it
 - `completeness` evaluator: how much of the embedding space's dimensions the data fills, as legacy data-coverage's
   Dimensional Completeness measured it; it refuses fewer than two embeddings
-- `metadata-summary` evaluator: each metadata factor's type, binning, nulls, and range or top values
-- `class-coverage`, `completeness-score`, `coverage-gaps` and `class-shortfall` checks, which make `data-coverage`'s
-  Embedding Coverage, Dimensional Completeness, Metadata Coverage Gaps and Class Balance Worklist findings
+- `factor-summary` evaluator: each metadata factor's type, binning, nulls, and range or top values
+- `class-coverage`, `dimensional-completeness`, `factor-coverage-gaps` and `class-shortfall` checks, which make `data-coverage`'s
+  Class Coverage, Dimensional Completeness, Factor Coverage Gaps and Class Shortfall findings
 - `factor-gaps` combine: each factor's mutual information with the class, read from a `balance` Output, and the
   class-factor-value combinations under-represented among the factors at or over `mi_threshold`
 - `other_kinds: pass` on `wrap` hands a Dataset of another kind on unchanged, reading its source's cached embeddings
@@ -204,7 +204,7 @@
   its result's `label_space_digest` with the alignment's: the join key to a dataset conformed by its stanza
 - `representation`'s output records the `expected` names it ignored, under `extras.ignored_expected`, and its report
   section and `label-alignment`'s are short summaries
-- `representation`, `coverage`, `prioritize` and `label-alignment` read class labels and no factor, so their reads
+- `representation`, `coverage`, `prioritization` and `label-alignment` read class labels and no factor, so their reads
   leave a chain's binning record: data-splitting with an extractor records the whole set once, and data-prioritization,
   whose steps read no factor, records no binning record or `encoding_digest`
 - `uncertainty` extractor entries need `metadata_path` and `preds_type`, and the TUI no longer offers them
@@ -268,7 +268,7 @@
   per-dimension rescale had shifted `dispersion` and the coverage radius
 - Evaluators are named for what they compute, without a family prefix, and a prefixed name fails to load as an
   unknown evaluator: `balance`, `diversity` and `parity` (were `bias.*`); `duplicates`, `label-health` and
-  `outliers` (were `quality.*`); `coverage`, `label-alignment`, `prioritize` and `representation` (were `scope.*`);
+  `outliers` (were `quality.*`); `coverage`, `label-alignment`, `prioritization` and `representation` (were `scope.*`);
   `drift-domain-classifier`, `drift-kneighbors`, `drift-mmd`, `drift-univariate`, `drift-wasserstein`,
   `ood-domain-classifier` and `ood-kneighbors` (were `shift.*`)
 - `data-cleaning` is a preset: its evaluators find outliers, duplicates and label counts, and its checks judge them
@@ -277,7 +277,7 @@
   `outliers`, `labels`, `by-class`, `dupes`, `image-outliers`, `target-outliers`, `classwise`, `duplicates`,
   `imbalance` and `clean`
 - `data-prioritization` is a preset: `cleaning:` runs as `outliers`, `duplicates` and `remove` steps on the reference
-  and each pool, `rank` (`prioritize`) ranks each pool against the reference, and `selected` (`select`) keeps the top
+  and each pool, `rank` (`prioritization`) ranks each pool against the reference, and `selected` (`select`) keeps the top
   of each ranking. It returns a `ChainResult`, whose `steps` replace `raw` and `report`, and it makes no findings: the
   Pruning warning and each pool's info finding are gone
 - `metadata-triage` is a preset: `factor-triage` reads the metadata, and `metadata-issues` makes its findings. It
@@ -340,7 +340,7 @@
   `dupes`, 1 by `outliers`."
 - The report's configuration leaves out settings left unset, and keeps a setting written as `null`; an evaluator's
   report leaves out extras that hold nothing
-- The Image Outliers, Target Outliers, Classwise Outliers and Label Distribution findings have no `description`, which
+- The Image Outliers, Target Outliers, Classwise Outliers and Class Imbalance findings have no `description`, which
   repeated their brief
 - A text table too wide for the report wraps its text cells, with a blank line between its rows
 - A chain's binning record leaves out `label-health`'s reads, which read labels and no factor, so each Dataset it
@@ -352,10 +352,10 @@
   `result.steps["split"].details["indices"]`. Under `folds` of 2 or more, each fold's rebalanced train is in
   `result.steps["rebalance"].elements["<k>"].details["indices"]`; where rebalancing kept the train as it was,
   `details` is `None` and the train's indices from `split` apply.
-  Its findings are Label Distribution, Stratification for each fold, and Uncovered Rate under `naive` coverage;
+  Its findings are Class Imbalance, Stratification for each fold, and Uncovered Items under `naive` coverage;
   balance and diversity are report sections, and the split's sizes are in the `split` step's section and the
   `lineage`. Only object-detection Datasets can be exported, so a classification split's parts can be read but not yet
-  exported. `health_thresholds` is keyed by check type: `class-imbalance`, `stratification`, `uncovered-rate`. To
+  exported. `health_thresholds` is keyed by check type: `class-imbalance`, `stratification`, `uncovered-items`. To
   upgrade:
   - `num_folds` is `folds`
   - `rebalance_method` is `rebalance`
@@ -365,20 +365,20 @@
     1/k. `val_frac` unset is 0.1 with `folds: 1`
   - the `split_sizes` and `stratified` of `metadata`, and `output.raw`, are in `result.steps` and `lineage`
 - `data-coverage` is a preset. A `crops` step (`wrap`) crops detection data into one item per box and hands other data
-  on unchanged. `coverage` and `completeness` embed the crops, judged by `class-coverage`, by `uncovered-rate` under
-  `naive` coverage, and by `completeness-score`. `labels` (`label-health`) is judged by `class-imbalance`; `summary`
-  (`metadata-summary`), `balance` and `diversity` read the metadata, and `gaps` (`factor-gaps`), judged by
-  `coverage-gaps`, reads balance; `worklist` (`representation`) is judged by `class-shortfall`. Without an extractor
+  on unchanged. `coverage` and `completeness` embed the crops, judged by `class-coverage`, by `uncovered-items` under
+  `naive` coverage, and by `dimensional-completeness`. `labels` (`label-health`) is judged by `class-imbalance`; `summary`
+  (`factor-summary`), `balance` and `diversity` read the metadata, and `gaps` (`factor-gaps`), judged by
+  `factor-coverage-gaps`, reads balance; `worklist` (`representation`) is judged by `class-shortfall`. Without an extractor
   the embedding steps are skipped, and their findings say "not assessed". It returns a `ChainResult`, whose numbers
   are each step's output in `result.steps`, such as `result.steps["coverage"].output`. Metadata Distribution, balance
   and diversity are report sections, where Metadata Distribution was a finding. Under `naive` coverage, legacy's
-  Embedding Coverage finding is two, Embedding Coverage and Uncovered Rate; under `adaptive` the uncovered rate is not
+  Class Coverage finding is two, Class Coverage and Uncovered Items; under `adaptive` the uncovered rate is not
   judged. Naive coverage that overflows is skipped, where legacy re-ran it as adaptive. On detection data, coverage's
   uncovered items index the `crops` Dataset, one item per box, where legacy named each one's image and box. It no
   longer judges an ontology: a `label-space` entry on the same source does, and a data-coverage run on a conformed
   source records no label space of its own, so `label-space` carries the join key. `health_thresholds` is keyed by
-  check type: `class-imbalance`, `coverage-gaps`, `class-coverage`, `uncovered-rate` and `completeness-score`. Every
-  legacy field is refused by name, with its replacement. To upgrade:
+  check type: `class-imbalance`, `factor-coverage-gaps`, `class-coverage`, `uncovered-items` and
+  `dimensional-completeness`. Every legacy field is refused by name, with its replacement. To upgrade:
   - `coverage_method`, `coverage_percent`, `num_observations`, `min_class_samples`, `isotropy_min_samples` and
     `near_duplicate_factor` are `coverage.method`, `.percent`, `.num_observations`, `.min_class_samples`,
     `.isotropy_min_samples` and `.near_duplicate_factor`
@@ -396,12 +396,12 @@
     are refused: name a policy under `metadata:`
   - `value_range` is refused: set it on the dataset. `stats` is refused, since no step of data-coverage reads statistics
   - in `health_thresholds`, `class_imbalance_ratio` is `class-imbalance.ratio`, and legacy's fixed band at 2.0 is
-    `class-imbalance.info`; `gap_count` is `coverage-gaps.count`; `min_dispersion`, `min_isotropy` and
+    `class-imbalance.info`; `gap_count` is `factor-coverage-gaps.count`; `min_dispersion`, `min_isotropy` and
     `max_near_duplicate_fraction` are `class-coverage.dispersion`, `.isotropy` and `.near_duplicates`;
-    `uncovered_rate` is `uncovered-rate.rate`; and `completeness_score` is `completeness-score.warning`, and legacy's
-    fixed band at 0.8 is `completeness-score.info`. An unset `info` follows `ratio` or `warning` as legacy's band did,
-    so `ratio: 1.5` or `warning: 0.9` alone loads; two written bounds that cross are refused
-  - an ImageFolder source's label finding is titled "Label/Directory_Name Distribution", where it was "Label
+    `uncovered_rate` is `uncovered-items.rate`; and `completeness_score` is `dimensional-completeness.warning`,
+    and legacy's fixed band at 0.8 is `dimensional-completeness.info`. An unset `info` follows `ratio` or `warning` as
+    legacy's band did, so `ratio: 1.5` or `warning: 0.9` alone loads; two written bounds that cross are refused
+  - an ImageFolder source's label finding is titled "Class Imbalance", where it was "Label
     Distribution"
   - `health_thresholds.leaf_coverage`, `dark_branch_count` and `unmatched_class_count` are `label-space`'s
     `health_thresholds.leaf-coverage.coverage`, `leaf-coverage.empty_branches` and `label-conformance.unmatched`
@@ -411,8 +411,8 @@
     `result.steps["crops"].details["dropped"]`
 - `label-health` lists every class the Dataset declares, at 0 where it has no labels, and the items with no label as
   `empty_image_indices`. So a declared class with no labels now shows at 0 in data-cleaning's and data-splitting's
-  label tables and in stratification's "Classes checked" and its table across the parts, and makes their Label
-  Distribution finding warn
+  label tables and in stratification's "Classes checked" and its table across the parts, and makes their Class
+  Imbalance finding warn
 - `class-imbalance` makes its finding on any Dataset with classes, declared or observed, so an unlabelled Dataset that
   declares classes now warns in data-cleaning and data-splitting, where it made no finding. Its ratio is taken over
   the classes with labels, and each class with none is named. It takes `info`, a ratio at or under which the finding

@@ -46,7 +46,7 @@ def test_a_split_drawn_like_train_reads_ok() -> None:
     sources = {"train": ToyImages(count=200, seed=0), "test": ToyImages(count=200, seed=1)}
     finding = _judge(sources, OODKNeighborsConfig(threshold_perc=99, **_EUCLID))
     assert finding.severity == "ok"
-    assert finding.title == "Evaluation Coverage"
+    assert finding.title == "Eval Coverage"
     assert "than 99% of it" in finding.brief
 
 

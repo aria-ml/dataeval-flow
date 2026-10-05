@@ -60,7 +60,7 @@ _ROW = {"concept": "c", "label": "bus", "parent": "v", "action": "acquire", "cou
 
 def test_a_full_spread_is_ok() -> None:
     finding = _leaf()
-    assert (finding.severity, finding.title) == ("ok", "Label Space Coverage")
+    assert (finding.severity, finding.title) == ("ok", "Leaf Coverage")
     assert finding.brief == "leaf coverage 100.0% · 0 to acquire · deficit 0"
 
 
@@ -171,7 +171,7 @@ def _shortfall(**kwargs: Any) -> Any:
 
 def test_a_shortfall_worklist_informs() -> None:
     finding = _shortfall(worklist=[_ROW], deficit=4)
-    assert (finding.severity, finding.title) == ("info", "Class Balance Worklist")
+    assert (finding.severity, finding.title) == ("info", "Class Shortfall")
     assert finding.brief == "1 classes short · deficit 4"
     assert "`label-space`" in finding.description
     assert "configure an `ontology`" not in finding.description

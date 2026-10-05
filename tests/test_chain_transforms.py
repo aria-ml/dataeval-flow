@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.evaluators.quality import DuplicatesConfig
-from dataeval_flow.evaluators.scope import PrioritizeConfig
+from dataeval_flow.evaluators.scope import PrioritizationConfig
 from dataeval_flow.steps import ChainResult
 from tests.chain_toys import ToyDetections, chain_pipeline, run_chain_task
 from tests.evaluator_toys import ToyImages
@@ -35,7 +35,7 @@ def _task(
         "sources": list(datasets),
         **({"extractor": "flat"} if kwargs.get("extractor") else {}),
     }
-    evaluators = [DuplicatesConfig(name="dupes"), PrioritizeConfig(name="rank")]
+    evaluators = [DuplicatesConfig(name="dupes"), PrioritizationConfig(name="rank")]
     return chain_pipeline(workflows=[workflow], evaluators=evaluators, tasks=[task], datasets=datasets, **kwargs)
 
 

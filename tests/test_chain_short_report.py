@@ -43,8 +43,8 @@ def test_data_cleaning_short_text_is_its_summary_health_and_steps(cleaned) -> No
 ================================================================================
   Image Outliers ....................................... 1 images (4.2%)  [!!]
   Classwise Outliers ............ worst: b (8.3%), 1/1 classes over 3.0%  [!!]
-  Duplicates ............................. 2 exact (8.3%), 0 near (0.0%)  [!!]
-  Label Distribution .............. 2 classes, 24 items, imbalance 1.0:1  [..]
+  Image Duplicates ....................... 2 exact (8.3%), 0 near (0.0%)  [!!]
+  Class Imbalance ................. 2 classes, 24 items, imbalance 1.0:1  [..]
 
   Health: 3 warning(s) [!!] — review flagged findings
 

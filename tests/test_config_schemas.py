@@ -1353,7 +1353,7 @@ class TestExportConfig:
 
         from dataeval_flow.config import ExportConfig
         from dataeval_flow.config._json_schema import registry_twin
-        from dataeval_flow.steps.transforms import ExportStepConfig
+        from dataeval_flow.steps.transforms import ExportTransformConfig
 
         definitions = registry_twin(plugins=False).model_json_schema()["$defs"]
         patterns = [
@@ -1361,7 +1361,7 @@ class TestExportConfig:
             definitions["TransformStep_export"]["properties"]["to"]["pattern"],
         ]
         assert [re.search(pattern, name) is not None for pattern in patterns] == [loads, loads]
-        attempts = [lambda: ExportConfig(name=name, source="merged"), lambda: ExportStepConfig(input="a", to=name)]
+        attempts = [lambda: ExportConfig(name=name, source="merged"), lambda: ExportTransformConfig(input="a", to=name)]
         for attempt in attempts:
             if loads:
                 attempt()

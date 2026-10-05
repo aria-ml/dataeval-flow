@@ -1,6 +1,6 @@
 """The duplicate check: data-cleaning's Duplicates finding, as a step (spec §9.2)."""
 
-__all__ = ["DuplicateRateCheck", "DuplicateRateConfig"]
+__all__ = ["ImageDuplicatesCheck", "ImageDuplicatesConfig"]
 
 from collections.abc import Mapping
 from typing import Any, ClassVar
@@ -15,8 +15,8 @@ from dataeval_flow.steps.checks._limits import exceeds
 from dataeval_flow.workflows._base import Finding
 
 
-class DuplicateRateConfig(CheckConfig):
-    """A `duplicate-rate` step's input, and the shares of a Dataset that may be exact and near duplicates."""
+class ImageDuplicatesConfig(CheckConfig):
+    """A `image-duplicates` step's input, and the shares of a Dataset that may be exact and near duplicates."""
 
     input: str = Field(description="A `duplicates` Output.")
     exact: float | None = Field(
@@ -39,19 +39,19 @@ class DuplicateRateConfig(CheckConfig):
     )
 
 
-class DuplicateRateCheck(Check[DuplicateRateConfig]):
-    """``duplicate-rate``: warns when too many of a Dataset's images sit in exact or near duplicate groups.
+class ImageDuplicatesCheck(Check[ImageDuplicatesConfig]):
+    """``image-duplicates``: warns when too many of a Dataset's images sit in exact or near duplicate groups.
 
     Counts the item-level ``exact`` and ``near`` groups, as data-cleaning does, and makes no finding where there are
     none.
     """
 
-    name: ClassVar[str] = "duplicate-rate"
+    name: ClassVar[str] = "image-duplicates"
     description: ClassVar[str] = "Warns when more than `exact` or `near` percent of the images are duplicates."
-    title: ClassVar[str] = "Duplicates"
+    title: ClassVar[str] = "Image Duplicates"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(DuplicatesOutput,)),)
 
-    def run(self, config: DuplicateRateConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(self, config: ImageDuplicatesConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """The shares of the Dataset's images in exact and in near duplicate groups."""
         node = inputs["input"]
         items = node.value.data().filter(pl.col("level") == "item")

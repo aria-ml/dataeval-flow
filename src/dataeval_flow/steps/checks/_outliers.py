@@ -1,12 +1,12 @@
 """The outlier checks: data-cleaning's Image, Target and Classwise Outliers findings, as steps (spec §9.2)."""
 
 __all__ = [
-    "ClasswiseOutlierRateCheck",
-    "ClasswiseOutlierRateConfig",
-    "OutlierRateCheck",
-    "OutlierRateConfig",
-    "TargetOutlierRateCheck",
-    "TargetOutlierRateConfig",
+    "ClasswiseOutliersCheck",
+    "ClasswiseOutliersConfig",
+    "ImageOutliersCheck",
+    "ImageOutliersConfig",
+    "TargetOutliersCheck",
+    "TargetOutliersConfig",
 ]
 
 from collections.abc import Mapping
@@ -21,12 +21,12 @@ from dataeval_flow.evaluators.quality._result import LabelHealthOutput
 from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps.checks._limits import exceeds, unjudged
-from dataeval_flow.steps.combines._classwise import ClasswiseOutliers
+from dataeval_flow.steps.combines._classwise import OutliersByClassOutput
 from dataeval_flow.workflows._base import Finding
 
 
-class OutlierRateConfig(CheckConfig):
-    """An `outlier-rate` step's input, and the share of images that may be outliers."""
+class ImageOutliersConfig(CheckConfig):
+    """An `image-outliers` step's input, and the share of images that may be outliers."""
 
     input: str = Field(description="An `outliers` Output.")
     image: float | None = Field(
@@ -40,15 +40,15 @@ class OutlierRateConfig(CheckConfig):
     )
 
 
-class OutlierRateCheck(Check[OutlierRateConfig]):
-    """``outlier-rate``: warns when more than ``image`` percent of a Dataset's images are outliers."""
+class ImageOutliersCheck(Check[ImageOutliersConfig]):
+    """``image-outliers``: warns when more than ``image`` percent of a Dataset's images are outliers."""
 
-    name: ClassVar[str] = "outlier-rate"
+    name: ClassVar[str] = "image-outliers"
     description: ClassVar[str] = "Warns when more than `image` percent of a Dataset's images are outliers."
     title: ClassVar[str] = "Image Outliers"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OutliersOutput,)),)
 
-    def run(self, config: OutlierRateConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(self, config: ImageOutliersConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """The share of images with at least one image-level flag."""
         node = inputs["input"]
         image_issues, _ = split_outlier_issues(node.value.data())
@@ -63,8 +63,8 @@ class OutlierRateCheck(Check[OutlierRateConfig]):
         return [Finding(severity=severity, title=self.title, brief=brief)]
 
 
-class TargetOutlierRateConfig(CheckConfig):
-    """A `target-outlier-rate` step's inputs, and the share of targets that may be outliers."""
+class TargetOutliersConfig(CheckConfig):
+    """A `target-outliers` step's inputs, and the share of targets that may be outliers."""
 
     input: str = Field(description="An `outliers` Output computed per target (`per_target: true`).")
     labels: str = Field(
@@ -81,13 +81,13 @@ class TargetOutlierRateConfig(CheckConfig):
     )
 
 
-class TargetOutlierRateCheck(Check[TargetOutlierRateConfig]):
-    """``target-outlier-rate``: warns when more than ``target`` percent of the boxes are outliers.
+class TargetOutliersCheck(Check[TargetOutliersConfig]):
+    """``target-outliers``: warns when more than ``target`` percent of the boxes are outliers.
 
     Makes no finding where nothing was flagged per target, as a classification Dataset never is.
     """
 
-    name: ClassVar[str] = "target-outlier-rate"
+    name: ClassVar[str] = "target-outliers"
     description: ClassVar[str] = "Warns when more than `target` percent of the boxes are outliers."
     title: ClassVar[str] = "Target Outliers"
     inputs: ClassVar[tuple[Port, ...]] = (
@@ -95,7 +95,7 @@ class TargetOutlierRateCheck(Check[TargetOutlierRateConfig]):
         Port("labels", DataType.OUTPUT, classes=(LabelHealthOutput,)),
     )
 
-    def run(self, config: TargetOutlierRateConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(self, config: TargetOutliersConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """The share of labelled targets with at least one flag."""
         _, target_issues = split_outlier_issues(inputs["input"].value.data())
         if target_issues is None or len(target_issues) == 0:
@@ -113,10 +113,10 @@ class TargetOutlierRateCheck(Check[TargetOutlierRateConfig]):
         ]
 
 
-class ClasswiseOutlierRateConfig(CheckConfig):
-    """A `classwise-outlier-rate` step's input, and the share of a class that may be outliers."""
+class ClasswiseOutliersConfig(CheckConfig):
+    """A `classwise-outliers` step's input, and the share of a class that may be outliers."""
 
-    input: str = Field(description="A `classwise-outliers` Output.")
+    input: str = Field(description="A `outliers-by-class` Output.")
     total: float | None = Field(
         default=3.0,
         ge=0.0,
@@ -129,23 +129,23 @@ class ClasswiseOutlierRateConfig(CheckConfig):
     )
 
 
-class ClasswiseOutlierRateCheck(Check[ClasswiseOutlierRateConfig]):
-    """``classwise-outlier-rate``: warns when outliers take up more than ``total`` percent across classes, naming
+class ClasswiseOutliersCheck(Check[ClasswiseOutliersConfig]):
+    """``classwise-outliers``: warns when outliers take up more than ``total`` percent across classes, naming
     the worst class and how many classes pass the limit."""
 
-    name: ClassVar[str] = "classwise-outlier-rate"
+    name: ClassVar[str] = "classwise-outliers"
     description: ClassVar[str] = "Warns when outliers pass `total` percent across classes; names the worst class."
     title: ClassVar[str] = "Classwise Outliers"
-    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(ClasswiseOutliers,)),)
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OutliersByClassOutput,)),)
 
     def run(
         self,
-        config: ClasswiseOutlierRateConfig,
+        config: ClasswiseOutliersConfig,
         inputs: Mapping[str, Any],
         context: CheckContext,  # noqa: ARG002
     ) -> list[Finding]:
         """The worst class, how many classes pass the limit, and whether the total does."""
-        pivot: ClasswiseOutliers = inputs["input"].value
+        pivot: OutliersByClassOutput = inputs["input"].value
         limit = config.total
         if not pivot.rows or pivot.total is None:
             return [

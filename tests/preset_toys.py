@@ -6,7 +6,7 @@ from pydantic import Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin
-from dataeval_flow.evaluators.bias import MetadataSummaryConfig
+from dataeval_flow.evaluators.bias import FactorSummaryConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, FactorTriageConfig, LabelHealthConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.steps._port import DataType, Port
@@ -42,7 +42,7 @@ class ToyPreset(Preset, Workflow[ToyPresetConfig, ChainResult]):
         return PresetChain(
             steps=[
                 {"name": "dupes", "evaluator": "dupes", "input": "data"},
-                {"name": "rate", "check": "duplicate-rate", "input": "dupes", "exact": config.exact},
+                {"name": "rate", "check": "image-duplicates", "input": "dupes", "exact": config.exact},
                 {"name": "kept", "transform": "remove", "input": "data", "plans": {"dupes": {}}},
             ],
             evaluators=[DuplicatesConfig(name="dupes")],
@@ -223,7 +223,7 @@ class ToyReferencePreset(Preset, Workflow[ToyReferencePresetConfig, ChainResult]
                 {"name": "parts-summary", "evaluator": "summary", "input": "parts.train"},
             ],
             evaluators=[
-                MetadataSummaryConfig(name="summary", metadata=config.metadata),
+                FactorSummaryConfig(name="summary", metadata=config.metadata),
                 FactorTriageConfig(name="triage", metadata=config.metadata, verify=False),
             ],
             reference="train",

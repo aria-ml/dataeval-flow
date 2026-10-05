@@ -63,7 +63,7 @@ Transform steps make Datasets. The [Transform Catalog](../reference/transforms.m
 | `split` | a Dataset | `train`, `val` and `test`, from `test_frac`, `val_frac` or both |
 | `kfold` | a Dataset | `train` and `val`, each a list with one Dataset per fold, and `test` |
 | `wrap` | an object-detection Dataset | a classification Dataset with one item per detection (`wrapper: DetectionCrops`) |
-| `select` | a Dataset, and a `prioritize` ranking of it (`ranking:`) | the first `n`, or `fraction`, of the ranking |
+| `select` | a Dataset, and a `prioritization` ranking of it (`ranking:`) | the first `n`, or `fraction`, of the ranking |
 | `remove` | a Dataset, and Duplicates or Outliers outputs computed on it (`plans:`) | the Dataset without what the plans name |
 | `conform` | a Dataset, and a `label-alignment` of it (`alignment:`) | the Dataset relabelled onto the ontology |
 | `export` | an object-detection Dataset | a dataset on disk under the run's output directory, and a record of it |
@@ -72,7 +72,7 @@ Transform steps make Datasets. The [Transform Catalog](../reference/transforms.m
 The step that `plans:`, `ranking:` or `alignment:` names must have read exactly the Dataset the transform's own
 `input:` names. The config refuses anything else when it loads. One element of a step that ran once per element of a
 list was computed on that element: `dupes[0]`, where `dupes` read `kfold.train`, applies to `kfold.train[0]`. A
-`prioritize` ranking may also read a reference set, so for `select` only the first Dataset it read must match.
+`prioritization` ranking may also read a reference set, so for `select` only the first Dataset it read must match.
 
 `dataeval-flow steps` lists every step a chain can use, and `dataeval-flow steps NAME` prints one step's ports and
 settings.
@@ -94,7 +94,7 @@ workflows:
     steps:
       - {name: dupes, evaluator: dupes, input: data}
       - {name: labels, evaluator: labels, input: data}
-      - {name: duplicates, check: duplicate-rate, input: dupes, near: 2.0}
+      - {name: duplicates, check: image-duplicates, input: dupes, near: 2.0}
       - {name: imbalance, check: class-imbalance, input: labels}
 ```
 

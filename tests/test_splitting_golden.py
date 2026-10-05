@@ -4,7 +4,7 @@ each part's uncovered count (data-splitting spec §9).
 
 Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), each with its reason:
 
-- **Titles and briefs are the checks' own:** "Label Distribution", "Stratification", "Uncovered Rate".
+- **Titles and briefs are the checks' own:** "Class Imbalance", "Stratification", "Uncovered Items".
 - **The split sizes are the split step's section, not findings.**
 - **Balance and diversity are sections, not findings,** and are skipped, not fatal, on a dataset with no factors.
 - **The cross-split class distribution is the stratification finding's evidence,** not a finding of its own.

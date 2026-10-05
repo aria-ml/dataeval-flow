@@ -154,7 +154,7 @@ def test_a_combine_s_read_reaches_the_record_when_no_evaluator_read_metadata() -
     evaluators = [{"name": "outliers", "type": "outliers"}]
     assert _chain([_OUTLIERS], evaluators=evaluators).metadata.metadata_binning is None
     result = _chain(
-        [_OUTLIERS, {"name": "by-class", "combine": "classwise-outliers", "input": "data", "outliers": "outliers"}],
+        [_OUTLIERS, {"name": "by-class", "combine": "outliers-by-class", "input": "data", "outliers": "outliers"}],
         evaluators=evaluators,
     )
     record = _binning(result)
@@ -211,7 +211,7 @@ def test_no_reads_record_nothing() -> None:
     assert envelope.encoding_digest is None
 
 
-@pytest.mark.parametrize("name", ["representation", "coverage", "prioritize", "label-alignment"])
+@pytest.mark.parametrize("name", ["representation", "coverage", "prioritization", "label-alignment"])
 def test_the_scope_evaluators_read_no_factors(name: str) -> None:
     from dataeval_flow.evaluators import get_evaluator
 

@@ -13,7 +13,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | --- | --- | --- | --- | --- |
 | `balance` | `dataeval.bias.Balance` | metadata | 1 | refused |
 | `diversity` | `dataeval.bias.Diversity` | metadata | 1 | refused |
-| `metadata-summary` | `dataeval.Metadata` | metadata | 1 | refused |
+| `factor-summary` | `dataeval.Metadata` | metadata | 1 | refused |
 | `parity` | `dataeval.bias.Parity` | metadata | 1 | refused |
 | `duplicates` | `dataeval.quality.Duplicates` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
 | `outliers` | `dataeval.quality.Outliers` | stats; clusters in cluster mode | 1 or more; 1 in cluster mode | needed in cluster mode; accepted but unused otherwise |
@@ -23,7 +23,7 @@ family, see [Evaluator recipes](../how_to/evaluator_recipes.md).
 | `content-digest` | `dataeval_flow.dataset_digest` | the Dataset itself, every item | 1 | refused |
 | `representation` | `dataeval.scope.Representation` | labels | 1 | refused |
 | `coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
-| `prioritize` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
+| `prioritization` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
 | `completeness` | `dataeval.core.completeness` | embeddings | 1 | required |
 | `label-alignment` | `dataeval.core.label_alignment` | labels | 1 | refused |
 | `label-reconciliation` | `dataeval.core.label_reconciliation` | labels | 1 | refused |
@@ -87,10 +87,10 @@ How evenly each metadata factor's values are spread, overall and within each cla
 Output: a mapping of two tables. `factors` has each factor's diversity and whether it is low, and `classwise` each
 class's.
 
-### `metadata-summary`
+### `factor-summary`
 
 Each metadata factor's type, binning, nulls, and range or top values, as legacy data-coverage's Metadata Distribution
-listed them. Configured by {py:class}`~dataeval_flow.evaluators.bias.MetadataSummaryConfig`. It reads the Dataset's
+listed them. Configured by {py:class}`~dataeval_flow.evaluators.bias.FactorSummaryConfig`. It reads the Dataset's
 metadata through DataEval's `Metadata`.
 
 | Parameter | DataEval argument | Left unset |
@@ -175,7 +175,7 @@ Output: a table with one row per flagged statistic (`item_index`, `metric_name`,
 ### `label-health`
 
 How a Dataset's labels spread over its classes: how many labels each class has, how many items carry each, and how
-many items carry none. The `class-imbalance` and `target-outlier-rate` checks read it. Configured by
+many items carry none. The `class-imbalance` and `target-outliers` checks read it. Configured by
 {py:class}`~dataeval_flow.evaluators.quality.LabelHealthConfig`; runs `dataeval.core.label_stats` on the Dataset's
 metadata.
 
@@ -286,11 +286,11 @@ Output: a table with one row per class (`class`, `count`, `uncovered`, `uncovere
 `isotropy`, `near_duplicate_fraction`, `assessable`). `extras` holds `uncovered_indices`, `coverage_radius`,
 `critical_value_radii` and `uncovered_classes` (each uncovered item's class, `None` without a class breakdown).
 
-### `prioritize`
+### `prioritization`
 
 The first source's items ranked from easiest to hardest, or the reverse. A second source is the reference: the
 ranking is then relative to it, as when choosing what to label next beside data already labeled. Configured by
-{py:class}`~dataeval_flow.evaluators.scope.PrioritizeConfig`; runs `dataeval.scope.Prioritize`.
+{py:class}`~dataeval_flow.evaluators.scope.PrioritizationConfig`; runs `dataeval.scope.Prioritize`.
 
 | Parameter | DataEval argument | Left unset |
 | --- | --- | --- |

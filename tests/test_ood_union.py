@@ -16,7 +16,7 @@ from dataeval_flow.evaluators.shift import OODKNeighborsConfig
 from dataeval_flow.evaluators.shift._rows import OODRowsOutput
 from dataeval_flow.steps import ChainResult, CheckContext
 from dataeval_flow.steps.checks import OODAgreementCheck, OODAgreementConfig
-from dataeval_flow.steps.combines import OODUnion
+from dataeval_flow.steps.combines import OODUnionOutput
 from dataeval_flow.steps.combines._ood import union_blocks, union_of
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
@@ -143,7 +143,7 @@ def test_a_chain_combines_two_detectors_and_pictures_the_agreed_images() -> None
     result = run_task(TaskConfig(name="t", workflow="w", sources=sources, extractor="flat"), config, report_images=True)
     assert isinstance(result, ChainResult)
     union = (result.steps["agreement"].elements or {})["cam1"].output
-    assert isinstance(union, OODUnion)
+    assert isinstance(union, OODUnionOutput)
     assert {asset.item.source for asset in result.assets} == {"tests[cam1]"}
     assert result.findings[0].title == "Aggregate OOD (all detectors agree)"
 

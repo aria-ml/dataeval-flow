@@ -42,7 +42,7 @@ class StepCatalogEntry(BaseModel):
 
     kind: StepKind = Field(description="`evaluator`, `transform`, `combine`, `check` or `workflow`.")
     type: str = Field(description="The name a step uses under its kind key.")
-    title: str = Field(description="Its friendly name, such as `K-Fold Split`; its `type` where it declares none.")
+    title: str = Field(description="Its friendly name, such as `K-Fold`; its `type` where it declares none.")
     description: str = Field(description="One line on what it does.")
     origin: str = Field(description="The distribution that registered it: `dataeval-flow` for a built-in.")
     inputs: list[PortEntry] = Field(description="Its input ports.")

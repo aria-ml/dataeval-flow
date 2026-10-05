@@ -161,7 +161,7 @@ print(result.report())
 #
 # The summary lists one finding for the whole set and one per fold:
 #
-# - **Label Distribution**: the whole set's class counts and its imbalance ratio, the
+# - **Class Imbalance**: the whole set's class counts and its imbalance ratio, the
 #   largest class count over the smallest. MilitaryVehicles has 24 classes and 7,823
 #   items, with an imbalance ratio of 3.6:1, under the default limit of 10:1.
 # - **Stratification**: for each fold, how far each part's class shares stray from the
@@ -173,7 +173,7 @@ print(result.report())
 # - **Balance**: mutual information between each metadata factor and the class.
 #   High values mean a factor predicts the label.
 # - **Diversity**: how evenly each factor's values spread.
-# - **K-Fold Split**: the sizes of each fold's train and val, and of the shared test.
+# - **K-Fold**: the sizes of each fold's train and val, and of the shared test.
 #
 # `coverage` is skipped, as are its per-part runs, because this task names no extractor.
 # Coverage embeds the items, so name an extractor on the task to run it. The Steps

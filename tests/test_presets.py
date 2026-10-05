@@ -51,7 +51,7 @@ def test_a_preset_task_returns_a_chain_result_typed_by_its_preset() -> None:
     assert result.metadata.workflow == "toy"
     assert list(result.steps) == ["dupes", "rate", "kept"]
     assert [(f.severity, f.title, f.brief, f.step) for f in result.findings] == [
-        ("warning", "Duplicates", "2 exact (16.7%), 0 near (0.0%)", "rate")
+        ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "rate")
     ]
     assert len(result.steps["kept"].output) == 11
 

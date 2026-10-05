@@ -258,7 +258,7 @@ class TestFitting:
             return [line.strip() for line in _draw(table, width=width, indent="")[2:]]
 
         assert draw("needs `boom`, which failed", 12) == ["needs", "`boom`,", "which failed"]
-        assert draw("classwise-outlier-rate", 12) == ["classwise-", "outlier-rate"]
+        assert draw("classwise-outliers", 12) == ["classwise-", "outliers"]
         assert draw("cleaning/image-outliers", 12) == ["cleaning/", "image-", "outliers"]
         assert draw("abcdefghijklmnop", 6) == ["abcdef", "ghijkl", "mnop"]
 

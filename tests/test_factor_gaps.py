@@ -1,5 +1,5 @@
-"""`factor-gaps` and `coverage-gaps`: class-factor-value combinations under-represented among factors balance ties
-to the class, as legacy data-coverage's Metadata Coverage Gaps (coverage spec §6.1, §6.2)."""
+"""`factor-gaps` and `factor-coverage-gaps`: class-factor-value combinations under-represented among factors balance
+ties to the class, as legacy data-coverage's Factor Coverage Gaps (coverage spec §6.1, §6.2)."""
 
 from types import SimpleNamespace
 from typing import Any
@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.steps.checks import CoverageGapsCheck, CoverageGapsConfig
+from dataeval_flow.steps.checks import FactorCoverageGapsCheck, FactorCoverageGapsConfig
 from dataeval_flow.steps.combines import FactorGap, FactorGapsOutput
 from tests.chain_toys import chain_pipeline
 from tests.golden.coverage import CoverageImages
@@ -18,7 +18,7 @@ from tests.golden.coverage import CoverageImages
 _STEPS = [
     {"name": "balance", "evaluator": "balance", "input": "data"},
     {"name": "gaps", "combine": "factor-gaps", "input": "data", "balance": "balance"},
-    {"name": "gaps-check", "check": "coverage-gaps", "input": "gaps"},
+    {"name": "gaps-check", "check": "factor-coverage-gaps", "input": "gaps"},
 ]
 
 
@@ -46,7 +46,7 @@ def test_it_finds_the_under_represented_combinations() -> None:
     (finding,) = result.findings
     assert (finding.severity, finding.title, finding.brief) == (
         "warning",
-        "Metadata Coverage Gaps",
+        "Factor Coverage Gaps",
         "5 gaps identified",
     )
 
@@ -63,7 +63,8 @@ def test_a_balance_from_another_dataset_is_refused_at_load() -> None:
 
 def _judge(gaps: list[FactorGap], **settings: Any) -> Any:
     node = SimpleNamespace(value=FactorGapsOutput(mutual_information={"site": 0.5}, gaps=gaps))
-    (finding,) = CoverageGapsCheck().run(CoverageGapsConfig(input="gaps", **settings), {"input": node}, None)  # type: ignore[arg-type]
+    config = FactorCoverageGapsConfig(input="gaps", **settings)
+    (finding,) = FactorCoverageGapsCheck().run(config, {"input": node}, None)  # type: ignore[arg-type]
     return finding
 
 

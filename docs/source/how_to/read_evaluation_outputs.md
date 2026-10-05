@@ -111,13 +111,13 @@ MILCO's two campaigns, `reference` and `operational`:
     Target Outliers .................................. 32 targets (6.5%)  [!!]
     Classwise Outliers ...... worst: NOMBO (7.5%), 2/2 classes over 3.0%  [!!]
     Duplicates ........................ 0 exact (0.0%), 150 near (57.5%)  [!!]
-    Label Distribution ........... 2 classes, 261 items, imbalance 1.8:1  [..]
+    Class Imbalance ........... 2 classes, 261 items, imbalance 1.8:1  [..]
   operational
     Image Outliers .................................... 22 images (2.4%)  [..]
     Target Outliers ................................... 6 targets (3.4%)  [!!]
     Classwise Outliers ...... worst: NOMBO (5.2%), 1/2 classes over 3.0%  [!!]
     Duplicates ........................ 0 exact (0.0%), 787 near (86.6%)  [!!]
-    Label Distribution ........... 2 classes, 909 items, imbalance 2.0:1  [..]
+    Class Imbalance ........... 2 classes, 909 items, imbalance 2.0:1  [..]
 
   Health: 7 warning(s) [!!] — review flagged findings
 ```
@@ -136,7 +136,7 @@ banner and configuration:
   Target Outliers .................................... 32 targets (6.5%)  [!!]
   Classwise Outliers ........ worst: NOMBO (7.5%), 2/2 classes over 3.0%  [!!]
   Duplicates .......................... 0 exact (0.0%), 150 near (57.5%)  [!!]
-  Label Distribution ............. 2 classes, 261 items, imbalance 1.8:1  [..]
+  Class Imbalance ............. 2 classes, 261 items, imbalance 1.8:1  [..]
 
   Health: 4 warning(s) [!!] — review flagged findings
 
@@ -341,10 +341,10 @@ under a sixth, `step`:
 | `description` | A sentence or two of plain prose that leads the detail, or `null` where the brief says it all. |
 | `blocks` | The evidence: report blocks, in reading order. |
 
-The same run's Label Distribution finding:
+The same run's Class Imbalance finding:
 
 ```json
-{"severity": "info", "title": "Label Distribution", "brief": "2 classes, 261 items, imbalance 1.8:1",
+{"severity": "info", "title": "Class Imbalance", "brief": "2 classes, 261 items, imbalance 1.8:1",
  "description": null,
  "blocks": [
    {"type": "table",

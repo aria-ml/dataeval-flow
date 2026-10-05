@@ -27,7 +27,7 @@ class DataSplittingWorkflow(Preset, Workflow[DataSplittingConfig, ChainResult]):
 
     - ``labels`` (``label-health``) and ``labels-check`` (``class-imbalance``) on the whole set; ``balance`` and
       ``diversity``, optional; ``coverage``, optional, which embeds the whole set once for every part, and
-      ``uncovered`` (``uncovered-rate``) under ``naive`` coverage;
+      ``uncovered`` (``uncovered-items``) under ``naive`` coverage;
     - ``split`` (``split``, or ``kfold`` with ``folds`` of 2 or more), and ``rebalance`` (a ``view`` holding
       ``ClassBalance``) on each train where ``rebalance`` is set;
     - ``labels-<part>`` on each part the settings fill, ``labels-rebalanced`` where rebalancing, and
@@ -130,5 +130,5 @@ def _coverage(name: str, source: str, check: str, naive: bool, rate: float | Non
     """A coverage step, optional, and under `naive` coverage the check judging it."""
     steps: list[dict[str, Any]] = [{"name": name, "evaluator": "coverage", "input": source, "optional": True}]
     if naive:
-        steps.append({"name": check, "check": "uncovered-rate", "input": name, "rate": rate})
+        steps.append({"name": check, "check": "uncovered-items", "input": name, "rate": rate})
     return steps

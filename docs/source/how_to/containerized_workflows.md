@@ -328,7 +328,7 @@ workflows:
     gaps: {mi_threshold: 0.1, min_representation: 5}   # null leaves out the gap analysis
     health_thresholds:
       class-imbalance: {ratio: 5.0}
-      coverage-gaps: {count: 3}
+      factor-coverage-gaps: {count: 3}
 ```
 ````
 

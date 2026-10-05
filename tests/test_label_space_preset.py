@@ -11,7 +11,7 @@ from tests.chain_toys import ToyDetections, chain_pipeline
 from tests.evaluator_toys import ToyImages
 
 _ONTOLOGY = {"x": {"a": None, "b": None, "c": None}}
-_TITLES = ["Label Space Coverage", "Label Conformance", "Label Alignment", "Ontology Structure"]
+_TITLES = ["Leaf Coverage", "Label Conformance", "Mergeability", "Ontology Structure"]
 
 
 def _run(entry: dict, datasets: dict | None = None, **task: object) -> ChainResult:
@@ -75,7 +75,7 @@ def test_thresholds_are_keyed_by_check_type_and_reach_the_checks() -> None:
     result = _run(
         {"ontology": _ONTOLOGY, "health_thresholds": {"leaf-coverage": {"coverage": None, "empty_branches": None}}}
     )
-    leaf = next(finding for finding in result.findings if finding.title == "Label Space Coverage")
+    leaf = next(finding for finding in result.findings if finding.title == "Leaf Coverage")
     assert leaf.severity == "info"  # `c` has no examples, but neither criterion judges
 
 

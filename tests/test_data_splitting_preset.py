@@ -97,10 +97,10 @@ def test_a_whole_dump_of_a_kfold_entry_reloads() -> None:
 
 def test_thresholds_are_keyed_by_check_type() -> None:
     entry = DataSplittingConfig.model_validate(
-        {"health_thresholds": {"class-imbalance": {"ratio": 3}, "uncovered-rate": {"rate": 1}}}
+        {"health_thresholds": {"class-imbalance": {"ratio": 3}, "uncovered-items": {"rate": 1}}}
     )
     dumped = entry.model_dump(mode="json")["health_thresholds"]
-    assert (dumped["class-imbalance"]["ratio"], dumped["uncovered-rate"]["rate"]) == (3, 1)
+    assert (dumped["class-imbalance"]["ratio"], dumped["uncovered-items"]["rate"]) == (3, 1)
 
 
 def test_a_partial_coverage_keeps_legacy_s_defaults() -> None:
@@ -128,7 +128,7 @@ def test_a_task_splits_and_records_the_parts() -> None:
     assert result.success, result.errors
     indices = (result.steps["split"].details or {})["indices"]
     assert sorted(i for part in indices.values() for i in part) == list(range(60))
-    assert {"Label Distribution", "Stratification"} <= {finding.title for finding in result.findings}
+    assert {"Class Imbalance", "Stratification"} <= {finding.title for finding in result.findings}
     assert (result.steps["coverage"].status, result.steps["coverage"].reason) == ("skipped", _NO_EXTRACTOR)
 
 

@@ -1,5 +1,5 @@
-"""`completeness` and `completeness-score`: dimensional completeness of embeddings rescaled to the unit interval, and
-legacy data-coverage's Dimensional Completeness finding (coverage spec §6.1, §6.2)."""
+"""`completeness` and `dimensional-completeness`: dimensional completeness of embeddings rescaled to the unit
+interval, and legacy data-coverage's Dimensional Completeness finding (coverage spec §6.1, §6.2)."""
 
 from types import SimpleNamespace
 from typing import Any
@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from dataeval_flow import run
 from dataeval_flow.evaluators.scope import CompletenessConfig, CompletenessOutput
-from dataeval_flow.steps.checks import CompletenessScoreCheck, CompletenessScoreConfig
+from dataeval_flow.steps.checks import DimensionalCompletenessCheck, DimensionalCompletenessConfig
 from tests.evaluator_toys import FLAT, ToyImages
 
 
@@ -34,8 +34,8 @@ def test_it_scores_the_embeddings_rescaled_to_the_unit_interval() -> None:
 def _judge(score: float, **settings: Any) -> Any:
     data = {"completeness": score, "nearest_neighbor_pairs": [[0, 1]]}
     node = SimpleNamespace(value=SimpleNamespace(data=lambda: data))
-    config = CompletenessScoreConfig(input="c", **settings)
-    (finding,) = CompletenessScoreCheck().run(config, {"input": node}, None)  # type: ignore[arg-type]
+    config = DimensionalCompletenessConfig(input="c", **settings)
+    (finding,) = DimensionalCompletenessCheck().run(config, {"input": node}, None)  # type: ignore[arg-type]
     return finding
 
 
@@ -60,7 +60,7 @@ def test_null_thresholds_judge_nothing() -> None:
 
 def test_warning_above_info_is_refused() -> None:
     with pytest.raises(ValidationError, match="warning"):
-        CompletenessScoreConfig(input="c", warning=0.9, info=0.8)
+        DimensionalCompletenessConfig(input="c", warning=0.9, info=0.8)
 
 
 def test_a_score_of_exactly_the_info_band_is_ok() -> None:

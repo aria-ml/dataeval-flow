@@ -417,7 +417,7 @@ class TestEndToEndCleaningWorkflow:
         assert [(f["severity"], f["title"]) for f in results_data["findings"]] == [
             ("ok", "Image Outliers"),
             ("ok", "Classwise Outliers"),
-            ("info", "Label Distribution"),
+            ("info", "Class Imbalance"),
         ]
         assert results_data["health"] == {"status": "ok", "warnings": 0, "findings": 3, "failed_steps": []}
         assert results_data["steps"]["clean"]["output"]["items"] == 10

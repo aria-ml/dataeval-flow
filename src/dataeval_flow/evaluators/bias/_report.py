@@ -48,7 +48,7 @@ def balance_section(output: Mapping[str, Any], *, detailed: bool) -> list[Block]
 
 
 def metadata_summary_section(output: Mapping[str, Any]) -> list[Block]:
-    """A Metadata Summary Output's report: legacy data-coverage's Metadata Distribution table over the kept factors, or
+    """A Factor Summary Output's report: legacy data-coverage's Metadata Distribution table over the kept factors, or
     a sentence when there are none (coverage spec §6.1)."""
     data = output.get("data") or {}
     factors = list(data.get("factors") or [])

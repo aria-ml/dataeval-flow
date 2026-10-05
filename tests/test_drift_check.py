@@ -9,7 +9,7 @@ from dataeval_flow import run_task
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.shift import DriftKNeighborsConfig
 from dataeval_flow.steps import ChainResult, CheckContext
-from dataeval_flow.steps.checks import DriftCheck, DriftCheckConfig
+from dataeval_flow.steps.checks import DriftCheck, DriftConfig
 from tests.chain_toys import chain_pipeline
 from tests.drift_toys import ClassImages
 from tests.evaluator_toys import ToyImages
@@ -88,7 +88,7 @@ def test_by_class_rolls_up_under_the_title():
 def _judged(flags: list[bool], **limits: Any) -> Any:
     """The finding `drift` makes on a chunked Output whose chunks drifted as `flags` say."""
     output = SimpleNamespace(details=pl.DataFrame({"drifted": flags}), drifted=any(flags))
-    config = DriftCheckConfig.model_validate({"input": "knn", **limits})
+    config = DriftConfig.model_validate({"input": "knn", **limits})
     (finding,) = DriftCheck().run(config, {"input": SimpleNamespace(value=output, config=None)}, CheckContext("t", "s"))
     return finding
 

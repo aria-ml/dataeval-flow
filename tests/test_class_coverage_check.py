@@ -1,4 +1,4 @@
-"""`class-coverage`: legacy data-coverage's Embedding Coverage finding, judged per class (coverage spec §6.2, §17)."""
+"""`class-coverage`: legacy data-coverage's Class Coverage finding, judged per class (coverage spec §6.2, §17)."""
 
 from types import SimpleNamespace
 from typing import Any
@@ -40,7 +40,7 @@ def _judge(rows: list[dict[str, Any]], *, uncovered: int = 1, items: int = 90, o
 
 def test_an_uncovered_item_informs() -> None:
     finding = _judge([_row("cat")])
-    assert (finding.severity, finding.title, finding.brief) == ("info", "Embedding Coverage", "1 uncovered (1.1%)")
+    assert (finding.severity, finding.title, finding.brief) == ("info", "Class Coverage", "1 uncovered (1.1%)")
     assert finding.description == "1 of 90 images uncovered in embedding space."
 
 

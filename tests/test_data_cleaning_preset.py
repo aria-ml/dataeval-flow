@@ -85,8 +85,8 @@ def test_a_data_cleaning_task_returns_a_chain_result_of_its_steps() -> None:
     assert _verdicts(result) == [
         ("warning", "Image Outliers", "1 images (8.3%)", "image-outliers"),
         ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "classwise"),
-        ("warning", "Duplicates", "2 exact (16.7%), 0 near (0.0%)", "duplicates"),
-        ("info", "Label Distribution", "2 classes, 12 items, imbalance 1.0:1", "imbalance"),
+        ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "duplicates"),
+        ("info", "Class Imbalance", "2 classes, 12 items, imbalance 1.0:1", "imbalance"),
     ]
 
 
@@ -166,7 +166,7 @@ def test_a_data_cleaning_task_reads_its_source_through_its_view() -> None:
     result = run_task(task, config.model_copy(update={"views": [view], "sources": [source]}))
     assert isinstance(result, ChainResult)
     assert result.metadata.lineage[0].items == 16
-    assert ("info", "Label Distribution", "2 classes, 16 items, imbalance 1.0:1", "imbalance") in _verdicts(result)
+    assert ("info", "Class Imbalance", "2 classes, 16 items, imbalance 1.0:1", "imbalance") in _verdicts(result)
     assert len(result.steps["clean"].output) == 16
 
 
@@ -196,10 +196,10 @@ def test_a_data_cleaning_step_cleans_each_split_of_a_list() -> None:
         ("warning", "Image Outliers", "1 images (4.2%)", "cleaning/image-outliers[s2]"),
         ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "cleaning/classwise[s1]"),
         ("warning", "Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "cleaning/classwise[s2]"),
-        ("warning", "Duplicates", "2 exact (16.7%), 0 near (0.0%)", "cleaning/duplicates[s1]"),
-        ("warning", "Duplicates", "2 exact (8.3%), 0 near (0.0%)", "cleaning/duplicates[s2]"),
-        ("info", "Label Distribution", "2 classes, 12 items, imbalance 1.0:1", "cleaning/imbalance[s1]"),
-        ("info", "Label Distribution", "2 classes, 24 items, imbalance 1.0:1", "cleaning/imbalance[s2]"),
+        ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "cleaning/duplicates[s1]"),
+        ("warning", "Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "cleaning/duplicates[s2]"),
+        ("info", "Class Imbalance", "2 classes, 12 items, imbalance 1.0:1", "cleaning/imbalance[s1]"),
+        ("info", "Class Imbalance", "2 classes, 24 items, imbalance 1.0:1", "cleaning/imbalance[s2]"),
     ]
     clean = result.steps["cleaning/clean"].elements or {}
     assert {key: len(element.output) for key, element in clean.items()} == {"s1": 10, "s2": 22}

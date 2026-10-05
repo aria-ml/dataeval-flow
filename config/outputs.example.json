@@ -443,7 +443,7 @@
     },
     "by-class": {
       "kind": "combine",
-      "type": "classwise-outliers",
+      "type": "outliers-by-class",
       "status": "ok",
       "inputs": [
         "data",
@@ -513,7 +513,7 @@
     },
     "image-outliers": {
       "kind": "check",
-      "type": "outlier-rate",
+      "type": "image-outliers",
       "status": "ok",
       "inputs": [
         "outliers"
@@ -526,7 +526,7 @@
     },
     "target-outliers": {
       "kind": "check",
-      "type": "target-outlier-rate",
+      "type": "target-outliers",
       "status": "ok",
       "inputs": [
         "outliers",
@@ -540,7 +540,7 @@
     },
     "classwise": {
       "kind": "check",
-      "type": "classwise-outlier-rate",
+      "type": "classwise-outliers",
       "status": "ok",
       "inputs": [
         "by-class"
@@ -553,7 +553,7 @@
     },
     "duplicates": {
       "kind": "check",
-      "type": "duplicate-rate",
+      "type": "image-duplicates",
       "status": "ok",
       "inputs": [
         "dupes"
@@ -671,7 +671,7 @@
     },
     {
       "severity": "warning",
-      "title": "Label Distribution",
+      "title": "Class Imbalance",
       "brief": "4 classes, 20 items, imbalance 26.1:1",
       "description": null,
       "blocks": [

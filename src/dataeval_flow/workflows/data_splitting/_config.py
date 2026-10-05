@@ -24,9 +24,9 @@ class SplittingCoverage(BaseModel):
         description=(
             "How the coverage radius is set: `naive`, a fixed analytic radius, or `adaptive`, a cutoff on the "
             "`percent` most sparsely neighbored items. Unset uses DataEval's default (`adaptive`). Only `naive` "
-            "coverage is judged, by `uncovered-rate` steps. DataEval's naive radius overflows past about 340 embedding "
-            "dimensions, so `naive` suits low-dimensional embeddings; with a wide extractor its coverage steps are "
-            "skipped with `failed: OverflowError`."
+            "coverage is judged, by `uncovered-items` steps. DataEval's naive radius overflows past about 340 "
+            "embedding dimensions, so `naive` suits low-dimensional embeddings; with a wide extractor its coverage "
+            "steps are skipped with `failed: OverflowError`."
         ),
     )
     num_observations: int = Field(
@@ -56,14 +56,14 @@ class ClassImbalanceLimits(BaseModel):
         default=10.0,
         ge=1.0,
         description=(
-            "Largest class count over smallest that may hold before the whole set's Label Distribution finding warns; "
+            "Largest class count over smallest that may hold before the whole set's Class Imbalance finding warns; "
             "`null` judges nothing but an empty class. Legacy data-splitting's 10."
         ),
     )
 
 
 class UncoveredRateLimits(BaseModel):
-    """The `uncovered-rate` check's field, with legacy data-splitting's default."""
+    """The `uncovered-items` check's field, with legacy data-splitting's default."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -72,7 +72,7 @@ class UncoveredRateLimits(BaseModel):
         ge=0.0,
         le=100.0,
         description=(
-            "The percent of a Dataset's items uncovered past which its Uncovered Rate finding warns, under `naive` "
+            "The percent of a Dataset's items uncovered past which its Uncovered Items finding warns, under `naive` "
             "coverage only; `null` judges nothing. Legacy data-splitting's 5."
         ),
     )
@@ -93,8 +93,8 @@ class DataSplittingThresholds(BaseModel):
     )
     uncovered_rate: UncoveredRateLimits = Field(
         default_factory=UncoveredRateLimits,
-        alias="uncovered-rate",
-        description="The `uncovered-rate` check's thresholds, on the whole set and each part, under `naive` coverage.",
+        alias="uncovered-items",
+        description="The `uncovered-items` check's thresholds, on the whole set and each part, under `naive` coverage.",
     )
 
 

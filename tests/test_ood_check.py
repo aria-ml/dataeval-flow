@@ -14,7 +14,7 @@ from dataeval_flow.evaluators.shift import OODKNeighborsConfig
 from dataeval_flow.evaluators.shift._report import derived_threshold, ood_section
 from dataeval_flow.evaluators.shift._rows import OODRowsOutput
 from dataeval_flow.steps import ChainResult, CheckContext
-from dataeval_flow.steps.checks import OODCheck, OODCheckConfig
+from dataeval_flow.steps.checks import OODCheck, OODConfig
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 
@@ -34,7 +34,7 @@ def _output(flags: list[bool]) -> OODOutput:
 
 
 def _judge(output: Any, **thresholds: Any) -> Any:
-    config = OODCheckConfig(input="knn", subject="KNN", **thresholds)
+    config = OODConfig(input="knn", subject="KNN", **thresholds)
     (finding,) = OODCheck().run(config, {"input": SimpleNamespace(value=output, config=None)}, CheckContext("t", "s"))
     return finding
 

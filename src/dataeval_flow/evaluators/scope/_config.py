@@ -10,7 +10,7 @@ __all__ = [
     "LabelAlignmentResult",
     "LabelReconciliationConfig",
     "OntologyValidationConfig",
-    "PrioritizeConfig",
+    "PrioritizationConfig",
     "RepresentationConfig",
 ]
 
@@ -29,7 +29,7 @@ from dataeval_flow.evaluators.scope._result import (
     CoverageResult,
     LabelReconciliationResult,
     OntologyValidationResult,
-    PrioritizeResult,
+    PrioritizationResult,
     RepresentationResult,
 )
 
@@ -148,21 +148,21 @@ class CoverageConfig(EvaluatorConfig[CoverageResult]):
     )
 
 
-class PrioritizeConfig(EvaluatorConfig[PrioritizeResult]):
-    """Config for ``prioritize``, DataEval's Prioritize.
+class PrioritizationConfig(EvaluatorConfig[PrioritizationResult]):
+    """Config for ``prioritization``, DataEval's Prioritize.
 
     Ranks the first source's items from easiest to hardest, or the reverse, by where they sit in the embedding space.
     A second source is the reference: the items are then ranked relative to it, as when choosing what to label next
     beside data already labeled. Needs an extractor on the task.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
-    (``reference/evaluators``), and ``dataeval-flow evaluators prioritize`` prints the JSON Schema.
+    (``reference/evaluators``), and ``dataeval-flow evaluators prioritization`` prints the JSON Schema.
 
     Example YAML::
 
         evaluators:
           - name: next_to_label
-            type: prioritize
+            type: prioritization
             order: hard_first
 
         tasks:
@@ -172,7 +172,9 @@ class PrioritizeConfig(EvaluatorConfig[PrioritizeResult]):
             extractor: bovw_ext
     """
 
-    type: str = Field(default="prioritize", description="The evaluator type this entry configures: `prioritize`.")
+    type: str = Field(
+        default="prioritization", description="The evaluator type this entry configures: `prioritization`."
+    )
     inputs: ClassVar[InputSpec] = InputSpec(
         required=frozenset({InputKind.EMBEDDINGS, InputKind.LABELS}), sources=SourceCount.ONE_OR_TWO
     )

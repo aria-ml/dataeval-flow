@@ -349,7 +349,7 @@ class LabelHealthConfig(EvaluatorConfig[LabelHealthResult], MetadataConfigMixin)
     """Config for ``label-health``: how a Dataset's labels spread over its classes.
 
     Wraps ``dataeval.core.label_stats`` over the Dataset's metadata. It adds the number of classes the Dataset
-    declares, seen or not, and where its labels came from. The ``class-imbalance`` and ``target-outlier-rate`` checks
+    declares, seen or not, and where its labels came from. The ``class-imbalance`` and ``target-outliers`` checks
     read it.
 
     Example YAML::

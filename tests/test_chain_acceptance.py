@@ -194,12 +194,12 @@ workflows:
     steps:
       - {name: outliers, evaluator: outliers, input: data}
       - {name: labels, evaluator: labels, input: data}
-      - {name: by-class, combine: classwise-outliers, input: data, outliers: outliers}
+      - {name: by-class, combine: outliers-by-class, input: data, outliers: outliers}
       - {name: dupes, evaluator: dupes, input: data}
-      - {name: image-outliers, check: outlier-rate, input: outliers}
-      - {name: target-outliers, check: target-outlier-rate, input: outliers, labels: labels}
-      - {name: classwise, check: classwise-outlier-rate, input: by-class}
-      - {name: duplicates, check: duplicate-rate, input: dupes}
+      - {name: image-outliers, check: image-outliers, input: outliers}
+      - {name: target-outliers, check: target-outliers, input: outliers, labels: labels}
+      - {name: classwise, check: classwise-outliers, input: by-class}
+      - {name: duplicates, check: image-duplicates, input: dupes}
       - {name: imbalance, check: class-imbalance, input: labels}
 
 tasks:
@@ -267,8 +267,8 @@ tasks:
     assert [(f.severity, f.title, f.step) for f in result.findings] == [
         ("ok", "Image Outliers", "cleaning/image-outliers"),
         ("ok", "Classwise Outliers", "cleaning/classwise"),
-        ("warning", "Duplicates", "cleaning/duplicates"),
-        ("info", "Label Distribution", "cleaning/imbalance"),
+        ("warning", "Image Duplicates", "cleaning/duplicates"),
+        ("info", "Class Imbalance", "cleaning/imbalance"),
     ]
     assert result.health == {"status": "warning", "warnings": 1, "findings": 4, "failed_steps": []}
     assert result.steps["cleaning/clean"].details == {

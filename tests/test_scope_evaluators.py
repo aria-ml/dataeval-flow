@@ -11,12 +11,12 @@ from dataeval_flow.evaluators import EvaluatorInputs
 from dataeval_flow.evaluators.scope import (
     CoverageConfig,
     CoverageResult,
-    PrioritizeConfig,
-    PrioritizeResult,
+    PrioritizationConfig,
+    PrioritizationResult,
     RepresentationConfig,
     RepresentationResult,
 )
-from dataeval_flow.evaluators.scope._evaluator import PrioritizeEvaluator, usable_labels
+from dataeval_flow.evaluators.scope._evaluator import PrioritizationEvaluator, usable_labels
 from tests.evaluator_toys import FLAT, ToyImages, output_json
 
 
@@ -118,22 +118,22 @@ class TestUsableLabels:
     def test_a_source_without_labels_says_so(self, caplog: pytest.LogCaptureFixture):
         source = EvaluatorInputs(source="s", labels=np.array([], dtype=np.intp), index2label={})
         with caplog.at_level(logging.WARNING):
-            assert usable_labels(source, 2, "prioritize") is None
-        assert "prioritize: source 's' has no labels" in caplog.text
+            assert usable_labels(source, 2, "prioritization") is None
+        assert "prioritization: source 's' has no labels" in caplog.text
 
 
 class TestPrioritize:
     def test_every_item_is_ranked_with_its_score(self):
-        result = run(PrioritizeConfig(), ToyImages(count=40), extractor=FLAT)
-        assert isinstance(result, PrioritizeResult)
+        result = run(PrioritizationConfig(), ToyImages(count=40), extractor=FLAT)
+        assert isinstance(result, PrioritizationResult)
         assert result.success, result.errors
         assert sorted(output_json(result)["data"]) == list(range(40))
         assert len(output_json(result)["extras"]["scores"]) == 40
 
     def test_a_second_source_is_the_reference(self):
         data = ToyImages(count=40, seed=1)
-        alone = run(PrioritizeConfig(), data, extractor=FLAT)
-        relative = run(PrioritizeConfig(), {"data": data, "reference": ToyImages(count=40)}, extractor=FLAT)
+        alone = run(PrioritizationConfig(), data, extractor=FLAT)
+        relative = run(PrioritizationConfig(), {"data": data, "reference": ToyImages(count=40)}, extractor=FLAT)
         assert relative.success, relative.errors
         assert relative.sources is not None
         assert list(relative.sources) == ["data", "reference"]
@@ -141,8 +141,8 @@ class TestPrioritize:
         assert output_json(relative)["data"] != output_json(alone)["data"]
 
     def test_the_order_reaches_dataeval(self):
-        easy = output_json(run(PrioritizeConfig(order="easy_first"), ToyImages(count=40), extractor=FLAT))["data"]
-        hard = output_json(run(PrioritizeConfig(order="hard_first"), ToyImages(count=40), extractor=FLAT))["data"]
+        easy = output_json(run(PrioritizationConfig(order="easy_first"), ToyImages(count=40), extractor=FLAT))["data"]
+        hard = output_json(run(PrioritizationConfig(order="hard_first"), ToyImages(count=40), extractor=FLAT))["data"]
         assert hard == easy[::-1]
 
 
@@ -150,7 +150,7 @@ class TestPrioritizeEmptySources:
     def test_an_empty_dataset_ranks_to_an_empty_ranking(self):
         empty = EvaluatorInputs(source="pool", embeddings=np.empty((0, 4), dtype=np.float32))
         reference = EvaluatorInputs(source="ref", embeddings=np.random.default_rng(0).random((10, 4)))
-        output = PrioritizeEvaluator().run(PrioritizeConfig(), [empty, reference])
+        output = PrioritizationEvaluator().run(PrioritizationConfig(), [empty, reference])
         assert output.data().tolist() == []
         assert output.scores is not None
         assert output.scores.tolist() == []
@@ -159,4 +159,4 @@ class TestPrioritizeEmptySources:
         pool = EvaluatorInputs(source="pool", embeddings=np.random.default_rng(0).random((10, 4)), labels=None)
         empty = EvaluatorInputs(source="ref", embeddings=np.empty((0, 4), dtype=np.float32))
         with pytest.raises(ValueError, match="`ref` has no items to rank against."):
-            PrioritizeEvaluator().run(PrioritizeConfig(), [pool, empty])
+            PrioritizationEvaluator().run(PrioritizationConfig(), [pool, empty])

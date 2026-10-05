@@ -31,8 +31,8 @@ arises and how to prevent it — is explained authoritatively in DataEval's
 `data-splitting` is a {term}`preset <Preset>`: its settings expand to a chain of steps. The chain judges the whole
 set's labels, balance and diversity, splits it (`folds: 1`) or cuts it into k folds (`folds` of 2 or more) with a
 shared test part, optionally rebalances each train, and judges each part's labels, its stratification against the
-whole, and, when the task names an extractor, its coverage. Its findings are Label Distribution for the whole set,
-Stratification for each fold, and Uncovered Rate under `naive` coverage; balance and diversity are report sections.
+whole, and, when the task names an extractor, its coverage. Its findings are Class Imbalance for the whole set,
+Stratification for each fold, and Uncovered Items under `naive` coverage; balance and diversity are report sections.
 
 The result is a `ChainResult`. Each part's indices into the source are in
 `result.steps["split"].details["indices"]`, as `train`, `val` and `test`; under k-fold, `train` and `val` are keyed by

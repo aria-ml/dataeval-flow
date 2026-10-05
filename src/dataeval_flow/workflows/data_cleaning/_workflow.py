@@ -20,7 +20,7 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
     The settings expand to this chain, run on the task's one source, ``data``:
 
     - ``outliers`` (the ``outliers`` evaluator, per box on detection data), ``labels`` (``label-health``),
-      ``by-class`` (``classwise-outliers``) and ``dupes`` (``duplicates``);
+      ``by-class`` (``outliers-by-class``) and ``dupes`` (``duplicates``);
     - the checks ``image-outliers``, ``target-outliers``, ``classwise``, ``duplicates`` and ``imbalance``, each
       judged against its ``health_thresholds`` entry;
     - ``clean`` (``remove``): the dataset without each flagged image and box, and without each duplicate but the
@@ -69,25 +69,25 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
         steps: list[dict[str, Any]] = [
             {"name": "outliers", "evaluator": "outliers", "input": "data"},
             {"name": "labels", "evaluator": "labels", "input": "data"},
-            {"name": "by-class", "combine": "classwise-outliers", "input": "data", "outliers": "outliers"},
+            {"name": "by-class", "combine": "outliers-by-class", "input": "data", "outliers": "outliers"},
             {"name": "dupes", "evaluator": "dupes", "input": "data"},
-            {"name": "image-outliers", "check": "outlier-rate", "input": "outliers", "image": limits.image_outliers},
+            {"name": "image-outliers", "check": "image-outliers", "input": "outliers", "image": limits.image_outliers},
             {
                 "name": "target-outliers",
-                "check": "target-outlier-rate",
+                "check": "target-outliers",
                 "input": "outliers",
                 "labels": "labels",
                 "target": limits.target_outliers,
             },
             {
                 "name": "classwise",
-                "check": "classwise-outlier-rate",
+                "check": "classwise-outliers",
                 "input": "by-class",
                 "total": limits.classwise_outliers,
             },
             {
                 "name": "duplicates",
-                "check": "duplicate-rate",
+                "check": "image-duplicates",
                 "input": "dupes",
                 "exact": limits.exact_duplicates,
                 "near": limits.near_duplicates,

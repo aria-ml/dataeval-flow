@@ -53,7 +53,7 @@ The console prints the matrix's report. Below its banner, on a 1,000-image sampl
 ```text
   Health: 9 warnings [!!] across 3 runs — review flagged findings
 
-  #  outlier_threshold  Health  Image Outliers  Classwise Outliers  Duplicates  Label Distribution
+  #  outlier_threshold  Health  Image Outliers  Classwise Outliers  Duplicates  Class Imbalance
   -  -----------------  ------  --------------  ------------------  ----------  ------------------
   1  2.5                [!!]    [!!] 157        [!!] worst: 2S19    [!!] 4      [..] 24 classes,
                                 images (15.7%)  MSTA (25.0%),       exact       1000 items,
