@@ -2,8 +2,9 @@
 
 A **check** is a step of a custom workflow that judges what evaluators found. It reads their Outputs, and makes
 findings: each `ok`, `info` or `warning`, rolled up into the task's health, where a warning counts toward
-`--fail-on-warning`. A **combine** reads Outputs, and the Datasets they were computed on, and makes an Output a check
-reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and the
+`--fail-on-warning`. A **combine**, which the [Combine Catalog](combines.md) lists, reads Outputs, and the Datasets
+they were computed on, and makes an Output a check reads. See
+[Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and the
 [Transform Catalog](transforms.md) for the steps that make Datasets.
 
 The built-in checks are the ones `data-cleaning` runs, whose findings are theirs; `metadata-issues`, which makes
@@ -44,11 +45,6 @@ audit. See the [Preset Catalog](presets.md) for each preset's chain.
 | `ood-agreement` | check | `input`: an `ood-union` Output | OOD Agreement: the share every detector flagged, and the images one alone flagged |
 | `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
-| `factor-gaps` | combine | `input`: a Dataset; `balance`: a `balance` Output computed on it | each factor's MI with the class, and the under-represented combinations |
-| `outliers-by-class` | combine | `input`: a Dataset; `outliers`: an `outliers` Output computed on it | outliers per class |
-| `ood-union` | combine | `input`: the OOD Outputs of one comparison of a test source with a reference | each flagged image as mutual, partial or unique, with its agreement score |
-| `factor-predictors` | combine | `ood`: an `ood-union` or OOD Output; `reference`, `input`: the Datasets it was computed on | each factor's association with being flagged |
-| `factor-deviation` | combine | the same | the factors setting each of the most out-of-distribution agreed images apart |
 
 ## How thresholds work
 
@@ -407,89 +403,3 @@ did. Both are titled OOD Agreement, the check's title, and their briefs tell the
 | `input` | an address | required | An `ood-union` Output |
 | `warning` | a percentage, or `null` | `10.0` | The percent of assessed test images every detector flagged past which the finding warns |
 | `info` | a percentage, or `null` | `1.0` | The percent past which the finding is `info`, at or below which it is `ok` |
-
-## Combines
-
-### `outliers-by-class`
-
-An Outliers Output pivoted by class: how many of each class's items, or boxes for detection, were flagged, as a count
-and a share of the class, most flagged first, and the total. Configured by
-{py:class}`~dataeval_flow.steps.combines.OutliersByClassConfig`; makes a
-{py:class}`~dataeval_flow.steps.combines.OutliersByClassOutput`.
-
-| Field | Takes | Default | Description |
-| --- | --- | --- | --- |
-| `input` | an address | required | The Dataset the outliers were found in; its labels name each item's class |
-| `outliers` | an address | required | An `outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true` |
-
-On a detection Dataset it refuses outliers not computed per box (`per_target: true`), rather than report none.
-
-The config refuses an `outliers` computed on another Dataset when it loads, as `remove` does.
-
-### `ood-union`
-
-The OOD Outputs of one test source's comparison with one reference, combined. Each flagged image falls in one group:
-flagged by every detector, by more than one but not every one (partial), or by one alone. Its agreement score is the
-mean, over the detectors that scored it, of its score over the detector's threshold, which is derived from the
-detector's flags. A detector whose derived threshold is not positive is left out, and the section names it. The
-section pictures each flagged image once, most out of distribution first. Load refuses Outputs computed on different
-Datasets. Configured by {py:class}`~dataeval_flow.steps.combines.OODUnionConfig`; makes an
-{py:class}`~dataeval_flow.steps.combines.OODUnionOutput`.
-
-| Field | Takes | Default | Description |
-| --- | --- | --- | --- |
-| `input` | an address, or a list of them | required | Each detector's OOD Output, every one computed on the same reference and test source |
-
-### `factor-gaps`
-
-The class-factor-value combinations under-represented among the factors Balance ties to the class. It reads the mutual
-information of a `balance` Output, runs no Balance of its own, and searches the factors at or over `mi_threshold`. A
-combination is a gap where its count is under `min_representation` while its expected count, from the factor's overall
-spread, is over it. The section ranks each factor's mutual information with the class. Configured by
-{py:class}`~dataeval_flow.steps.combines.FactorGapsConfig`; makes a
-{py:class}`~dataeval_flow.steps.combines.FactorGapsOutput`.
-
-| Field | Takes | Default | Description |
-| --- | --- | --- | --- |
-| `input` | an address | required | The Dataset whose Metadata the gaps are counted in |
-| `balance` | an address | required | A `balance` Output computed on exactly `input` |
-| `mi_threshold` | a number | `0.1` | The least mutual information with the class a factor needs to be searched |
-| `min_representation` | a count | `5` | A combination is a gap where its count is under this while its expected count is over it |
-| `metadata` | a policy name, or `null` | `null` | The metadata policy the factors are read under; it should be the one `balance` read under |
-
-The config refuses a `balance` computed on another Dataset when it loads, as `outliers-by-class` does.
-
-### `factor-predictors`
-
-How strongly each metadata factor goes with being flagged: DataEval's `factor_predictors`, normalized mutual
-information from 0 to 1, strongest first, over the test images the detectors assessed. Factors are the item-level
-metadata factors, without `id`, with `class_label` where there is one label per item, and the per-image statistics
-named `f_<statistic>`; a factor counts where both Datasets have it, numeric, one-dimensional, finite in both, and not
-constant in the test. Where a Dataset's metadata or statistics cannot be read, the rest is read without it, and the
-section says so. Load refuses an `ood` Output computed on other Datasets than `reference` and `input`. Configured by
-{py:class}`~dataeval_flow.steps.combines.FactorPredictorsConfig`; makes a
-{py:class}`~dataeval_flow.steps.combines.FactorPredictorsOutput`.
-
-| Field | Takes | Default | Description |
-| --- | --- | --- | --- |
-| `ood` | an address | required | An `ood-union` Output, or one OOD evaluator's Output, computed on `reference` and `input` |
-| `reference` | an address | required | The reference Dataset the detectors fitted on |
-| `input` | an address | required | The test Dataset whose images were flagged |
-| `metadata` | a policy name, or `null` | `null` | The metadata policy the factors are read under |
-| `stats` | a policy name, or `null` | `null` | The stats policy the statistics are measured under; unset, every statistic |
-
-### `factor-deviation`
-
-The factors that set each of the most out-of-distribution agreed images apart from the reference: DataEval's
-`factor_deviation`, each factor's scaled distance from the reference's median, most deviating first. It reads the
-factors `factor-predictors` reads. Configured by {py:class}`~dataeval_flow.steps.combines.FactorDeviationConfig`; makes
-a {py:class}`~dataeval_flow.steps.combines.FactorDeviationOutput`.
-
-| Field | Takes | Default | Description |
-| --- | --- | --- | --- |
-| `ood` | an address | required | An `ood-union` Output, or one OOD evaluator's Output, computed on `reference` and `input` |
-| `reference` | an address | required | The reference Dataset the detectors fitted on |
-| `input` | an address | required | The test Dataset whose images were flagged |
-| `max_items` | an integer of at least 1 | `50` | The most out-of-distribution agreed images explained, at most |
-| `metadata` | a policy name, or `null` | `null` | The metadata policy the factors are read under |
-| `stats` | a policy name, or `null` | `null` | The stats policy the statistics are measured under; unset, every statistic |

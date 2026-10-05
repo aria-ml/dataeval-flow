@@ -20,7 +20,7 @@ Outlier and duplicate detection for image datasets, and the dataset without them
 | --- | --- | --- | --- |
 | `outliers` | evaluator | [`outliers`](evaluators.md#outliers) | `input`: `data` |
 | `label-health` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `data` |
-| `outliers-by-class` | combine | [`outliers-by-class`](checks.md#outliers-by-class) | `input`: `data`; `outliers`: `outliers` |
+| `outliers-by-class` | combine | [`outliers-by-class`](combines.md#outliers-by-class) | `input`: `data`; `outliers`: `outliers` |
 | `duplicates` | evaluator | [`duplicates`](evaluators.md#duplicates) | `input`: `data` |
 | `image-outliers` | check | [`image-outliers`](checks.md#image-outliers) | `input`: `outliers` |
 | `target-outliers` | check | [`target-outliers`](checks.md#target-outliers) | `input`: `outliers`; `labels`: `label-health` |
@@ -159,7 +159,7 @@ detections are cropped first.
 | `factor-summary` | evaluator | [`factor-summary`](evaluators.md#factor-summary) | `input`: `data` |
 | `balance` | evaluator | [`balance`](evaluators.md#balance) | `input`: `data` |
 | `diversity` | evaluator | [`diversity`](evaluators.md#diversity) | `input`: `data` |
-| `factor-gaps` | combine | [`factor-gaps`](checks.md#factor-gaps) | `input`: `data`; `balance`: `balance` |
+| `factor-gaps` | combine | [`factor-gaps`](combines.md#factor-gaps) | `input`: `data`; `balance`: `balance` |
 | `factor-coverage-gaps` | check | [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `input`: `factor-gaps` |
 | `representation` | evaluator | [`representation`](evaluators.md#representation) | `input`: `data` |
 | `class-shortfall` | check | [`class-shortfall`](checks.md#class-shortfall) | `input`: `representation` |
@@ -175,7 +175,7 @@ detections are cropped first.
 | `wrap` | a block | `params: {padding: 0.0, min_size: 1}` | [`wrap`](transforms.md#wrap)'s `params`, used on detection data only; the preset fixes the wrapper |
 | `completeness` | `true` or `false` | `true` | Whether the completeness steps run, when the task names an extractor |
 | `diversity` | a block | `method: simpson` | [`diversity`](evaluators.md#diversity)'s settings, less `name` |
-| `factor-gaps` | a block, or `false` | `mi_threshold: 0.1`, `min_representation: 5` | [`factor-gaps`](checks.md#factor-gaps)'s settings; `false` leaves out the gap analysis and its check |
+| `factor-gaps` | a block, or `false` | `mi_threshold: 0.1`, `min_representation: 5` | [`factor-gaps`](combines.md#factor-gaps)'s settings; `false` leaves out the gap analysis and its check |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
 **Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.data_coverage.DataCoverageChecks`):
@@ -356,10 +356,10 @@ them.
 | `knn-check` | check | [`ood`](checks.md#ood) | `input`: `knn` |
 | `dc` | evaluator | [`ood-domain-classifier`](evaluators.md#ood-domain-classifier) | `input`: `reference`, `tests` |
 | `dc-check` | check | [`ood`](checks.md#ood) | `input`: `dc` |
-| `ood-union` | combine | [`ood-union`](checks.md#ood-union) | `input`: `knn`, `dc` |
+| `ood-union` | combine | [`ood-union`](combines.md#ood-union) | `input`: `knn`, `dc` |
 | `ood-agreement` | check | [`ood-agreement`](checks.md#ood-agreement) | `input`: `ood-union` |
-| `factor-predictors` | combine | [`factor-predictors`](checks.md#factor-predictors) | `ood`: `ood-union`; `reference`: `reference`; `input`: `tests` |
-| `factor-deviation` | combine | [`factor-deviation`](checks.md#factor-deviation) | `ood`: `ood-union`; `reference`: `reference`; `input`: `tests` |
+| `factor-predictors` | combine | [`factor-predictors`](combines.md#factor-predictors) | `ood`: `ood-union`; `reference`: `reference`; `input`: `tests` |
+| `factor-deviation` | combine | [`factor-deviation`](combines.md#factor-deviation) | `ood`: `ood-union`; `reference`: `reference`; `input`: `tests` |
 
 `ood-agreement` runs only with two or more detectors, so one detector gives no `ood-agreement` step.
 

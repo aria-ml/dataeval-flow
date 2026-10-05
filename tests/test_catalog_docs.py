@@ -8,11 +8,23 @@ from typing import Any
 
 import pytest
 
+from dataeval_flow.evaluators import get_evaluator
+from dataeval_flow.steps import get_check, get_combine, get_transform, list_steps
+from dataeval_flow.steps._catalog import StepCatalogEntry
 from tests.test_naming_conventions import _MINIMAL, _PRESETS
 
 _REFERENCE = Path(__file__).resolve().parents[1] / "docs" / "source" / "reference"
 _CHAIN_KINDS = ("evaluator", "transform", "combine", "check")
 _PY_CLASS = re.compile(r"\{py:class\}`~?([\w.]+)`")
+
+# Each kind's catalog page.
+_PAGES = {"evaluator": "evaluators.md", "transform": "transforms.md", "combine": "combines.md", "check": "checks.md"}
+_GET = {"evaluator": get_evaluator, "transform": get_transform, "combine": get_combine, "check": get_check}
+_CATALOG = [entry for entry in list_steps(plugins=False).steps if entry.kind in _PAGES]
+# The kinds whose pages follow the entry template; each joins as its page is rewritten.
+_TEMPLATED = {"combine"}
+# An evaluator entry's identity, which its page describes once rather than per entry; no other kind has this.
+_IDENTITY = {"name", "type"}
 
 
 def _page(name: str) -> str:
@@ -45,8 +57,101 @@ def _chain(cls: type) -> tuple[list[Mapping[str, Any]], dict[str, str]]:
     return steps, {entry.name: entry.type for entry in chain.evaluators or ()}
 
 
+def _id(entry: StepCatalogEntry) -> str:
+    return f"{entry.kind}:{entry.type}"
+
+
+def _entry(entry: StepCatalogEntry) -> str:
+    return _section(_PAGES[entry.kind], f"### `{entry.type}`")
+
+
+def _makes(entry: StepCatalogEntry) -> set[str]:
+    return {cls for port in entry.outputs for cls in port.classes}
+
+
+def _reads(entry: StepCatalogEntry) -> set[str]:
+    return {cls for port in entry.inputs for cls in port.classes}
+
+
+def _judges(check: StepCatalogEntry) -> set[str]:
+    """The evaluators and combines whose Output `check` reads."""
+    return {e.type for e in _CATALOG if e.kind in ("evaluator", "combine") and _makes(e) & _reads(check)}
+
+
+def _judged_by(entry: StepCatalogEntry) -> set[str]:
+    """The checks that read `entry`'s Output."""
+    return {check.type for check in _CATALOG if check.kind == "check" and _makes(entry) & _reads(check)}
+
+
 def _preset_section(cls: type) -> str:
     return _section("presets.md", f"## `{cls.name}`")
+
+
+def _used_in() -> dict[str, set[str]]:
+    """Each step type, and the presets whose chain, built from `_MINIMAL`, runs it."""
+    used: dict[str, set[str]] = {}
+    for cls in _PRESETS:
+        steps, entries = _chain(cls)
+        for step in steps:
+            kind = next(kind for kind in _CHAIN_KINDS if kind in step)
+            type_id = str(entries.get(step[kind], step[kind]) if kind == "evaluator" else step[kind])
+            used.setdefault(type_id, set()).add(cls.name)
+    return used
+
+
+_USED_IN = _used_in()
+
+
+@pytest.mark.parametrize("entry", _CATALOG, ids=_id)
+def test_every_step_has_one_entry_on_its_kinds_page(entry: StepCatalogEntry) -> None:
+    assert _entry(entry).strip()
+
+
+@pytest.mark.parametrize("entry", _CATALOG, ids=_id)
+def test_every_setting_is_listed_in_its_entry(entry: StepCatalogEntry) -> None:
+    section = _entry(entry)
+    fields = set(_GET[entry.kind](entry.type).config_type.model_fields) - (
+        _IDENTITY if entry.kind == "evaluator" else set()
+    )
+    missing = [field for field in sorted(fields) if f"| `{field}` |" not in section]
+    assert not missing, f"`{entry.type}`: {_PAGES[entry.kind]} is missing {missing}"
+
+
+@pytest.mark.parametrize("entry", _CATALOG, ids=_id)
+def test_every_step_is_in_its_pages_table_at_a_glance(entry: StepCatalogEntry) -> None:
+    glance = _page(_PAGES[entry.kind]).split("## At a glance", 1)[1].split("\n## ", 1)[0]
+    assert f"| `{entry.type}` |" in glance, f"{_PAGES[entry.kind]}'s table at a glance lacks `{entry.type}`"
+
+
+@pytest.mark.parametrize("entry", [entry for entry in _CATALOG if entry.kind in _TEMPLATED], ids=_id)
+def test_an_entry_follows_the_template(entry: StepCatalogEntry) -> None:
+    section = _entry(entry)
+    first = section.strip().split("\n\n", 1)[0].replace("\n", " ")
+    assert first == entry.description, f"`{entry.type}` opens with {first!r}, not its registry description"
+
+    cross = {"check": ["- **Judges:**"], "transform": []}.get(entry.kind, ["- **Judged by:**"])
+    marks = ["- **Reads:**", "- **Makes:**", "**Settings** (", *cross, "- **Used in:**", "```yaml"]
+    positions = [section.find(mark) for mark in marks]
+    missing = [mark for mark, position in zip(marks, positions, strict=True) if position == -1]
+    assert not missing, f"`{entry.type}` lacks {missing}"
+    assert positions == sorted(positions), f"`{entry.type}`'s parts are out of the template's order"
+
+    reads = _bullet(section, "Reads")
+    unread = [port.port for port in entry.inputs if f"`{port.port}`" not in reads]
+    assert not unread, f"`{entry.type}`'s Reads leaves out {unread}"
+    if len(entry.outputs) > 1:
+        makes = _bullet(section, "Makes")
+        unmade = [port.port for port in entry.outputs if f"`{port.port}`" not in makes]
+        assert not unmade, f"`{entry.type}`'s Makes leaves out {unmade}"
+
+    if entry.kind == "check":
+        judges = _types(_bullet(section, "Judges"))
+        assert judges == _judges(entry), f"`{entry.type}`'s Judges disagrees with its ports"
+    elif entry.kind != "transform":
+        judged = _types(_bullet(section, "Judged by"))
+        assert judged == _judged_by(entry), f"`{entry.type}`'s Judged by disagrees with the checks' ports"
+    unlisted = _USED_IN.get(entry.type, set()) - _types(_bullet(section, "Used in"))
+    assert not unlisted, f"`{entry.type}`'s Used in leaves out {sorted(unlisted)}"
 
 
 @pytest.mark.parametrize("cls", _PRESETS, ids=lambda cls: cls.name)
@@ -95,7 +200,7 @@ def test_a_preset_section_lists_its_chain(cls: type) -> None:
     assert not missing, f"`{cls.name}`'s chain table is missing {missing}"
 
 
-@pytest.mark.parametrize("page", ["evaluators.md", "transforms.md", "checks.md", "presets.md"])
+@pytest.mark.parametrize("page", [*_PAGES.values(), "presets.md"])
 def test_every_class_a_page_names_imports(page: str) -> None:
     missing = []
     for path in sorted(set(_PY_CLASS.findall(_page(page)))):

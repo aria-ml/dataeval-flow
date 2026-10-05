@@ -539,4 +539,5 @@ Notice:
 - [Export a dataset](export_a_dataset.md) — formats, modes, and what an export records and drops
 - [Evaluator Catalog](../reference/evaluators.md) — every evaluator a step can run
 - [Transform Catalog](../reference/transforms.md) — every transform a step can run, with its settings
-- [Check and Combine Catalog](../reference/checks.md) — every check and combine a step can run, with its thresholds
+- [Check and Combine Catalog](../reference/checks.md) — every check a step can run, with its thresholds
+- [Combine Catalog](../reference/combines.md) — every combine a step can run, with its settings
