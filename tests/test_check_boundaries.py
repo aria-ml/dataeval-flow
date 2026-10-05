@@ -45,6 +45,11 @@ def test_a_drifted_run_equal_to_consecutive_chunks_does_not_warn() -> None:
     assert _drift([True, True, True, False], chunk_percent=None, consecutive_chunks=2) == "warning"
 
 
+def test_consecutive_chunks_zero_warns_on_a_single_drifted_chunk() -> None:
+    assert _drift([True, False, False, False], chunk_percent=None, consecutive_chunks=0) == "warning"
+    assert _drift([False] * 4, chunk_percent=None, consecutive_chunks=0) == "ok"
+
+
 def test_consecutive_chunks_defaults_to_two_so_three_in_a_row_still_warns() -> None:
     assert DriftConfig(input="knn").consecutive_chunks == 2
     assert _drift([True, True, True, False], chunk_percent=None) == "warning"

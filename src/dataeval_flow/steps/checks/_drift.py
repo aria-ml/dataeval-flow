@@ -42,10 +42,10 @@ class DriftThresholds(BaseModel):
     )
     consecutive_chunks: int | None = Field(
         default=2,
-        ge=1,
+        ge=0,
         description=(
-            "Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row; "
-            "`null` judges none."
+            "Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row "
+            "and 0 on any drifted chunk; `null` judges none."
         ),
     )
 

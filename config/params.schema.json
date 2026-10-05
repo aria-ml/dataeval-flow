@@ -998,7 +998,7 @@
         "consecutive_chunks": {
           "anyOf": [
             {
-              "minimum": 1,
+              "minimum": 0,
               "type": "integer"
             },
             {
@@ -1006,7 +1006,7 @@
             }
           ],
           "default": 2,
-          "description": "Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row; `null` judges none.",
+          "description": "Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row and 0 on any drifted chunk; `null` judges none.",
           "title": "Consecutive Chunks"
         },
         "input": {
@@ -5772,7 +5772,7 @@
         "consecutive_chunks": {
           "anyOf": [
             {
-              "minimum": 1,
+              "minimum": 0,
               "type": "integer"
             },
             {
@@ -5780,7 +5780,7 @@
             }
           ],
           "default": 2,
-          "description": "Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row; `null` judges none.",
+          "description": "Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row and 0 on any drifted chunk; `null` judges none.",
           "title": "Consecutive Chunks"
         }
       },

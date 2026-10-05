@@ -322,7 +322,7 @@ workflows:
     factor-gaps: {mi_threshold: 0.1, min_representation: 5}   # false leaves out the gap analysis
     checks:
       class-imbalance: {warning: 5.0}
-      factor-coverage-gaps: {warning: 3}
+      factor-coverage-gaps: {warning: 2}
 ```
 ````
 

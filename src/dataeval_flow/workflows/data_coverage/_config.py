@@ -319,7 +319,10 @@ _MOVED: dict[str, str] = {
 
 _THRESHOLDS_MOVED: dict[str, str] = {
     "class_imbalance_ratio": "`checks.class-imbalance.warning`",
-    "gap_count": "`checks.factor-coverage-gaps.warning`",
+    "gap_count": (
+        "`checks.factor-coverage-gaps.warning`, set one less: legacy warned at `gap_count` gaps, this warns past the "
+        "bound, so `gap_count: N` is `warning: N-1`"
+    ),
     "min_dispersion": "`checks.class-coverage.dispersion`",
     "min_isotropy": "`checks.class-coverage.isotropy`",
     "max_near_duplicate_fraction": "`checks.class-coverage.near_duplicates`",
