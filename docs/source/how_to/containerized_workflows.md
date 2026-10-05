@@ -10,7 +10,7 @@ referenced from all of the tutorials:
 
 - {doc}`Run a full evaluation pipeline end to end <../notebooks/end_to_end>`
 - {doc}`Clean a dataset <../notebooks/data_cleaning>`
-- {doc}`Analyze dataset quality across splits <../notebooks/data_analysis>`
+- {doc}`Audit a set of splits before training <../notebooks/audit>`
 - {doc}`Assess dataset coverage <../notebooks/data_coverage>`
 - {doc}`Split a dataset <../notebooks/dataset_splitting>`
 - {doc}`Monitor incoming data for drift <../notebooks/drift_monitoring>`
@@ -242,9 +242,9 @@ workflows:
       image-outliers: {warning: 5.0}
 ```
 ````
-````{tab-item} data-analysis
-Statistical analysis including outliers, duplicates, diversity, and bias.
-See the {doc}`Data Analysis tutorial <../notebooks/data_analysis>` for a full walkthrough.
+````{tab-item} audit
+A verdict on one or more splits before training, with a record of what was audited. The task's first source is train.
+See the {doc}`audit tutorial <../notebooks/audit>` for a full walkthrough.
 
 ```yaml
 metadata:
@@ -252,14 +252,16 @@ metadata:
     intrinsic_factors: [visual, pixel]   # measured off the imagery, then binned like any factor
 
 workflows:
-  - name: full_analysis
-    type: data-analysis
+  - name: release_audit
+    type: audit
     metadata: standard
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
-    balance: true
-    diversity_method: simpson       # simpson | shannon
-    divergence_method: mst          # mst | fnn (cross-split)
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: adaptive   # method | [method, bound]: adaptive | zscore | modzscore | iqr
+    diversity: {method: simpson}    # simpson | shannon
+    divergence: {method: mst}       # mst | fnn (cross-split; needs the task's extractor)
+    accepted:
+      class-imbalance: "Rare class by design; weighted loss in training."
 ```
 ````
 ````{tab-item} data-splitting
@@ -659,7 +661,7 @@ offline in any browser, and prints or saves to PDF as it shows.
 `encoding.json` is the metadata encoding descriptor the run was computed under, ready
 to review and commit — see
 {doc}`Configure metadata binning <configure_metadata_binning>`. It is written only where
-a task records an encoding, as `data-analysis`, `data-coverage` and `ood-detection` do, so
+a task records an encoding, as `audit`, `data-coverage` and `ood-detection` do, so
 the `data-cleaning` run above writes none. It is also omitted when a run's tasks encoded
 their factors differently, since no single descriptor describes it.
 

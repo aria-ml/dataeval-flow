@@ -9,7 +9,7 @@ provenance fields mean when you have to defend a result.
 Every tutorial ends by reading its results, so this guide applies throughout. It is referenced directly from:
 
 - {doc}`Clean a dataset <../notebooks/data_cleaning>`
-- {doc}`Analyze dataset quality across splits <../notebooks/data_analysis>`
+- {doc}`Audit a set of splits before training <../notebooks/audit>`
 - {doc}`Assess dataset coverage <../notebooks/data_coverage>`
 - {doc}`Monitor incoming data for drift <../notebooks/drift_monitoring>`
 - {doc}`Detect out-of-distribution samples <../notebooks/ood_detection>`
@@ -256,8 +256,7 @@ The page prints (or saves as PDF from the browser's print dialog) in the light p
 opens every finding and shows every row a filter hid. With scripts blocked, each finding and panel prints as the
 reader left it. Hover cards don't print, and thumbnails print at their own size. In data cleaning, the `outliers`
 step's limits tables give each metric's limits and its population's mean and standard deviation, and say `varies`
-where its flags' figures differ. Percentiles, and data analysis's populations, show only in the hover cards and the
-JSON.
+where its flags' figures differ. Percentiles show only in the hover cards and the JSON.
 
 The page is UTF-8, so write it with `encoding="utf-8"`. With `--output`, the CLI writes `results/result.html`, every
 task's report on one page, unless the pipeline's `result:` block says otherwise (see
@@ -535,24 +534,10 @@ other files.
 
 ## Getting at the raw numbers
 
-The report is a rendering; the numbers behind it live on the result object. For a workflow that is not a chain,
-such as `data-analysis`, `result.output.raw` holds the typed, workflow-specific outputs:
-
-```python
-result = run_task(config, task)  # a data-analysis task
-
-train = result.output.raw.splits["train"]
-outliers = train.image_quality.outliers  # one row per flagged image and metric, with its value
-```
-
-Each such workflow declares its own raw output, so field names differ by workflow. Each workflow's result class in the
-{doc}`API Reference <../reference/autoapi/dataeval_flow/index>`, such as
-{py:class}`~dataeval_flow.workflows.data_analysis.DataAnalysisResult`, lists every `output.raw` field and what it holds
-under **Fields**. Narrow a result to that class with `isinstance`, and your editor and type checker know the fields too.
-
-A chain's result, a `data-cleaning` result among them, is a {py:class}`~dataeval_flow.steps.ChainResult` and has no
-`output.raw`. Its `steps` hold each step's output, by step name: an evaluator step's is DataEval's own output, a
-check's is its findings, and a transform's is the Dataset it made, a DataEval `View`:
+The report is a rendering; the numbers behind it live on the result object. A chain's result, a `data-cleaning` or
+`audit` result among them, is a {py:class}`~dataeval_flow.steps.ChainResult`. Its `steps` hold each step's output,
+by step name: an evaluator step's is DataEval's own output, a check's is its findings, and a transform's is the
+Dataset it made, a DataEval `View`:
 
 ```python
 result = run_task(config, task)  # a data-cleaning task
@@ -578,6 +563,27 @@ and `.target_indices`, indexed by `coverage.uncovered_indices`, give each uncove
 
 A step that was skipped, as `coverage` is without an extractor, has no output; its `reason` says why.
 
+An `audit` result also carries its verdict, and each split's digests in its `content-digest` steps. A step that
+reads a list of Datasets, as `content-digest-evals` reads the evaluation splits, runs once for each, and its
+`elements` hold each run by the split's name:
+
+```python
+result = run_task(config, task)  # an audit task over train, val and test
+
+result.verdict.level  # "not-ready", "ready-with-caveats" or "ready"
+result.verdict.blocking  # each blocking check's warning no acceptance covers: its check, step, title and brief
+result.verdict.warnings  # each other warning no acceptance covers
+recorded = result.steps["content-digest-train"].output.data()  # {"content": ..., "metadata": ..., "items": ...}
+val = result.steps["content-digest-evals"].elements["val"].output.data()
+```
+
+[Gate training on an audit](gate_training_on_an_audit.md) compares those digests with the data a training job reads.
+
+A workflow that is not a chain, as a plugin's may be, has no `steps`. Its `result.output.raw` holds its typed,
+workflow-specific outputs, which its result class in the {doc}`API Reference <../reference/autoapi/dataeval_flow/index>`
+lists under **Fields**. Narrow a result to that class with `isinstance`, and your editor and type checker know the
+fields too.
+
 ### How metadata factors were treated
 
 Bias, balance, diversity, and coverage analyses read factors as *codes* — a continuous factor cut into intervals, a
@@ -587,9 +593,10 @@ binned at, whether it was binned or digitized, and the observed range and popula
 `result.metadata.diagnostics` carries the library warnings the run raised. Both render in the text report under
 **METADATA FACTORS**.
 
-Per-factor summaries in `raw` carry the same shape of information alongside the values: `level` and `is_binned` per
-factor, plus `dropped_factors` naming vector-valued statistics (`histogram`, `percentiles`, `center`) that have no
-single-column form and so never became factors at all. `invalid_box` is carried through as a factor; the other hash
+The `factor-summary` step's per-factor summaries, in `audit` and `data-coverage`, carry the same shape of information
+alongside the values: `level` and `is_binned` per factor, plus an entry of type `dropped`, with its reasons, for each
+column that never became a factor at all, such as an identifier or a vector-valued statistic (`histogram`,
+`percentiles`, `center`) with no single-column form. `invalid_box` is carried through as a factor; the other hash
 columns are discarded.
 
 {doc}`configure_metadata_binning` covers how to control any of this.
@@ -607,8 +614,8 @@ Two more fields are useful for follow-up work and are deliberately *not* seriali
 
 - `result.dataset` — the resolved, post-view dataset a one-source workflow ran on, for pulling up the images behind a
   finding.
-- `result.sources` — for multi-split workflows such as `data-analysis`, and for every chain, `data-cleaning` among
-  them, a mapping of source name to resolved dataset.
+- `result.sources` — for every chain, `data-cleaning` and `audit` among them, and for a workflow that reads several
+  sources, a mapping of source name to resolved dataset.
 
 ```python
 dataset = result.sources["train"]  # a data-cleaning task on the source `train`

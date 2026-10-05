@@ -94,8 +94,8 @@ they suit.
 
 - [Extracting embeddings with ONNX](../notebooks/onnx_embeddings.py) — configuring an
   ONNX extractor and a preprocessing pipeline
-- [Analyzing a dataset](../notebooks/data_analysis.py) — embeddings feeding a
-  multi-finding analysis
+- [Auditing a set of splits](../notebooks/audit.py) — embeddings feeding the coverage, shift and
+  evaluation-coverage checks of an audit
 
 ### Authoritative reference
 

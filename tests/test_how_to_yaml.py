@@ -54,6 +54,7 @@ _PAGES: dict[str, dict[str, Any]] = {
     "reference/checks.md": _BASE,
     "reference/transforms.md": _BASE,
     "how_to/export_a_dataset.md": _EXPORT_BASE,
+    "how_to/gate_training_on_an_audit.md": _BASE,
 }
 
 

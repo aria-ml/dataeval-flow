@@ -405,8 +405,8 @@ print(json_str[:500] + "\n...")
 # %% [markdown]
 # ## Next steps
 #
-# - **Data analysis**: Use the `data-analysis` workflow for cross-split leakage,
-#   distribution shift, and bias analysis.
+# - **Audit**: Use the `audit` preset, as in {doc}`Audit a set of splits before training <audit>`, for cross-split
+#   leakage, distribution shift, and shortcut risk before training.
 # - **Threshold tuning**: Adjust `outliers.outlier_threshold`, test alternative outlier methods
 #   like IQR, or compare several settings in one run with a task matrix, as
 #   {doc}`Tune data cleaning with a matrix <tune_data_cleaning>` does.

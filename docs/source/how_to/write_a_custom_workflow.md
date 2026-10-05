@@ -591,6 +591,11 @@ Notice:
   `pairs: true` then runs one `duplicates` step over every pair of that list, as the
   [`leakage`](../reference/checks.md#leakage) example does.
 
+Where the splits are already sources, the [`audit`](../reference/presets.md#audit) preset runs these steps for you,
+with train first: `sources: [train, val, test]`. It counts shared group values only where the entry names the group
+factors, as `factor-leakage: {factors: [scene]}`. It also judges each split's labels, cleanliness and coverage, and
+gives a verdict over them all.
+
 ## See also
 
 - [Monitor drift with steps](monitor_drift.md) — merge test sources, compare classes or groups, and drift on crops

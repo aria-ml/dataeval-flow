@@ -189,7 +189,7 @@ re-run (reproducibility).
 
 ### Tutorials
 
-- [Analyzing a dataset](../notebooks/data_analysis.py) — reading a multi-finding
-  report and inspecting its result envelope
+- [Auditing a set of splits](../notebooks/audit.py) — the record of what was audited, and
+  recomputing a split's content digest
 - [Cleaning a dataset](../notebooks/data_cleaning.py) — exporting a machine-readable
   result alongside the text report

@@ -8,7 +8,7 @@ back what the run did.
 ## Used in these tutorials
 
 - {doc}`Assess dataset coverage <../notebooks/data_coverage>`
-- {doc}`Analyze dataset quality across splits <../notebooks/data_analysis>`
+- {doc}`Audit a set of splits before training <../notebooks/audit>`
 
 ## Which workflows this applies to
 
@@ -16,16 +16,14 @@ These workflows read metadata factors under the policy their `metadata:` names:
 
 | Workflow | Reads metadata for |
 | --- | --- |
-| `data-analysis` | balance, diversity, per-factor summaries |
+| `audit` | its `factor-triage`, `factor-summary`, `balance`, `diversity`, `factor-gaps` and `factor-leakage` steps: unreadable factors, per-factor summaries, shortcut risk, diversity, factor gaps and group leakage, with every split encoded like train |
 | `data-coverage` | its `factor-summary`, `balance`, `diversity` and `factor-gaps` steps: per-factor summaries, class balance, diversity, and the factor gap analysis with factor-to-class mutual information |
 
-Only `data-analysis` also takes the four older `metadata_*` settings; `data-coverage` refuses them, saying to name a
-policy under `metadata:`. `data-cleaning` and `ood-detection` take a policy's name, `metadata:`, but none of the
-`metadata_*` settings. A custom workflow's or preset's result records the encodings its steps read in
-`metadata_binning`: one record, or `per_split` keyed by Dataset address where the steps read several Datasets or one
-Dataset two ways. A step that reads labels alone, as `label-health` does, adds nothing to it, so a split's parts are not
-recorded when only their labels are read. A chain whose steps read no factors records none, and its `metadata_binning`
-and `encoding_digest` are `null`.
+`data-cleaning` and `ood-detection` take a policy's name, `metadata:`, too. A custom workflow's or preset's result
+records the encodings its steps read in `metadata_binning`: one record, or `per_split` keyed by Dataset address where
+the steps read several Datasets or one Dataset two ways. A step that reads labels alone, as `label-health` does, adds
+nothing to it, so a split's parts are not recorded when only their labels are read. A chain whose steps read no
+factors records none, and its `metadata_binning` and `encoding_digest` are `null`.
 
 ## Define the policy once and share it
 
@@ -47,20 +45,15 @@ workflows:
   - name: coverage_check
     type: data-coverage
     metadata: standard
-  - name: profile
-    type: data-analysis
+  - name: release_audit
+    type: audit
     metadata: standard        # same policy — and the digests prove it
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
+    outliers: {flags: [dimension, pixel, visual], outlier_threshold: adaptive}
 ```
 
 A policy carries everything that decides how a factor becomes a code: `encoding`, `factor_levels`, `strict`,
 `auto_bin_method`, `exclude`, `continuous_factor_bins`, `intrinsic_factors`, `factor_source`, and
 `reference_split`.
-
-The older per-workflow `metadata_*` fields still work on `data-analysis` and mean the same things. Naming a policy
-*and* setting one of them on the same workflow is an error rather than a merge — two sources disagreeing about one
-factor has no good resolution.
 
 Everything a policy says is checked before the dataset is read, and a mistake costs only a message:
 
@@ -72,7 +65,6 @@ Everything a policy says is checked before the dataset is read, and a mistake co
 | `strict: true` over a descriptor with unreviewed vocabularies | Error, naming them (see below) |
 | `intrinsic_factors` names something that is not a family | Error, listing the families that exist |
 | A statistic pinned by both a level-prefixed `encoding` entry and a bare `continuous_factor_bins` name | Error |
-| `include_image_stats: true` alongside an `intrinsic_factors` that says something else | Error |
 
 ### Get a descriptor out of a run
 
@@ -171,8 +163,7 @@ The pull request is the point.
 
 ## Let the method choose the cuts
 
-A policy's `auto_bin_method` (`metadata_auto_bin_method` on `data-analysis`) picks how an un-pinned continuous factor
-is discretized.
+A policy's `auto_bin_method` picks how an un-pinned continuous factor is discretized.
 
 ```yaml
 metadata:
@@ -196,17 +187,17 @@ Leave it unset to take DataEval's default (`uniform_width`).
 :::{important}
 The bin **count** an automatic method lands on is derived from the data. Two runs over
 different samples of the same population can therefore produce different bin counts for the same factor. That is
-enough to move a `Balance` score. Pin the count with `metadata_continuous_factor_bins` for any factor whose numbers
+enough to move a `Balance` score. Pin the count with the policy's `continuous_factor_bins` for any factor whose numbers
 you intend to compare across runs.
 :::
 
 ## Pin the cuts for a specific factor
 
-`metadata_continuous_factor_bins` overrides the automatic method per factor. Give it a bin **count**, or explicit
+A policy's `continuous_factor_bins` overrides the automatic method per factor. Give it a bin **count**, or explicit
 **edges** when the boundaries carry domain meaning:
 
 ```yaml
-    metadata_continuous_factor_bins:
+    continuous_factor_bins:
       elevation: 8                          # eight bins, placed by the auto method
       temperature: [-40, 0, 20, 40, 60]     # explicit edges — four bins
 ```
@@ -217,10 +208,10 @@ DataEval ignores it and warns, and the run records it as an unmatched request (s
 
 ## Drop factors that are not evidence
 
-`metadata_exclude` removes factors before any evaluator sees them:
+A policy's `exclude` removes factors before any evaluator sees them:
 
 ```yaml
-    metadata_exclude: [id, filename, width, height]
+    exclude: [id, filename, width, height]
 ```
 
 The usual candidates are identifiers and bookkeeping columns. An `id` is unique per sample, so it correlates
@@ -304,14 +295,6 @@ unset for ordinary integer imagery — the `[0, 1]` and `0–255` float conventi
 
 `value_range` participates in the cache key, so two runs declaring different ranges never share a cached entry.
 
-```{warning}
-**Deprecated.** `value_range` on a workflow, and `include_image_stats` on `data-analysis`, are the older spellings
-of the two settings above. Both still work, on the workflows that still take them, and both are removed in the next
-minor version; `data-cleaning` already refuses `value_range`.
-`include_image_stats: true` means `intrinsic_factors: [visual, pixel]`. Setting a workflow's `value_range` alongside
-a disagreeing one on the dataset is an error rather than a merge.
-```
-
 ## Read back what the run did
 
 Every result that built metadata records its binning decisions. The record appears in the text report under
@@ -358,7 +341,7 @@ The text report shows per-bucket detail only for a factor with 12 or fewer bins 
 count and how the buckets were populated — `40 levels, derived, n=3–19 per level`, or the occupied span for a binned
 factor — so one high-cardinality factor does not bury the rest. A factor holding exactly one level per sample is an
 identifier, not a grouping, and is labeled `(one per sample)`. It contributes nothing to balance or
-diversity, so it is a candidate for `metadata_exclude`. The envelope is unaffected by the cap.
+diversity, so it is a candidate for the policy's `exclude`. The envelope is unaffected by the cap.
 
 From Python:
 
@@ -375,11 +358,12 @@ for name, info in binning["factors"].items():
 Note `requested_bins` records what was *asked for* and `encoding` records what was *applied*. A request of `10` is a
 count; where its nine interior cuts landed is in `encoding["edges"]`.
 
-For `data-analysis` the record is nested one level deeper, under `binning["per_split"][split_name]`.
+For a preset that reads several splits, such as `audit`, the record is nested one level deeper, under
+`binning["per_split"]`, keyed by each split's address: `train`, then `evals[val]` and so on.
 
 ### Give every split the same cuts
 
-`data-analysis` reads several splits. Encoded independently they land on different cuts for the same factor, because
+`audit` reads several splits. Encoded independently they land on different cuts for the same factor, because
 an automatic bin count comes from each split's own draw. The per-factor statistics then sit side by side in one
 report under different alphabets. The **reference split** is encoded first, and every other split takes its
 encoding:
@@ -427,7 +411,7 @@ per-split digests under `binning["per_split"]` say which differed. The text repo
 ```
 
 That is the common case with automatic binning: the bin count is derived from each split's own draw. Pinning
-the cuts with `metadata_continuous_factor_bins` makes the splits share one encoding and the message change.
+the cuts with `continuous_factor_bins` makes the splits share one encoding and the message change.
 
 ### Diagnostics
 
