@@ -52,8 +52,9 @@ Each step names exactly one kind:
 | `combine:` | a registered combine, with its settings beside it | an Output a check reads, made from Outputs |
 | `check:` | a registered check, with its thresholds beside it | findings, each `ok`, `info` or `warning` |
 
-An evaluator or workflow step takes its settings from the entry it names. The step itself holds only what it reads,
-and optionally `extractor:`, `optional:` and `pairs:`. A custom workflow cannot run as a step of another.
+An evaluator or workflow step takes its settings from the entry it names. The step itself holds only what it reads, and
+optionally `extractor:`, `optional:`, `pairs:` and, on an evaluator step, `by:`. A custom workflow cannot run as a step
+of another.
 
 Transform steps make Datasets. The [Transform Catalog](../reference/transforms.md) lists each one's settings:
 
@@ -83,7 +84,7 @@ settings.
 Evaluators judge nothing: they report what DataEval determined. A **check** step judges it. It reads Outputs,
 compares them with thresholds written beside it, and makes findings, each `ok`, `info` or `warning`. A **combine** step
 makes an Output a check reads, from Outputs and the Datasets they were computed on, such as outliers counted per class.
-The [Check and Combine Catalog](../reference/checks.md) lists the built-in ones.
+The [Check Catalog](../reference/checks.md) and the [Combine Catalog](../reference/combines.md) list the built-in ones.
 
 ```yaml
 evaluators:
@@ -178,9 +179,9 @@ pair, and it leaves one record saying so.
 A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning`, `data-prioritization`,
 `metadata-triage`, `drift-monitoring`, `ood-detection`, `data-splitting`, `label-space` and `data-coverage` are presets.
 Data-cleaning's evaluators find outliers and duplicates, its checks judge them against `checks`, and its
-`clean` step removes what they flagged. The [Check and Combine Catalog](../reference/checks.md#data-cleaning-is-this-chain)
-lists the chain. The other workflow types will follow.
-Until then, each runs as one step that makes its result, and its findings stay in that step.
+`clean` step removes what they flagged. The [Preset Catalog](../reference/presets.md#data-cleaning)
+lists the chain. `data-analysis` is the one built-in workflow type that is not a preset: it runs as one step that makes
+its result, and its findings stay in that step, as does a plugin workflow type that is not a preset.
 
 Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of
 its chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the

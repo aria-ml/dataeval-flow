@@ -192,7 +192,7 @@ plt.show()
 # 1. **Datasets**: A reference dataset and incoming test datasets.
 # 2. **Extractor**: Pretrained models or algorithms to produce embeddings.
 # 3. **Detectors**: Statistical or classifier-based OOD detectors.
-# 4. **Health thresholds**: Percentage thresholds that trigger warnings.
+# 4. **Check thresholds**: Percentage thresholds that trigger warnings.
 #
 # You will extract 512-dimensional features from a pretrained ResNet-18 model and evaluate
 # two complementary detectors:

@@ -12,9 +12,10 @@ findings `label-space` makes from it.
 
 ## Why counting labels is not enough
 
-A class-balance worklist built from the dataset's own `index2label` is circular: it can only name classes the dataset
-already declares. A class that was never collected has no label, no count, and no row in the report. Declaring the
-label space externally is what breaks the circle, and `label-space` requires one: `ontology:` has no default.
+A Class Shortfall list, which `class-shortfall` builds from the dataset's own `index2label`, is circular: it can only
+name classes the dataset already declares. A class that was never collected has no label, no count, and no row in the
+report. Declaring the label space externally is what breaks the circle, and `label-space` requires one: `ontology:` has
+no default.
 
 ## Option 1: inline hierarchy
 
@@ -156,20 +157,17 @@ Labels that fail are reported in the ontology's structure.
 - Structure, by `ontology-structure`: the ontology's size, depth and naming. It warns on a label several concepts
   share.
 
-Two of the checks have thresholds, set under `checks` and keyed by check type. `null` turns a threshold
-off. The values below are the defaults:
+Two of the checks have thresholds, set under `checks` and keyed by check type: `leaf-coverage`'s `coverage`, the
+least fraction of sanctioned leaf concepts with any examples, and its `empty_branches`, the wholly unpopulated branches
+tolerated before it warns; and `label-conformance`'s `warning`, the class names that may fail to resolve to a concept.
+`null` turns a threshold off. The values below are the defaults, which the
+[Preset Catalog](../reference/presets.md#label-space) lists with the rest of the preset's settings:
 
 ```yaml
     checks:
       leaf-coverage: {coverage: 0.9, empty_branches: 0}
       label-conformance: {warning: 0}
 ```
-
-| Check | Threshold | Default | Meaning |
-| --- | --- | --- | --- |
-| `leaf-coverage` | `coverage` | `0.9` | Minimum fraction of sanctioned leaf concepts with any examples |
-| `leaf-coverage` | `empty_branches` | `0` | Wholly unpopulated branches tolerated before warning |
-| `label-conformance` | `warning` | `0` | Class names that may fail to resolve to a concept |
 
 Leaf coverage and empty branches catch the class you never collected. Unmatched names catch the opposite problem — a
 label in the data that the sanctioned vocabulary does not contain, which is usually a typo, a stale name, or a class
@@ -186,5 +184,5 @@ a label space, that record's digest is used instead.
 - [Dataset Coverage](../concepts/Coverage.md) — the label-space and embedding-space axes coverage measures
 - [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html) — the
   authoritative treatment of ontologies and the reconciliation, alignment, and validation operations over them
-- {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field on `LabelSpaceConfig` and
-  `LabelSpaceChecks`
+- [Preset Catalog: `label-space`](../reference/presets.md#label-space) — every setting and `checks:` default of
+  `label-space`, from `LabelSpaceConfig` and `LabelSpaceChecks`

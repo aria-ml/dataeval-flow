@@ -195,7 +195,7 @@ with others:
   `--gpus all`. The `cpu` image computes on the CPU, and a config names no
   device. `--gpus device=1` picks a GPU; `-e CUDA_VISIBLE_DEVICES=` keeps a CUDA
   image on the CPU. Each result's `metadata.device` records the device used.
-- **Metadata-dependent analyses.** Bias, parity, and metadata-insight outputs
+- **Metadata-dependent analyses.** Bias, parity, and metadata factor outputs
   require per-sample metadata factors to be present in the dataset; without them
   those analyses are skipped.
 - **The `app` sub-command requires the `app` extra** to be installed in the image.

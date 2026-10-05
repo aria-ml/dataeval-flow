@@ -156,5 +156,5 @@ rely on entries in another. Loading the file names any entry that is missing.
 - [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) — inputs, addresses and lists, derived data and
   failures
 - [Export a dataset](export_a_dataset.md) — formats, modes, and what an export records
-- [Check and Combine Catalog](../reference/checks.md) — `data-cleaning`, the built-in preset that judges what it finds
+- [Preset Catalog](../reference/presets.md#data-cleaning) — `data-cleaning`, the built-in preset that judges what it finds
   before removing it

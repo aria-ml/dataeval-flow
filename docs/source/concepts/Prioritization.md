@@ -16,7 +16,7 @@ prioritization turns a fixed budget into the largest improvement.
 
 In DataEval Flow, `data-prioritization` is a preset: it ranks each pool source against the
 reference, optionally after cleaning steps, and its `selected` output keeps the top of each
-ranking (`n:` or `fraction:`). See [the preset's chain](../reference/checks.md#data-prioritization-is-this-chain).
+ranking (`n:` or `fraction:`). See [the preset's chain](../reference/presets.md#data-prioritization).
 It supports different prioritization methods and orderings (hardest-first or easiest-first). The
 orchestration layer makes this a declarative, reproducible step; the ranking
 methods — and the embedding and performance-estimation machinery they rest on —

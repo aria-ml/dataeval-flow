@@ -56,26 +56,29 @@ reproducible orchestration layer with native MAITE interoperability.
 
 ## T&E tasks and the workflows that support them
 
-| T&E task | Workflow | What it produces |
+| T&E task | Workflow type | What it produces |
 | --- | --- | --- |
-| Find and flag dataset quality issues | Data Cleaning | Outliers, duplicates, and label issues |
-| Profile dataset quality across splits | Data Analysis | Statistical summaries and quality metrics |
-| Find gaps in dataset coverage before training | Data Coverage | Class and metadata gaps, ontology findings, embedding blind spots |
-| Build leakage-free train/val/test splits | Dataset Splitting | Stratified or random splits |
-| Monitor operational data for population drift | Drift Detection | Per-batch drift flags and p-values |
-| Flag anomalous individual samples | OOD Detection | Per-sample out-of-distribution scores |
-| Rank abundant/unlabeled data for labeling | Prioritization | Ranked sample ordering |
+| Find and flag dataset quality issues | [`data-cleaning`](reference/presets.md#data-cleaning) | Outliers and duplicates, removed; class imbalance and unlabelled images |
+| Profile dataset quality across splits | `data-analysis`, the one workflow type that is not a preset; see its [tutorial](notebooks/data_analysis.py) | Statistical summaries and quality metrics |
+| Check labels against a declared ontology | [`label-space`](reference/presets.md#label-space) | Leaf coverage, conformance, alignment and structure findings |
+| Find gaps in dataset coverage before training | [`data-coverage`](reference/presets.md#data-coverage) | Class and metadata gaps, embedding blind spots, what to acquire per class |
+| Build stratified or grouped train/val/test splits | [`data-splitting`](reference/presets.md#data-splitting) | Train, val and test splits, stratified or grouped, or k folds, with their balance and coverage judged |
+| Monitor operational data for population drift | [`drift-monitoring`](reference/presets.md#drift-monitoring) | Per-batch drift flags and p-values |
+| Flag anomalous individual samples | [`ood-detection`](reference/presets.md#ood-detection) | Per-sample out-of-distribution scores |
+| Rank abundant/unlabeled data for labeling | [`data-prioritization`](reference/presets.md#data-prioritization) | Ranked sample ordering |
+| Find metadata the run could not read | [`metadata-triage`](reference/presets.md#metadata-triage) | Unreadable and unpinned metadata factors, with suggested corrections |
 | Tune workflow parameters across a grid | Any workflow, with a task matrix | One table comparing every run's findings |
 
-See the [Tutorials](tutorials/index.md) for end-to-end walkthroughs and the
-[Explanations](concepts/index.md) for the concepts behind each workflow.
+See [Find the Right Step](reference/index.md) to go from a question to the preset or steps that answer it, the
+[Tutorials](tutorials/index.md) for end-to-end walkthroughs and the [Explanations](concepts/index.md) for the concepts
+behind each workflow.
 
 ## Critical limitations and requirements for use
 
 - **Computer-vision image datasets only** — no NLP or tabular data.
 - **MAITE for native interoperability** — non-MAITE sources are consumed through
   the built-in adapters (HuggingFace, COCO, YOLO, TorchVision, ImageFolder).
-- **Some workflows need metadata** — bias, parity, and metadata-insight analyses
+- **Some workflows need metadata** — bias, parity, and metadata factor analyses
   require per-sample metadata factors.
 - **Some workflows need a model or embeddings** — embedding-space drift, OOD
   detection, and prioritization require a feature extractor or precomputed
@@ -127,11 +130,15 @@ Overview <concepts/index>
 :caption: Reference
 :hidden:
 
+Find the Right Step <reference/index>
 Container Reference <reference/containers>
 JATIC Maturity <reference/maturity>
 Evaluator Catalog <reference/evaluators>
 Transform Catalog <reference/transforms>
-Check and Combine Catalog <reference/checks>
+Combine Catalog <reference/combines>
+Check Catalog <reference/checks>
+Preset Catalog <reference/presets>
+Naming Conventions <reference/naming>
 API Reference <reference/autoapi/dataeval_flow/index>
 reference/glossary
 :::

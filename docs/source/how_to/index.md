@@ -3,6 +3,7 @@
 Task-oriented guides for specific goals with DataEval Flow. Each takes one problem and walks through the solution.
 New to DataEval Flow? Start with the {doc}`Quickstart <../home/quickstart>` and the
 {doc}`Tutorials <../tutorials/index>`. These guides assume you have run a workflow before.
+If you know your question but not the step, see {doc}`Find the Right Step <../reference/index>`.
 
 The guides are grouped by the part of a pipeline they address.
 
@@ -28,7 +29,7 @@ measure_band_groups
 - - {doc}`Use a torchvision dataset <../notebooks/torchvision_datasets>`
   - Feed a `torchvision` classification or detection dataset straight into a workflow.
 - - {doc}`Declare an ontology <declare_an_ontology>`
-  - Define the sanctioned label space so coverage can name classes that were never collected.
+  - Define the sanctioned label space so `label-space` can name classes that were never collected.
 - - {doc}`Measure band groups <measure_band_groups>`
   - Measure a dataset's channels separately, and its image background, without moving any cleaning result or bias
     number until a policy names them.
@@ -129,8 +130,8 @@ containerized_workflows
 - - {doc}`Run a single evaluator <run_a_single_evaluator>`
   - Run one DataEval evaluator, such as finding duplicates, and read its output with no health verdict.
 - - {doc}`Evaluator recipes <evaluator_recipes>`
-  - One worked example per evaluator family: bias, representation, coverage, prioritization, drift and
-    out-of-distribution.
+  - One worked example per question, each answered by evaluators: bias, representation, coverage, prioritization,
+    drift and out-of-distribution.
 - - {doc}`Read evaluation outputs <read_evaluation_outputs>`
   - Interpret the report and its severities, export the result envelope, and reach the raw numbers behind a finding.
 - - {doc}`View a report as HTML <../notebooks/view_html_reports>`

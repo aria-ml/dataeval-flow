@@ -57,6 +57,12 @@ classes.
 - [Detecting OOD samples](../notebooks/ood_detection.py) — instance-level anomaly
   detection
 
+### Reference
+
+- [Preset Catalog: `drift-monitoring`](../reference/presets.md#drift-monitoring) and
+  [Preset Catalog: `ood-detection`](../reference/presets.md#ood-detection): each preset's chain, settings and
+  `checks:` defaults
+
 ### Authoritative reference
 
 - DataEval —

@@ -38,7 +38,7 @@ class LabelSpaceWorkflow(Preset, Workflow[LabelSpaceConfig, ChainResult]):
     name: ClassVar[str] = "label-space"
     title: ClassVar[str] = "Label Space"
     description: ClassVar[str] = (
-        "Judges a Dataset's labels against a declared ontology: leaf coverage, conformance, alignment and structure"
+        "Judges a Dataset's labels against a declared ontology: leaf coverage, conformance, alignment and structure."
     )
     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
 

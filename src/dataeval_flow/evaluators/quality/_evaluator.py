@@ -77,7 +77,7 @@ class DuplicatesEvaluator(Evaluator[DuplicatesConfig, DuplicatesOutput[Any, Any]
 
     name: ClassVar[str] = "duplicates"
     title: ClassVar[str] = "Duplicates"
-    description: ClassVar[str] = "Exact and near duplicate groups (DataEval Duplicates)"
+    description: ClassVar[str] = "Exact and near duplicate groups (DataEval Duplicates)."
     dataeval_class: ClassVar[type] = Duplicates
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _DATAEVAL_METHODS
     output_extras: ClassVar[tuple[str, ...]] = ("annotation_divergences", "factor_cardinality")
@@ -92,7 +92,7 @@ class OutliersEvaluator(Evaluator[OutliersConfig, OutliersOutput[Any]]):
 
     name: ClassVar[str] = "outliers"
     title: ClassVar[str] = "Outliers"
-    description: ClassVar[str] = "Images whose statistics are outliers (DataEval Outliers)"
+    description: ClassVar[str] = "Images whose statistics are outliers (DataEval Outliers)."
     dataeval_class: ClassVar[type] = Outliers
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _DATAEVAL_METHODS
 
@@ -106,7 +106,7 @@ class LabelHealthEvaluator(Evaluator[LabelHealthConfig, LabelHealthOutput]):
 
     name: ClassVar[str] = "label-health"
     title: ClassVar[str] = "Label Health"
-    description: ClassVar[str] = "How a Dataset's labels spread over its classes (DataEval label_stats)"
+    description: ClassVar[str] = "How a Dataset's labels spread over its classes (DataEval label_stats)."
     dataeval_class: ClassVar[Any] = label_stats
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.METADATA: "__call__"}
     reads_factors: ClassVar[bool] = False

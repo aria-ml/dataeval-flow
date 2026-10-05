@@ -65,7 +65,7 @@ class RepresentationEvaluator(Evaluator[RepresentationConfig, RepresentationOutp
 
     name: ClassVar[str] = "representation"
     title: ClassVar[str] = "Representation"
-    description: ClassVar[str] = "Class counts against an ontology's leaves (DataEval Representation)"
+    description: ClassVar[str] = "Class counts against an ontology's leaves (DataEval Representation)."
     dataeval_class: ClassVar[type] = Representation
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "evaluate"}
     output_extras: ClassVar[tuple[str, ...]] = (
@@ -136,7 +136,7 @@ class CoverageEvaluator(Evaluator[CoverageConfig, CoverageOutput]):
 
     name: ClassVar[str] = "coverage"
     title: ClassVar[str] = "Coverage"
-    description: ClassVar[str] = "Embedding-space coverage, broken down by class (DataEval Coverage)"
+    description: ClassVar[str] = "Embedding-space coverage, broken down by class (DataEval Coverage)."
     dataeval_class: ClassVar[type] = Coverage
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {
         InputKind.EMBEDDINGS: "evaluate",
@@ -175,7 +175,7 @@ class PrioritizationEvaluator(Evaluator[PrioritizationConfig, PrioritizeOutput])
 
     name: ClassVar[str] = "prioritization"
     title: ClassVar[str] = "Prioritization"
-    description: ClassVar[str] = "Items ranked by difficulty, optionally against a reference (DataEval Prioritize)"
+    description: ClassVar[str] = "Items ranked by difficulty, optionally against a reference (DataEval Prioritize)."
     dataeval_class: ClassVar[type] = Prioritize
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {
         InputKind.EMBEDDINGS: "evaluate",
@@ -233,7 +233,7 @@ class CompletenessEvaluator(Evaluator[CompletenessConfig, CompletenessOutput]):
 
     name: ClassVar[str] = "completeness"
     title: ClassVar[str] = "Completeness"
-    description: ClassVar[str] = "How much of the embedding space's dimensions the data fills (DataEval completeness)"
+    description: ClassVar[str] = "How much of the embedding space's dimensions the data fills (DataEval completeness)."
     dataeval_class: ClassVar[Any] = completeness
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.EMBEDDINGS: "__call__"}
     reads_factors: ClassVar[bool] = False
@@ -262,7 +262,7 @@ class LabelReconciliationEvaluator(Evaluator[LabelReconciliationConfig, LabelRec
 
     name: ClassVar[str] = "label-reconciliation"
     title: ClassVar[str] = "Label Reconciliation"
-    description: ClassVar[str] = "Which of a Dataset's class names resolve to exactly one ontology concept"
+    description: ClassVar[str] = "Which of a Dataset's class names resolve to exactly one ontology concept."
     dataeval_class: ClassVar[Any] = label_reconciliation
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "__call__"}
     reads_factors: ClassVar[bool] = False
@@ -293,7 +293,7 @@ class OntologyValidationEvaluator(Evaluator[OntologyValidationConfig, OntologyVa
 
     name: ClassVar[str] = "ontology-validation"
     title: ClassVar[str] = "Ontology Validation"
-    description: ClassVar[str] = "An ontology's structural and naming facts: depth, roots, collisions, and more"
+    description: ClassVar[str] = "An ontology's structural and naming facts: depth, roots, collisions, and more."
     dataeval_class: ClassVar[Any] = ontology_validation
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.LABELS: "__call__"}
     reads_factors: ClassVar[bool] = False

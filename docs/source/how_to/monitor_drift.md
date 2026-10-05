@@ -314,6 +314,6 @@ workflows:
 ## See also
 
 - [Distribution Shift](../concepts/DistributionShift.md) — what drift and out-of-distribution detection ask
-- [Check and Combine Catalog](../reference/checks.md) — the `drift` check's fields, and `by: class`
+- [Check Catalog](../reference/checks.md) — the `drift` check's fields, and `by: class`
 - [Evaluator Catalog](../reference/evaluators.md) — each drift evaluator's fields
 - [OOD detection tutorial](../notebooks/ood_detection.py) — the `ood-detection` preset on embeddings

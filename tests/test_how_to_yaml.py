@@ -1,4 +1,4 @@
-"""Every YAML snippet in the evaluator and custom-workflow pages loads, assembled in order as a reader builds it.
+"""Every YAML snippet in the how-tos, the chain concept page and the reference catalogs loads, assembled in order.
 
 A renamed parameter or evaluator type then fails CI instead of a reader's config.
 """
@@ -48,7 +48,11 @@ _PAGES: dict[str, dict[str, Any]] = {
     "how_to/reuse_a_workflow.md": _BASE,
     "how_to/run_a_matrix.md": _BASE,
     "concepts/WorkflowsAsChains.md": _CHAINS_BASE,
+    "reference/presets.md": _BASE,
+    "reference/evaluators.md": _BASE,
+    "reference/combines.md": _BASE,
     "reference/checks.md": _BASE,
+    "reference/transforms.md": _BASE,
     "how_to/export_a_dataset.md": _EXPORT_BASE,
 }
 

@@ -572,7 +572,7 @@ print(grouped_result.report())
 #   triggering classwise diagnostics only when warnings appear.
 # - **Alternative backbones**: Evaluate larger pretrained models or ONNX extractors via
 #   [Use an ONNX model for embeddings](onnx_embeddings).
-# - **Health thresholds**: Tune `checks` to control warning triggers.
+# - **Check thresholds**: Tune `checks` to control warning triggers.
 # - **More recipes**: [Monitor drift with steps](../how_to/monitor_drift.md) merges test sources, compares
 #   one group of classes against another, and drifts on detection crops.
 

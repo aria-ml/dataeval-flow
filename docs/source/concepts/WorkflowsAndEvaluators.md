@@ -2,19 +2,20 @@
 
 DataEval Flow runs two kinds of thing, and they answer different questions. An
 **evaluator** runs one DataEval evaluator and reports what it determined. A
-**workflow** runs several, and judges whether what they determined is a problem.
+**workflow** runs several, and its **checks** judge whether what they determined is a
+problem.
 
 ## Three tiers
 
 Each tier encodes more policy than the one below it.
 
-| | DataEval core functions | Evaluators | Workflows |
+| | DataEval core functions | Evaluators | Checks |
 | --- | --- | --- | --- |
-| Encodes | No policy: pure computation | DataEval's policy: a threshold or gate, and a determination made against it | Flow's policy on top: health and readiness, judged from those determinations |
+| Encodes | No policy: pure computation | DataEval's policy: a threshold or gate, and a determination made against it | Flow's policy on top: health and readiness, judged from those determinations against each check's thresholds |
 | Answers | "What are the hashes? The statistics?" | "Which images are duplicates? Did the test set drift at p < 0.05?" | "Is this data clean enough? Is it ready to train on?" |
-| Example | `phash`, `compute_stats` | `balance`, `coverage`, `drift-mmd` | `data-cleaning`, `drift-monitoring` |
-| Output | Raw numbers | Determinations (flags, groups, p-values) and the numbers behind them | Findings with a health status |
-| Configured under | not exposed | `evaluators:`, run by a task's `evaluator:` | `workflows:`, run by a task's `workflow:` |
+| Example | `phash`, `compute_stats` | `balance`, `coverage`, `drift-mmd` | `image-outliers` in `data-cleaning`, `drift` in `drift-monitoring` |
+| Output | Raw numbers | Determinations (flags, groups, p-values) and the numbers behind them | Findings, each `ok`, `info` or `warning`, rolled up into a health status |
+| Configured under | not exposed | `evaluators:`, run by a task's `evaluator:` | a preset's `checks:`, or a `check:` step written beside the evaluator steps of a custom workflow; the workflow is run by a task's `workflow:` |
 
 ## Determinations, not verdicts
 
@@ -24,12 +25,14 @@ whether that is a problem. That matches DataEval's own framing in
 [Acting on Results](https://dataeval.readthedocs.io/en/latest/concepts/ActingOnResults.html):
 every output is "a prompt to investigate, not a verdict".
 
-A workflow adds the verdict. `data-cleaning` runs DataEval's Duplicates and
-Outliers, compares what they found against its
-[health thresholds](../reference/glossary.md), and marks a finding as a warning
-when a threshold is breached. Health, readiness, warnings and `--fail-on-warning`
-belong to workflows only. An evaluator result has no health status, and
-`--fail-on-warning` never trips on one.
+A check adds the verdict. `data-cleaning` runs DataEval's Duplicates and
+Outliers, and its checks compare what they found against their
+{term}`thresholds <Threshold>`, set under its `checks:`, and make a finding that warns
+where a threshold is passed. A check written as a step of a custom workflow judges the
+same way; see [How thresholds work](../reference/checks.md#how-thresholds-work).
+Health, readiness and warnings come from checks' findings, and so does
+`--fail-on-warning`, which a workflow's warnings trip. An evaluator result has no
+health status, and `--fail-on-warning` never trips on one.
 
 ## When to use which
 
@@ -54,7 +57,7 @@ hold an evaluator's output to thresholds, and those of the workflow types it run
 cluster-mode results are merged with the statistical ones through the same shared
 code, and their `from_stats` calls are tested to agree, so on the same data they
 find the same groups. `data-cleaning` adds outlier detection, label statistics,
-per-class breakdowns and a health verdict on top. `duplicates` stops at the
+per-class breakdowns and the checks that judge them on top. `duplicates` stops at the
 groups.
 
 ## Core functions are not exposed

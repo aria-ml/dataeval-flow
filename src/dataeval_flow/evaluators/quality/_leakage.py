@@ -46,7 +46,7 @@ class FactorLeakageEvaluator(Evaluator[FactorLeakageConfig, FactorLeakageOutput]
 
     name: ClassVar[str] = "factor-leakage"
     title: ClassVar[str] = "Factor Leakage"
-    description: ClassVar[str] = "The raw values of named metadata factors each of two sources holds"
+    description: ClassVar[str] = "The raw values of named metadata factors each of two sources holds."
     dataeval_class: ClassVar[Any] = Metadata
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.METADATA: "rows_at"}
     reads_factors: ClassVar[bool] = False

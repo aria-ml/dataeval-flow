@@ -3,8 +3,8 @@
 A workflow type such as `data-cleaning` runs one fixed analysis. When the analysis you need is a sequence, such as
 relabelling two collections onto one vocabulary, merging them, dropping the duplicates and then checking what is left,
 write it as a custom workflow: a `workflows:` entry whose `steps:` each read what an earlier step made. This guide
-builds one in three stages. [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) explains the ideas behind
-it.
+builds one section by section. [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) explains the ideas
+behind it.
 
 ## 1. Conform two datasets and merge them
 
@@ -301,7 +301,7 @@ images are exact duplicates, or 5% near duplicates. `imbalance` warns where the 
 outnumbers its smallest by more than 3 to 1. The task's health now says `warning` where either does, and
 `--fail-on-warning` fails the run. The report gives each finding a section, with the step it judged below it: the
 Image Duplicates finding holds `dupes`' duplicate groups, and the Class Imbalance finding holds `labels`' class counts.
-The [Check and Combine Catalog](../reference/checks.md) lists every check and its thresholds.
+The [Check Catalog](../reference/checks.md) lists every check and its thresholds.
 
 ## 6. Run data-cleaning as a step
 
@@ -529,6 +529,68 @@ Notice:
 
 [Monitor drift with steps](monitor_drift.md) uses `by:` with drift detectors, and compares one group against another.
 
+## 11. Audit a set of splits
+
+`data-splitting` judges each part's class shares and coverage, not leakage, shift or how much of each evaluation
+split train covers. Run it as a step, and chain the steps that judge the parts against each other:
+
+```yaml
+evaluators:
+  - {name: dupes, type: duplicates}
+  - {name: groups, type: factor-leakage, factors: [scene]}
+  - {name: div, type: divergence}
+  - {name: knn, type: ood-kneighbors, threshold_perc: 99}
+
+workflows:
+  - name: splitting
+    type: data-splitting
+    folds: 5
+    split_on: [scene]
+
+  - name: split_audit
+    inputs: [data]
+    steps:
+      - {name: splits, workflow: splitting, input: data}
+      - {name: dupes-val, evaluator: dupes, input: [splits.train, splits.val]}
+      - {name: dupes-test, evaluator: dupes, input: [splits.train, splits.test]}
+      - {name: dupes-evals, evaluator: dupes, input: [splits.val, splits.test]}
+      - {name: groups-val, evaluator: groups, input: [splits.train, splits.val]}
+      - {name: groups-test, evaluator: groups, input: [splits.train, splits.test]}
+      - {name: groups-evals, evaluator: groups, input: [splits.val, splits.test]}
+      - name: leakage
+        check: leakage
+        duplicates: [dupes-val, dupes-test, dupes-evals]
+        factors: [groups-val, groups-test, groups-evals]
+      - {name: div-val, evaluator: div, input: [splits.train, splits.val]}
+      - {name: div-test, evaluator: div, input: [splits.train, splits.test]}
+      - {name: shift-val, check: distribution-shift, input: div-val}
+      - {name: shift-test, check: distribution-shift, input: div-test}
+      - {name: knn-val, evaluator: knn, input: [splits.train, splits.val]}
+      - {name: knn-test, evaluator: knn, input: [splits.train, splits.test]}
+      - {name: coverage-val, check: eval-coverage, input: knn-val}
+      - {name: coverage-test, check: eval-coverage, input: knn-test}
+
+tasks:
+  - {name: audit-splits, workflow: split_audit, sources: [train], extractor: bovw_ext}
+```
+
+Notice:
+
+- With `folds: 5`, `splits.train` and `splits.val` are lists keyed by fold, and `splits.test` is one Dataset. A step
+  reading a list beside one Dataset runs once per fold, with the Dataset repeated, so `dupes-test` compares each
+  fold's train with test.
+- `leakage` takes whole lists of Outputs: train with each evaluation split, and the evaluation pair. With `folds: 1`
+  each output is one Dataset, and the load refuses `leakage` an Output that is not a list.
+- `split_on: [scene]` keeps each scene's items in one part, on classification data only. `groups` counts the scene
+  values two parts share, and `leakage` warns on any.
+- `knn` is fitted on each fold's train and run on its val and on test. `threshold_perc: 99` suits `eval-coverage`'s
+  default `info: 2.0`.
+- `class-sufficiency` and `untrained-classes` read train's `label-health` on `input` and the evaluation splits' on
+  `evals` as one list, val and test together, which the preset's outputs do not make. To run them, bind the parts as
+  sources, with a list input, as their [Check Catalog](../reference/checks.md#class-sufficiency) examples do.
+  `pairs: true` then runs one `duplicates` step over every pair of that list, as the
+  [`leakage`](../reference/checks.md#leakage) example does.
+
 ## See also
 
 - [Monitor drift with steps](monitor_drift.md) — merge test sources, compare classes or groups, and drift on crops
@@ -539,4 +601,5 @@ Notice:
 - [Export a dataset](export_a_dataset.md) — formats, modes, and what an export records and drops
 - [Evaluator Catalog](../reference/evaluators.md) — every evaluator a step can run
 - [Transform Catalog](../reference/transforms.md) — every transform a step can run, with its settings
-- [Check and Combine Catalog](../reference/checks.md) — every check and combine a step can run, with its thresholds
+- [Check Catalog](../reference/checks.md) — every check a step can run, with its thresholds
+- [Combine Catalog](../reference/combines.md) — every combine a step can run, with its settings

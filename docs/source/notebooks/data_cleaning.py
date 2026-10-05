@@ -45,7 +45,7 @@
 # - How to configure and execute the `data-cleaning` workflow with `run_task()`.
 # - How to use BoVW feature extractors without external pretrained model files.
 # - How to configure outlier detection parameters and duplicate sensitivity.
-# - How to set health thresholds to trigger warning statuses.
+# - How to set check thresholds to trigger warning statuses.
 # - How to interpret the formatted cleaning report.
 # - How to read the result's findings, and what each of the workflow's steps found.
 # - How to inspect flagged samples with `dataeval-plots`.
@@ -394,7 +394,7 @@ print(json_str[:500] + "\n...")
 #
 # - Configure the `data-cleaning` workflow with outlier and duplicate detection parameters.
 # - Use BoVW feature extractors without external model dependencies.
-# - Set health thresholds to control warning generation.
+# - Set check thresholds to control warning generation.
 # - Run the workflow via `run_task()` on a dataset view.
 # - Read the cleaning report, its findings, and evaluate health statuses.
 # - Visually inspect flagged outliers and duplicates using `dataeval-plots`.
@@ -416,7 +416,7 @@ print(json_str[:500] + "\n...")
 # - **Concept**: [Data quality and cleaning](../concepts/DataQualityAndCleaning.md) explains
 #   the outlier and duplicate detection algorithms used in this workflow.
 # - **How-to**: [Configure outlier detection](../how_to/configure_outlier_detection.md) explains
-#   statistical methods, visual metrics, and health thresholds.
+#   statistical methods, visual metrics, and check thresholds.
 # - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) explains
 #   how to parse reports and export result envelopes.
 # - **How-to**: [Narrow a dataset with views](../how_to/build_dataset_views.md) covers

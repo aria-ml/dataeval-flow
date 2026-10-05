@@ -28,7 +28,7 @@ class MetadataTriageWorkflow(Preset, Workflow[MetadataTriageConfig, ChainResult]
 
     name: ClassVar[str] = "metadata-triage"
     title: ClassVar[str] = "Metadata Triage"
-    description: ClassVar[str] = "Report unreadable and unpinned metadata factors, with suggested corrections"
+    description: ClassVar[str] = "Reports unreadable and unpinned metadata factors, with suggested corrections."
     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
 
     @classmethod

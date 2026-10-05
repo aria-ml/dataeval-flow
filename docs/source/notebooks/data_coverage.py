@@ -40,7 +40,7 @@
 # - See why class counts alone do not reveal a missing category.
 # - Run `label-space` on the same source, with the dataset's taxonomy as its ontology, to name the unsampled concepts.
 # - Re-run `data-coverage` with a BoVW extractor to evaluate embedding coverage and dimensional completeness.
-# - Read each step's output from the result, and tune the health thresholds.
+# - Read each step's output from the result, and tune the checks' thresholds.
 
 # %% [markdown]
 # ## What you will learn
@@ -50,7 +50,7 @@
 #   variation (`data-coverage`, in embedding space).
 # - Why count-based distributions fail to detect unsampled classes when loaders drop missing categories.
 # - How to distinguish genuine collection gaps from intentional ontology scope boundaries.
-# - How to adjust each check's health thresholds for varying domain risk tolerances.
+# - How to adjust each check's thresholds for varying domain risk tolerances.
 
 # %% [markdown]
 # ## Prerequisites
@@ -386,7 +386,7 @@ for row in representation.data().head(8).iter_rows(named=True):
 #
 # The report also flags `aircraft` and `watercraft`. For a ground-vehicle system,
 # these categories represent ontology concepts outside operational scope. You should
-# scope your ontology to match operational requirements so health thresholds track valid
+# scope your ontology to match operational requirements so check thresholds track valid
 # system targets.
 
 # %% [markdown]
@@ -567,10 +567,10 @@ print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}"
 # default thresholds warn on: its gap is in the taxonomy.
 
 # %% [markdown]
-# ## Step 4: Tune health thresholds
+# ## Step 4: Tune check thresholds
 #
-# Health thresholds control when findings escalate from `info` to
-# `warning`. Each preset keys its `checks` by check type. The right
+# Check thresholds control when a finding warns, as the glossary's Severity
+# entry describes. Each preset keys its `checks` by check type. The right
 # thresholds depend on your domain:
 #
 # | Preset | Check | Field | Default | Safety-critical | Web-scraped data |
@@ -644,7 +644,7 @@ for default, strict in zip(result_full.findings, result_strict.findings, strict=
 # measured, there are no gaps to count, and Class Imbalance warns already for its empty
 # classes.
 #
-# You can adjust individual health thresholds to match your domain tolerance without
+# You can adjust individual check thresholds to match your domain tolerance without
 # altering underlying data calculations.
 
 # %% [markdown]
@@ -666,7 +666,7 @@ print(json_str[:500] + "\n...")
 # - Reconcile label names against an ontology.
 # - Configure feature extractors to evaluate embedding dispersion and dimensional completeness.
 # - Read each step's output from `result.steps`.
-# - Tune health thresholds to enforce strict domain requirements.
+# - Tune check thresholds to enforce strict domain requirements.
 # - Export structured coverage results to JSON.
 #
 # You should assess both label completeness against an ontology and feature diversity

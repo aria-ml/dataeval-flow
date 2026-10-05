@@ -18,7 +18,7 @@ and linked from each page.
 ## Cross-cutting concepts
 
 - [Workflows and Evaluators](WorkflowsAndEvaluators.md) — the two things DataEval
-  Flow runs: evaluators make determinations, workflows judge them
+  Flow runs: evaluators make determinations, and the checks in workflows judge them
 - [Workflows as Chains of Steps](WorkflowsAsChains.md) — custom workflows: steps
   that make and evaluate Datasets, addressed by name, with each Dataset's lineage
 - [Reproducibility](Reproducibility.md) — why the same evaluation on the same data

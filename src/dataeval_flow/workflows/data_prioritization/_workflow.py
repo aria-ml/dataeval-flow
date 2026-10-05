@@ -38,7 +38,7 @@ class DataPrioritizationWorkflow(Preset, Workflow[DataPrioritizationConfig, Chai
     name: ClassVar[str] = "data-prioritization"
     title: ClassVar[str] = "Data Prioritization"
     description: ClassVar[str] = (
-        "Ranks each pool against a reference for labeling, after optional cleaning, and keeps the top"
+        "Ranks each pool against a reference for labeling, after optional cleaning, and keeps the top."
     )
     slots: ClassVar[tuple[str | InputSlot, ...]] = (
         "reference",

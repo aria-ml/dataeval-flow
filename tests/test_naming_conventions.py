@@ -262,3 +262,16 @@ def _fields(model: type[BaseModel], seen: set[type] | None = None) -> list[tuple
 def test_a_setting_says_what_it_does_not_what_it_was_called(cls: type) -> None:
     stale = [path for path, text in _fields(cls.config_type) if _LEGACY_NOTE.search(text)]
     assert stale == [], f"{stale} cite a legacy name: the CHANGELOG carries the migration (naming spec §7.5)"
+
+
+@pytest.mark.parametrize("cls", [cls for cls in _STEPS if cls.name not in _LEGACY], ids=_id)
+def test_a_step_description_is_one_sentence(cls: type) -> None:
+    description: str = cls.description
+    error_msg = (
+        f"{cls.kind} `{cls.name}` is described as {description!r}: a description is one sentence, starting with a "
+        "capital and ending with a period (reference/naming.md)"
+    )
+    assert description[:1].isupper(), error_msg
+    assert description.endswith("."), error_msg
+    assert "\n" not in description, error_msg
+    assert ". " not in description, f"{cls.kind} `{cls.name}`'s description is more than one sentence"

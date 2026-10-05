@@ -22,7 +22,7 @@ class ContentDigestEvaluator(Evaluator[ContentDigestConfig, ContentDigestOutput]
 
     name: ClassVar[str] = "content-digest"
     title: ClassVar[str] = "Content Digest"
-    description: ClassVar[str] = "SHA-256 digests of every item's image and labels, and of its metadata"
+    description: ClassVar[str] = "SHA-256 digests of every item's image and labels, and of its metadata."
     dataeval_class: ClassVar[Any] = dataset_digest
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.DATASET: "__call__"}
 
