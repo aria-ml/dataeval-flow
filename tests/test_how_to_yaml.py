@@ -1,4 +1,4 @@
-"""Every YAML snippet in the evaluator and custom-workflow pages loads, assembled in order as a reader builds it.
+"""Every YAML snippet in the how-tos, the chain concept page and the reference catalogs loads, assembled in order.
 
 A renamed parameter or evaluator type then fails CI instead of a reader's config.
 """
