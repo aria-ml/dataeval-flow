@@ -34,10 +34,14 @@ transform's ports and the JSON Schema of its settings.
 
 ### `view`
 
-Applies DataEval view operations to a Dataset, as a source's `view:` does. Configured by
-{py:class}`~dataeval_flow.steps.transforms.ViewTransformConfig`.
+Applies DataEval view operations, such as ClassFilter, Relabel, Limit or Indices.
 
-Reads `input`, a Dataset of any kind. Makes one Dataset of the same kind.
+It applies them as a source's `view:` does.
+
+- **Reads:** `input`, a Dataset of any kind.
+- **Makes:** one Dataset of the same kind.
+
+**Settings** ({py:class}`~dataeval_flow.steps.transforms.ViewTransformConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -49,13 +53,34 @@ Name exactly one of `operations` and `view`. A `view:` name is replaced by that 
 loads, so editing the entry changes the Dataset's key. An operation that needs a particular Dataset kind is refused
 before any step runs when its input is another kind.
 
+- **Used in:** [`data-splitting`](presets.md#data-splitting)
+
+```yaml
+workflows:
+  - name: example
+    inputs: [data]
+    steps:
+      - name: first-hundred
+        transform: view
+        input: data
+        operations:
+          - {type: Limit, params: {size: 100}}
+```
+
 ### `wrap`
 
-Wraps a Dataset in a DataEval wrapper that changes its kind. Configured by
-{py:class}`~dataeval_flow.steps.transforms.WrapConfig`; runs `dataeval.data.DetectionCrops`.
+Wraps a Dataset in a DataEval wrapper that changes its kind, such as DetectionCrops.
 
-Reads `input`, an object-detection Dataset. Makes a classification Dataset with one item per detection the wrapper
-keeps, labelled with the detection's class. With `other_kinds: pass`, a Dataset of another kind is handed on unchanged.
+It runs `dataeval.data.DetectionCrops`. `min_size` drops detections whose box's shorter side is under that many pixels.
+By default, wrapping a Dataset of another kind is refused before any step runs. With `other_kinds: pass` a chain can
+wrap detection data and read classification data as it is: `data-coverage` does. The video wrappers come once Flow can
+load a tracking dataset.
+
+- **Reads:** `input`, an object-detection Dataset.
+- **Makes:** a classification Dataset with one item per detection the wrapper keeps, labelled with the detection's
+  class. With `other_kinds: pass`, a Dataset of another kind is handed on unchanged.
+
+**Settings** ({py:class}`~dataeval_flow.steps.transforms.WrapConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -64,33 +89,61 @@ keeps, labelled with the detection's class. With `other_kinds: pass`, a Dataset 
 | `params` | a mapping of the wrapper's keyword arguments | `{}` | For `DetectionCrops`: `region`, `padding`, `min_size`, `square` and `fill` |
 | `other_kinds` | `refuse` or `pass` | `refuse` | A Dataset the wrapper does not take: refused before the run, or passed on unchanged, keeping its kind and its source's cached embeddings |
 
-`min_size` drops detections whose box's shorter side is under that many pixels. By default, wrapping a Dataset of
-another kind is refused before any step runs. With `other_kinds: pass` a chain can wrap detection data and read
-classification data as it is: `data-coverage` does. The video wrappers come once Flow can load a tracking dataset.
+- **Used in:** [`data-coverage`](presets.md#data-coverage)
+
+```yaml
+workflows:
+  - name: example
+    inputs: [data]
+    steps:
+      - name: crops
+        transform: wrap
+        input: data
+        wrapper: DetectionCrops
+        params: {min_size: 32}
+        other_kinds: pass
+```
 
 ## Combining and splitting
 
 ### `merge`
 
-Concatenates Datasets that share a label vocabulary, in the order named. Configured by
-{py:class}`~dataeval_flow.steps.transforms.MergeConfig`; runs `dataeval.data.merge_datasets`.
+Concatenates Datasets that share a label vocabulary, in order.
 
-Reads `input`, two or more Datasets. Makes one Dataset.
+It runs `dataeval.data.merge_datasets`. The inputs must share `index2label`.
+Conform each onto one ontology first: DataEval refuses inputs whose vocabularies differ, which fails the step. Naming
+fewer than two fails the config load.
+
+- **Reads:** `input`, two or more Datasets.
+- **Makes:** one Dataset.
+
+**Settings** ({py:class}`~dataeval_flow.steps.transforms.MergeConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | a list of two or more addresses | required | The Datasets to concatenate, in order |
 
-The inputs must share `index2label`. Conform each onto one ontology first: DataEval refuses inputs whose vocabularies
-differ, which fails the step. Naming fewer than two fails the config load.
+- **Used in:** none
+
+```yaml
+workflows:
+  - name: example
+    inputs: [street, aerial]
+    steps:
+      - {name: merged, transform: merge, input: [street, aerial]}
+```
 
 ### `split`
 
-Splits a Dataset into train, val and test, from DataEval's `split_dataset` over the Dataset's metadata. Configured
-by {py:class}`~dataeval_flow.steps.transforms.SplitConfig`.
+Splits a Dataset into train, val and test, optionally stratified or grouped.
 
-Reads `input`, a Dataset of any kind. Makes `train`, `val` and `test`, each a view of the input, addressed as
-`<step>.train`, `<step>.val` and `<step>.test`.
+It runs DataEval's `split_dataset` over the Dataset's metadata.
+
+- **Reads:** `input`, a Dataset of any kind.
+- **Makes:** `train`, `val` and `test`, each a view of the input, addressed as `<step>.train`, `<step>.val` and
+  `<step>.test`.
+
+**Settings** ({py:class}`~dataeval_flow.steps.transforms.SplitConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -104,13 +157,28 @@ Reads `input`, a Dataset of any kind. Makes `train`, `val` and `test`, each a vi
 Set `test_frac`, `val_frac` or both; together they must leave something to train on. A part whose fraction is 0 is
 empty, and a step that reads it fails the config load. With `test_frac` alone, DataEval's one holdout becomes `test`.
 
+- **Used in:** [`data-splitting`](presets.md#data-splitting)
+
+```yaml
+workflows:
+  - name: example
+    inputs: [data]
+    steps:
+      - {name: split, transform: split, input: data, test_frac: 0.2, val_frac: 0.1, stratify: true}
+      - {name: view-train, transform: view, input: split.train, operations: [{type: Limit, params: {size: 100}}]}
+```
+
 ### `kfold`
 
-Splits a Dataset into `folds` train and val pairs, and one test, from DataEval's `split_dataset` over the Dataset's
-metadata. Configured by {py:class}`~dataeval_flow.steps.transforms.KFoldConfig`.
+Splits a Dataset into k train and val folds, and one test.
 
-Reads `input`, a Dataset of any kind. Makes `train` and `val`, each a list keyed `0` to `folds - 1`, and `test`. A
-step that reads `<step>.train` runs once per fold; `<step>.train[0]` reads the first fold alone.
+It runs DataEval's `split_dataset` over the Dataset's metadata.
+
+- **Reads:** `input`, a Dataset of any kind.
+- **Makes:** `train` and `val`, each a list keyed `0` to `folds - 1`, and `test`. A step that reads `<step>.train` runs
+  once per fold; `<step>.train[0]` reads the first fold alone.
+
+**Settings** ({py:class}`~dataeval_flow.steps.transforms.KFoldConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -121,9 +189,20 @@ step that reads `<step>.train` runs once per fold; `<step>.train[0]` reads the f
 | `split_on` | a list of metadata factor names | none | Factors whose values never straddle parts, such as a scene or site |
 | `metadata` | the name of a `metadata:` policy | DataEval's defaults | The policy the Dataset's metadata is built under |
 
-`test` is empty when `test_frac` is 0, and a step that reads it then fails the config load, as does a fold key
-outside `0` to `folds - 1`. To rebalance each fold's training set, follow `kfold` with a `view` step that reads
-`<step>.train` and applies `ClassBalance`.
+`test` is empty when `test_frac` is 0, and a step that reads it then fails the config load, as does a fold key outside
+`0` to `folds - 1`. To rebalance each fold's training set, follow `kfold` with a `view` step that reads `<step>.train`
+and applies `ClassBalance`.
+
+- **Used in:** [`data-splitting`](presets.md#data-splitting)
+
+```yaml
+workflows:
+  - name: example
+    inputs: [data]
+    steps:
+      - {name: folds, transform: kfold, input: data, folds: 5, test_frac: 0.2, stratify: true}
+      - {name: first-train, transform: view, input: "folds.train[0]", operations: [{type: Limit, params: {size: 100}}]}
+```
 
 ## Acting on an evaluator's output
 
@@ -134,10 +213,14 @@ on. The step their `ranking:`, `plans:` or `alignment:` names must have read exa
 
 ### `select`
 
-Keeps the top of a `prioritization` ranking of the same Dataset, in ranked order. Configured by
-{py:class}`~dataeval_flow.steps.transforms.SelectConfig`; runs `View(input, Indices(ranking.indices[:n]))`.
+Keeps the top of a Prioritize ranking of the same Dataset.
 
-Reads `input`, a Dataset, and `ranking`, a `prioritization` Output. Makes one Dataset.
+It keeps the items in ranked order, and runs `View(input, Indices(ranking.indices[:n]))`.
+
+- **Reads:** `input`, a Dataset; `ranking`, a `prioritization` Output.
+- **Makes:** one Dataset.
+
+**Settings** ({py:class}`~dataeval_flow.steps.transforms.SelectConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -146,16 +229,32 @@ Reads `input`, a Dataset, and `ranking`, a `prioritization` Output. Makes one Da
 | `n` | a whole number, 1 or more | none | How many items to keep |
 | `fraction` | a number above 0, up to 1 | none | The share of items to keep, rounded up |
 
-Name exactly one of `n` and `fraction`. A `prioritization` step may read a reference set after the Dataset it
-ranks, so only its first input must be `input`.
+Name exactly one of `n` and `fraction`.
+
+- **Used in:** [`data-prioritization`](presets.md#data-prioritization)
+
+```yaml
+evaluators:
+  - {name: prioritization, type: prioritization, order: hard_first}
+
+workflows:
+  - name: example
+    inputs: [pool]
+    steps:
+      - {name: prioritization, evaluator: prioritization, input: pool}
+      - {name: top, transform: select, input: pool, ranking: prioritization, fraction: 0.1}
+```
 
 ### `remove`
 
-Removes what Duplicates and Outliers removal plans name, from the Dataset they were computed on. Configured by
-{py:class}`~dataeval_flow.steps.transforms.RemoveConfig`; runs `View(input, Indices(plan, exclude=True))`.
+Removes the items, detections or tracks that Duplicates and Outliers plans name.
 
-Reads `input`, a Dataset, and `plans`, one or more `duplicates` or `outliers` Outputs. Makes one
-Dataset.
+It runs `View(input, Indices(plan, exclude=True))`.
+
+- **Reads:** `input`, a Dataset; `plans`, one or more `duplicates` or `outliers` Outputs.
+- **Makes:** one Dataset.
+
+**Settings** ({py:class}`~dataeval_flow.steps.transforms.RemoveConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -174,12 +273,34 @@ whether whole items or single detections. The step's report section counts what 
 Dataset's key follows the plan applied, not the arguments behind it, so two settings that remove the same rows key
 alike.
 
+- **Used in:** [`data-cleaning`](presets.md#data-cleaning), [`data-prioritization`](presets.md#data-prioritization)
+
+```yaml
+evaluators:
+  - {name: dupes, type: duplicates}
+
+workflows:
+  - name: example
+    inputs: [data]
+    steps:
+      - {name: dupes, evaluator: dupes, input: data}
+      - name: clean
+        transform: remove
+        input: data
+        plans:
+          dupes: {keep: first}
+```
+
 ### `conform`
 
-Relabels a Dataset onto an ontology by its label alignment, refusing loss beyond `allow`. Configured by
-{py:class}`~dataeval_flow.steps.transforms.ConformConfig`; runs `View(input, Relabel(remap, target=ontology))`.
+Relabels a Dataset onto an ontology by its label alignment, refusing loss beyond `allow`.
 
-Reads `input`, a Dataset, and `alignment`, a `label-alignment` Output. Makes one Dataset.
+It runs `View(input, Relabel(remap, target=ontology))`.
+
+- **Reads:** `input`, a Dataset; `alignment`, a `label-alignment` Output.
+- **Makes:** one Dataset.
+
+**Settings** ({py:class}`~dataeval_flow.steps.transforms.ConformConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -200,18 +321,40 @@ fails the step, naming the classes it has. Two conforms onto one ontology give t
 which `merge` needs. The step adds a record of the remap it applied to the result's `label_space`, and its report
 section lists each collapse and each dropped class.
 
+- **Used in:** none
+
+```yaml
+ontologies:
+  - name: vehicles
+    concepts:
+      - {id: Vehicle, label: Vehicle, synonyms: [car, truck]}
+
+evaluators:
+  - {name: align, type: label-alignment, ontology: vehicles}
+
+workflows:
+  - name: example
+    inputs: [data]
+    steps:
+      - {name: align, evaluator: align, input: data}
+      - {name: conformed, transform: conform, input: data, alignment: align, allow: lossy}
+```
+
 ## Writing out
 
 ### `export`
 
-Writes an object-detection Dataset to disk, and records what it wrote. Configured by
-{py:class}`~dataeval_flow.steps.transforms.ExportTransformConfig`; writes through the same datamaite writers as
-top-level `exports:`.
+Writes an object-detection Dataset to disk as COCO, YOLO or another datamaite format.
 
-Reads `input`, one object-detection Dataset. Makes an export record: `path`, `format`, `mode`, `items` and
-`provenance`. Handed a list (a list input, a list output such as `kfold.train`, or a step run once per element), it
-writes each element under its key: `datasets/<to>/<key>/`, such as `datasets/t.dataset/0/` for fold 0. A key that is
-not one plain directory name fails its element, and the others are still written.
+It writes through the same datamaite writers as top-level `exports:`. Handed a list (a list
+input, a list output such as `kfold.train`, or a step run once per element), it writes each element under its key:
+`datasets/<to>/<key>/`, such as `datasets/t.dataset/0/` for fold 0. A key that is not one plain directory name fails its
+element, and the others are still written.
+
+- **Reads:** `input`, one object-detection Dataset.
+- **Makes:** an export record: `path`, `format`, `mode`, `items` and `provenance`.
+
+**Settings** ({py:class}`~dataeval_flow.steps.transforms.ExportTransformConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -229,3 +372,22 @@ pixels alone is written by reference to its image files, as a top-level export i
 the step, and that is not a failure. A Dataset of another kind is refused before any step runs. Two destinations that
 coincide anywhere in the run, top-level `exports:` included, fail the config load.
 [Export a dataset](../how_to/export_a_dataset.md) covers the formats and modes in full.
+
+- **Used in:** none
+
+```yaml
+datasets:
+  - {name: street, format: huggingface, path: ./street, task: object_detection}
+
+sources:
+  - {name: street, dataset: street}
+
+workflows:
+  - name: example
+    inputs: [data]
+    steps:
+      - {name: dataset, transform: export, input: data, format: yolo, mode: replace}
+
+tasks:
+  - {name: build, workflow: example, sources: [street]}
+```

@@ -22,7 +22,7 @@ _PAGES = {"evaluator": "evaluators.md", "transform": "transforms.md", "combine":
 _GET = {"evaluator": get_evaluator, "transform": get_transform, "combine": get_combine, "check": get_check}
 _CATALOG = [entry for entry in list_steps(plugins=False).steps if entry.kind in _PAGES]
 # The kinds whose pages follow the entry template; each joins as its page is rewritten.
-_TEMPLATED = {"combine", "check", "evaluator"}
+_TEMPLATED = {"combine", "check", "evaluator", "transform"}
 # An evaluator entry's identity, which its page describes once rather than per entry; no other kind has this.
 _IDENTITY = {"name", "type"}
 
