@@ -233,3 +233,30 @@ def test_a_catalog_groups_its_entries_under_the_indexs_questions(page: str) -> N
 def test_a_preset_links_the_question_it_answers(cls: type) -> None:
     answers = _bullet(_preset_section(cls), "Answers")
     assert re.search(r"\]\(index\.md#[a-z0-9-]+\)", answers), f"`{cls.name}`'s Answers links no question"
+
+
+# The step vocabulary and the distinctions the names rest on (naming spec §7.4).
+_TERMS = [
+    "Brief",
+    "Chain",
+    "Check",
+    "Combine",
+    "Element",
+    "Evaluation Split",
+    "Finding",
+    "Key",
+    "Metadata",
+    "Not Assessed",
+    "Output",
+    "Port",
+    "Severity",
+    "Step",
+    "Subject",
+    "Test Source",
+    "Transform",
+]
+
+
+@pytest.mark.parametrize("term", _TERMS)
+def test_the_glossary_defines(term: str) -> None:
+    assert re.search(rf"^{re.escape(term)}$", _page("glossary.md"), re.M), f"the glossary has no entry {term!r}"

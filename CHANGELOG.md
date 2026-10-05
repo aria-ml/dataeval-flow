@@ -4,6 +4,9 @@
 
 ### Added
 
+- A Find the Right Step index leading from a question to the preset and steps that answer it; preset, combine and
+  naming-conventions reference pages; and evaluator and check catalogs grouped by question, each entry giving its
+  ports, settings, the checks that judge it, the presets that run it and an example
 - `empty:` on a custom workflow's list input: the reason its checks give when a task binds it no source, which it then
   may; a step run over an empty list leaves one record, and `not_assessed` on each step record says why a check judged
   nothing

@@ -56,19 +56,22 @@ reproducible orchestration layer with native MAITE interoperability.
 
 ## T&E tasks and the workflows that support them
 
-| T&E task | Workflow | What it produces |
+| T&E task | Workflow type | What it produces |
 | --- | --- | --- |
-| Find and flag dataset quality issues | Data Cleaning | Outliers, duplicates, and label issues |
-| Profile dataset quality across splits | Data Analysis | Statistical summaries and quality metrics |
-| Find gaps in dataset coverage before training | Data Coverage | Class and metadata gaps, ontology findings, embedding blind spots |
-| Build leakage-free train/val/test splits | Dataset Splitting | Stratified or random splits |
-| Monitor operational data for population drift | Drift Detection | Per-batch drift flags and p-values |
-| Flag anomalous individual samples | OOD Detection | Per-sample out-of-distribution scores |
-| Rank abundant/unlabeled data for labeling | Prioritization | Ranked sample ordering |
+| Find and flag dataset quality issues | `data-cleaning` | Outliers, duplicates, and label issues |
+| Profile dataset quality across splits | `data-analysis` | Statistical summaries and quality metrics |
+| Check labels against a declared ontology | `label-space` | Leaf coverage, conformance, alignment and structure findings |
+| Find gaps in dataset coverage before training | `data-coverage` | Class and metadata gaps, embedding blind spots, what to acquire per class |
+| Build leakage-free train/val/test splits | `data-splitting` | Stratified or random splits, with their balance and coverage judged |
+| Monitor operational data for population drift | `drift-monitoring` | Per-batch drift flags and p-values |
+| Flag anomalous individual samples | `ood-detection` | Per-sample out-of-distribution scores |
+| Rank abundant/unlabeled data for labeling | `data-prioritization` | Ranked sample ordering |
+| Find metadata the run could not read | `metadata-triage` | Unreadable and unpinned metadata factors, with suggested corrections |
 | Tune workflow parameters across a grid | Any workflow, with a task matrix | One table comparing every run's findings |
 
-See the [Tutorials](tutorials/index.md) for end-to-end walkthroughs and the
-[Explanations](concepts/index.md) for the concepts behind each workflow.
+See [Find the Right Step](reference/index.md) to go from a question to the preset or steps that answer it, the
+[Tutorials](tutorials/index.md) for end-to-end walkthroughs and the [Explanations](concepts/index.md) for the concepts
+behind each workflow.
 
 ## Critical limitations and requirements for use
 
@@ -127,15 +130,15 @@ Overview <concepts/index>
 :caption: Reference
 :hidden:
 
-Find the Right Step <reference/index>
 Container Reference <reference/containers>
 JATIC Maturity <reference/maturity>
+Find the Right Step <reference/index>
 Evaluator Catalog <reference/evaluators>
 Transform Catalog <reference/transforms>
-Check Catalog <reference/checks>
 Combine Catalog <reference/combines>
-Naming Conventions <reference/naming>
+Check Catalog <reference/checks>
 Preset Catalog <reference/presets>
+Naming Conventions <reference/naming>
 API Reference <reference/autoapi/dataeval_flow/index>
 reference/glossary
 :::

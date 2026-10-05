@@ -160,7 +160,7 @@ banner and configuration:
 ### Severity and the health line
 
 Each finding carries a severity of `ok`, `info`, or `warning`. A finding becomes a `warning` when it breaches its
-{term}`health threshold <Health Threshold>`; otherwise it stays at `info`. The health line summarizes the run,
+{term}`threshold <Threshold>`; otherwise it stays at `info`. The health line summarizes the run,
 counting its warnings or saying that every check passed:
 
 ```text
