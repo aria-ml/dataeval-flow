@@ -288,7 +288,9 @@ def test_an_ood_run_reads_each_image_s_thumbnail_from_its_own_test_source() -> N
             return np.zeros_like(image), target, datum
 
     detectors = [{"type": "ood-kneighbors", "name": "k3", "k": 3}, {"type": "ood-kneighbors", "name": "k5", "k": 5}]
-    config = OODDetectionConfig.model_validate({"name": "ood", "detectors": detectors, "metadata_insights": False})
+    config = OODDetectionConfig.model_validate(
+        {"name": "ood", "detectors": detectors, "factor-predictors": False, "factor-deviation": False}
+    )
     data = {"reference": ToyImages(seed=0, count=20), "day": ToyImages(seed=1, count=12), "night": Dark(count=4)}
     result = run(config, data, extractor=FlattenExtractorConfig(batch_size=8))
     night = [asset for asset in result.assets if asset.item.source == "tests[night]"]
@@ -344,7 +346,9 @@ def test_an_ood_thumbnail_is_the_image_scored_though_its_view_shuffles_unseeded(
         ],
         extractors=[FlattenExtractorConfig(name="flat", batch_size=8)],
         workflows=[
-            OODDetectionConfig.model_validate({"name": "ood", "detectors": detectors, "metadata_insights": False})
+            OODDetectionConfig.model_validate(
+                {"name": "ood", "detectors": detectors, "factor-predictors": False, "factor-deviation": False}
+            )
         ],
         tasks=[TaskConfig(name="t", workflow="ood", sources=["reference", "test"], extractor="flat")],
     )

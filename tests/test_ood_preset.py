@@ -72,7 +72,7 @@ def test_two_detectors_expand_to_their_checks_the_agreement_and_the_factor_steps
 
 
 def test_one_detector_has_no_agreement_check_and_insights_off_drop_the_factor_steps() -> None:
-    names = [step["name"] for step in _steps(detectors=[_KNN], metadata_insights=False)]
+    names = [step["name"] for step in _steps(detectors=[_KNN], factor_predictors=False, factor_deviation=False)]
     assert names == ["ood-kneighbors", "ood-kneighbors-check", "agreement"]
 
 
@@ -199,7 +199,8 @@ def test_a_detector_on_uncertainty_agrees_with_one_on_embeddings(tmp_path, monke
     preset = {
         "name": "ood",
         "type": "ood-detection",
-        "metadata_insights": False,
+        "factor-predictors": False,
+        "factor-deviation": False,
         "detectors": [{**_KNN, "name": "flat-knn"}, {**_KNN, "name": "unc-knn", "extractor": "unc"}],
     }
     datasets = {"reference": ClassImages({0: 20, 1: 20}), "cam1": ClassImages({0: 20, 1: 20}, seed=1, bright=True)}

@@ -184,15 +184,17 @@ vehicle_factors = MetadataPolicyConfig(
     },
 )
 
-metadata_only_workflow = DataCoverageConfig(
-    name="coverage-metadata-only",
-    metadata="vehicle_factors",
-    gaps={"min_representation": 5},  # Flag class-factor-value combos with < 5 samples
-    diversity="simpson",
-    checks={
-        "class-imbalance": {"warning": 3.0},  # Catch moderate class imbalance
-        "factor-coverage-gaps": {"warning": 2},  # Warn if >= 2 gaps found
-    },
+metadata_only_workflow = DataCoverageConfig.model_validate(
+    {
+        "name": "coverage-metadata-only",
+        "metadata": "vehicle_factors",
+        "factor-gaps": {"min_representation": 5},  # Flag class-factor-value combos with < 5 samples
+        "diversity": {"method": "simpson"},
+        "checks": {
+            "class-imbalance": {"warning": 3.0},  # Catch moderate class imbalance
+            "factor-coverage-gaps": {"warning": 2},  # Warn if >= 2 gaps found
+        },
+    }
 )
 
 task_metadata = TaskConfig(
@@ -459,21 +461,23 @@ print("unmatched:", list(check["unmatched"]))
 # %%
 from dataeval_flow.config.extractors import BoVWExtractorConfig
 
-full_workflow = DataCoverageConfig(
-    name="coverage-full",
-    metadata="vehicle_factors",
-    coverage={
-        "method": "adaptive",
-        "percent": 0.01,  # adaptive: flag the sparsest 1% of observations
-        "num_observations": 50,  # Number of neighbors for coverage analysis
-    },
-    gaps={"min_representation": 5},
-    diversity="simpson",
-    checks={
-        "dimensional-completeness": {"warning": 0.5},  # Warn if completeness < 0.5
-        "class-imbalance": {"warning": 3.0},
-        "factor-coverage-gaps": {"warning": 2},
-    },
+full_workflow = DataCoverageConfig.model_validate(
+    {
+        "name": "coverage-full",
+        "metadata": "vehicle_factors",
+        "coverage": {
+            "method": "adaptive",
+            "percent": 0.01,  # adaptive: flag the sparsest 1% of observations
+            "num_observations": 50,  # Number of neighbors for coverage analysis
+        },
+        "factor-gaps": {"min_representation": 5},
+        "diversity": {"method": "simpson"},
+        "checks": {
+            "dimensional-completeness": {"warning": 0.5},  # Warn if completeness < 0.5
+            "class-imbalance": {"warning": 3.0},
+            "factor-coverage-gaps": {"warning": 2},
+        },
+    }
 )
 
 task_full = TaskConfig(

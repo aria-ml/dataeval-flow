@@ -1,19 +1,25 @@
 """The ``data-coverage`` preset."""
 
 __all__ = [
-    "CoverageSettings",
-    "CropSettings",
-    "DataCoverageConfig",
+    "CropParams",
     "DataCoverageChecks",
+    "DataCoverageConfig",
+    "DataCoverageCoverageSettings",
+    "DataCoverageRepresentationSettings",
     "DataCoverageWorkflow",
-    "GapSettings",
+    "DiversitySettings",
+    "FactorGapsSettings",
+    "WrapSettings",
 ]
 
 from dataeval_flow.workflows.data_coverage._config import (
-    CoverageSettings,
-    CropSettings,
+    CropParams,
     DataCoverageChecks,
     DataCoverageConfig,
-    GapSettings,
+    DataCoverageCoverageSettings,
+    DataCoverageRepresentationSettings,
+    DiversitySettings,
+    FactorGapsSettings,
+    WrapSettings,
 )
 from dataeval_flow.workflows.data_coverage._workflow import DataCoverageWorkflow

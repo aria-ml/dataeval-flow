@@ -60,7 +60,7 @@ CASES: dict[str, Case] = {
     "insights_off": Case(
         _shifted,
         {"detectors": [_LEGACY_KNN], "metadata_insights": False},
-        {"detectors": [_PRESET_KNN], "metadata_insights": False},
+        {"detectors": [_PRESET_KNN], "factor-predictors": False, "factor-deviation": False},
         _KNN_STEP,
     ),
     "nothing_flagged": Case(_same, {"detectors": [_LEGACY_KNN]}, {"detectors": [_PRESET_KNN]}, _KNN_STEP),

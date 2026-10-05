@@ -60,7 +60,7 @@ def _run(name: str) -> ChainResult:
 def _left_out(name: str) -> set[str]:
     """The findings whose steps the case's settings leave out of the chain."""
     settings = CASES[name].preset
-    left = {"Factor Coverage Gaps"} if "gaps" in settings and settings["gaps"] is None else set()
+    left = {"Factor Coverage Gaps"} if settings.get("factor-gaps") is False else set()
     return left | ({"Dimensional Completeness"} if settings.get("completeness") is False else set())
 
 

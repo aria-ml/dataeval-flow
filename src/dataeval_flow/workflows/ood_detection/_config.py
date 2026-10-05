@@ -1,9 +1,9 @@
-"""The ``ood-detection`` preset's config: its detectors, its metadata insights, and when a finding warns."""
+"""The ``ood-detection`` preset's config: its detectors, its factor steps, and when a finding warns."""
 
 __all__ = ["FactorDeviationSettings", "OODDetectionConfig", "OODDetectionChecks", "evaluator_entry"]
 
 from collections.abc import Mapping
-from typing import Annotated, Any, ClassVar, Self
+from typing import Annotated, Any, ClassVar, Literal, Self
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, SerializeAsAny, model_validator
 
@@ -96,9 +96,7 @@ class FactorDeviationSettings(BaseModel):
     max_items: int = Field(
         default=50,
         gt=0,
-        description=(
-            "The most out-of-distribution agreed images explained per test source. Legacy's `max_ood_insights`."
-        ),
+        description="The most out-of-distribution agreed images explained per test source.",
     )
 
 
@@ -119,6 +117,7 @@ class OODDetectionConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
     """
 
     type: str = Field(default="ood-detection", description="The workflow type this entry configures: `ood-detection`.")
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, serialize_by_alias=True)
     inputs: ClassVar[InputSpec] = InputSpec(
         required=frozenset({InputKind.EMBEDDINGS}),
         optional=frozenset({InputKind.METADATA, InputKind.STATS}),
@@ -133,12 +132,15 @@ class OODDetectionConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
             "the reference. An entry's `name` names its step. An entry may name its own `extractor:`."
         ),
     )
-    metadata_insights: bool = Field(
-        default=True,
-        description="Whether the metadata factors behind the flagged images are explained, by two optional steps.",
+    factor_predictors: Literal[False] | None = Field(
+        default=None,
+        alias="factor-predictors",
+        description="`false` leaves out the `factor-predictors` step; it takes no settings.",
     )
-    factor_deviation: FactorDeviationSettings = Field(
-        default_factory=FactorDeviationSettings, description="The `factor-deviation` step's settings."
+    factor_deviation: FactorDeviationSettings | Literal[False] = Field(
+        default_factory=FactorDeviationSettings,
+        alias="factor-deviation",
+        description="The `factor-deviation` step's settings; `false` leaves it out.",
     )
     checks: OODDetectionChecks = Field(
         default_factory=OODDetectionChecks, description="When findings warn, keyed by check type."

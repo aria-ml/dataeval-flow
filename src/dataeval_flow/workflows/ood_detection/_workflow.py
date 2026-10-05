@@ -19,9 +19,10 @@ class OODDetectionWorkflow(Preset, Workflow[OODDetectionConfig, ChainResult]):
 
     The task's first source is ``reference``; every later one is an element of ``tests``. Per detector, the settings
     expand to ``<detector>`` (its evaluator, with its own ``extractor``) and ``<detector>-check`` (``ood``). Then:
+
     - ``agreement`` (``ood-union``) combines every detector's flags;
     - with two detectors or more, ``agreement-check`` (``ood-agreement``) judges them;
-    - with ``metadata_insights``, ``factor-predictors`` and ``factor-deviation`` explain them, both optional.
+    - ``factor-predictors`` and ``factor-deviation`` explain them, both optional; ``false`` drops a step.
 
     Every step runs once per test source.
     """
@@ -59,16 +60,17 @@ class OODDetectionWorkflow(Preset, Workflow[OODDetectionConfig, ChainResult]):
         if len(names) > 1:
             agreement = config.checks.ood_agreement.model_dump()
             steps.append({"name": "agreement-check", "check": "ood-agreement", "input": "agreement", **agreement})
-        if config.metadata_insights:
-            policies = {key: value for key, value in (("metadata", config.metadata), ("stats", config.stats)) if value}
-            factors = {"ood": "agreement", "reference": "reference", "input": "tests", "optional": True, **policies}
-            steps += [
-                {"name": "factor-predictors", "combine": "factor-predictors", **factors},
+        policies = {key: value for key, value in (("metadata", config.metadata), ("stats", config.stats)) if value}
+        factors = {"ood": "agreement", "reference": "reference", "input": "tests", "optional": True, **policies}
+        if config.factor_predictors is not False:
+            steps.append({"name": "factor-predictors", "combine": "factor-predictors", **factors})
+        if config.factor_deviation is not False:
+            steps.append(
                 {
                     "name": "factor-deviation",
                     "combine": "factor-deviation",
                     **factors,
                     "max_items": config.factor_deviation.max_items,
-                },
-            ]
+                }
+            )
         return PresetChain(steps=steps, evaluators=evaluators)

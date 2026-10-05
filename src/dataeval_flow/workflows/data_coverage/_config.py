@@ -1,7 +1,16 @@
-"""The ``data-coverage`` preset's config: coverage, crops, completeness, diversity and gaps, and when a finding warns
+"""The ``data-coverage`` preset's config: the settings of its step types, and when a finding warns
 (coverage spec §4.1, §4.3)."""
 
-__all__ = ["CoverageSettings", "CropSettings", "DataCoverageConfig", "DataCoverageChecks", "GapSettings"]
+__all__ = [
+    "CropParams",
+    "DataCoverageChecks",
+    "DataCoverageConfig",
+    "DataCoverageCoverageSettings",
+    "DataCoverageRepresentationSettings",
+    "DiversitySettings",
+    "FactorGapsSettings",
+    "WrapSettings",
+]
 
 from typing import Annotated, Any, ClassVar, Literal, Self
 
@@ -13,7 +22,7 @@ from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
 
 
-class CoverageSettings(BaseModel):
+class DataCoverageCoverageSettings(BaseModel):
     """The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`
     is written partly."""
 
@@ -46,7 +55,7 @@ class CoverageSettings(BaseModel):
     )
 
 
-class CropSettings(BaseModel):
+class CropParams(BaseModel):
     """`DetectionCrops`' settings, used on detection data only."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -59,7 +68,7 @@ class CropSettings(BaseModel):
     )
 
 
-class GapSettings(BaseModel):
+class FactorGapsSettings(BaseModel):
     """The `factor-gaps` step's settings."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -69,6 +78,37 @@ class GapSettings(BaseModel):
     )
     min_representation: int = Field(
         default=5, ge=1, description="A combination is a gap under this count while its expected count is over it."
+    )
+
+
+class WrapSettings(BaseModel):
+    """The `wrap` step's settings, for the crops data-coverage measures detection data on: `DetectionCrops`' `params`.
+    The preset fixes the wrapper and `other_kinds`."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    params: CropParams = Field(default_factory=CropParams, description="`DetectionCrops`' parameters.")
+
+
+class DiversitySettings(BaseModel):
+    """The `diversity` step's settings."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    method: Literal["simpson", "shannon"] = Field(default="simpson", description="The diversity index.")
+
+
+class DataCoverageRepresentationSettings(BaseModel):
+    """The `representation` step's settings: each class's minimum share, for the worklist."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    expected: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] | None = Field(
+        default=None,
+        description=(
+            "Class name to its minimum expected share of the dataset, a fraction in [0, 1]; a name that is no class "
+            "is ignored and noted."
+        ),
     )
 
 
@@ -247,7 +287,7 @@ class DataCoverageChecks(BaseModel):
 
 _NO_ONTOLOGY = (
     "data-coverage no longer judges an ontology: run a `label-space` entry on the same source, with this `ontology:` "
-    "(and `label_pattern:`)"
+    "(and `ontology-validation.label_pattern:`)"
 )
 
 _MOVED: dict[str, str] = {
@@ -257,16 +297,18 @@ _MOVED: dict[str, str] = {
     "min_class_samples": "it is `coverage.min_class_samples`",
     "isotropy_min_samples": "it is `coverage.isotropy_min_samples`",
     "near_duplicate_factor": "it is `coverage.near_duplicate_factor`",
-    "crop_padding": "it is `crops.padding`",
-    "crop_min_size": "it is `crops.min_size`",
+    "crop_padding": "it is `wrap.params.padding`",
+    "crop_min_size": "it is `wrap.params.min_size`",
     "run_completeness": "it is `completeness`",
-    "balance": "balance always runs, as a report section; `gaps: null` leaves out the gap analysis",
-    "diversity_method": "diversity always runs, as a report section, and `diversity` picks the method",
-    "run_gap_analysis": "write `gaps: null` to leave out the gap analysis",
-    "gap_mi_threshold": "it is `gaps.mi_threshold`",
-    "gap_min_representation": "it is `gaps.min_representation`",
+    "balance": "balance always runs, as a report section; `factor-gaps: false` leaves out the gap analysis",
+    "diversity_method": "diversity always runs, as a report section, and `diversity.method` picks the method",
+    "run_gap_analysis": "write `factor-gaps: false` to leave out the gap analysis",
+    "gap_mi_threshold": "it is `factor-gaps.mi_threshold`",
+    "gap_min_representation": "it is `factor-gaps.min_representation`",
     "ontology_label_pattern": _NO_ONTOLOGY,
-    "ontology_expected": "it is `expected`, or `label-space`'s `expected` where an ontology is set",
+    "ontology_expected": (
+        "it is `representation.expected`, or `label-space`'s `representation.expected` where an ontology is set"
+    ),
     "metadata_auto_bin_method": "name a policy under `metadata:`",
     "metadata_exclude": "name a policy under `metadata:`",
     "metadata_continuous_factor_bins": "name a policy under `metadata:`",
@@ -290,8 +332,8 @@ _THRESHOLDS_MOVED: dict[str, str] = {
 
 
 class DataCoverageConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
-    """The settings of one ``data-coverage`` entry: coverage, crops, completeness, diversity, gaps and the worklist's
-    minimum shares, and when a finding warns.
+    """The settings of one ``data-coverage`` entry: each step type's settings, keyed by the step type, and when a
+    finding warns.
 
     Example YAML::
 
@@ -300,35 +342,36 @@ class DataCoverageConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
             type: data-coverage
             metadata: standard
             coverage: {method: adaptive, num_observations: 50}
-            crops: {padding: 0.1}
-            gaps: {mi_threshold: 0.1}
+            wrap: {params: {padding: 0.1}}
+            factor-gaps: {mi_threshold: 0.1}
     """
 
     type: str = Field(default="data-coverage", description="The workflow type this entry configures: `data-coverage`.")
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, serialize_by_alias=True)
     inputs: ClassVar[InputSpec] = InputSpec(
         required=frozenset({InputKind.METADATA}), optional=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.ONE
     )
 
-    expected: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] | None = Field(
-        default=None,
-        description=(
-            "Class name to its minimum expected share of the dataset, a fraction in [0, 1], for the worklist; a name "
-            "that is no class is ignored and noted."
-        ),
+    representation: DataCoverageRepresentationSettings = Field(
+        default_factory=DataCoverageRepresentationSettings, description="The `representation` step's settings."
     )
-    coverage: CoverageSettings = Field(
-        default_factory=CoverageSettings,
+    coverage: DataCoverageCoverageSettings = Field(
+        default_factory=DataCoverageCoverageSettings,
         description="The `coverage` step's settings, run when the task names an extractor.",
     )
-    crops: CropSettings = Field(
-        default_factory=CropSettings, description="`DetectionCrops`' settings, used on detection data only."
+    wrap: WrapSettings = Field(
+        default_factory=WrapSettings, description="The `wrap` step's settings, used on detection data only."
     )
     completeness: bool = Field(
         default=True, description="Whether the completeness steps run, when the task names an extractor."
     )
-    diversity: Literal["simpson", "shannon"] = Field(default="simpson", description="The `diversity` step's method.")
-    gaps: GapSettings | None = Field(
-        default_factory=GapSettings, description="The gap analysis's settings; `null` leaves it out."
+    diversity: DiversitySettings = Field(
+        default_factory=DiversitySettings, description="The `diversity` step's settings."
+    )
+    factor_gaps: FactorGapsSettings | Literal[False] = Field(
+        default_factory=FactorGapsSettings,
+        alias="factor-gaps",
+        description="The `factor-gaps` step's settings; `false` leaves out the gap analysis and its check.",
     )
     checks: DataCoverageChecks = Field(
         default_factory=DataCoverageChecks, description="When findings warn, keyed by check type."

@@ -63,7 +63,7 @@
 - `channel_groups:` on datasets, measuring band groups separately as `<group>_<statistic>` columns
 - Top-level `stats:` key defining policies for measured statistics, background inclusion, and outlier/factor views
 - `format: demo` dataset loader resolving tutorial datasets from a fixed table without arbitrary imports
-- `crops:` on `data-coverage`, `DetectionCrops`' `padding` and `min_size`, with the `crops` step's `details`
+- `wrap:` on `data-coverage`, `DetectionCrops`' `params` (`padding` and `min_size`), with the `crops` step's `details`
   counting the detections dropped
 - `DATAEVAL_*` environment variables to configure CLI parameters; CLI arguments take precedence
 - `--no-fail-on-warning` flag to disable `DATAEVAL_FAIL_ON_WARNING` for a single run
@@ -326,7 +326,8 @@
     the 95th percentile: write `threshold_perc: 95` to keep legacy's verdicts
   - `health_thresholds.ood_pct_warning` and `ood_pct_info` are `checks.ood.warning` and `info`, and
     `checks["ood-agreement"]` judges the agreement
-  - `max_ood_insights` is `factor_deviation.max_items`
+  - `max_ood_insights` is `factor-deviation.max_items`, and `metadata_insights: false` is `factor-predictors: false` and
+    `factor-deviation: false`
   - `value_range` and the `metadata_*` fields are gone: set `value_range` on the dataset, and name a `metadata:` policy
 - A result's JSON writes NaN and infinities as `null`, which strict JSON parsers require
 - `drift-kneighbors` on the `uncertainty` extractor refuses a written `distance_metric: cosine`, which cannot rank one
@@ -398,16 +399,17 @@
   - `coverage_method`, `coverage_percent`, `num_observations`, `min_class_samples`, `isotropy_min_samples` and
     `near_duplicate_factor` are `coverage.method`, `.percent`, `.num_observations`, `.min_class_samples`,
     `.isotropy_min_samples` and `.near_duplicate_factor`
-  - `crop_padding` and `crop_min_size` are `crops.padding` and `crops.min_size`
+  - `crop_padding` and `crop_min_size` are `wrap.params.padding` and `wrap.params.min_size`
   - `run_completeness` is `completeness`
-  - `diversity_method` is refused: diversity always runs, as a report section, and `diversity` picks its method, so
-    legacy's `null` (skip diversity) has no replacement
+  - `diversity_method` is refused: diversity always runs, as a report section, and `diversity.method` picks its
+    method, so legacy's `null` (skip diversity) has no replacement
   - `balance` is refused: balance always runs, as a report section
-  - `run_gap_analysis` is refused whatever its value: `gaps: null` replaces `false`. `gap_mi_threshold` and
-    `gap_min_representation` are `gaps.mi_threshold` and `gaps.min_representation`
+  - `run_gap_analysis` is refused whatever its value: `factor-gaps: false` replaces `false`.
+    `gap_mi_threshold` and `gap_min_representation` are `factor-gaps.mi_threshold` and `factor-gaps.min_representation`
   - `ontology` and `ontology_label_pattern` are refused: write them on a `label-space` entry on the same source, as
-    `ontology` and `label_pattern`
-  - `ontology_expected` is `expected`, or `label-space`'s `expected` where an ontology is set
+    `ontology` and `ontology-validation.label_pattern`
+  - `ontology_expected` is `representation.expected`, or `label-space`'s `representation.expected` where an
+    ontology is set
   - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source`
     are refused: name a policy under `metadata:`
   - `value_range` is refused: set it on the dataset. `stats` is refused, since no step of data-coverage reads statistics

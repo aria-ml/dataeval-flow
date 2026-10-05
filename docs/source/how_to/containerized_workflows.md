@@ -308,7 +308,7 @@ workflows:
         k: 5
         distance_metric: cosine    # cosine | euclidean
         threshold_perc: 95
-    metadata_insights: true
+    factor-deviation: {max_items: 50}   # false leaves it out; `factor-predictors: false` leaves out that step
 ```
 ````
 
@@ -322,7 +322,7 @@ workflows:
   - name: coverage_check
     type: data-coverage
     coverage: {method: adaptive}     # adaptive | naive; embeds only when the task names an extractor
-    gaps: {mi_threshold: 0.1, min_representation: 5}   # null leaves out the gap analysis
+    factor-gaps: {mi_threshold: 0.1, min_representation: 5}   # false leaves out the gap analysis
     checks:
       class-imbalance: {warning: 5.0}
       factor-coverage-gaps: {warning: 3}

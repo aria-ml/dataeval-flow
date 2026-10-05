@@ -50,8 +50,8 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
             LabelHealthConfig(name="labels", metadata=config.metadata),
             FactorSummaryConfig(name="summary", metadata=config.metadata),
             BalanceConfig(name="balance", metadata=config.metadata),
-            DiversityConfig(name="diversity", method=config.diversity, metadata=config.metadata),
-            RepresentationConfig(name="worklist", expected=config.expected),
+            DiversityConfig(name="diversity", method=config.diversity.method, metadata=config.metadata),
+            RepresentationConfig(name="worklist", expected=config.representation.expected),
         ]
         steps: list[dict[str, Any]] = [
             {
@@ -59,7 +59,7 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
                 "transform": "wrap",
                 "input": "data",
                 "wrapper": "DetectionCrops",
-                "params": config.crops.model_dump(),
+                "params": config.wrap.params.model_dump(),
                 "other_kinds": "pass",
             },
             {"name": "coverage", "evaluator": "coverage", "input": "crops", "optional": True},
@@ -101,7 +101,7 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
             {"name": "balance", "evaluator": "balance", "input": "data", "optional": True},
             {"name": "diversity", "evaluator": "diversity", "input": "data", "optional": True},
         ]
-        if config.gaps is not None:
+        if config.factor_gaps is not False:
             steps += [
                 {
                     "name": "gaps",
@@ -110,7 +110,7 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
                     "balance": "balance",
                     "optional": True,
                     "metadata": config.metadata,
-                    **config.gaps.model_dump(),
+                    **config.factor_gaps.model_dump(),
                 },
                 {
                     "name": "gaps-check",

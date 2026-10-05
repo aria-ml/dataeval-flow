@@ -3535,68 +3535,7 @@
       "title": "CoverageConfig",
       "type": "object"
     },
-    "CoverageSettings": {
-      "additionalProperties": false,
-      "description": "The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`\nis written partly.",
-      "properties": {
-        "method": {
-          "default": "adaptive",
-          "description": "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or `naive`, a fixed analytic radius, judged by an `uncovered-items` step. DataEval's naive radius overflows past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`.",
-          "enum": [
-            "naive",
-            "adaptive"
-          ],
-          "title": "Method",
-          "type": "string"
-        },
-        "percent": {
-          "default": 0.01,
-          "description": "Fraction of items flagged as uncovered, for `adaptive` only.",
-          "exclusiveMaximum": 1.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Percent",
-          "type": "number"
-        },
-        "num_observations": {
-          "default": 50,
-          "description": "Neighbors an item needs within the radius to count as covered.",
-          "exclusiveMinimum": 0,
-          "title": "Num Observations",
-          "type": "integer"
-        },
-        "min_class_samples": {
-          "default": 20,
-          "description": "Items a class needs before its dispersion and isotropy are judged.",
-          "exclusiveMinimum": 0,
-          "title": "Min Class Samples",
-          "type": "integer"
-        },
-        "isotropy_min_samples": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Items a class needs before its isotropy is measured; unset uses DataEval's default.",
-          "title": "Isotropy Min Samples"
-        },
-        "near_duplicate_factor": {
-          "default": 0.5,
-          "description": "The fraction of the radius within which two items are near-duplicates.",
-          "exclusiveMinimum": 0.0,
-          "title": "Near Duplicate Factor",
-          "type": "number"
-        }
-      },
-      "title": "CoverageSettings",
-      "type": "object"
-    },
-    "CropSettings": {
+    "CropParams": {
       "additionalProperties": false,
       "description": "`DetectionCrops`' settings, used on detection data only.",
       "properties": {
@@ -3615,7 +3554,7 @@
           "type": "integer"
         }
       },
-      "title": "CropSettings",
+      "title": "CropParams",
       "type": "object"
     },
     "CustomWorkflowConfig": {
@@ -4282,7 +4221,7 @@
     },
     "DataCoverageConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``data-coverage`` entry: coverage, crops, completeness, diversity, gaps and the worklist's\nminimum shares, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: coverage\n        type: data-coverage\n        metadata: standard\n        coverage: {method: adaptive, num_observations: 50}\n        crops: {padding: 0.1}\n        gaps: {mi_threshold: 0.1}",
+      "description": "The settings of one ``data-coverage`` entry: each step type's settings, keyed by the step type, and when a\nfinding warns.\n\nExample YAML::\n\n    workflows:\n      - name: coverage\n        type: data-coverage\n        metadata: standard\n        coverage: {method: adaptive, num_observations: 50}\n        wrap: {params: {padding: 0.1}}\n        factor-gaps: {mi_threshold: 0.1}",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -4326,6 +4265,113 @@
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
+        "representation": {
+          "$ref": "#/$defs/DataCoverageRepresentationSettings",
+          "description": "The `representation` step's settings."
+        },
+        "coverage": {
+          "$ref": "#/$defs/DataCoverageCoverageSettings",
+          "description": "The `coverage` step's settings, run when the task names an extractor."
+        },
+        "wrap": {
+          "$ref": "#/$defs/WrapSettings",
+          "description": "The `wrap` step's settings, used on detection data only."
+        },
+        "completeness": {
+          "default": true,
+          "description": "Whether the completeness steps run, when the task names an extractor.",
+          "title": "Completeness",
+          "type": "boolean"
+        },
+        "diversity": {
+          "$ref": "#/$defs/DiversitySettings"
+        },
+        "factor-gaps": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactorGapsSettings"
+            },
+            {
+              "const": false,
+              "type": "boolean"
+            }
+          ],
+          "description": "The `factor-gaps` step's settings; `false` leaves out the gap analysis and its check.",
+          "title": "Factor-Gaps"
+        },
+        "checks": {
+          "$ref": "#/$defs/DataCoverageChecks",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "title": "DataCoverageConfig",
+      "type": "object"
+    },
+    "DataCoverageCoverageSettings": {
+      "additionalProperties": false,
+      "description": "The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`\nis written partly.",
+      "properties": {
+        "method": {
+          "default": "adaptive",
+          "description": "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or `naive`, a fixed analytic radius, judged by an `uncovered-items` step. DataEval's naive radius overflows past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`.",
+          "enum": [
+            "naive",
+            "adaptive"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "percent": {
+          "default": 0.01,
+          "description": "Fraction of items flagged as uncovered, for `adaptive` only.",
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Percent",
+          "type": "number"
+        },
+        "num_observations": {
+          "default": 50,
+          "description": "Neighbors an item needs within the radius to count as covered.",
+          "exclusiveMinimum": 0,
+          "title": "Num Observations",
+          "type": "integer"
+        },
+        "min_class_samples": {
+          "default": 20,
+          "description": "Items a class needs before its dispersion and isotropy are judged.",
+          "exclusiveMinimum": 0,
+          "title": "Min Class Samples",
+          "type": "integer"
+        },
+        "isotropy_min_samples": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Items a class needs before its isotropy is measured; unset uses DataEval's default.",
+          "title": "Isotropy Min Samples"
+        },
+        "near_duplicate_factor": {
+          "default": 0.5,
+          "description": "The fraction of the radius within which two items are near-duplicates.",
+          "exclusiveMinimum": 0.0,
+          "title": "Near Duplicate Factor",
+          "type": "number"
+        }
+      },
+      "title": "DataCoverageCoverageSettings",
+      "type": "object"
+    },
+    "DataCoverageRepresentationSettings": {
+      "additionalProperties": false,
+      "description": "The `representation` step's settings: each class's minimum share, for the worklist.",
+      "properties": {
         "expected": {
           "anyOf": [
             {
@@ -4341,49 +4387,11 @@
             }
           ],
           "default": null,
-          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1], for the worklist; a name that is no class is ignored and noted.",
+          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1]; a name that is no class is ignored and noted.",
           "title": "Expected"
-        },
-        "coverage": {
-          "$ref": "#/$defs/CoverageSettings",
-          "description": "The `coverage` step's settings, run when the task names an extractor."
-        },
-        "crops": {
-          "$ref": "#/$defs/CropSettings"
-        },
-        "completeness": {
-          "default": true,
-          "description": "Whether the completeness steps run, when the task names an extractor.",
-          "title": "Completeness",
-          "type": "boolean"
-        },
-        "diversity": {
-          "default": "simpson",
-          "description": "The `diversity` step's method.",
-          "enum": [
-            "simpson",
-            "shannon"
-          ],
-          "title": "Diversity",
-          "type": "string"
-        },
-        "gaps": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/GapSettings"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "The gap analysis's settings; `null` leaves it out."
-        },
-        "checks": {
-          "$ref": "#/$defs/DataCoverageChecks",
-          "description": "When findings warn, keyed by check type."
         }
       },
-      "title": "DataCoverageConfig",
+      "title": "DataCoverageRepresentationSettings",
       "type": "object"
     },
     "DataCoverageUncoveredItemsSettings": {
@@ -4730,7 +4738,7 @@
           "title": "Rebalance"
         },
         "coverage": {
-          "$ref": "#/$defs/SplittingCoverage",
+          "$ref": "#/$defs/DataSplittingCoverageSettings",
           "description": "The `coverage` steps' settings, run on the whole set and each part when the task names an extractor."
         },
         "checks": {
@@ -4739,6 +4747,46 @@
         }
       },
       "title": "DataSplittingConfig",
+      "type": "object"
+    },
+    "DataSplittingCoverageSettings": {
+      "additionalProperties": false,
+      "description": "The `coverage` steps' settings, as a `coverage` evaluator entry reads them, with legacy data-splitting's\ndefaults; each keeps its default when `coverage:` is written partly.",
+      "properties": {
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "naive",
+                "adaptive"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the coverage radius is set: `naive`, a fixed analytic radius, or `adaptive`, a cutoff on the `percent` most sparsely neighbored items. Unset uses DataEval's default (`adaptive`). Only `naive` coverage is judged, by `uncovered-items` steps. DataEval's naive radius overflows past about 340 embedding dimensions, so `naive` suits low-dimensional embeddings; with a wide extractor its coverage steps are skipped with `failed: OverflowError`.",
+          "title": "Method"
+        },
+        "num_observations": {
+          "default": 50,
+          "description": "Neighbors an item needs within the radius to count as covered, fewer than the smallest part's items. Legacy's `num_observations`.",
+          "exclusiveMinimum": 0,
+          "title": "Num Observations",
+          "type": "integer"
+        },
+        "percent": {
+          "default": 0.01,
+          "description": "Fraction of each part's items flagged as uncovered, for `adaptive` only. Legacy's `coverage_percent`.",
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Percent",
+          "type": "number"
+        }
+      },
+      "title": "DataSplittingCoverageSettings",
       "type": "object"
     },
     "DataSplittingUncoveredItemsSettings": {
@@ -5083,6 +5131,24 @@
         }
       },
       "title": "DiversityConfig",
+      "type": "object"
+    },
+    "DiversitySettings": {
+      "additionalProperties": false,
+      "description": "The `diversity` step's settings.",
+      "properties": {
+        "method": {
+          "default": "simpson",
+          "description": "The diversity index.",
+          "enum": [
+            "simpson",
+            "shannon"
+          ],
+          "title": "Method",
+          "type": "string"
+        }
+      },
+      "title": "DiversitySettings",
       "type": "object"
     },
     "DriftDomainClassifierConfig": {
@@ -6518,13 +6584,35 @@
       "properties": {
         "max_items": {
           "default": 50,
-          "description": "The most out-of-distribution agreed images explained per test source. Legacy's `max_ood_insights`.",
+          "description": "The most out-of-distribution agreed images explained per test source.",
           "exclusiveMinimum": 0,
           "title": "Max Items",
           "type": "integer"
         }
       },
       "title": "FactorDeviationSettings",
+      "type": "object"
+    },
+    "FactorGapsSettings": {
+      "additionalProperties": false,
+      "description": "The `factor-gaps` step's settings.",
+      "properties": {
+        "mi_threshold": {
+          "default": 0.1,
+          "description": "The least mutual information with the class a factor needs to be searched.",
+          "minimum": 0.0,
+          "title": "Mi Threshold",
+          "type": "number"
+        },
+        "min_representation": {
+          "default": 5,
+          "description": "A combination is a gap under this count while its expected count is over it.",
+          "minimum": 1,
+          "title": "Min Representation",
+          "type": "integer"
+        }
+      },
+      "title": "FactorGapsSettings",
       "type": "object"
     },
     "FactorLeakageConfig": {
@@ -6703,28 +6791,6 @@
         }
       },
       "title": "FlattenExtractorConfig",
-      "type": "object"
-    },
-    "GapSettings": {
-      "additionalProperties": false,
-      "description": "The `factor-gaps` step's settings.",
-      "properties": {
-        "mi_threshold": {
-          "default": 0.1,
-          "description": "The least mutual information with the class a factor needs to be searched.",
-          "minimum": 0.0,
-          "title": "Mi Threshold",
-          "type": "number"
-        },
-        "min_representation": {
-          "default": 5,
-          "description": "A combination is a gap under this count while its expected count is over it.",
-          "minimum": 1,
-          "title": "Min Representation",
-          "type": "integer"
-        }
-      },
-      "title": "GapSettings",
       "type": "object"
     },
     "HuggingFaceDatasetConfig": {
@@ -7227,7 +7293,7 @@
     },
     "LabelSpaceConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``label-space`` entry: the ontology to judge labels against, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: vocab\n        type: label-space\n        ontology: vehicles\n        expected: {truck: 0.2}",
+      "description": "The settings of one ``label-space`` entry: the ontology to judge labels against, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: vocab\n        type: label-space\n        ontology: vehicles\n        representation: {expected: {truck: 0.2}}",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -7254,6 +7320,28 @@
           "description": "The ontology to judge labels against: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children.",
           "title": "Ontology"
         },
+        "representation": {
+          "$ref": "#/$defs/LabelSpaceRepresentationSettings",
+          "description": "The `representation` step's settings."
+        },
+        "ontology-validation": {
+          "$ref": "#/$defs/OntologyValidationSettings"
+        },
+        "checks": {
+          "$ref": "#/$defs/LabelSpaceChecks",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "required": [
+        "ontology"
+      ],
+      "title": "LabelSpaceConfig",
+      "type": "object"
+    },
+    "LabelSpaceRepresentationSettings": {
+      "additionalProperties": false,
+      "description": "The `representation` step's settings in label-space: each class's minimum share.",
+      "properties": {
         "expected": {
           "anyOf": [
             {
@@ -7269,31 +7357,11 @@
             }
           ],
           "default": null,
-          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1], as `representation` reads it. A name resolving to no concept or to several is ignored and noted.",
+          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1]. A name resolving to no concept or to several is ignored and noted.",
           "title": "Expected"
-        },
-        "label_pattern": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "A regex every ontology label should match, as `ontology-validation` reads it.",
-          "title": "Label Pattern"
-        },
-        "checks": {
-          "$ref": "#/$defs/LabelSpaceChecks",
-          "description": "When findings warn, keyed by check type."
         }
       },
-      "required": [
-        "ontology"
-      ],
-      "title": "LabelSpaceConfig",
+      "title": "LabelSpaceRepresentationSettings",
       "type": "object"
     },
     "LeafCoverageSettings": {
@@ -7816,15 +7884,32 @@
           "title": "Detectors",
           "type": "array"
         },
-        "metadata_insights": {
-          "default": true,
-          "description": "Whether the metadata factors behind the flagged images are explained, by two optional steps.",
-          "title": "Metadata Insights",
-          "type": "boolean"
+        "factor-predictors": {
+          "anyOf": [
+            {
+              "const": false,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`false` leaves out the `factor-predictors` step; it takes no settings.",
+          "title": "Factor-Predictors"
         },
-        "factor_deviation": {
-          "$ref": "#/$defs/FactorDeviationSettings",
-          "description": "The `factor-deviation` step's settings."
+        "factor-deviation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactorDeviationSettings"
+            },
+            {
+              "const": false,
+              "type": "boolean"
+            }
+          ],
+          "description": "The `factor-deviation` step's settings; `false` leaves it out.",
+          "title": "Factor-Deviation"
         },
         "checks": {
           "$ref": "#/$defs/OODDetectionChecks",
@@ -8459,6 +8544,27 @@
         "ontology"
       ],
       "title": "OntologyValidationConfig",
+      "type": "object"
+    },
+    "OntologyValidationSettings": {
+      "additionalProperties": false,
+      "description": "The `ontology-validation` step's settings.",
+      "properties": {
+        "label_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A regex every ontology label should match.",
+          "title": "Label Pattern"
+        }
+      },
+      "title": "OntologyValidationSettings",
       "type": "object"
     },
     "OutliersConfig": {
@@ -10883,46 +10989,6 @@
       "title": "SourceConfig",
       "type": "object"
     },
-    "SplittingCoverage": {
-      "additionalProperties": false,
-      "description": "The `coverage` steps' settings, as a `coverage` evaluator entry reads them, with legacy data-splitting's\ndefaults; each keeps its default when `coverage:` is written partly.",
-      "properties": {
-        "method": {
-          "anyOf": [
-            {
-              "enum": [
-                "naive",
-                "adaptive"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How the coverage radius is set: `naive`, a fixed analytic radius, or `adaptive`, a cutoff on the `percent` most sparsely neighbored items. Unset uses DataEval's default (`adaptive`). Only `naive` coverage is judged, by `uncovered-items` steps. DataEval's naive radius overflows past about 340 embedding dimensions, so `naive` suits low-dimensional embeddings; with a wide extractor its coverage steps are skipped with `failed: OverflowError`.",
-          "title": "Method"
-        },
-        "num_observations": {
-          "default": 50,
-          "description": "Neighbors an item needs within the radius to count as covered, fewer than the smallest part's items. Legacy's `num_observations`.",
-          "exclusiveMinimum": 0,
-          "title": "Num Observations",
-          "type": "integer"
-        },
-        "percent": {
-          "default": 0.01,
-          "description": "Fraction of each part's items flagged as uncovered, for `adaptive` only. Legacy's `coverage_percent`.",
-          "exclusiveMaximum": 1.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Percent",
-          "type": "number"
-        }
-      },
-      "title": "SplittingCoverage",
-      "type": "object"
-    },
     "StatsMeasureConfig": {
       "additionalProperties": false,
       "description": "One view of the imagery and the statistic families measured over it.",
@@ -12182,6 +12248,18 @@
         "name"
       ],
       "title": "WorkflowStep",
+      "type": "object"
+    },
+    "WrapSettings": {
+      "additionalProperties": false,
+      "description": "The `wrap` step's settings, for the crops data-coverage measures detection data on: `DetectionCrops`' `params`.\nThe preset fixes the wrapper and `other_kinds`.",
+      "properties": {
+        "params": {
+          "$ref": "#/$defs/CropParams",
+          "description": "`DetectionCrops`' parameters."
+        }
+      },
+      "title": "WrapSettings",
       "type": "object"
     },
     "YoloDatasetConfig": {

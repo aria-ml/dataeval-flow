@@ -47,10 +47,14 @@ class LabelSpaceWorkflow(Preset, Workflow[LabelSpaceConfig, ChainResult]):
         """The four evaluators, each followed by its check."""
         limits = config.checks
         evaluators: list[Any] = [
-            RepresentationConfig(name="representation", ontology=config.ontology, expected=config.expected),
+            RepresentationConfig(
+                name="representation", ontology=config.ontology, expected=config.representation.expected
+            ),
             LabelReconciliationConfig(name="reconciliation", ontology=config.ontology),
             LabelAlignmentConfig(name="alignment", ontology=config.ontology),
-            OntologyValidationConfig(name="structure", ontology=config.ontology, label_pattern=config.label_pattern),
+            OntologyValidationConfig(
+                name="structure", ontology=config.ontology, label_pattern=config.ontology_validation.label_pattern
+            ),
         ]
         steps: list[dict[str, Any]] = [
             {"name": "representation", "evaluator": "representation", "input": "data"},

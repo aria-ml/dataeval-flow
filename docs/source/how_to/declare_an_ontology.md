@@ -117,13 +117,14 @@ Rename one of them.
 ## Set expected class shares
 
 By default every sanctioned class is held to a uniform share of the dataset. When some classes are legitimately rarer
-than others, give them explicit floors with `expected` — a mapping of class name to its minimum expected
+than others, give them explicit floors with `representation.expected` — a mapping of class name to its minimum expected
 share as a fraction in `[0, 1]`:
 
 ```yaml
-    expected:
-      face_shield: 0.05
-      goggles: 0.02
+    representation:
+      expected:
+        face_shield: 0.05
+        goggles: 0.02
 ```
 
 Named classes use their floor as the collection target instead of the uniform share, and a dataset below the floor is
@@ -132,11 +133,12 @@ is ignored and noted in the result.
 
 ## Lint the label names
 
-`label_pattern` is a regex every concept label should match. It catches a vocabulary that has drifted into mixed
-conventions:
+`ontology-validation.label_pattern` is a regex every concept label should match. It catches a vocabulary that
+has drifted into mixed conventions:
 
 ```yaml
-    label_pattern: '^[a-z0-9_]+$'   # lowercase_snake_case
+    ontology-validation:
+      label_pattern: '^[a-z0-9_]+$'   # lowercase_snake_case
 ```
 
 Labels that fail are reported in the ontology's structure.

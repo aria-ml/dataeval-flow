@@ -26,7 +26,12 @@ class TestOODWorkflow:
         self,
         image_folder_pipeline_builder: Callable[..., tuple[PipelineConfig, Path]],
     ) -> None:
-        preset = {"name": "ood_main", "detectors": [{"type": "ood-kneighbors", "k": 3}], "metadata_insights": False}
+        preset = {
+            "name": "ood_main",
+            "detectors": [{"type": "ood-kneighbors", "k": 3}],
+            "factor-predictors": False,
+            "factor-deviation": False,
+        }
         cfg, data_dir = image_folder_pipeline_builder(
             sources=(("ref", 0), ("test", 99)),
             workflows=[OODDetectionConfig.model_validate(preset)],

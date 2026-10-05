@@ -246,8 +246,8 @@ Notice:
   the detection dataset itself, `coverage` would measure whole images as one class, and warn that it has no class
   breakdown.
 - `params:` passes DataEval's `DetectionCrops` arguments. `min_size: 32` drops boxes whose shorter side is under 32
-  pixels; `data-coverage` passes its `crops.min_size` to its own `wrap` step the same way. A tiny crop carries no SIFT
-  features for BoVW to describe.
+  pixels; `data-coverage` passes its `wrap.params.min_size` to its own `wrap` step the same way. A tiny crop carries
+  no SIFT features for BoVW to describe.
 - Coverage embeds the crops with the task's extractor, which every step uses unless it names its own `extractor:`.
   BoVW needs no model file; [an ONNX model](../notebooks/onnx_embeddings.py) is the higher-fidelity choice once you
   have one.

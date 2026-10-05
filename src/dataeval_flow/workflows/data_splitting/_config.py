@@ -1,6 +1,6 @@
 """The ``data-splitting`` preset's config: the split, its rebalancing, its coverage, and when a finding warns."""
 
-__all__ = ["DataSplittingConfig", "DataSplittingChecks", "SplittingCoverage"]
+__all__ = ["DataSplittingConfig", "DataSplittingChecks", "DataSplittingCoverageSettings"]
 
 from typing import ClassVar, Literal, Self
 
@@ -13,7 +13,7 @@ from dataeval_flow.steps.checks._stratification import StratificationThresholds
 from dataeval_flow.workflows._base import WorkflowConfig
 
 
-class SplittingCoverage(BaseModel):
+class DataSplittingCoverageSettings(BaseModel):
     """The `coverage` steps' settings, as a `coverage` evaluator entry reads them, with legacy data-splitting's
     defaults; each keeps its default when `coverage:` is written partly."""
 
@@ -152,8 +152,8 @@ class DataSplittingConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
         default=None,
         description="DataEval's `ClassBalance` method applied to each train; unset rebalances nothing.",
     )
-    coverage: SplittingCoverage = Field(
-        default_factory=SplittingCoverage,
+    coverage: DataSplittingCoverageSettings = Field(
+        default_factory=DataSplittingCoverageSettings,
         description=(
             "The `coverage` steps' settings, run on the whole set and each part when the task names an extractor."
         ),

@@ -60,7 +60,7 @@ def test_naive_coverage_adds_the_uncovered_rate() -> None:
 
 
 def test_settings_leave_out_their_steps() -> None:
-    names = _names(DataCoverageConfig(name="w", completeness=False, gaps=None))
+    names = _names(DataCoverageConfig.model_validate({"name": "w", "completeness": False, "factor-gaps": False}))
     assert not {"completeness", "completeness-check", "gaps", "gaps-check"} & set(names)
 
 
@@ -154,7 +154,7 @@ def test_a_flat_number_under_a_snake_case_name_is_still_refused() -> None:
 
 
 def test_every_box_dropped_says_there_is_nothing_to_embed() -> None:
-    result = _run({"crops": {"min_size": 10000}}, CoverageDetections(), extractor=True)
+    result = _run({"wrap": {"params": {"min_size": 10000}}}, CoverageDetections(), extractor=True)
     description = next(f.description for f in result.findings if f.title == "Class Coverage") or ""
     assert "no items to embed" in description
     assert description.endswith(".")

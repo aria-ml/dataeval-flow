@@ -23,15 +23,15 @@ from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningChecks
 from dataeval_flow.workflows.data_coverage._config import (
     ClassCoverageSettings,
-    CoverageSettings,
-    CropSettings,
+    CropParams,
     DataCoverageChecks,
     DataCoverageClassImbalanceSettings,
     DataCoverageConfig,
+    DataCoverageCoverageSettings,
     DataCoverageUncoveredItemsSettings,
     DimensionalCompletenessSettings,
     FactorCoverageGapsSettings,
-    GapSettings,
+    FactorGapsSettings,
 )
 from dataeval_flow.workflows.drift_monitoring import DriftMonitoringChecks
 from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
@@ -90,9 +90,9 @@ _NESTED = [
     pytest.param(ClassCoverageSettings, {}, id="coverage-class-coverage"),
     pytest.param(DataCoverageUncoveredItemsSettings, {}, id="coverage-uncovered-rate"),
     pytest.param(DimensionalCompletenessSettings, {}, id="coverage-completeness-score"),
-    pytest.param(CoverageSettings, {}, id="coverage-settings"),
-    pytest.param(CropSettings, {}, id="coverage-crops"),
-    pytest.param(GapSettings, {}, id="coverage-gap-settings"),
+    pytest.param(DataCoverageCoverageSettings, {}, id="coverage-settings"),
+    pytest.param(CropParams, {}, id="coverage-crops"),
+    pytest.param(FactorGapsSettings, {}, id="coverage-gap-settings"),
     pytest.param(DriftMonitoringChecks, {}, id="drift-thresholds"),
     pytest.param(OODDetectionChecks, {}, id="ood-thresholds"),
 ]

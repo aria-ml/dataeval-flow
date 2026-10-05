@@ -46,7 +46,7 @@ from tests.golden.rerouting import approximately
 _GOLDEN = json.loads((Path(__file__).parent / "golden" / "ood.json").read_text())
 _INSIGHTS = ("Factor Predictors", "Factor Deviation")
 _HEADINGS = {"ood-kneighbors": "OOD (K-Neighbors)", "ood-domain-classifier": "OOD (Domain Classifier)"}
-_EXPLAINED = tuple(name for name in SINGLE_SOURCE if CASES[name].preset.get("metadata_insights", True))
+_EXPLAINED = tuple(name for name in SINGLE_SOURCE if CASES[name].preset.get("factor-deviation", True))
 
 
 def test_every_case_is_recorded() -> None:
@@ -87,7 +87,7 @@ def _run(name: str) -> ChainResult:
     task = {"name": "t", "workflow": "ood", "sources": list(case.datasets()), "extractor": "flat"}
     config = PipelineConfig.model_validate({**dict(pipeline(name)), "workflows": [workflow], "tasks": [task]})
     # The factor steps read metadata where anything was flagged, and DataEval bins the toys' continuous factors.
-    explains = case.preset.get("metadata_insights", True) and _GOLDEN[name]["union"]
+    explains = case.preset.get("factor-deviation", True) and _GOLDEN[name]["union"]
     with pytest.warns(UserWarning, match="binned automatically") if explains else nullcontext():
         result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
