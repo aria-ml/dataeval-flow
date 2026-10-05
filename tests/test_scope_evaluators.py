@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from dataeval_flow import run
+from dataeval_flow._cache import DatasetCache
 from dataeval_flow.evaluators import EvaluatorInputs
 from dataeval_flow.evaluators.scope import (
     CoverageConfig,
@@ -18,6 +19,13 @@ from dataeval_flow.evaluators.scope import (
 )
 from dataeval_flow.evaluators.scope._evaluator import PrioritizationEvaluator, usable_labels
 from tests.evaluator_toys import FLAT, ToyImages, output_json
+
+
+@pytest.fixture(autouse=True)
+def _fresh_caches():
+    DatasetCache.clear_instances()
+    yield
+    DatasetCache.clear_instances()
 
 
 def _declaring(*names: str, **kwargs: Any) -> ToyImages:
