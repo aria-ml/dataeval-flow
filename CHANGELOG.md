@@ -8,7 +8,8 @@
   ("Not ready", "Ready with caveats" or "Ready"), a record of what was audited, with each split's items, classes,
   metadata factors and digests and the criteria applied, the findings under five questions, and next steps for each
   warning and each check not assessed. `blocking:` names the check types whose warning makes it not ready, and
-  `accepted:` gives a reason a check type's warning is accepted
+  `accepted:` gives a reason a check type's warning is accepted. The result's `verdict`, `ChainResult.verdict` and
+  `verdict` in its JSON, holds the level, the unaccepted warnings, each acceptance and each check not assessed
 - A Find the Right Step index leading from a question to the preset and steps that answer it; preset, combine and
   naming-conventions reference pages; and evaluator and check catalogs grouped by question, each entry giving its
   ports, settings, the checks that judge it, the presets that run it and an example
@@ -66,8 +67,8 @@
 - Workflow `ontology:` resolves pool names first, falling back to file paths for backward compatibility
 - `merge:` on sources to concatenate multiple inputs into one dataset, unified via `Relabel` views
 - Top-level `exports:` key exporting sources to COCO, YOLO, Hugging Face, or VisDrone format with `provenance.json`
-- `ontology:` support across all workflows but `data-coverage`, attaching the vocabulary audit digest to results
-- `label_space` on result envelopes, recording conformed vocabulary and matching audit digest
+- `ontology:` support across all workflows but `data-coverage`, attaching the label-space digest to results
+- `label_space` on result envelopes, recording conformed vocabulary and matching label-space digest
 - `channel_groups:` on datasets, measuring band groups separately as `<group>_<statistic>` columns
 - Top-level `stats:` key defining policies for measured statistics, background inclusion, and outlier/factor views
 - `format: demo` dataset loader resolving tutorial datasets from a fixed table without arbitrary imports
@@ -521,7 +522,7 @@
   where each of its settings went, and an `audit` entry refuses each of them by name:
   - `outlier_method` and `outlier_threshold` are `outliers.outlier_threshold`: the method, or `[method, threshold]`
   - `outlier_flags` is `outliers.flags`, `diversity_method` is `diversity.method`, and `divergence_method` is
-    `divergence.method`
+    `divergence.method`. `diversity_method: null` (skip diversity) has no replacement: audit always runs diversity
   - `balance` is refused: balance always runs, and is skipped on metadata with no factors
   - `include_image_stats` is the metadata policy's `intrinsic_factors`
   - `value_range` is refused: set it on the dataset
@@ -530,6 +531,16 @@
   - `health_thresholds` is `checks:`. Its `image_outliers` is `checks.image-outliers.warning`, `exact_duplicates`
     and `near_duplicates` are `checks.image-duplicates.exact` and `.near`, `class_label_imbalance` is
     `checks.class-imbalance.warning`, and `distribution_shift` is `checks.distribution-shift.warning`
+  - `DataAnalysisResult`'s raw fields are the steps of an audit's `result.steps`: each split's `image_quality`,
+    `redundancy` and `label_health` are its `outliers`, `duplicates` and `label-health` steps (`outliers-train`, and
+    `outliers-evals` by split); train's `bias` is `factor-summary`, `balance` and `diversity`; and `cross_split`'s
+    duplicate leakage, label comparisons and divergence are `duplicates-cross` and `duplicates-pairs`,
+    `class-sufficiency`, `untrained-classes` and `stratification`, and `divergence`
+  - Its findings' titles: Image Quality is Image Outliers, Redundancy is Image Duplicates, Label Balance is Class
+    Imbalance, Bias is Shortcut Risk, with diversity as evidence, Label Overlap is Untrained Classes and Class
+    Sufficiency, and Label Parity is Stratification. Leakage and Distribution Shift keep their titles
+  - Gone with it: the chi-square label parity, divergence between evaluation splits, bias judged per split, the
+    warning on low diversity, and Label Balance's warning on unlabelled images
 - The settings only `data-analysis` still took, which no workflow takes now:
   - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source`:
     name a policy under `metadata:`, which takes `auto_bin_method`, `exclude`, `continuous_factor_bins` and
