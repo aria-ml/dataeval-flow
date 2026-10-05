@@ -7,9 +7,12 @@ were computed on, and makes an Output a check reads. See [Workflows as Chains of
 Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and the [Transform Catalog](transforms.md) for the steps
 that make Datasets.
 
-Each entry's **Used in** names the presets that run the check. See the [Preset Catalog](presets.md) for each preset's
-chain. `class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage` and `distribution-shift`
-run in a [custom workflow](../how_to/write_a_custom_workflow.md) of your own, to audit a set of splits before training.
+Each entry's **Used in** names the presets that run the check; where it names none, chain the check in a [workflow of
+your own](../how_to/write_a_custom_workflow.md). See the [Preset Catalog](presets.md) for each preset's chain.
+`class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage` and `distribution-shift` run in a
+workflow of your own, to audit a set of splits before training. [Audit a set of
+splits](../how_to/write_a_custom_workflow.md#11-audit-a-set-of-splits) chains `leakage`, `distribution-shift` and
+`eval-coverage` after `data-splitting`.
 
 ## At a glance
 
@@ -260,7 +263,7 @@ split lacks included. A `null` limit judges nothing, and with both `null` the fi
 | `eval` | an integer of at least 0, or `null` | `30` | The fewest labels each class train holds needs in each evaluation split; at 30, a per-class metric's 95% interval is about ±18 points |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 evaluators:
@@ -297,7 +300,7 @@ holds a labelled class, it is not assessed (`no evaluation split holds a labelle
 | `declared` | `true` or `false` | `false` | Whether a declared class with no labels in train also warns |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 evaluators:
@@ -656,7 +659,7 @@ assessed (`no factor to score`). With `warning: null` the finding is `info`.
 | `warning` | 0 to 1, or `null` | `0.1` | The mutual information with the class past which a factor warns; `null` judges nothing |
 
 - **Judges:** [`balance`](evaluators.md#balance)
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 evaluators:
@@ -735,7 +738,7 @@ holds an element, as there is then no pair of splits; an empty or failed `factor
 | `groups` | an integer of at least 0, or `null` | `0` | Most group values held by both splits of a pair before the finding warns |
 
 - **Judges:** [`duplicates`](evaluators.md#duplicates), [`factor-leakage`](evaluators.md#factor-leakage)
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 evaluators:
@@ -769,7 +772,7 @@ high, moderate or low divergence. A `null` limit judges nothing at its level, an
 | `info` | a number from 0 to 1, or `null` | 0.4 times `warning` | The divergence above which the finding is `info`, at or below which it is `ok`; `null` has no `info` band; must not exceed `warning` |
 
 - **Judges:** [`divergence`](evaluators.md#divergence)
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 evaluators:
@@ -805,7 +808,7 @@ where unset; a split drawn like train has about 100 minus that percent flagged b
 
 - **Judges:** [`ood-domain-classifier`](evaluators.md#ood-domain-classifier),
   [`ood-kneighbors`](evaluators.md#ood-kneighbors)
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 evaluators:

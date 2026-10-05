@@ -270,7 +270,9 @@ stratification against the whole, and, when the task names an extractor, its cov
 Imbalance for the whole set, Stratification for each fold, and Uncovered Items under `naive` coverage; balance and
 diversity are report sections. The result is a `ChainResult`, and each part's indices into the source are in
 `result.steps["split"].details["indices"]`. Run as a step of a custom workflow, the entry hands on three Datasets:
-`<step>.train` (the rebalanced train, where the entry sets `rebalance:`), `<step>.val` and `<step>.test`. See
+`<step>.train` (the rebalanced train, where the entry sets `rebalance:`), `<step>.val` and `<step>.test`. The preset
+does not judge leakage, shift or evaluation coverage, so see
+[Audit a set of splits](../how_to/write_a_custom_workflow.md#11-audit-a-set-of-splits) for the steps that do. See
 [Dataset Splitting](../concepts/DatasetSplitting.md).
 
 ```yaml

@@ -3,7 +3,8 @@
 A transform is a step of a custom workflow that makes Datasets: it views, wraps, merges, splits, selects from,
 removes from or relabels the Datasets earlier steps made, or writes one to disk. See
 [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and
-[Chain steps into a workflow of your own](../how_to/write_a_custom_workflow.md) for a worked example.
+[Chain steps into a workflow of your own](../how_to/write_a_custom_workflow.md) for a worked example. Each entry's
+**Used in** names the presets that run the transform; where it names none, chain it in a workflow of your own.
 
 ## At a glance
 
@@ -123,7 +124,7 @@ fewer than two fails the config load.
 | --- | --- | --- | --- |
 | `input` | a list of two or more addresses | required | The Datasets to concatenate, in order |
 
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 workflows:
@@ -321,7 +322,7 @@ fails the step, naming the classes it has. Two conforms onto one ontology give t
 which `merge` needs. The step adds a record of the remap it applied to the result's `label_space`, and its report
 section lists each collapse and each dropped class.
 
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 ontologies:
@@ -373,7 +374,7 @@ the step, and that is not a failure. A Dataset of another kind is refused before
 coincide anywhere in the run, top-level `exports:` included, fail the config load.
 [Export a dataset](../how_to/export_a_dataset.md) covers the formats and modes in full.
 
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 datasets:

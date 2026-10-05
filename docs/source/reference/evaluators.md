@@ -4,7 +4,8 @@ Each evaluator runs one DataEval evaluator and reports its determinations, with 
 Evaluators](../concepts/WorkflowsAndEvaluators.md)). An evaluator's `type` names what it computes, in kebab case, after
 DataEval's class where there is one (`drift-mmd` runs `DriftMMD`). To run one, see [Run a single
 evaluator](../how_to/run_a_single_evaluator.md); for worked examples, see [Evaluator
-recipes](../how_to/evaluator_recipes.md).
+recipes](../how_to/evaluator_recipes.md). Each entry's **Used in** names the presets that run the evaluator; where it
+names none, run it as a task, or chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md).
 
 ## At a glance
 
@@ -444,7 +445,7 @@ It runs `dataeval.bias.Parity` on the Dataset's metadata.
 | `label` | `label`: a factor, or a list of factors, to condition on | the class labels |
 
 - **Judged by:** none
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 evaluators:
@@ -540,7 +541,7 @@ fails the run, naming the source. The `leakage` check judges the values both sou
 | `factors` | (DataEval Flow) the factors to compare, by name | required |
 
 - **Judged by:** [`leakage`](checks.md#leakage)
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 evaluators:
@@ -570,7 +571,7 @@ It runs `dataeval.core.divergence_mst` or `divergence_fnn`.
 | `method` | (DataEval Flow) `mst` or `fnn` | `mst` |
 
 - **Judged by:** [`distribution-shift`](checks.md#distribution-shift)
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 evaluators:
@@ -931,7 +932,7 @@ on the items' order. {py:func}`~dataeval_flow.dataset_digest` computes the same 
 It takes no parameters.
 
 - **Judged by:** none
-- **Used in:** none
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 evaluators:

@@ -19,8 +19,8 @@ correlated groups of samples. A split that ignores these relationships produces
 optimistic, untrustworthy numbers.
 
 In DataEval Flow, the `data-splitting` workflow produces train/validation/test
-index sets from a source, supporting stratification, configurable fractions, and a
-fixed seed for reproducibility. The orchestration layer makes the split a
+index sets from a source, supporting stratification and configurable fractions. The
+same data gives the same split on every run. The orchestration layer makes the split a
 declarative, repeatable pipeline step; the splitting logic and its
 leakage-avoidance guarantees are DataEval's. The science of leakage — how it
 arises and how to prevent it — is explained authoritatively in DataEval's
@@ -28,11 +28,12 @@ arises and how to prevent it — is explained authoritatively in DataEval's
 
 ## The preset
 
-`data-splitting` is a {term}`preset <Preset>`: its settings expand to a chain of steps. The chain judges the whole
-set's labels, balance and diversity, splits it (`folds: 1`) or cuts it into k folds (`folds` of 2 or more) with a
-shared test part, optionally rebalances each train, and judges each part's labels, its stratification against the
-whole, and, when the task names an extractor, its coverage. Its findings are Class Imbalance for the whole set,
-Stratification for each fold, and Uncovered Items under `naive` coverage; balance and diversity are report sections.
+`data-splitting` is a {term}`preset <Preset>`: its settings expand to a chain of steps, which the
+[Preset Catalog](../reference/presets.md#data-splitting) lists with its settings and findings. The preset judges class
+shares and coverage, not leakage. On classification data, its `split_on` keeps each value of a metadata factor, such
+as a scene or site, in one part, so correlated groups of samples do not straddle a split. To judge leakage, shift and
+evaluation coverage, chain the steps in
+[Audit a set of splits](../how_to/write_a_custom_workflow.md#11-audit-a-set-of-splits).
 
 The result is a `ChainResult`. Each part's indices into the source are in
 `result.steps["split"].details["indices"]`, as `train`, `val` and `test`; under k-fold, `train` and `val` are keyed by
@@ -40,17 +41,16 @@ fold, `"0"` to `"k-1"`. The rebalanced train's indices are in `result.steps["reb
 k-fold, each fold's are in `result.steps["rebalanced"].elements["<k>"].details["indices"]`. Where rebalancing kept the
 train as it was, `details` is `None` and the train's indices from `split` apply.
 
-Run as a step of a custom workflow, the entry hands on three Datasets: `<step>.train` (the rebalanced train, where the
-entry sets `rebalance:`), `<step>.val` and `<step>.test`. Under `folds` of 2 or more, `train` and `val` are lists keyed
-by fold. Only object-detection Datasets can be exported; see
+Run as a step of a custom workflow, the entry hands on its parts as `<step>.train`, `<step>.val` and `<step>.test`.
+Only object-detection Datasets can be exported; see
 [Export the parts of a split](../how_to/export_a_dataset.md#export-the-parts-of-a-split).
 
 ## When to use it
 
 Split when preparing a dataset for training and evaluation — after cleaning, so
 that duplicates that would cause leakage have already been flagged. Prefer a
-stratified split whenever class balance matters or rare classes are present, and
-fix the seed so the partition is reproducible across runs.
+stratified split whenever class balance matters or rare classes are present. The
+partition draws no random numbers, so rerunning on the same data reproduces it.
 
 ## Related concept pages
 
