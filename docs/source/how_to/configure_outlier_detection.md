@@ -137,8 +137,8 @@ inspection.
   statistics into the metadata, and `value_range` for float imagery
 - [Data Quality and Cleaning](../concepts/DataQualityAndCleaning.md) — the concepts behind outlier and duplicate
   detection
-- [Evaluator Catalog](../reference/evaluators.md) — `outliers` runs the same detection alone, and takes
-  DataEval's own threshold spellings directly
+- [Evaluator Catalog](../reference/evaluators.md#outliers) — the `outliers` evaluator runs the same detection
+  alone, and takes every setting of the preset's `outliers` block, spelled the same way
 - [DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html) — the
   authoritative treatment of the detection methods themselves
 - {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field and default on

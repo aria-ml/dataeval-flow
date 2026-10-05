@@ -3,8 +3,8 @@
 A workflow type such as `data-cleaning` runs one fixed analysis. When the analysis you need is a sequence, such as
 relabelling two collections onto one vocabulary, merging them, dropping the duplicates and then checking what is left,
 write it as a custom workflow: a `workflows:` entry whose `steps:` each read what an earlier step made. This guide
-builds one in three stages. [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) explains the ideas behind
-it.
+builds one section by section. [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) explains the ideas
+behind it.
 
 ## 1. Conform two datasets and merge them
 

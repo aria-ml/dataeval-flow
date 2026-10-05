@@ -3,7 +3,9 @@
 A **combine** is a step, in a preset's chain or a custom workflow, that reads Outputs, and the Datasets they were
 computed on, and makes an Output a check reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for
 how steps chain, the [Check Catalog](checks.md) for the checks that judge a combine's Output, and the [Transform
-Catalog](transforms.md) for the steps that make Datasets.
+Catalog](transforms.md) for the steps that make Datasets. Each example assumes the pipeline defines `datasets:`, the
+sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor `bovw_ext`, as
+[Evaluator recipes](../how_to/evaluator_recipes.md) does.
 
 ## At a glance
 
@@ -102,12 +104,11 @@ workflows:
 
 Groups each flagged image as flagged by every OOD detector, by some, or by one alone.
 
-Each flagged image falls in one group: flagged by every detector (mutual), by more than one but not every one
-(partial), or by one alone (unique). Its agreement score is the
-mean, over the detectors that scored it, of its score over the detector's threshold, which is derived from the
-detector's flags. A detector whose derived threshold is not positive is left out, and the section names it. The
-section pictures each flagged image once, most out of distribution first. Load refuses Outputs computed on different
-Datasets.
+Each flagged image falls in one group: flagged by every detector (mutual), by more than one but not every one (partial),
+or by one alone (unique). Its agreement score is the mean, over the detectors that scored it, of its score over the
+detector's threshold, which is derived from the detector's flags. A detector whose derived threshold is not positive is
+left out, and the section names it. The section pictures each flagged image once, most out of distribution first. Load
+refuses Outputs computed on different Datasets.
 
 - **Reads:** `input`, the OOD Outputs of one comparison of a test source with a reference, as one address or a list.
 - **Makes:** an {py:class}`~dataeval_flow.steps.combines.OODUnionOutput`: each flagged image as mutual, partial or
@@ -142,11 +143,11 @@ workflows:
 Ranks the metadata factors that go with the images OOD detectors flagged.
 
 DataEval's `factor_predictors`: normalized mutual information from 0 to 1, strongest first, over the test images the
-detectors assessed. Factors are the item-level
-metadata factors, without `id`, with `class_label` where there is one label per item, and the per-image statistics
-named `f_<statistic>`; a factor counts where both Datasets have it, numeric, one-dimensional, finite in both, and not
-constant in the test. Where a Dataset's metadata or statistics cannot be read, the rest is read without it, and the
-section says so. Load refuses an `ood` Output computed on other Datasets than `reference` and `input`.
+detectors assessed. Factors are the item-level metadata factors, without `id`, with `class_label` where there is one
+label per item, and the per-image statistics named `f_<statistic>`; a factor counts where both Datasets have it,
+numeric, one-dimensional, finite in both, and not constant in the test. Where a Dataset's metadata or statistics cannot
+be read, the rest is read without it, and the section says so. Load refuses an `ood` Output computed on other Datasets
+than `reference` and `input`.
 
 - **Reads:** `ood`, an `ood-union` or OOD Output; `reference`, the reference Dataset the detectors fitted on; `input`,
   the test Dataset whose images were flagged.

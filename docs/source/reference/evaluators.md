@@ -4,8 +4,11 @@ Each evaluator runs one DataEval evaluator and reports its determinations, with 
 Evaluators](../concepts/WorkflowsAndEvaluators.md)). An evaluator's `type` names what it computes, in kebab case, after
 DataEval's class where there is one (`drift-mmd` runs `DriftMMD`). To run one, see [Run a single
 evaluator](../how_to/run_a_single_evaluator.md); for worked examples, see [Evaluator
-recipes](../how_to/evaluator_recipes.md). Each entry's **Used in** names the presets that run the evaluator; where it
-names none, run it as a task, or chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md).
+recipes](../how_to/evaluator_recipes.md). Each entry's **Combined by**, where it has one, names the combines that read
+its Output, and its **Used in** names the presets that run the evaluator; where it names none, run it as a task, or
+chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md). Each example assumes the pipeline defines
+`datasets:`, the sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor
+`bovw_ext`, as [Evaluator recipes](../how_to/evaluator_recipes.md) does.
 
 ## At a glance
 
@@ -77,6 +80,7 @@ It runs `dataeval.quality.Outliers`, flagging the statistics that sit outside th
 | `per_target` | `from_stats(per_target=...)` | DataEval's default |
 
 - **Judged by:** [`image-outliers`](checks.md#image-outliers), [`target-outliers`](checks.md#target-outliers)
+- **Combined by:** [`outliers-by-class`](combines.md#outliers-by-class)
 - **Used in:** [`data-cleaning`](presets.md#data-cleaning), [`data-prioritization`](presets.md#data-prioritization)
 
 ```yaml
@@ -364,8 +368,8 @@ tasks:
 
 How much of the embedding space's dimensions the data fills (DataEval completeness).
 
-The embeddings are rescaled to the unit interval per dimension first, a constant dimension at 0, as legacy
-`data-coverage` did. It runs `dataeval.core.completeness`.
+The embeddings are rescaled to the unit interval per dimension first, a constant dimension at 0. It runs
+`dataeval.core.completeness`.
 
 - **Reads:** `input`: one Dataset; Flow derives its embeddings through the task's extractor.
 - **Makes:** a `completeness` Output: a mapping: `completeness` and `nearest_neighbor_pairs`.
@@ -415,6 +419,7 @@ It runs `dataeval.bias.Balance` on the Dataset's metadata.
 | `factor_source` | `factor_source`: `coded`, `values` or `auto` | the policy's `factor_source`, else DataEval's default (`auto`) |
 
 - **Judged by:** [`shortcut-risk`](checks.md#shortcut-risk)
+- **Combined by:** [`factor-gaps`](combines.md#factor-gaps)
 - **Used in:** [`data-coverage`](presets.md#data-coverage), [`data-splitting`](presets.md#data-splitting)
 
 ```yaml
@@ -489,8 +494,7 @@ tasks:
 
 Each metadata factor's type, binning, nulls, and range or top values.
 
-These are the facts legacy data-coverage's Metadata Distribution listed. It reads the Dataset's metadata through
-DataEval's `Metadata`.
+It reads the Dataset's metadata through DataEval's `Metadata`.
 
 - **Reads:** `input`: one Dataset; Flow derives its metadata under the `metadata:` policy the evaluator names.
 - **Makes:** a `factor-summary` Output: a mapping of `factors`, the kept factor names, and `summary`, each factor's
@@ -702,7 +706,8 @@ tasks:
 Per-dimension Wasserstein distance against a validation baseline (DataEval DriftWasserstein).
 
 Each dimension's Wasserstein distance from the reference to the data is set against its distance to the validation set.
-It runs `dataeval.shift.DriftWasserstein`.
+It runs `dataeval.shift.DriftWasserstein`. `drift-monitoring` takes no validation source and refuses it, so chain it
+as [Drift in a model's uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty) does.
 
 - **Reads:** `input`: three Datasets, the reference, an in-distribution validation set (the task's middle source, which
   DataEval requires), then the data to test; Flow derives their embeddings through the task's extractor.
@@ -717,7 +722,7 @@ It runs `dataeval.shift.DriftWasserstein`.
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 
 - **Judged by:** [`drift`](checks.md#drift)
-- **Used in:** [`drift-monitoring`](presets.md#drift-monitoring)
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml
 evaluators:
@@ -767,7 +772,9 @@ source is the reference, and the last is the data to test.
 Test items far from their nearest reference neighbors (DataEval OODKNeighbors).
 
 Each test item is scored by its distance to its nearest reference neighbors, and flagged beyond the distance
-`threshold_perc` percent of the reference stays within. It runs `dataeval.shift.OODKNeighbors`.
+`threshold_perc` percent of the reference stays within. It runs `dataeval.shift.OODKNeighbors`. On an `uncertainty`
+extractor's rows it needs `distance_metric: euclidean`, since cosine distance cannot rank one number. `eval-coverage`
+relates the share of its Output flagged to that percentile of train.
 
 - **Reads:** `input`: two Datasets, the reference then the data to test; Flow derives their embeddings through the
   task's extractor.
@@ -783,6 +790,8 @@ Each test item is scored by its distance to its nearest reference neighbors, and
 | `threshold_perc` | `threshold_perc`, 0 to 100 | DataEval's default (`95`) |
 
 - **Judged by:** [`eval-coverage`](checks.md#eval-coverage), [`ood`](checks.md#ood)
+- **Combined by:** [`factor-deviation`](combines.md#factor-deviation),
+  [`factor-predictors`](combines.md#factor-predictors), [`ood-union`](combines.md#ood-union)
 - **Used in:** [`ood-detection`](presets.md#ood-detection)
 
 ```yaml
@@ -798,7 +807,8 @@ tasks:
 Test items a classifier tells apart from the reference (DataEval OODDomainClassifier).
 
 The classifier is trained to tell each test item from the reference under repeated cross-validation, and the items it
-separates well are flagged. It runs `dataeval.shift.OODDomainClassifier`.
+separates well are flagged. It runs `dataeval.shift.OODDomainClassifier`. `eval-coverage` judges the share of its
+Output flagged, with no percentile of the reference to relate it to.
 
 - **Reads:** `input`: two Datasets, the reference then the data to test; Flow derives their embeddings through the
   task's extractor.
@@ -816,6 +826,8 @@ separates well are flagged. It runs `dataeval.shift.OODDomainClassifier`.
 | `threshold_perc` | `threshold_perc`, 0 to 100; overrides `n_std` | `n_std` sets the threshold |
 
 - **Judged by:** [`eval-coverage`](checks.md#eval-coverage), [`ood`](checks.md#ood)
+- **Combined by:** [`factor-deviation`](combines.md#factor-deviation),
+  [`factor-predictors`](combines.md#factor-predictors), [`ood-union`](combines.md#ood-union)
 - **Used in:** [`ood-detection`](presets.md#ood-detection)
 
 ```yaml

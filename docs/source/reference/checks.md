@@ -12,7 +12,9 @@ your own](../how_to/write_a_custom_workflow.md). See the [Preset Catalog](preset
 `class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage` and `distribution-shift` run in a
 workflow of your own, to audit a set of splits before training. [Audit a set of
 splits](../how_to/write_a_custom_workflow.md#11-audit-a-set-of-splits) chains `leakage`, `distribution-shift` and
-`eval-coverage` after `data-splitting`.
+`eval-coverage` after `data-splitting`. Each example assumes the pipeline defines `datasets:`, the sources `train`,
+`test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor `bovw_ext`, as [Evaluator
+recipes](../how_to/evaluator_recipes.md) does.
 
 ## At a glance
 
@@ -38,7 +40,7 @@ splits](../how_to/write_a_custom_workflow.md#11-audit-a-set-of-splits) chains `l
 | `stratification` | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
 | `leakage` | `duplicates`: `duplicates` Outputs over two splits; `factors`: `factor-leakage` Outputs | Leakage |
 | `distribution-shift` | `input`: a `divergence` Output | Distribution Shift |
-| `eval-coverage` | `input`: an `ood-kneighbors` Output | Eval Coverage |
+| `eval-coverage` | `input`: an OOD evaluator's Output | Eval Coverage |
 | `drift` | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `ood` | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `ood-agreement` | `input`: an `ood-union` Output | OOD Agreement: the share every detector flagged, and the images one alone flagged |
@@ -66,10 +68,12 @@ A check that has its inputs but cannot assess them raises `StepSkipped(reason)`.
 with that reason in the step's `not_assessed`, and never as skipped. `class-sufficiency`, `untrained-classes` and
 `shortcut-risk` do so, as their sections say.
 
-A check with `by: class` runs once per class, or per group of classes, of an Output made with the same `by:`, and
-rolls the findings up into one, titled with the first's title and " by class". Its brief counts the classes that warn,
-as `1/3 classes warn`, and its description names those that warned and those not assessed. See
-[Write a custom workflow](../how_to/write_a_custom_workflow.md) for how to set it up.
+A check with `by: class` runs once per class, or per group of classes, of an Output made with the same `by:`, and rolls
+the findings up into one, titled with the first's title and " by class". Its brief counts the classes that warn, as
+`1/3 classes warn`, and its description names those that warned and those not assessed. See [Write a custom
+workflow](../how_to/write_a_custom_workflow.md) for how to set it up, and [Drift in a model's
+uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty) for `by: predicted`, which keys by the class a
+model predicts.
 
 ## Is the data clean?
 
@@ -260,7 +264,7 @@ split lacks included. A `null` limit judges nothing, and with both `null` the fi
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-health` Output over train |
-| `evals` | an address, a list, or `null` | `null` | The evaluation splits' `label-health` Outputs, a list that may be empty; unset judges train alone |
+| `evals` | an address, or `null` | `null` | The evaluation splits' `label-health` Outputs, a list that may be empty; unset judges train alone |
 | `train` | an integer of at least 0, or `null` | `20` | The fewest labels each class train holds needs in train |
 | `eval` | an integer of at least 0, or `null` | `30` | The fewest labels each class train holds needs in each evaluation split; at 30, a per-class metric's 95% interval is about ±18 points |
 
@@ -298,7 +302,7 @@ holds a labelled class, it is not assessed (`no evaluation split holds a labelle
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-health` Output over train |
-| `evals` | an address, a list, or `null` | `null` | The evaluation splits' `label-health` Outputs, a list that may be empty |
+| `evals` | an address, or `null` | `null` | The evaluation splits' `label-health` Outputs, a list that may be empty |
 | `declared` | `true` or `false` | `false` | Whether a declared class with no labels in train also warns |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)
@@ -758,9 +762,8 @@ workflows:
 
 Warns when two sources' embeddings sit too far apart.
 
-The finding warns above `warning`, is `info` above `info`, and is `ok` at or below both, as data-analysis banded it:
-high, moderate or low divergence. A `null` limit judges nothing at its level, and with both `null` the finding is
-`info`.
+The finding warns above `warning`, is `info` above `info`, and is `ok` at or below both: high, moderate or low
+divergence. A `null` limit judges nothing at its level, and with both `null` the finding is `info`.
 
 - **Reads:** `input`, a `divergence` Output.
 - **Makes:** one finding, titled Distribution Shift.
@@ -782,9 +785,9 @@ evaluators:
 
 workflows:
   - name: example
-    inputs: [reference, tests]
+    inputs: [train, val]
     steps:
-      - {name: divergence, evaluator: divergence, input: [reference, tests]}
+      - {name: divergence, evaluator: divergence, input: [train, val]}
       - {name: distribution-shift, check: distribution-shift, input: divergence, warning: 0.4}
 ```
 
@@ -792,19 +795,20 @@ workflows:
 
 Warns when much of an evaluation split lies beyond what train covers.
 
-It measures how much of the split lies farther from train than most of train lies from itself. The percent flagged is
-judged as `ood` judges its percent. The percentile is the `ood-kneighbors` entry's `threshold_perc`, or DataEval's 95
-where unset; a split drawn like train has about 100 minus that percent flagged by construction, so `info: 2.0` suits
-`threshold_perc: 99`.
+The percent of the split flagged is judged as `ood` judges its percent. Any OOD evaluator's Output can be judged, but
+only an `ood-kneighbors` Output relates the percent to a percentile of train: how much of the split lies farther from
+train than that percent of train lies from itself. The percentile is the `ood-kneighbors` entry's `threshold_perc`, or
+DataEval's 95 where unset; a split drawn like train has about 100 minus that percent flagged by construction, so
+`info: 2.0` suits `threshold_perc: 99`.
 
-- **Reads:** `input`, an `ood-kneighbors` Output fitted on train and run on one evaluation split.
+- **Reads:** `input`, an OOD evaluator's Output fitted on train and run on one evaluation split.
 - **Makes:** one finding, titled Eval Coverage.
 
 **Settings** ({py:class}`~dataeval_flow.steps.checks.EvalCoverageConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `input` | an address | required | An `ood-kneighbors` Output fitted on train and run on one evaluation split |
+| `input` | an address | required | An OOD evaluator's Output fitted on train and run on one evaluation split, best an `ood-kneighbors` one |
 | `warning` | a percentage, or `null` | `10.0` | The percent flagged past which the finding warns |
 | `info` | a percentage, or `null` | `2.0` | The percent past which the finding is `info`, at or below which it is `ok` |
 
@@ -818,9 +822,9 @@ evaluators:
 
 workflows:
   - name: example
-    inputs: [reference, tests]
+    inputs: [train, val]
     steps:
-      - {name: knn, evaluator: knn, input: [reference, tests]}
+      - {name: knn, evaluator: knn, input: [train, val]}
       - {name: eval-coverage, check: eval-coverage, input: knn, warning: 5.0, info: 2.0}
 ```
 
@@ -871,10 +875,11 @@ workflows:
 
 Judges the share of a test source's images an OOD detector flagged.
 
-The share is a percent of the images the detector assessed. On a detector's `uncertainty` rows, an image with no
-detection at the confidence is not assessed, and the brief also counts the detections flagged. The finding warns past
-`warning` percent, is `info` past `info` percent, and is `ok` at or below it; a `null` threshold judges nothing at its
-level, and with both `null` the finding is `info`.
+The share is a percent of the images the detector assessed. On a detector's `uncertainty` rows ([Drift in a model's
+uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty)), which `ood-kneighbors` reads only with
+`distance_metric: euclidean`, an image with no detection at the confidence is not assessed, and the brief also counts
+the detections flagged. The finding warns past `warning` percent, is `info` past `info` percent, and is `ok` at or below
+it; a `null` threshold judges nothing at its level, and with both `null` the finding is `info`.
 
 - **Reads:** `input`, an OOD evaluator's Output.
 - **Makes:** one finding, titled with the detector's subject (see `subject`): the images flagged of those assessed.

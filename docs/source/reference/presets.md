@@ -1,11 +1,12 @@
 # Preset Catalog
 
 A preset is a workflow type whose settings expand to a chain of steps. It runs as a task, or as a step of a custom
-workflow. Each section below gives the question the preset answers, its chain, its settings, its `checks:` defaults
-and an example. See
-[Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md#workflow-types-as-presets) for how a preset runs. The
-chain tables show the chain that the settings above each table build; other settings add, drop or retune steps. A
-block's row lists every field the block takes; it may take fewer than its step does, and refuses any other.
+workflow. Each section below gives the question the preset answers, its chain, its settings, its `checks:` defaults and
+an example. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md#workflow-types-as-presets) for how a
+preset runs. The chain tables show the chain that the settings above each table build; other settings add, drop or
+retune steps. A block's row lists every field the block takes; it may take fewer than its step does, and refuses any
+other. Each example assumes the pipeline defines `datasets:`, the sources `train`, `test`, `validation`, `operational`,
+`labeled` and `unlabeled`, and the extractor `bovw_ext`, as [Evaluator recipes](../how_to/evaluator_recipes.md) does.
 
 ## Settings every preset shares
 
@@ -63,9 +64,9 @@ Outlier and duplicate detection for image datasets, and the dataset without them
 | [`class-imbalance`](checks.md#class-imbalance) | `warning: 5.0` |
 
 The other settings go to the evaluators: the `outliers` block to `outliers`, the `duplicates` block to `duplicates`,
-`metadata` to `label-health`, and `stats` to both `outliers` and `duplicates`. Each block holds the step settings its row
-lists, spelled as the step spells them. Each `checks:` entry holds the settings of the check it names. `clean` removes
-each image and box with at least one outlier flag, and each exact or near duplicate but the first of its group.
+`metadata` to `label-health`, and `stats` to both `outliers` and `duplicates`. Each block holds the step settings its
+row lists, spelled as the step spells them. Each `checks:` entry holds the settings of the check it names. `clean`
+removes each image and box with at least one outlier flag, and each exact or near duplicate but the first of its group.
 
 Its report gives each finding a section, with the evaluators it judged below it: the flagged images and boxes under
 Image Outliers, and the duplicate groups under Image Duplicates. The class counts sit under the first finding that read
@@ -323,7 +324,7 @@ Tests each incoming source for drift from a reference, whole, by chunk and by cl
 | --- | --- | --- | --- |
 | `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
 | `detectors` | a list of drift evaluator entries | required | Drift evaluator entries (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), each tested on every test source against the reference. An entry's `name` names its step. An entry may name its own `extractor:`. |
-| `classwise` | a mapping of detector name to `by:` | `{}` | Detectors to also run per key, unchunked, each with its `by:`: `{drift-mmd: class}`, `{uncertainty: predicted}`, or with settings; `min_items` is 2 unless written. |
+| `classwise` | a mapping of detector name to `by:` | `{}` | Detectors to also run per key, unchunked, each with its `by:`: `{drift-mmd: class}`, `{uncertainty: predicted}` (see [Drift in a model's uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty)), or with settings; `min_items` is 2 unless written. |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
 **Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.drift_monitoring.DriftMonitoringChecks`):

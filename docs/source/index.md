@@ -78,7 +78,7 @@ behind each workflow.
 - **Computer-vision image datasets only** — no NLP or tabular data.
 - **MAITE for native interoperability** — non-MAITE sources are consumed through
   the built-in adapters (HuggingFace, COCO, YOLO, TorchVision, ImageFolder).
-- **Some workflows need metadata** — bias, parity, and metadata-insight analyses
+- **Some workflows need metadata** — bias, parity, and metadata factor analyses
   require per-sample metadata factors.
 - **Some workflows need a model or embeddings** — embedding-space drift, OOD
   detection, and prioritization require a feature extractor or precomputed

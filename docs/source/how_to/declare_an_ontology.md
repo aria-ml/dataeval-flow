@@ -12,9 +12,10 @@ findings `label-space` makes from it.
 
 ## Why counting labels is not enough
 
-A class-balance worklist built from the dataset's own `index2label` is circular: it can only name classes the dataset
-already declares. A class that was never collected has no label, no count, and no row in the report. Declaring the
-label space externally is what breaks the circle, and `label-space` requires one: `ontology:` has no default.
+A Class Shortfall list, which `class-shortfall` builds from the dataset's own `index2label`, is circular: it can only
+name classes the dataset already declares. A class that was never collected has no label, no count, and no row in the
+report. Declaring the label space externally is what breaks the circle, and `label-space` requires one: `ontology:` has
+no default.
 
 ## Option 1: inline hierarchy
 

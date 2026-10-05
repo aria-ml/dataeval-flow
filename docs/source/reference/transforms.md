@@ -4,7 +4,9 @@ A transform is a step, in a preset's chain or a custom workflow, that makes Data
 selects from, removes from or relabels the Datasets earlier steps made, or writes one to disk. See [Workflows as Chains
 of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and [Chain steps into a workflow of your
 own](../how_to/write_a_custom_workflow.md) for a worked example. Each entry's **Used in** names the presets that run the
-transform; where it names none, chain it in a workflow of your own.
+transform; where it names none, chain it in a workflow of your own. Each example assumes the pipeline defines
+`datasets:`, the sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor
+`bovw_ext`, as [Evaluator recipes](../how_to/evaluator_recipes.md) does.
 
 ## At a glance
 
@@ -152,7 +154,7 @@ It runs DataEval's `split_dataset` over the Dataset's metadata.
 | `test_frac` | a number from 0 up to, not including, 1 | `0.0` | The share held out as `test` |
 | `val_frac` | a number from 0 up to, not including, 1 | `0.0` | The share held out as `val` |
 | `stratify` | `true` or `false` | `false` | Whether each part keeps the input's class proportions |
-| `split_on` | a list of metadata factor names | none | Factors whose values never straddle parts, such as a scene or site |
+| `split_on` | a list of metadata factor names | none | Factors whose values never straddle parts, such as a scene or site. Classification data only: DataEval ignores it on detection data, with a warning in the log |
 | `metadata` | the name of a `metadata:` policy | DataEval's defaults | The policy the Dataset's metadata is built under |
 
 Set `test_frac`, `val_frac` or both; together they must leave something to train on. A part whose fraction is 0 is
@@ -187,7 +189,7 @@ It runs DataEval's `split_dataset` over the Dataset's metadata.
 | `folds` | a whole number, 2 or more | required | How many train and val pairs |
 | `test_frac` | a number from 0 up to, not including, 1 | `0.0` | The share held out as `test` |
 | `stratify` | `true` or `false` | `false` | Whether each part keeps the input's class proportions |
-| `split_on` | a list of metadata factor names | none | Factors whose values never straddle parts, such as a scene or site |
+| `split_on` | a list of metadata factor names | none | Factors whose values never straddle parts, such as a scene or site. Classification data only: DataEval ignores it on detection data, with a warning in the log |
 | `metadata` | the name of a `metadata:` policy | DataEval's defaults | The policy the Dataset's metadata is built under |
 
 `test` is empty when `test_frac` is 0, and a step that reads it then fails the config load, as does a fold key outside
@@ -378,7 +380,7 @@ coincide anywhere in the run, top-level `exports:` included, fail the config loa
 
 ```yaml
 datasets:
-  - {name: street, format: huggingface, path: ./street, task: object_detection}
+  - {name: street, format: coco, path: ./street}
 
 sources:
   - {name: street, dataset: street}

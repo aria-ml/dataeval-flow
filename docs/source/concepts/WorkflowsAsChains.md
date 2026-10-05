@@ -52,8 +52,9 @@ Each step names exactly one kind:
 | `combine:` | a registered combine, with its settings beside it | an Output a check reads, made from Outputs |
 | `check:` | a registered check, with its thresholds beside it | findings, each `ok`, `info` or `warning` |
 
-An evaluator or workflow step takes its settings from the entry it names. The step itself holds only what it reads,
-and optionally `extractor:`, `optional:` and `pairs:`. A custom workflow cannot run as a step of another.
+An evaluator or workflow step takes its settings from the entry it names. The step itself holds only what it reads, and
+optionally `extractor:`, `optional:`, `pairs:` and, on an evaluator step, `by:`. A custom workflow cannot run as a step
+of another.
 
 Transform steps make Datasets. The [Transform Catalog](../reference/transforms.md) lists each one's settings:
 

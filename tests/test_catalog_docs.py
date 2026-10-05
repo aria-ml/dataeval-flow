@@ -93,6 +93,11 @@ def _judged_by(entry: StepCatalogEntry) -> set[str]:
     return {check.type for check in _CATALOG if check.kind == "check" and _makes(entry) & _reads(check)}
 
 
+def _combined_by(entry: StepCatalogEntry) -> set[str]:
+    """The combines that read `entry`'s Output."""
+    return {combine.type for combine in _CATALOG if combine.kind == "combine" and _makes(entry) & _reads(combine)}
+
+
 def _preset_section(cls: type) -> str:
     return _section("presets.md", f"## `{cls.name}`")
 
@@ -163,6 +168,17 @@ def test_an_entry_follows_the_template(entry: StepCatalogEntry) -> None:
     unlisted = _USED_IN.get(entry.type, set()) - used
     assert not unlisted, f"`{entry.type}`'s Used in leaves out {sorted(unlisted)}"
     assert used <= {cls.name for cls in _PRESETS}, f"`{entry.type}`'s Used in names {sorted(used)}, not only presets"
+
+
+@pytest.mark.parametrize("entry", [entry for entry in _CATALOG if entry.kind == "evaluator"], ids=_id)
+def test_an_evaluator_names_the_combines_that_read_it(entry: StepCatalogEntry) -> None:
+    section, combined = _entry(entry), _combined_by(entry)
+    if not combined:
+        assert "- **Combined by:**" not in section, f"`{entry.type}` has a Combined by, though no combine reads it"
+        return
+    assert _types(_bullet(section, "Combined by")) == combined, f"`{entry.type}`'s Combined by disagrees with the ports"
+    marks = [section.find(mark) for mark in ("- **Judged by:**", "- **Combined by:**", "- **Used in:**")]
+    assert marks == sorted(marks), f"`{entry.type}`'s Combined by is not between its Judged by and its Used in"
 
 
 @pytest.mark.parametrize("cls", _PRESETS, ids=lambda cls: cls.name)
