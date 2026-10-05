@@ -160,7 +160,7 @@ class OutliersSettings(BaseModel):
     outlier_threshold: ThresholdSpec | Mapping[str, ThresholdSpec] = Field(
         description=(
             "The method, such as `zscore`, `modzscore`, `iqr` or `adaptive`, alone for its default bound or as "
-            "`[method, bound]`; or a mapping from flag to either."
+            "`[method, bound]`, or a bare bound; or a mapping from metric name to any of these."
         ),
     )
     cluster_threshold: float | None = Field(
@@ -171,7 +171,7 @@ class OutliersSettings(BaseModel):
     cluster_algorithm: Literal["kmeans", "hdbscan"] | None = Field(
         default=None, description="The clustering algorithm cluster detection uses."
     )
-    n_clusters: int | None = Field(default=None, description="Expected number of clusters; unset detects it.")
+    n_clusters: int | None = Field(default=None, gt=0, description="Expected number of clusters; unset detects it.")
 
 
 class DuplicatesSettings(BaseModel):
@@ -191,7 +191,7 @@ class DuplicatesSettings(BaseModel):
     cluster_algorithm: Literal["kmeans", "hdbscan"] | None = Field(
         default=None, description="The clustering algorithm cluster detection uses."
     )
-    n_clusters: int | None = Field(default=None, description="Expected number of clusters; unset detects it.")
+    n_clusters: int | None = Field(default=None, gt=0, description="Expected number of clusters; unset detects it.")
 
 
 class DataCleaningConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, StatsConfigMixin):

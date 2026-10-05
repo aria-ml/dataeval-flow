@@ -6408,6 +6408,7 @@
         "n_clusters": {
           "anyOf": [
             {
+              "exclusiveMinimum": 0,
               "type": "integer"
             },
             {
@@ -9859,7 +9860,7 @@
               "type": "object"
             }
           ],
-          "description": "The method, such as `zscore`, `modzscore`, `iqr` or `adaptive`, alone for its default bound or as `[method, bound]`; or a mapping from flag to either.",
+          "description": "The method, such as `zscore`, `modzscore`, `iqr` or `adaptive`, alone for its default bound or as `[method, bound]`, or a bare bound; or a mapping from metric name to any of these.",
           "title": "Outlier Threshold"
         },
         "cluster_threshold": {
@@ -9895,6 +9896,7 @@
         "n_clusters": {
           "anyOf": [
             {
+              "exclusiveMinimum": 0,
               "type": "integer"
             },
             {
