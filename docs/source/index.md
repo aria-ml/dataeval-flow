@@ -134,6 +134,7 @@ Evaluator Catalog <reference/evaluators>
 Transform Catalog <reference/transforms>
 Check Catalog <reference/checks>
 Combine Catalog <reference/combines>
+Naming Conventions <reference/naming>
 Preset Catalog <reference/presets>
 API Reference <reference/autoapi/dataeval_flow/index>
 reference/glossary
