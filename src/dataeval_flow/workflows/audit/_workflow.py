@@ -3,7 +3,8 @@ audited, and findings under five questions (audit spec §4, §5, §11)."""
 
 __all__ = ["NO_EVALUATION_SPLIT", "AuditWorkflow"]
 
-from typing import Any, ClassVar
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from dataeval_flow.evaluators.bias import BalanceConfig, DiversityConfig, FactorSummaryConfig
 from dataeval_flow.evaluators.quality import (
@@ -21,6 +22,9 @@ from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._preset import NextSteps, Preset, PresetChain, Record, ReportGroup
 from dataeval_flow.workflows.audit._config import AuditConfig
+
+if TYPE_CHECKING:
+    from dataeval_flow._chain._nodes import Node, NodeList
 
 NO_EVALUATION_SPLIT = "no evaluation split given"
 """Why a check over the evaluation splits judged nothing when the task names train alone."""
@@ -68,7 +72,11 @@ _NEXT_STEPS = NextSteps(
     by_reason={
         NO_EVALUATION_SPLIT: "Give an evaluation split, or make one with data-splitting.",
         "requires an extractor": "Name an extractor to assess these checks.",
-        "failed": "See the failed step in the Steps table.",
+        # DataEval's words for metadata with no factors; should they change, the reason reads as "failed" below.
+        "No factors found in provided metadata": (
+            "Name a metadata policy, or add metadata factors, to assess these checks."
+        ),
+        "failed": "See why each listed step stopped in the Steps table.",
     },
 )
 
@@ -115,6 +123,24 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
         "train",
         InputSlot.model_validate({"name": "evals", "list": True, "empty": NO_EVALUATION_SPLIT}),
     )
+
+    @classmethod
+    def preflight(cls, config: AuditConfig, inputs: "Mapping[str, Node | NodeList]") -> None:  # noqa: ARG003
+        """Refuse a split with no items, naming it, and splits of different kinds (audit spec §4.1, §13)."""
+        from dataeval_flow._chain._graph import GraphError
+        from dataeval_flow._chain._nodes import NodeList
+
+        splits = [
+            node
+            for value in inputs.values()
+            for node in (value.present.values() if isinstance(value, NodeList) else [value])
+        ]
+        for node in splits:
+            if len(node.value) == 0:
+                raise GraphError(f"Split `{node.source}` holds no items; an audit judges only splits with data.")
+        if len({node.kind for node in splits}) > 1:
+            listing = ", ".join(f"{node.source}: {node.kind}" for node in splits)
+            raise GraphError(f"An audit's splits must be one kind: {listing}.")
 
     @classmethod
     def chain(cls, config: AuditConfig) -> PresetChain:

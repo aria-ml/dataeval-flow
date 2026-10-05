@@ -212,6 +212,12 @@ def test_a_question_s_status_names_one_reason_only_when_every_check_went_unasses
     assert question_status(steps, group, plan) == status
 
 
+def test_a_question_s_status_starts_a_matched_reason_lower_case_and_matches_it_in_its_own_case() -> None:
+    steps = {"a": _record("a", "x", not_assessed="`b` was skipped: failed: ValueError: No factors found.")}
+    plan = NextSteps(by_reason={"No factors found": "Add some.", "failed": "See why."})
+    assert question_status(steps, ReportGroup("Q", ("x",)), plan) == "not assessed: no factors found"
+
+
 def test_the_short_form_is_the_verdict_the_record_then_a_line_per_question_under_its_own_heading() -> None:
     result = _run({"type": "toy-verdict-preset"})
     assert _outline(result, detailed=False) == ["verdict", "What was run", "Questions", "Steps", "Configuration"]

@@ -176,8 +176,9 @@ def _shown_under(heading: str, records: Sequence["StepResult"], evidence: "Evide
 def question_status(steps: Mapping[str, "StepResult"], group: "ReportGroup", plan: "NextSteps") -> str:
     """A question's status, from the runs of its checks among `steps`, each check that ran once or each element of
     one: "ok" where every run was assessed and none warned; "not assessed: <reason>" where every run went unassessed
-    for one class of reason, as `plan` classes reasons; else how many warnings and how many runs not assessed, as "1
-    warning, 1 not assessed". An accepted warning counts here: it still warns, and the verdict records the acceptance.
+    for one class of reason, as `plan` classes reasons, the class's first letter lower case; else how many warnings
+    and how many runs not assessed, as "1 warning, 1 not assessed". An accepted warning counts here: it still warns,
+    and the verdict records the acceptance.
     """
     checks = {name: record for name, record in steps.items() if record.kind == "check" and record.type in group.checks}
     tally = _verdict.judge(checks, blocking=(), accepted={})
@@ -185,7 +186,8 @@ def question_status(steps: Mapping[str, "StepResult"], group: "ReportGroup", pla
     runs = sum(1 if record.elements is None else len(record.elements) for record in checks.values())
     reasons = {_verdict.reason_class(unassessed.reason, plan) for unassessed in missed}
     if missed and len(missed) == runs and len(reasons) == 1:
-        return f"not assessed: {reasons.pop()}"
+        reason = reasons.pop()
+        return f"not assessed: {reason[:1].lower()}{reason[1:]}"
     counts = [f"{warnings} warning{'s' if warnings != 1 else ''}"] if warnings else []
     counts += [f"{len(missed)} not assessed"] if missed else []
     return ", ".join(counts) or "ok"
