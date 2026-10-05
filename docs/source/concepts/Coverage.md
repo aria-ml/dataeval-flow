@@ -73,6 +73,12 @@ be recognized as familiar or flagged as strange in any principled way.
 - [Declare an ontology](../how_to/declare_an_ontology.md) — define the sanctioned
   label space `label-space` checks against
 
+### Reference
+
+- [Preset Catalog: `data-coverage`](../reference/presets.md#data-coverage) and
+  [Preset Catalog: `label-space`](../reference/presets.md#label-space): each preset's chain, settings and `checks:`
+  defaults
+
 ### Authoritative reference
 
 - DataEval —

@@ -141,5 +141,5 @@ inspection.
   alone, and takes every setting of the preset's `outliers` block, spelled the same way
 - [DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html) — the
   authoritative treatment of the detection methods themselves
-- {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field and default on
-  `DataCleaningConfig` and `DataCleaningChecks`
+- [Preset Catalog: `data-cleaning`](../reference/presets.md#data-cleaning) — every setting and `checks:` default
+  of `data-cleaning`, from `DataCleaningConfig` and `DataCleaningChecks`

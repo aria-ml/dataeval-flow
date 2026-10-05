@@ -58,15 +58,15 @@ reproducible orchestration layer with native MAITE interoperability.
 
 | T&E task | Workflow type | What it produces |
 | --- | --- | --- |
-| Find and flag dataset quality issues | `data-cleaning` | Outliers, duplicates, and label issues |
-| Profile dataset quality across splits | `data-analysis` | Statistical summaries and quality metrics |
-| Check labels against a declared ontology | `label-space` | Leaf coverage, conformance, alignment and structure findings |
-| Find gaps in dataset coverage before training | `data-coverage` | Class and metadata gaps, embedding blind spots, what to acquire per class |
-| Build leakage-free train/val/test splits | `data-splitting` | Stratified or random splits, with their balance and coverage judged |
-| Monitor operational data for population drift | `drift-monitoring` | Per-batch drift flags and p-values |
-| Flag anomalous individual samples | `ood-detection` | Per-sample out-of-distribution scores |
-| Rank abundant/unlabeled data for labeling | `data-prioritization` | Ranked sample ordering |
-| Find metadata the run could not read | `metadata-triage` | Unreadable and unpinned metadata factors, with suggested corrections |
+| Find and flag dataset quality issues | [`data-cleaning`](reference/presets.md#data-cleaning) | Outliers and duplicates, removed; class imbalance and unlabelled images |
+| Profile dataset quality across splits | `data-analysis`, the one workflow type that is not a preset; see its [tutorial](notebooks/data_analysis.py) | Statistical summaries and quality metrics |
+| Check labels against a declared ontology | [`label-space`](reference/presets.md#label-space) | Leaf coverage, conformance, alignment and structure findings |
+| Find gaps in dataset coverage before training | [`data-coverage`](reference/presets.md#data-coverage) | Class and metadata gaps, embedding blind spots, what to acquire per class |
+| Build stratified or grouped train/val/test splits | [`data-splitting`](reference/presets.md#data-splitting) | Stratified or random splits, with their balance and coverage judged |
+| Monitor operational data for population drift | [`drift-monitoring`](reference/presets.md#drift-monitoring) | Per-batch drift flags and p-values |
+| Flag anomalous individual samples | [`ood-detection`](reference/presets.md#ood-detection) | Per-sample out-of-distribution scores |
+| Rank abundant/unlabeled data for labeling | [`data-prioritization`](reference/presets.md#data-prioritization) | Ranked sample ordering |
+| Find metadata the run could not read | [`metadata-triage`](reference/presets.md#metadata-triage) | Unreadable and unpinned metadata factors, with suggested corrections |
 | Tune workflow parameters across a grid | Any workflow, with a task matrix | One table comparing every run's findings |
 
 See [Find the Right Step](reference/index.md) to go from a question to the preset or steps that answer it, the
@@ -130,9 +130,9 @@ Overview <concepts/index>
 :caption: Reference
 :hidden:
 
+Find the Right Step <reference/index>
 Container Reference <reference/containers>
 JATIC Maturity <reference/maturity>
-Find the Right Step <reference/index>
 Evaluator Catalog <reference/evaluators>
 Transform Catalog <reference/transforms>
 Combine Catalog <reference/combines>

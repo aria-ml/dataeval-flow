@@ -61,10 +61,12 @@ Coverage
     [DataEval Dataset Bias and Coverage explanation](https://dataeval.readthedocs.io/en/latest/concepts/DatasetBias.html).
 
 Data Cleaning
-    The process of identifying and flagging quality issues in a dataset —
-    {term}`outliers<Outlier>`, {term}`duplicates<Duplicates>`, and label
-    anomalies. The `data-cleaning` workflow's `clean` step hands on the dataset
-    without the samples it flagged, and an `export` step writes it to disk. See the
+    The process of identifying and flagging quality issues in a dataset, such as
+    {term}`outliers<Outlier>`, {term}`duplicates<Duplicates>` and label anomalies.
+    The `data-cleaning` preset flags outliers and duplicates, judges class
+    imbalance and lists the images with no labels. Its `clean` step hands on the
+    dataset without the outliers and duplicates, which an `export` step of a custom
+    workflow can write to disk. See the
     [DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html).
 
 DataEval

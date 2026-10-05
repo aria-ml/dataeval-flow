@@ -66,6 +66,11 @@ partition draws no random numbers, so rerunning on the same data reproduces it.
 - [Splitting a dataset](../notebooks/dataset_splitting.py) — stratified train/val/test
   splitting with the `data-splitting` workflow
 
+### Reference
+
+- [Preset Catalog: `data-splitting`](../reference/presets.md#data-splitting): the preset's chain, settings and
+  `checks:` defaults
+
 ### Authoritative reference
 
 - DataEval —
