@@ -44,8 +44,9 @@ workflows:
   - name: clean
     type: data-cleaning
     stats: multispectral
-    outlier_method: modzscore
-    outlier_flags: [visual]
+    outliers:
+      flags: [visual]
+      outlier_threshold: modzscore
 ```
 
 Reference a policy by name from any workflow that computes image statistics — `data-cleaning`, `data-analysis`,
@@ -185,7 +186,7 @@ read it against `background_brightness` and `background_contrast` before trustin
 
 ## Related material
 
-- {doc}`configure_outlier_detection` — the statistic families `outlier_flags` names, and the methods that turn a
+- {doc}`configure_outlier_detection` — the statistic families `outliers.flags` names, and the methods that turn a
   measurement into a flag
 - {doc}`configure_metadata_binning` — `intrinsic_factors`, `value_range`, and the metadata policy `factors_from`
   composes with

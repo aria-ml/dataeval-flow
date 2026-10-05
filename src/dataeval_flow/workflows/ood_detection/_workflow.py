@@ -19,9 +19,10 @@ class OODDetectionWorkflow(Preset, Workflow[OODDetectionConfig, ChainResult]):
 
     The task's first source is ``reference``; every later one is an element of ``tests``. Per detector, the settings
     expand to ``<detector>`` (its evaluator, with its own ``extractor``) and ``<detector>-check`` (``ood``). Then:
-    - ``agreement`` (``ood-union``) combines every detector's flags;
-    - with two detectors or more, ``agreement-check`` (``ood-agreement``) judges them;
-    - with ``metadata_insights``, ``factor-predictors`` and ``factor-deviation`` explain them, both optional.
+
+    - ``ood-union`` combines every detector's flags;
+    - with two detectors or more, ``ood-agreement`` judges them;
+    - ``factor-predictors`` and ``factor-deviation`` explain them, both optional; ``false`` drops a step.
 
     Every step runs once per test source.
     """
@@ -41,7 +42,7 @@ class OODDetectionWorkflow(Preset, Workflow[OODDetectionConfig, ChainResult]):
     @classmethod
     def chain(cls, config: OODDetectionConfig) -> PresetChain:
         """Each detector and its check, then the agreement and its check, then the factor steps."""
-        ood = config.health_thresholds.ood.model_dump()
+        ood = config.checks.ood.model_dump()
         evaluators: list[Any] = []
         steps: list[dict[str, Any]] = []
         for detector in config.detectors:
@@ -55,20 +56,21 @@ class OODDetectionWorkflow(Preset, Workflow[OODDetectionConfig, ChainResult]):
                 {"name": f"{name}-check", "check": "ood", "input": name, "subject": evaluator_heading(detector), **ood},
             ]
         names = [detector.name for detector in config.detectors]
-        steps.append({"name": "agreement", "combine": "ood-union", "input": names})
+        steps.append({"name": "ood-union", "combine": "ood-union", "input": names})
         if len(names) > 1:
-            agreement = config.health_thresholds.ood_agreement.model_dump()
-            steps.append({"name": "agreement-check", "check": "ood-agreement", "input": "agreement", **agreement})
-        if config.metadata_insights:
-            policies = {key: value for key, value in (("metadata", config.metadata), ("stats", config.stats)) if value}
-            factors = {"ood": "agreement", "reference": "reference", "input": "tests", "optional": True, **policies}
-            steps += [
-                {"name": "factor-predictors", "combine": "factor-predictors", **factors},
+            agreement = config.checks.ood_agreement.model_dump()
+            steps.append({"name": "ood-agreement", "check": "ood-agreement", "input": "ood-union", **agreement})
+        policies = {key: value for key, value in (("metadata", config.metadata), ("stats", config.stats)) if value}
+        factors = {"ood": "ood-union", "reference": "reference", "input": "tests", "optional": True, **policies}
+        if config.factor_predictors is not False:
+            steps.append({"name": "factor-predictors", "combine": "factor-predictors", **factors})
+        if config.factor_deviation is not False:
+            steps.append(
                 {
                     "name": "factor-deviation",
                     "combine": "factor-deviation",
                     **factors,
                     "max_items": config.factor_deviation.max_items,
-                },
-            ]
+                }
+            )
         return PresetChain(steps=steps, evaluators=evaluators)

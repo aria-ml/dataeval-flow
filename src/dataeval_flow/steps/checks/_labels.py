@@ -30,21 +30,20 @@ class ClassImbalanceConfig(CheckConfig):
     """A `class-imbalance` step's input, how uneven its classes may be, and the band under which they are ok."""
 
     input: str = Field(description="A `label-health` Output.")
-    ratio: float | None = Field(
+    warning: float | None = Field(
         default=5.0,
         ge=1.0,
         description=(
             "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` "
-            "judges nothing but an empty class, which warns unless `empty` is false. data-cleaning's "
-            "`health_thresholds.class_label_imbalance`."
+            "judges nothing but an empty class, which warns unless `empty` is false."
         ),
     )
     info: float | None = Field(
         default=None,
         ge=1.0,
         description=(
-            "A ratio at or under which the finding is ok, between which and `ratio` it informs; `null` makes every "
-            "ratio under `ratio` information. Must not exceed `ratio`."
+            "A ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every "
+            "ratio under `warning` information. Must not exceed `warning`."
         ),
     )
 
@@ -59,19 +58,19 @@ class ClassImbalanceConfig(CheckConfig):
 
     @model_validator(mode="after")
     def _info_under_ratio(self) -> Self:
-        if self.info is not None and self.ratio is not None and self.info > self.ratio:
-            raise ValueError(f"`info` ({self.info}) must not exceed `ratio` ({self.ratio}).")
+        if self.info is not None and self.warning is not None and self.info > self.warning:
+            raise ValueError(f"`info` ({self.info}) must not exceed `warning` ({self.warning}).")
         return self
 
 
 class ClassImbalanceCheck(Check[ClassImbalanceConfig]):
-    """``class-imbalance``: warns when the largest class outnumbers the smallest by more than ``ratio``, among the
+    """``class-imbalance``: warns when the largest class outnumbers the smallest by more than ``warning``, among the
     classes with labels, or when a class has none. Makes a finding whenever the Dataset has classes, declared or
     observed (coverage spec §5.3)."""
 
     name: ClassVar[str] = "class-imbalance"
-    description: ClassVar[str] = "Warns when the largest class outnumbers the smallest by more than `ratio`."
-    title: ClassVar[str] = "Label Distribution"
+    description: ClassVar[str] = "Warns when the largest class outnumbers the smallest by more than `warning`."
+    title: ClassVar[str] = "Class Imbalance"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(LabelHealthOutput,)),)
 
     def run(self, config: ClassImbalanceConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
@@ -105,7 +104,7 @@ class ClassImbalanceCheck(Check[ClassImbalanceConfig]):
         if on and unlabelled:
             blocks += unlabelled_blocks({on[0].address: unlabelled}, header="Source")
         severity: Severity
-        if (empties and config.empty) or exceeds(ratio, config.ratio):
+        if (empties and config.empty) or exceeds(ratio, config.warning):
             severity = "warning"
         elif not present:
             severity = "info"
@@ -116,7 +115,7 @@ class ClassImbalanceCheck(Check[ClassImbalanceConfig]):
         return [
             Finding(
                 severity=severity,
-                title="Label/Directory_Name Distribution" if source == "filepath" else self.title,
+                title=self.title,
                 brief=f"{classes} classes, {items} items, imbalance {ratio}:1",
                 blocks=blocks,
             )

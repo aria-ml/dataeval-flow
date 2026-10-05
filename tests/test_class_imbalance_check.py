@@ -1,4 +1,4 @@
-"""`class-imbalance`: every Dataset with classes gets its Label Distribution, judged over the classes with labels,
+"""`class-imbalance`: every Dataset with classes gets its Class Imbalance, judged over the classes with labels,
 with an optional info band (coverage spec §5.3)."""
 
 from collections.abc import Sequence
@@ -39,7 +39,7 @@ def _judge(
 
 def test_an_unlabelled_dataset_that_declares_classes_warns() -> None:
     (finding,) = _judge({"a": 0, "b": 0}, items=6, unlabelled=[0, 1, 2, 3, 4, 5])
-    assert (finding.severity, finding.title) == ("warning", "Label Distribution")
+    assert (finding.severity, finding.title) == ("warning", "Class Imbalance")
     assert any("Classes with no labels: a, b" in getattr(block, "text", "") for block in finding.blocks)
 
 
@@ -48,7 +48,7 @@ def test_a_dataset_with_neither_classes_nor_labels_makes_no_finding() -> None:
 
 
 def test_the_ratio_is_over_the_classes_with_labels() -> None:
-    (finding,) = _judge({"a": 12, "b": 16, "c": 0}, ratio=None)
+    (finding,) = _judge({"a": 12, "b": 16, "c": 0}, warning=None)
     assert finding.brief == "3 classes, 10 items, imbalance 1.3:1"
     assert finding.severity == "warning"  # the empty class
 
@@ -58,7 +58,7 @@ def test_the_ratio_is_over_the_classes_with_labels() -> None:
     [({"a": 10, "b": 10}, "ok"), ({"a": 30, "b": 10}, "info"), ({"a": 60, "b": 10}, "warning")],
 )
 def test_the_info_band(counts: dict[str, int], severity: str) -> None:
-    (finding,) = _judge(counts, ratio=5.0, info=2.0)
+    (finding,) = _judge(counts, warning=5.0, info=2.0)
     assert finding.severity == severity
 
 
@@ -69,7 +69,7 @@ def test_without_an_info_band_a_ratio_under_the_limit_informs() -> None:
 
 def test_info_above_ratio_is_refused() -> None:
     with pytest.raises(ValidationError, match="info"):
-        ClassImbalanceConfig(input="labels", ratio=2.0, info=3.0)
+        ClassImbalanceConfig(input="labels", warning=2.0, info=3.0)
 
 
 def test_its_evidence_has_shares_and_the_empty_images() -> None:

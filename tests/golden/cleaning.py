@@ -9,23 +9,21 @@ from typing import Any
 
 from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache
-from dataeval_flow.workflows import Finding
+from dataeval_flow.steps import Finding
 from tests.chain_toys import ToyDetections, chain_pipeline
 from tests.evaluator_toys import ToyImages
 
 _BASE: dict[str, Any] = {
     "name": "cleaning",
     "type": "data-cleaning",
-    "outlier_method": "zscore",
-    "outlier_flags": ["pixel", "visual"],
+    "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
 }
 _LENIENT = {
-    "exact_duplicates": 50.0,
-    "near_duplicates": 50.0,
-    "image_outliers": 50.0,
-    "target_outliers": 50.0,
-    "classwise_outliers": 50.0,
-    "class_label_imbalance": 20.0,
+    "image-duplicates": {"exact": 50.0, "near": 50.0},
+    "image-outliers": {"warning": 50.0},
+    "target-outliers": {"warning": 50.0},
+    "classwise-outliers": {"warning": 50.0},
+    "class-imbalance": {"warning": 20.0},
 }
 
 
@@ -59,8 +57,11 @@ CASES: dict[str, Callable[[], list[Finding]]] = {
     "unlabelled": lambda: findings(ToyImages(count=24, labeled=False)),
     "detection": lambda: findings(detections()),
     "no_duplicates": lambda: findings(ToyImages(count=6)),
-    "lenient_thresholds": lambda: findings(ToyImages(count=24), health_thresholds=_LENIENT),
+    "lenient_thresholds": lambda: findings(ToyImages(count=24), checks=_LENIENT),
     "cluster_mode": lambda: findings(
-        ToyImages(count=40), extractor=True, outlier_cluster_threshold=2.0, duplicate_cluster_sensitivity=1.0
+        ToyImages(count=40),
+        extractor=True,
+        outliers={**_BASE["outliers"], "cluster_threshold": 2.0},
+        duplicates={"cluster_sensitivity": 1.0},
     ),
 }

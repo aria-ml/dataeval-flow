@@ -40,24 +40,24 @@ workflows:
   - name: skysealand_cleaning
     type: data-cleaning
     # Outlier detection
-    outlier_method: adaptive
-    outlier_threshold: 3.5
-    outlier_flags: [dimension, pixel, visual]
-    outlier_cluster_threshold: 3.5
-    outlier_cluster_algorithm: hdbscan
-    outlier_n_clusters: 4
+    outliers:
+      outlier_threshold: [adaptive, 3.5]
+      flags: [dimension, pixel, visual]
+      cluster_threshold: 3.5
+      cluster_algorithm: hdbscan
+      n_clusters: 4
     # Duplicate detection — hash-based plus cluster-based
-    duplicate_cluster_sensitivity: 0.5
-    duplicate_cluster_algorithm: hdbscan
-    duplicate_n_clusters: 4
+    duplicates:
+      cluster_sensitivity: 0.5
+      cluster_algorithm: hdbscan
+      n_clusters: 4
     # Relaxed thresholds: four collection sites with different sensors and altitudes
-    health_thresholds:
-      exact_duplicates: 0.0
-      near_duplicates: 5.0
-      image_outliers: 5.0
-      target_outliers: 10.0
-      classwise_outliers: 12.0
-      class_label_imbalance: 5.0
+    checks:
+      image-duplicates: {exact: 0.0, near: 5.0}
+      image-outliers: {warning: 5.0}
+      target-outliers: {warning: 10.0}
+      classwise-outliers: {warning: 12.0}
+      class-imbalance: {warning: 5.0}
 
   # data-cleaning as a step: `cleaning.clean` is the dataset without what it flagged
   - name: clean_export

@@ -103,9 +103,6 @@ reference-by-name** pattern with these sections:
 | `deterministic` | No | Force PyTorch deterministic algorithms (only meaningful alongside `seed`) |
 | `logging` | No | App and library log levels |
 
-The legacy `selections` / `selection` / `steps` keys are still accepted as deprecated
-aliases for `views` / `view` / `operations`; new configs should use the current names.
-
 (dataset-formats)=
 
 ### Dataset formats
@@ -234,18 +231,15 @@ See the {doc}`Data Cleaning tutorial <../notebooks/data_cleaning>` for a full wa
 workflows:
   - name: standard_clean
     type: data-cleaning
-    outlier_method: adaptive       # adaptive | zscore | modzscore | iqr
-    outlier_flags:
-      - dimension
-      - pixel
-      - visual
-    outlier_threshold: 3.5         # optional custom threshold
-    duplicate_cluster_sensitivity: 0.5
-    duplicate_cluster_algorithm: hdbscan
-    health_thresholds:
-      exact_duplicates: 0.0
-      near_duplicates: 5.0
-      image_outliers: 5.0
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: [adaptive, 3.5]   # method | [method, bound]: adaptive | zscore | modzscore | iqr
+    duplicates:
+      cluster_sensitivity: 0.5
+      cluster_algorithm: hdbscan
+    checks:
+      image-duplicates: {exact: 0.0, near: 5.0}
+      image-outliers: {warning: 5.0}
 ```
 ````
 ````{tab-item} data-analysis
@@ -311,7 +305,7 @@ workflows:
         k: 5
         distance_metric: cosine    # cosine | euclidean
         threshold_perc: 95
-    metadata_insights: true
+    factor-deviation: {max_items: 50}   # false leaves it out; `factor-predictors: false` leaves out that step
 ```
 ````
 
@@ -325,10 +319,10 @@ workflows:
   - name: coverage_check
     type: data-coverage
     coverage: {method: adaptive}     # adaptive | naive; embeds only when the task names an extractor
-    gaps: {mi_threshold: 0.1, min_representation: 5}   # null leaves out the gap analysis
-    health_thresholds:
-      class-imbalance: {ratio: 5.0}
-      coverage-gaps: {count: 3}
+    factor-gaps: {mi_threshold: 0.1, min_representation: 5}   # false leaves out the gap analysis
+    checks:
+      class-imbalance: {warning: 5.0}
+      factor-coverage-gaps: {warning: 2}
 ```
 ````
 
@@ -341,9 +335,9 @@ workflows:
   - name: vocab_check
     type: label-space
     ontology: config/taxonomy.ttl    # an ontologies: entry, an RDF file, or an inline hierarchy
-    health_thresholds:
+    checks:
       leaf-coverage: {coverage: 0.9, empty_branches: 0}
-      label-conformance: {unmatched: 0}
+      label-conformance: {warning: 0}
 ```
 ````
 
@@ -356,7 +350,8 @@ workflows:
   - name: triage
     type: metadata-triage
     metadata: standard             # the policy under triage
-    max_examples: 20
+    checks:
+      metadata-issues: {max_examples: 20}
     verify: true                   # re-read the metadata under the suggestions
 ```
 ````
@@ -373,10 +368,12 @@ workflows:
                                    # | hdbscan_distance | hdbscan_complexity
     order: hard_first              # or easy_first
     policy: difficulty             # difficulty | stratified | class_balanced
-    n: 200                         # keep each pool's top 200 as `selected`; omit to keep all
+    select:
+      n: 200                       # keep each pool's top 200 as `selected`; omit to keep all
     cleaning:
-      outlier_method: adaptive
-      outlier_flags: [dimension, pixel]
+      outliers:
+        flags: [dimension, pixel]
+        outlier_threshold: adaptive
 ```
 ````
 
@@ -392,8 +389,9 @@ tutorial for a worked run.
 workflows:
   - name: threshold_tuning
     type: data-cleaning
-    outlier_method: modzscore
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: modzscore
 
 tasks:
   - name: tune_train
@@ -453,8 +451,9 @@ extractors:
 workflows:
   - name: clean
     type: data-cleaning
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: adaptive
 
 tasks:
   - name: clean_my_data

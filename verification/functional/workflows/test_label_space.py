@@ -38,10 +38,10 @@ class TestLabelSpace:
         assert result.success
         assert isinstance(result, ChainResult)
         assert [finding.title for finding in result.findings] == [
-            "Label Space Coverage",
+            "Leaf Coverage",
             "Label Conformance",
-            "Label Alignment",
+            "Mergeability",
             "Ontology Structure",
         ]
         assert result.report().strip()
-        assert result.metadata.label_space_digest == result.steps["alignment"].output.alignment.label_space_digest
+        assert result.metadata.label_space_digest == result.steps["label-alignment"].output.alignment.label_space_digest

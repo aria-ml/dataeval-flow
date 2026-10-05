@@ -60,7 +60,7 @@ _ROW = {"concept": "c", "label": "bus", "parent": "v", "action": "acquire", "cou
 
 def test_a_full_spread_is_ok() -> None:
     finding = _leaf()
-    assert (finding.severity, finding.title) == ("ok", "Label Space Coverage")
+    assert (finding.severity, finding.title) == ("ok", "Leaf Coverage")
     assert finding.brief == "leaf coverage 100.0% · 0 to acquire · deficit 0"
 
 
@@ -113,14 +113,14 @@ def test_an_unmatched_or_ambiguous_name_warns() -> None:
 
 def test_unmatched_names_within_the_limit_are_ok() -> None:
     data = {"conforms": False, "matched": {}, "unmatched": ["truk"], "ambiguous": {}}
-    assert _conformance(data, unmatched=1).severity == "ok"
+    assert _conformance(data, warning=1).severity == "ok"
 
 
 def test_unmatched_with_no_threshold_is_still_judged_for_ambiguity() -> None:
-    """A criterion without a threshold keeps judging: `unmatched=None` lifts only the unmatched limit."""
-    unmatched = _conformance({"conforms": False, "matched": {}, "unmatched": ["truk"], "ambiguous": {}}, unmatched=None)
+    """A criterion without a threshold keeps judging: `warning=None` lifts only the unmatched limit."""
+    unmatched = _conformance({"conforms": False, "matched": {}, "unmatched": ["truk"], "ambiguous": {}}, warning=None)
     ambiguous = _conformance(
-        {"conforms": False, "matched": {}, "unmatched": ["truk"], "ambiguous": {"car": ["c1", "c2"]}}, unmatched=None
+        {"conforms": False, "matched": {}, "unmatched": ["truk"], "ambiguous": {"car": ["c1", "c2"]}}, warning=None
     )
     assert unmatched.severity == "ok"
     assert ambiguous.severity == "warning"
@@ -171,7 +171,7 @@ def _shortfall(**kwargs: Any) -> Any:
 
 def test_a_shortfall_worklist_informs() -> None:
     finding = _shortfall(worklist=[_ROW], deficit=4)
-    assert (finding.severity, finding.title) == ("info", "Class Balance Worklist")
+    assert (finding.severity, finding.title) == ("info", "Class Shortfall")
     assert finding.brief == "1 classes short · deficit 4"
     assert "`label-space`" in finding.description
     assert "configure an `ontology`" not in finding.description

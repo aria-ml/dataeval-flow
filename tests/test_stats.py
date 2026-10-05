@@ -183,8 +183,7 @@ class TestResolveStatsPolicy:
 
         return DataCleaningConfig(
             name="c",
-            outlier_method="modzscore",
-            outlier_flags=["visual"],
+            outliers={"flags": ["visual"], "outlier_threshold": "modzscore"},  # type: ignore[arg-type]
             stats=name,
         )
 

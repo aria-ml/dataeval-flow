@@ -1,6 +1,6 @@
 """The ``drift-monitoring`` preset."""
 
-__all__ = ["DriftMonitoringConfig", "DriftMonitoringThresholds", "DriftMonitoringWorkflow"]
+__all__ = ["DriftMonitoringConfig", "DriftMonitoringChecks", "DriftMonitoringWorkflow"]
 
-from dataeval_flow.workflows.drift_monitoring._config import DriftMonitoringConfig, DriftMonitoringThresholds
+from dataeval_flow.workflows.drift_monitoring._config import DriftMonitoringChecks, DriftMonitoringConfig
 from dataeval_flow.workflows.drift_monitoring._workflow import DriftMonitoringWorkflow

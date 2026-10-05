@@ -1,25 +1,25 @@
-"""`metadata-summary`: each factor's type, binning, nulls and range or top values, as legacy data-coverage's Metadata
+"""`factor-summary`: each factor's type, binning, nulls and range or top values, as legacy data-coverage's Metadata
 Distribution (coverage spec §6.1)."""
 
 from dataeval_flow import run
 from dataeval_flow._blocks import Paragraph, Table
 from dataeval_flow._metadata import build_metadata
-from dataeval_flow.evaluators.bias import MetadataSummaryConfig, MetadataSummaryOutput
+from dataeval_flow.evaluators.bias import FactorSummaryConfig, FactorSummaryOutput
 from dataeval_flow.workflows._common import compute_metadata_summary
 from tests.evaluator_toys import ToyFactors, ToyImages, output_json
 
 
 def test_it_summarizes_every_factor_as_legacy_did() -> None:
-    result = run(MetadataSummaryConfig(), ToyFactors(count=30))
+    result = run(FactorSummaryConfig(), ToyFactors(count=30))
     assert result.success, result.errors
-    assert isinstance(result.output, MetadataSummaryOutput)
+    assert isinstance(result.output, FactorSummaryOutput)
     data = result.output.data()
     assert sorted(data["factors"]) == ["angle", "site"]
     assert data["summary"] == compute_metadata_summary(build_metadata(ToyFactors(count=30), None))
 
 
 def test_its_section_is_the_factor_table() -> None:
-    result = run(MetadataSummaryConfig(), ToyFactors(count=30))
+    result = run(FactorSummaryConfig(), ToyFactors(count=30))
     blocks = result._section(output_json(result), ["src"], detailed=False)
     assert blocks is not None
     (table,) = [block for block in blocks if isinstance(block, Table)]
@@ -28,7 +28,7 @@ def test_its_section_is_the_factor_table() -> None:
 
 
 def test_with_no_factors_its_section_says_so() -> None:
-    result = run(MetadataSummaryConfig(), ToyImages(count=10))
+    result = run(FactorSummaryConfig(), ToyImages(count=10))
     assert result.success, result.errors
     blocks = result._section(output_json(result), ["src"], detailed=False)
     assert blocks is not None

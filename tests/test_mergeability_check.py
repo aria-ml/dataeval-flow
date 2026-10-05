@@ -25,7 +25,7 @@ def _judge(ontology: Any) -> Any:
 
 def test_a_lossless_alignment_is_ok_and_carries_its_stanza() -> None:
     finding = _judge({"a": None, "b": None})
-    assert (finding.severity, finding.title, finding.brief) == ("ok", "Label Alignment", None)
+    assert (finding.severity, finding.title, finding.brief) == ("ok", "Mergeability", None)
     assert finding.description.startswith("Mergeability: lossless.")
     (code,) = [block for block in finding.blocks if isinstance(block, Code)]
     assert "class_remap" in code.text

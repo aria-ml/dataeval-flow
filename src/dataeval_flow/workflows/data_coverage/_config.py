@@ -1,7 +1,16 @@
-"""The ``data-coverage`` preset's config: coverage, crops, completeness, diversity and gaps, and when a finding warns
+"""The ``data-coverage`` preset's config: the settings of its step types, and when a finding warns
 (coverage spec §4.1, §4.3)."""
 
-__all__ = ["CoverageSettings", "CropSettings", "DataCoverageConfig", "DataCoverageThresholds", "GapSettings"]
+__all__ = [
+    "CropParams",
+    "DataCoverageChecks",
+    "DataCoverageConfig",
+    "DataCoverageCoverageSettings",
+    "DataCoverageRepresentationSettings",
+    "DiversitySettings",
+    "FactorGapsSettings",
+    "WrapSettings",
+]
 
 from typing import Annotated, Any, ClassVar, Literal, Self
 
@@ -13,7 +22,7 @@ from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
 
 
-class CoverageSettings(BaseModel):
+class DataCoverageCoverageSettings(BaseModel):
     """The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`
     is written partly."""
 
@@ -23,7 +32,7 @@ class CoverageSettings(BaseModel):
         default="adaptive",
         description=(
             "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or "
-            "`naive`, a fixed analytic radius, judged by an `uncovered-rate` step. DataEval's naive radius overflows "
+            "`naive`, a fixed analytic radius, judged by an `uncovered-items` step. DataEval's naive radius overflows "
             "past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`."
         ),
     )
@@ -46,7 +55,7 @@ class CoverageSettings(BaseModel):
     )
 
 
-class CropSettings(BaseModel):
+class CropParams(BaseModel):
     """`DetectionCrops`' settings, used on detection data only."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -59,7 +68,7 @@ class CropSettings(BaseModel):
     )
 
 
-class GapSettings(BaseModel):
+class FactorGapsSettings(BaseModel):
     """The `factor-gaps` step's settings."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -72,61 +81,91 @@ class GapSettings(BaseModel):
     )
 
 
-class DataCoverageClassImbalanceLimits(BaseModel):
-    """The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset: the schema
-    gives data-splitting's limits the short name."""
+class WrapSettings(BaseModel):
+    """The `wrap` step's settings, for the crops data-coverage measures detection data on: `DetectionCrops`' `params`.
+    The preset fixes the wrapper and `other_kinds`."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    ratio: float | None = Field(
+    params: CropParams = Field(default_factory=CropParams, description="`DetectionCrops`' parameters.")
+
+
+class DiversitySettings(BaseModel):
+    """The `diversity` step's settings."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    method: Literal["simpson", "shannon"] = Field(default="simpson", description="The diversity index.")
+
+
+class DataCoverageRepresentationSettings(BaseModel):
+    """The `representation` step's settings: each class's minimum share, for the worklist."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    expected: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] | None = Field(
+        default=None,
+        description=(
+            "Class name to its minimum expected share of the dataset, a fraction in [0, 1]; a name that is no class "
+            "is ignored and noted."
+        ),
+    )
+
+
+class DataCoverageClassImbalanceSettings(BaseModel):
+    """The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset, so it
+    reaches the schema `$defs` apart from data-splitting's and data-cleaning's limits."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    warning: float | None = Field(
         default=5.0,
         ge=1.0,
         description=(
-            "Largest class count over smallest, among the classes with labels, past which the Label Distribution "
-            "finding warns; `null` judges nothing but an empty class, which always warns. Legacy "
-            "`class_imbalance_ratio`."
+            "Largest class count over smallest, among the classes with labels, past which the Class Imbalance "
+            "finding warns; `null` judges nothing but an empty class, which always warns."
         ),
     )
     info: float | None = Field(
         default=2.0,
         ge=1.0,
         description=(
-            "The ratio at or under which the finding is ok, between which and `ratio` it informs; `null` makes every "
-            "ratio under `ratio` information. Must not exceed `ratio`. Legacy's hard-coded 2.0, or `ratio` where "
+            "The ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every "
+            "ratio under `warning` information. Must not exceed `warning`. Defaults to 2.0, or `warning` where "
             "that is lower and `info` is unset."
         ),
     )
 
     @model_validator(mode="after")
     def _info_under_ratio(self) -> Self:
-        """An unset `info` follows a `ratio` under it, as legacy's unreachable band did; two written bounds that cross
+        """An unset `info` follows a `warning` under it; two written bounds that cross
         are refused here, where the user wrote them."""
-        if self.ratio is None or self.info is None:
+        if self.warning is None or self.info is None:
             return self
         if "info" not in self.model_fields_set:
-            # derived, so still unset: a matrix varies `ratio` alone
-            object.__setattr__(self, "info", min(self.info, self.ratio))
-        elif self.info > self.ratio:
-            raise ValueError(f"`info` ({self.info}) must not exceed `ratio` ({self.ratio}).")
+            # derived, so still unset: a matrix varies `warning` alone
+            object.__setattr__(self, "info", min(self.info, self.warning))
+        elif self.info > self.warning:
+            raise ValueError(f"`info` ({self.info}) must not exceed `warning` ({self.warning}).")
         return self
 
 
-class CoverageGapsLimits(BaseModel):
-    """The `coverage-gaps` check's field, with legacy data-coverage's default."""
+class FactorCoverageGapsSettings(BaseModel):
+    """The `factor-coverage-gaps` check's field, with legacy data-coverage's default."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    count: int | None = Field(
-        default=3,
+    warning: int | None = Field(
+        default=2,
         ge=0,
         description=(
-            "The number of under-represented class-factor-value combinations at which the Metadata Coverage Gaps "
-            "finding warns, this many or more; fewer inform, and `null` never warns. Legacy `gap_count`."
+            "The most under-represented class-factor-value combinations before the Factor Coverage Gaps finding "
+            "warns; `null` never warns."
         ),
     )
 
 
-class ClassCoverageLimits(BaseModel):
+class ClassCoverageSettings(BaseModel):
     """The `class-coverage` check's fields, with legacy data-coverage's defaults."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -135,16 +174,16 @@ class ClassCoverageLimits(BaseModel):
         default=0.5,
         ge=0.0,
         description=(
-            "An assessable class's dispersion under which it is clustered, and the Embedding Coverage finding warns; "
-            "`null` turns this criterion off. Legacy `min_dispersion`."
+            "An assessable class's dispersion under which it is clustered, and the Class Coverage finding warns; "
+            "`null` turns this criterion off."
         ),
     )
     isotropy: float | None = Field(
         default=0.5,
         ge=0.0,
         description=(
-            "An assessable class's isotropy under which it is one-dimensional, and the Embedding Coverage finding "
-            "warns; `null` turns this criterion off. Legacy `min_isotropy`."
+            "An assessable class's isotropy under which it is one-dimensional, and the Class Coverage finding "
+            "warns; `null` turns this criterion off."
         ),
     )
     near_duplicates: float | None = Field(
@@ -152,31 +191,31 @@ class ClassCoverageLimits(BaseModel):
         ge=0.0,
         le=1.0,
         description=(
-            "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Embedding "
-            "Coverage finding warns; `null` turns this criterion off. Legacy `max_near_duplicate_fraction`."
+            "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Class "
+            "Coverage finding warns; `null` turns this criterion off."
         ),
     )
 
 
-class DataCoverageUncoveredRateLimits(BaseModel):
-    """The `uncovered-rate` check's field, with legacy data-coverage's default, read under `naive` coverage only.
-    Named for the preset, as `DataCoverageClassImbalanceLimits` is."""
+class DataCoverageUncoveredItemsSettings(BaseModel):
+    """The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.
+    Named for the preset, as `DataCoverageClassImbalanceSettings` is."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    rate: float | None = Field(
+    warning: float | None = Field(
         default=10.0,
         ge=0.0,
         le=100.0,
         description=(
-            "The percent of the items uncovered past which the Uncovered Rate finding warns, under `naive` coverage "
-            "only; `null` judges nothing. Legacy `uncovered_rate`."
+            "The percent of the items uncovered past which the Uncovered Items finding warns, under `naive` coverage "
+            "only; `null` judges nothing."
         ),
     )
 
 
-class CompletenessScoreLimits(BaseModel):
-    """The `completeness-score` check's fields, with legacy data-coverage's defaults."""
+class DimensionalCompletenessSettings(BaseModel):
+    """The `dimensional-completeness` check's fields, with legacy data-coverage's defaults."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -186,7 +225,7 @@ class CompletenessScoreLimits(BaseModel):
         le=1.0,
         description=(
             "The completeness score under which the Dimensional Completeness finding warns; `null` turns this band "
-            "off. Must not exceed `info`. Legacy `completeness_score`."
+            "off. Must not exceed `info`."
         ),
     )
     info: float | None = Field(
@@ -195,8 +234,8 @@ class CompletenessScoreLimits(BaseModel):
         le=1.0,
         description=(
             "The score under which the finding informs, at or over which it is ok; `null` turns this band off, and "
-            "with `warning` also `null` the finding judges nothing. Legacy's hard-coded 0.8, or `warning` where "
-            "that is higher and `info` is unset."
+            "with `warning` also `null` the finding judges nothing. An unset `info` is 0.8, or `warning` where that "
+            "is higher."
         ),
     )
 
@@ -214,39 +253,41 @@ class CompletenessScoreLimits(BaseModel):
         return self
 
 
-class DataCoverageThresholds(BaseModel):
+class DataCoverageChecks(BaseModel):
     """When data-coverage's findings warn: each check's fields, keyed by check type."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
-    class_imbalance: DataCoverageClassImbalanceLimits = Field(
-        default_factory=DataCoverageClassImbalanceLimits,
+    class_imbalance: DataCoverageClassImbalanceSettings = Field(
+        default_factory=DataCoverageClassImbalanceSettings,
         alias="class-imbalance",
         description="The `class-imbalance` check's thresholds.",
     )
-    coverage_gaps: CoverageGapsLimits = Field(
-        default_factory=CoverageGapsLimits, alias="coverage-gaps", description="The `coverage-gaps` check's threshold."
+    factor_coverage_gaps: FactorCoverageGapsSettings = Field(
+        default_factory=FactorCoverageGapsSettings,
+        alias="factor-coverage-gaps",
+        description="The `factor-coverage-gaps` check's threshold.",
     )
-    class_coverage: ClassCoverageLimits = Field(
-        default_factory=ClassCoverageLimits,
+    class_coverage: ClassCoverageSettings = Field(
+        default_factory=ClassCoverageSettings,
         alias="class-coverage",
         description="The `class-coverage` check's thresholds.",
     )
-    uncovered_rate: DataCoverageUncoveredRateLimits = Field(
-        default_factory=DataCoverageUncoveredRateLimits,
-        alias="uncovered-rate",
-        description="The `uncovered-rate` check's threshold, under `naive` coverage.",
+    uncovered_items: DataCoverageUncoveredItemsSettings = Field(
+        default_factory=DataCoverageUncoveredItemsSettings,
+        alias="uncovered-items",
+        description="The `uncovered-items` check's threshold, under `naive` coverage.",
     )
-    completeness_score: CompletenessScoreLimits = Field(
-        default_factory=CompletenessScoreLimits,
-        alias="completeness-score",
-        description="The `completeness-score` check's thresholds.",
+    dimensional_completeness: DimensionalCompletenessSettings = Field(
+        default_factory=DimensionalCompletenessSettings,
+        alias="dimensional-completeness",
+        description="The `dimensional-completeness` check's thresholds.",
     )
 
 
 _NO_ONTOLOGY = (
     "data-coverage no longer judges an ontology: run a `label-space` entry on the same source, with this `ontology:` "
-    "(and `label_pattern:`)"
+    "(and `ontology-validation.label_pattern:`)"
 )
 
 _MOVED: dict[str, str] = {
@@ -256,16 +297,18 @@ _MOVED: dict[str, str] = {
     "min_class_samples": "it is `coverage.min_class_samples`",
     "isotropy_min_samples": "it is `coverage.isotropy_min_samples`",
     "near_duplicate_factor": "it is `coverage.near_duplicate_factor`",
-    "crop_padding": "it is `crops.padding`",
-    "crop_min_size": "it is `crops.min_size`",
+    "crop_padding": "it is `wrap.params.padding`",
+    "crop_min_size": "it is `wrap.params.min_size`",
     "run_completeness": "it is `completeness`",
-    "balance": "balance always runs, as a report section; `gaps: null` leaves out the gap analysis",
-    "diversity_method": "diversity always runs, as a report section, and `diversity` picks the method",
-    "run_gap_analysis": "write `gaps: null` to leave out the gap analysis",
-    "gap_mi_threshold": "it is `gaps.mi_threshold`",
-    "gap_min_representation": "it is `gaps.min_representation`",
+    "balance": "balance always runs, as a report section; `factor-gaps: false` leaves out the gap analysis",
+    "diversity_method": "diversity always runs, as a report section, and `diversity.method` picks the method",
+    "run_gap_analysis": "write `factor-gaps: false` to leave out the gap analysis",
+    "gap_mi_threshold": "it is `factor-gaps.mi_threshold`",
+    "gap_min_representation": "it is `factor-gaps.min_representation`",
     "ontology_label_pattern": _NO_ONTOLOGY,
-    "ontology_expected": "it is `expected`, or `label-space`'s `expected` where an ontology is set",
+    "ontology_expected": (
+        "it is `representation.expected`, or `label-space`'s `representation.expected` where an ontology is set"
+    ),
     "metadata_auto_bin_method": "name a policy under `metadata:`",
     "metadata_exclude": "name a policy under `metadata:`",
     "metadata_continuous_factor_bins": "name a policy under `metadata:`",
@@ -275,22 +318,25 @@ _MOVED: dict[str, str] = {
 }
 
 _THRESHOLDS_MOVED: dict[str, str] = {
-    "class_imbalance_ratio": "`health_thresholds.class-imbalance.ratio`",
-    "gap_count": "`health_thresholds.coverage-gaps.count`",
-    "min_dispersion": "`health_thresholds.class-coverage.dispersion`",
-    "min_isotropy": "`health_thresholds.class-coverage.isotropy`",
-    "max_near_duplicate_fraction": "`health_thresholds.class-coverage.near_duplicates`",
-    "uncovered_rate": "`health_thresholds.uncovered-rate.rate`",
-    "completeness_score": "`health_thresholds.completeness-score.warning`",
-    "leaf_coverage": "`label-space`'s `health_thresholds.leaf-coverage.coverage`",
-    "dark_branch_count": "`label-space`'s `health_thresholds.leaf-coverage.empty_branches`",
-    "unmatched_class_count": "`label-space`'s `health_thresholds.label-conformance.unmatched`",
+    "class_imbalance_ratio": "`checks.class-imbalance.warning`",
+    "gap_count": (
+        "`checks.factor-coverage-gaps.warning`, set one less: legacy warned at `gap_count` gaps, this warns past the "
+        "bound, so `gap_count: N` is `warning: N-1`"
+    ),
+    "min_dispersion": "`checks.class-coverage.dispersion`",
+    "min_isotropy": "`checks.class-coverage.isotropy`",
+    "max_near_duplicate_fraction": "`checks.class-coverage.near_duplicates`",
+    "uncovered_rate": "`checks.uncovered-items.warning`",
+    "completeness_score": "`checks.dimensional-completeness.warning`",
+    "leaf_coverage": "`label-space`'s `checks.leaf-coverage.coverage`",
+    "dark_branch_count": "`label-space`'s `checks.leaf-coverage.empty_branches`",
+    "unmatched_class_count": "`label-space`'s `checks.label-conformance.warning`",
 }
 
 
 class DataCoverageConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
-    """The settings of one ``data-coverage`` entry: coverage, crops, completeness, diversity, gaps and the worklist's
-    minimum shares, and when a finding warns.
+    """The settings of one ``data-coverage`` entry: each step type's settings, keyed by the step type, and when a
+    finding warns.
 
     Example YAML::
 
@@ -299,38 +345,39 @@ class DataCoverageConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
             type: data-coverage
             metadata: standard
             coverage: {method: adaptive, num_observations: 50}
-            crops: {padding: 0.1}
-            gaps: {mi_threshold: 0.1}
+            wrap: {params: {padding: 0.1}}
+            factor-gaps: {mi_threshold: 0.1}
     """
 
     type: str = Field(default="data-coverage", description="The workflow type this entry configures: `data-coverage`.")
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, serialize_by_alias=True)
     inputs: ClassVar[InputSpec] = InputSpec(
         required=frozenset({InputKind.METADATA}), optional=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.ONE
     )
 
-    expected: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] | None = Field(
-        default=None,
-        description=(
-            "Class name to its minimum expected share of the dataset, a fraction in [0, 1], for the worklist; a name "
-            "that is no class is ignored and noted."
-        ),
+    representation: DataCoverageRepresentationSettings = Field(
+        default_factory=DataCoverageRepresentationSettings, description="The `representation` step's settings."
     )
-    coverage: CoverageSettings = Field(
-        default_factory=CoverageSettings,
+    coverage: DataCoverageCoverageSettings = Field(
+        default_factory=DataCoverageCoverageSettings,
         description="The `coverage` step's settings, run when the task names an extractor.",
     )
-    crops: CropSettings = Field(
-        default_factory=CropSettings, description="`DetectionCrops`' settings, used on detection data only."
+    wrap: WrapSettings = Field(
+        default_factory=WrapSettings, description="The `wrap` step's settings, used on detection data only."
     )
     completeness: bool = Field(
         default=True, description="Whether the completeness steps run, when the task names an extractor."
     )
-    diversity: Literal["simpson", "shannon"] = Field(default="simpson", description="The `diversity` step's method.")
-    gaps: GapSettings | None = Field(
-        default_factory=GapSettings, description="The gap analysis's settings; `null` leaves it out."
+    diversity: DiversitySettings = Field(
+        default_factory=DiversitySettings, description="The `diversity` step's settings."
     )
-    health_thresholds: DataCoverageThresholds = Field(
-        default_factory=DataCoverageThresholds, description="When findings warn, keyed by check type."
+    factor_gaps: FactorGapsSettings | Literal[False] = Field(
+        default_factory=FactorGapsSettings,
+        alias="factor-gaps",
+        description="The `factor-gaps` step's settings; `false` leaves out the gap analysis and its check.",
+    )
+    checks: DataCoverageChecks = Field(
+        default_factory=DataCoverageChecks, description="When findings warn, keyed by check type."
     )
 
     @model_validator(mode="before")

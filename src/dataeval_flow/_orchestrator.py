@@ -1151,12 +1151,14 @@ def _nulls_of(value: Any, path: tuple[str | int, ...]) -> set[tuple[str | int, .
 
     found: set[tuple[str | int, ...]] = set()
     if isinstance(value, BaseModel):
+        by_alias = value.model_config.get("serialize_by_alias", False)
         for name in value.model_fields_set:
             item = getattr(value, name, None)
+            key = (by_alias and type(value).model_fields[name].alias) or name
             if item is None:
-                found.add((*path, name))
+                found.add((*path, key))
             else:
-                found |= _nulls_of(item, (*path, name))
+                found |= _nulls_of(item, (*path, key))
     elif isinstance(value, (list, tuple)):
         for index, item in enumerate(value):
             found |= _nulls_of(item, (*path, index))

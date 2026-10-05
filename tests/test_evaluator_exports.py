@@ -34,7 +34,7 @@ def test_the_bias_evaluators_are_exported():
 
 
 def test_the_scope_evaluators_are_exported():
-    for kind in ("Representation", "Coverage", "Prioritize"):
+    for kind in ("Representation", "Coverage", "Prioritization"):
         for suffix in ("Config", "Evaluator", "Result"):
             assert f"{kind}{suffix}" in dataeval_flow.evaluators.scope.__all__
             assert getattr(dataeval_flow.evaluators.scope, f"{kind}{suffix}")

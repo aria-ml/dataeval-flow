@@ -3,18 +3,12 @@
 A *view* is a named pipeline of dataset operations (``Limit``, ``ClassFilter``,
 ``Shuffle``, ...) applied to a source dataset — the config-layer counterpart of
 :class:`dataeval.data.View`.
-
-.. note::
-    The legacy ``selection``/``steps`` vocabulary is still accepted on input
-    (with a :class:`DeprecationWarning`) but is deprecated in favor of
-    ``view``/``operations``.
 """
 
-import warnings
 from collections.abc import Mapping, Sequence
 from typing import Any, ClassVar
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 _MAX_INDICES_RANGE = 1_000_000
 
@@ -111,27 +105,11 @@ class ViewConfig(BaseModel):
 
     Defines a reusable pipeline of dataset operations, referenced by name from
     sources. Similar to PreprocessorConfig.
-
-    For backward compatibility the legacy ``steps`` key is accepted on input as
-    an alias for ``operations`` (with a :class:`DeprecationWarning`).
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, extra="forbid")
 
     name: str = Field(description="Identifier for the view, referenced by sources.")
     operations: Sequence[ViewOperation] = Field(
-        validation_alias=AliasChoices("operations", "steps"),
         description="Ordered dataset operations from dataeval.data.",
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _warn_legacy_steps(cls, data: Any) -> Any:
-        """Emit a deprecation warning when the legacy ``steps`` key is used."""
-        if isinstance(data, Mapping) and "steps" in data and "operations" not in data:
-            warnings.warn(
-                "The 'steps' key in a view config is deprecated; use 'operations' instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        return data

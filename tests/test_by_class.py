@@ -184,12 +184,12 @@ def test_by_is_refused_on_a_transform_and_settings_on_a_check():
         StepEntry.model_validate({"name": "v", "transform": "view", "input": "a", "view": "x", "by": "class"})
     with pytest.raises(ValueError, match="no settings"):
         StepEntry.model_validate(
-            {"name": "c", "check": "outlier-rate", "input": "o", "by": {"class": {"min_items": 3}}}
+            {"name": "c", "check": "image-outliers", "input": "o", "by": {"class": {"min_items": 3}}}
         )
 
 
 def test_by_never_reaches_an_inline_steps_settings():
-    entry = StepEntry.model_validate({"name": "c", "check": "outlier-rate", "input": "o", "by": "class"})
+    entry = StepEntry.model_validate({"name": "c", "check": "image-outliers", "input": "o", "by": "class"})
     assert "by" not in entry.settings
 
 
@@ -273,7 +273,7 @@ def test_a_check_over_skipped_groups_is_not_assessed_by_group(plugins):
 def test_a_check_with_by_returning_one_finding_per_class_fails_its_step(plugins):
     from unittest.mock import patch
 
-    from dataeval_flow.workflows import Finding
+    from dataeval_flow.steps import Finding
     from tests.chain_toys import Drifted
 
     register_toys(plugins)
@@ -293,8 +293,8 @@ def test_nothing_assessed_is_not_assessed():
 
 
 def test_groups_roll_up_by_group():
+    from dataeval_flow.steps import Finding
     from dataeval_flow.steps._by import ByConfig, roll_up
-    from dataeval_flow.workflows import Finding
 
     by = ByConfig.model_validate({"class": {"groups": {"pets": ["cat"]}}})
     ok = Finding(severity="ok", title="Drifted")
@@ -316,6 +316,4 @@ def test_a_check_with_by_is_refused_on_an_output_without_it(plugins):
 
 def test_a_check_with_by_and_more_than_one_input_is_refused_at_load():
     with pytest.raises(ValidationError, match="maps a check over one input"):
-        StepEntry.model_validate(
-            {"name": "c", "check": "target-outlier-rate", "input": "a", "labels": "b", "by": "class"}
-        )
+        StepEntry.model_validate({"name": "c", "check": "target-outliers", "input": "a", "labels": "b", "by": "class"})

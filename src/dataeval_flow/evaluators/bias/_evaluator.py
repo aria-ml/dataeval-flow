@@ -3,7 +3,7 @@
 ``run`` is the only code here that calls DataEval.
 """
 
-__all__ = ["BalanceEvaluator", "DiversityEvaluator", "MetadataSummaryEvaluator", "ParityEvaluator", "balance_arguments"]
+__all__ = ["BalanceEvaluator", "DiversityEvaluator", "FactorSummaryEvaluator", "ParityEvaluator", "balance_arguments"]
 
 import time
 from collections.abc import Mapping, Sequence
@@ -21,10 +21,10 @@ from dataeval_flow.evaluators._inputs import EvaluatorInputs
 from dataeval_flow.evaluators.bias._config import (
     BalanceConfig,
     DiversityConfig,
-    MetadataSummaryConfig,
+    FactorSummaryConfig,
     ParityConfig,
 )
-from dataeval_flow.evaluators.bias._result import MetadataSummaryOutput
+from dataeval_flow.evaluators.bias._result import FactorSummaryOutput
 
 if TYPE_CHECKING:
     from dataeval_flow._policy import ResolvedPolicy
@@ -92,16 +92,16 @@ class ParityEvaluator(Evaluator[ParityConfig, ParityOutput]):
         return Parity(**dataeval_arguments(config)).evaluate(metadata)
 
 
-class MetadataSummaryEvaluator(Evaluator[MetadataSummaryConfig, MetadataSummaryOutput]):
-    """``metadata-summary``: each factor of the source's Metadata summarized, as legacy data-coverage did."""
+class FactorSummaryEvaluator(Evaluator[FactorSummaryConfig, FactorSummaryOutput]):
+    """``factor-summary``: each factor of the source's Metadata summarized, as legacy data-coverage did."""
 
-    name: ClassVar[str] = "metadata-summary"
-    title: ClassVar[str] = "Metadata Summary"
+    name: ClassVar[str] = "factor-summary"
+    title: ClassVar[str] = "Factor Summary"
     description: ClassVar[str] = "Each metadata factor's type, binning, nulls, and range or top values"
     dataeval_class: ClassVar[Any] = Metadata
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.METADATA: "rows_at"}
 
-    def run(self, config: MetadataSummaryConfig, inputs: Sequence[EvaluatorInputs]) -> MetadataSummaryOutput:  # noqa: ARG002
+    def run(self, config: FactorSummaryConfig, inputs: Sequence[EvaluatorInputs]) -> FactorSummaryOutput:  # noqa: ARG002
         """Summarize the source's Metadata under the task's policy (coverage spec §6.1)."""
         from dataeval_flow.workflows._common import compute_metadata_summary
 
@@ -110,4 +110,4 @@ class MetadataSummaryEvaluator(Evaluator[MetadataSummaryConfig, MetadataSummaryO
         started, clock = datetime.now(UTC), time.monotonic()
         summary = compute_metadata_summary(metadata)
         meta = execution("dataeval_flow.compute_metadata_summary", started, time.monotonic() - clock, {})
-        return MetadataSummaryOutput({"factors": list(metadata.factor_names), "summary": summary}, meta)
+        return FactorSummaryOutput({"factors": list(metadata.factor_names), "summary": summary}, meta)

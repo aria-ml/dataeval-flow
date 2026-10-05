@@ -30,7 +30,7 @@ _WIRING: dict[str, frozenset[str]] = {
     "parity": frozenset(),
     "representation": frozenset(),
     "coverage": frozenset({"extractor", "batch_size"}),
-    "prioritize": frozenset({"extractor", "batch_size"}),
+    "prioritization": frozenset({"extractor", "batch_size"}),
     "drift-domain-classifier": frozenset({"extractor", "update_strategy"}),
     "drift-kneighbors": frozenset({"extractor", "update_strategy"}),
     "drift-mmd": frozenset({"extractor", "update_strategy", "sigma", "device"}),
@@ -48,7 +48,7 @@ _WIRING: dict[str, frozenset[str]] = {
 
 # Flow's own evaluators: their settings are Flow's, not a DataEval `Config`'s, so they have no wiring list.
 _FLOW_ONLY: frozenset[str] = frozenset(
-    {"content-digest", "divergence", "factor-leakage", "factor-triage", "metadata-summary"}
+    {"content-digest", "divergence", "factor-leakage", "factor-triage", "factor-summary"}
 )
 
 # Fields Flow converts before DataEval sees them, whose types are Flow's by design.

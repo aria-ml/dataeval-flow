@@ -15,8 +15,9 @@ A `workflows:` entry is one of two things:
 workflows:
   - name: basic_clean               # a workflow type
     type: data-cleaning
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: adaptive
 
   - name: clean_export              # a chain
     inputs: [data]
@@ -63,7 +64,7 @@ Transform steps make Datasets. The [Transform Catalog](../reference/transforms.m
 | `split` | a Dataset | `train`, `val` and `test`, from `test_frac`, `val_frac` or both |
 | `kfold` | a Dataset | `train` and `val`, each a list with one Dataset per fold, and `test` |
 | `wrap` | an object-detection Dataset | a classification Dataset with one item per detection (`wrapper: DetectionCrops`) |
-| `select` | a Dataset, and a `prioritize` ranking of it (`ranking:`) | the first `n`, or `fraction`, of the ranking |
+| `select` | a Dataset, and a `prioritization` ranking of it (`ranking:`) | the first `n`, or `fraction`, of the ranking |
 | `remove` | a Dataset, and Duplicates or Outliers outputs computed on it (`plans:`) | the Dataset without what the plans name |
 | `conform` | a Dataset, and a `label-alignment` of it (`alignment:`) | the Dataset relabelled onto the ontology |
 | `export` | an object-detection Dataset | a dataset on disk under the run's output directory, and a record of it |
@@ -72,7 +73,7 @@ Transform steps make Datasets. The [Transform Catalog](../reference/transforms.m
 The step that `plans:`, `ranking:` or `alignment:` names must have read exactly the Dataset the transform's own
 `input:` names. The config refuses anything else when it loads. One element of a step that ran once per element of a
 list was computed on that element: `dupes[0]`, where `dupes` read `kfold.train`, applies to `kfold.train[0]`. A
-`prioritize` ranking may also read a reference set, so for `select` only the first Dataset it read must match.
+`prioritization` ranking may also read a reference set, so for `select` only the first Dataset it read must match.
 
 `dataeval-flow steps` lists every step a chain can use, and `dataeval-flow steps NAME` prints one step's ports and
 settings.
@@ -94,7 +95,7 @@ workflows:
     steps:
       - {name: dupes, evaluator: dupes, input: data}
       - {name: labels, evaluator: labels, input: data}
-      - {name: duplicates, check: duplicate-rate, input: dupes, near: 2.0}
+      - {name: duplicates, check: image-duplicates, input: dupes, near: 2.0}
       - {name: imbalance, check: class-imbalance, input: labels}
 ```
 
@@ -176,20 +177,20 @@ pair, and it leaves one record saying so.
 
 A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning`, `data-prioritization`,
 `metadata-triage`, `drift-monitoring`, `ood-detection`, `data-splitting`, `label-space` and `data-coverage` are presets.
-Data-cleaning's evaluators find outliers and duplicates, its checks judge them against `health_thresholds`, and its
+Data-cleaning's evaluators find outliers and duplicates, its checks judge them against `checks`, and its
 `clean` step removes what they flagged. The [Check and Combine Catalog](../reference/checks.md#data-cleaning-is-this-chain)
 lists the chain. The other workflow types will follow.
 Until then, each runs as one step that makes its result, and its findings stay in that step.
 
 Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of
 its chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the
-`basic_clean` entry above, its steps run in your chain as `cleaning/outliers`, `cleaning/dupes` and so on. The step's
+`basic_clean` entry above, its steps run in your chain as `cleaning/outliers`, `cleaning/duplicates` and so on. The step's
 `optional:` holds for each of them, and its `extractor:` for each that reads embeddings. Its checks' findings are your
 chain's, listed at the top of the JSON, each naming its step, such as `cleaning/image-outliers`.
 
 Only a preset's declared outputs can be addressed, and always by name: `cleaning.clean` reads the cleaned Dataset,
-while `cleaning` alone, `cleaning.dupes` and `cleaning/dupes` are refused. Handed a list, a preset runs its whole chain
-once per element, so `cleaning.clean` is a list with the same keys. A preset's last input can be a list, as
+while `cleaning` alone, `cleaning.duplicates` and `cleaning/duplicates` are refused. Handed a list, a preset runs its whole
+chain once per element, so `cleaning.clean` is a list with the same keys. A preset's last input can be a list, as
 data-prioritization's `pools` is, and a step running it binds that input to a list, such as
 `input: [ref, cleaning.clean]`.
 

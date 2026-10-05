@@ -31,5 +31,5 @@ def test_balance_s_class_label_row_is_never_a_factor() -> None:
 
 
 def test_the_limit_decides() -> None:
-    assert _judge(mutual_information=None).severity == "info"
-    assert _judge(mutual_information=1.0).severity == "ok"
+    assert _judge(warning=None).severity == "info"
+    assert _judge(warning=1.0).severity == "ok"

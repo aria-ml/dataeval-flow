@@ -15,7 +15,11 @@ from dataeval_flow.steps import ChainResult
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 
-_CLEANING = {"name": "cleaning", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
+_CLEANING = {
+    "name": "cleaning",
+    "type": "data-cleaning",
+    "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"},
+}
 
 
 @pytest.fixture(autouse=True)
@@ -54,20 +58,20 @@ def _drawn(result: Any) -> Any:
 
 
 def test_a_matrix_task_returns_one_result_holding_every_run() -> None:
-    result = _matrix(_config({"outlier_threshold": [2.0, 3.0]}))
+    result = _matrix(_config({"outliers.outlier_threshold": [2.0, 3.0]}))
     assert result.kind == "matrix"
     assert result.type == "data-cleaning"
-    assert result.keys == ["outlier_threshold"]
+    assert result.keys == ["outliers.outlier_threshold"]
     assert [(run.number, run.label) for run in result.runs] == [
-        (1, "outlier_threshold=2.0"),
-        (2, "outlier_threshold=3.0"),
+        (1, "outliers.outlier_threshold=2.0"),
+        (2, "outliers.outlier_threshold=3.0"),
     ]
     assert all(isinstance(run.result, ChainResult) and run.result.success for run in result.runs)
     assert result.success
 
 
 def test_every_run_reads_one_draw_of_an_unseeded_shuffled_source() -> None:
-    result = _matrix(_config({"outlier_threshold": [2.0, 3.0, 4.0]}, shuffled=True))
+    result = _matrix(_config({"outliers.outlier_threshold": [2.0, 3.0, 4.0]}, shuffled=True))
     drawn = [_drawn(run.result) for run in result.runs]
     assert all(dataset is drawn[0] for dataset in drawn)
 
@@ -76,9 +80,9 @@ def test_under_a_seed_a_run_reads_the_draw_a_lone_task_reads() -> None:
     def order(dataset: Any) -> list[int]:
         return [int(np.asarray(dataset[i][0]).sum()) for i in range(len(dataset))]
 
-    matrix = _matrix(_config({"outlier_threshold": [3.0]}, seed=7, shuffled=True))
+    matrix = _matrix(_config({"outliers.outlier_threshold": [3.0]}, seed=7, shuffled=True))
     DatasetCache.clear_instances()
-    lone_config = _config({"outlier_threshold": [3.0]}, seed=7, shuffled=True)
+    lone_config = _config({"outliers.outlier_threshold": [3.0]}, seed=7, shuffled=True)
     lone = run_task(TaskConfig(name="t", workflow="cleaning", sources="src"), lone_config)
     assert order(_drawn(matrix.runs[0].result)) == order(_drawn(lone))
 
@@ -87,9 +91,13 @@ def test_a_run_s_findings_equal_its_settings_run_as_a_lone_task() -> None:
     def seen(result: Any) -> list[tuple[str, str, str | None]]:
         return [(finding.title, finding.severity, finding.brief) for finding in result.findings]
 
-    matrix = _matrix(_config({"outlier_threshold": [2.0]}, seed=1))
+    matrix = _matrix(_config({"outliers.outlier_threshold": [2.0]}, seed=1))
     DatasetCache.clear_instances()
-    lone_config = _config({"outlier_threshold": [3.0]}, seed=1, entry={**_CLEANING, "outlier_threshold": 2.0})
+    lone_config = _config(
+        {"outliers.outlier_threshold": [3.0]},
+        seed=1,
+        entry={**_CLEANING, "outliers": {**_CLEANING["outliers"], "outlier_threshold": 2.0}},
+    )
     lone = run_task(TaskConfig(name="t", workflow="cleaning", sources="src"), lone_config)
     assert seen(matrix.runs[0].result) == seen(lone)
 
@@ -100,12 +108,12 @@ def test_statistics_are_computed_once_across_a_threshold_matrix(monkeypatch: pyt
     calls: list[int] = []
     real = cache._do_compute_stats
     monkeypatch.setattr(cache, "_do_compute_stats", lambda *a, **k: calls.append(1) or real(*a, **k))
-    run_task(TaskConfig(name="t", workflow="cleaning", sources="src"), _config({"outlier_threshold": [3.0]}))
+    run_task(TaskConfig(name="t", workflow="cleaning", sources="src"), _config({"outliers.outlier_threshold": [3.0]}))
     lone = len(calls)
     assert lone >= 1, "spy on the function that computes statistics: this one was never called"
     DatasetCache.clear_instances()
     calls.clear()
-    run_tasks(_config({"outlier_threshold": [2.0, 3.0, 4.0]}))
+    run_tasks(_config({"outliers.outlier_threshold": [2.0, 3.0, 4.0]}))
     assert len(calls) == lone
 
 
@@ -124,7 +132,7 @@ def test_runs_reading_one_sources_value_share_one_extractor_scope(monkeypatch: p
                 "name": "t",
                 "workflow": "cleaning",
                 "sources": "a",
-                "matrix": {"outlier_threshold": [2.0, 3.0], "sources": ["a", "b"]},
+                "matrix": {"outliers.outlier_threshold": [2.0, 3.0], "sources": ["a", "b"]},
             }
         ],
     )
@@ -143,13 +151,16 @@ def test_an_inner_scope_joins_the_open_one() -> None:
 def test_a_failed_run_is_kept_while_the_others_finish_and_fails_the_matrix() -> None:
     # k-means can't make 50 clusters of 12 items: the outliers step fails in that run only. If DataEval accepts it,
     # pick another setting that validates at load and fails at run time, and say so in your report.
-    entry = {**_CLEANING, "outlier_cluster_threshold": 1.0, "outlier_cluster_algorithm": "kmeans"}
-    result = _matrix(_config({"outlier_n_clusters": [None, 50]}, entry=entry, extractor="flat"))
+    entry = {
+        **_CLEANING,
+        "outliers": {**_CLEANING["outliers"], "cluster_threshold": 1.0, "cluster_algorithm": "kmeans"},
+    }
+    result = _matrix(_config({"outliers.n_clusters": [None, 50]}, entry=entry, extractor="flat"))
     assert [run.result.success for run in result.runs] == [True, False]
     assert not result.success
     assert result.health["status"] == "failed"
     assert result.health["failed_runs"] == [2]
-    assert result.errors[0].startswith("run 2 (outlier_n_clusters=50): ")
+    assert result.errors[0].startswith("run 2 (outliers.n_clusters=50): ")
 
 
 def test_a_run_that_raises_becomes_a_failed_run(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -158,12 +169,12 @@ def test_a_run_that_raises_becomes_a_failed_run(monkeypatch: pytest.MonkeyPatch)
     real = orchestrator._run_resolved
 
     def flaky(task: Any, config: Any, *args: Any, **kwargs: Any) -> Any:
-        if config.workflows[0].outlier_threshold == 3.0:
+        if config.workflows[0].outliers.outlier_threshold == 3.0:
             raise RuntimeError("boom")
         return real(task, config, *args, **kwargs)
 
     monkeypatch.setattr(orchestrator, "_run_resolved", flaky)
-    result = _matrix(_config({"outlier_threshold": [2.0, 3.0]}))
+    result = _matrix(_config({"outliers.outlier_threshold": [2.0, 3.0]}))
     assert [run.result.success for run in result.runs] == [True, False]
     assert isinstance(result.runs[1].result, ChainResult)
     assert "boom" in result.runs[1].result.errors[0]
@@ -177,7 +188,7 @@ def test_a_source_that_does_not_resolve_raises_once(monkeypatch: pytest.MonkeyPa
 
     monkeypatch.setattr(sources, "resolve_source", broken)
     with pytest.raises(ValueError, match="no such dataset"):
-        run_tasks(_config({"outlier_threshold": [2.0, 3.0]}))
+        run_tasks(_config({"outliers.outlier_threshold": [2.0, 3.0]}))
 
 
 def test_a_merge_of_conflicting_value_ranges_raises_once_with_no_runs(
@@ -204,7 +215,14 @@ def test_a_merge_of_conflicting_value_ranges_raises_once_with_no_runs(
     config = chain_pipeline(
         workflows=[_CLEANING],
         extra={"datasets": datasets, "sources": sources},
-        tasks=[{"name": "t", "workflow": "cleaning", "sources": "merged", "matrix": {"outlier_threshold": [2.0, 3.0]}}],
+        tasks=[
+            {
+                "name": "t",
+                "workflow": "cleaning",
+                "sources": "merged",
+                "matrix": {"outliers.outlier_threshold": [2.0, 3.0]},
+            }
+        ],
     )
     with pytest.raises(ValueError, match="merges datasets declaring different `value_range`s"):
         run_tasks(config, data_dir=tmp_path)
@@ -217,15 +235,15 @@ def test_a_run_that_raised_keeps_its_envelope_and_the_matrix_its_entry(monkeypat
     real = orchestrator._run_resolved
 
     def flaky(task: Any, config: Any, *args: Any, **kwargs: Any) -> Any:
-        if config.workflows[0].outlier_threshold == 2.0:
+        if config.workflows[0].outliers.outlier_threshold == 2.0:
             raise RuntimeError("boom")
         return real(task, config, *args, **kwargs)
 
     monkeypatch.setattr(orchestrator, "_run_resolved", flaky)
-    result = _matrix(_config({"outlier_threshold": [2.0, 3.0]}))
+    result = _matrix(_config({"outliers.outlier_threshold": [2.0, 3.0]}))
     raised = result.runs[0].result
     assert not raised.success
-    assert raised.metadata.resolved_config["workflow"]["outlier_threshold"] == 2.0
+    assert raised.metadata.resolved_config["workflow"]["outliers"]["outlier_threshold"] == 2.0
     assert raised.metadata.source_descriptions == ["src (src_data)"]
     assert raised._entry == "cleaning"
     assert result._entry == "cleaning"
@@ -233,14 +251,14 @@ def test_a_run_that_raised_keeps_its_envelope_and_the_matrix_its_entry(monkeypat
 
 
 def test_the_json_holds_each_run_s_result_as_its_type_writes_it() -> None:
-    result = _matrix(_config({"outlier_threshold": [2.0, 3.0]}))
+    result = _matrix(_config({"outliers.outlier_threshold": [2.0, 3.0]}))
     payload = cast("dict[str, Any]", result.to_dict())
     assert payload["kind"] == "matrix"
     assert payload["type"] == "data-cleaning"
-    assert payload["keys"] == ["outlier_threshold"]
+    assert payload["keys"] == ["outliers.outlier_threshold"]
     assert payload["health"] == result.health
     assert [run["number"] for run in payload["runs"]] == [1, 2]
-    assert payload["runs"][0]["values"] == {"outlier_threshold": 2.0}
+    assert payload["runs"][0]["values"] == {"outliers.outlier_threshold": 2.0}
     assert [run["result"] for run in payload["runs"]] == [run.result.to_dict() for run in result.runs]
     assert "assets" not in payload
 
@@ -265,25 +283,35 @@ def test_each_run_keeps_the_thumbnails_of_the_data_it_read() -> None:
 
 
 def test_the_envelope_names_the_task_as_written_and_the_sources_read() -> None:
-    result = _matrix(_config({"outlier_threshold": [2.0, 3.0]}, seed=3))
+    result = _matrix(_config({"outliers.outlier_threshold": [2.0, 3.0]}, seed=3))
     config = result.metadata.resolved_config
-    assert config["task"]["matrix"] == {"outlier_threshold": [2.0, 3.0]}
+    assert config["task"]["matrix"] == {"outliers.outlier_threshold": [2.0, 3.0]}
     assert config["sources"] == ["src"]
     assert config["seed"] == 3
     assert result.metadata.execution_time_s is not None
 
 
 def test_the_report_writes_the_matrix_as_yaml_writes_it() -> None:
-    grids = [{"outlier_threshold": [None, 2, 4]}, {"outlier_threshold": {"from": 2.5, "to": 3.5, "step": 0.5}}]
+    grids = [
+        {"outliers.outlier_threshold": ["iqr", 2, 4]},
+        {"duplicates.flags": [None]},
+        {"outliers.outlier_threshold": {"from": 2.5, "to": 3.5, "step": 0.5}},
+    ]
     report = _matrix(_config(grids)).report(detailed=False)
-    assert "- {outlier_threshold: [null, 2, 4]}" in report  # not `None`, nor `range(2, 5, 2)` for 2 and 4
-    assert "- {outlier_threshold: {from: 2.5, to: 3.5, step: 0.5}}" in report
+    assert "- {outliers.outlier_threshold: [iqr, 2, 4]}" in report  # not `range(2, 5, 2)` for 2 and 4
+    assert "- {duplicates.flags: [null]}" in report  # not `None`
+    assert "- {outliers.outlier_threshold: {from: 2.5, to: 3.5, step: 0.5}}" in report
 
 
 def test_run_task_runs_a_matrix_task_the_config_does_not_hold() -> None:
-    config = _config({"outlier_threshold": [3.0]})
+    config = _config({"outliers.outlier_threshold": [3.0]})
     task = TaskConfig.model_validate(
-        {"name": "other", "workflow": "cleaning", "sources": "src", "matrix": {"outlier_threshold": [2.0, 4.0]}}
+        {
+            "name": "other",
+            "workflow": "cleaning",
+            "sources": "src",
+            "matrix": {"outliers.outlier_threshold": [2.0, 4.0]},
+        }
     )
     result = run_task(task, config)
     assert isinstance(result, MatrixResult)
@@ -291,9 +319,9 @@ def test_run_task_runs_a_matrix_task_the_config_does_not_hold() -> None:
 
 
 def test_run_task_with_a_matrix_task_naming_no_entry_says_which() -> None:
-    config = _config({"outlier_threshold": [3.0]})
+    config = _config({"outliers.outlier_threshold": [3.0]})
     task = TaskConfig.model_validate(
-        {"name": "other", "workflow": "missing", "sources": "src", "matrix": {"outlier_threshold": [2.0, 4.0]}}
+        {"name": "other", "workflow": "missing", "sources": "src", "matrix": {"outliers.outlier_threshold": [2.0, 4.0]}}
     )
     with pytest.raises(ValueError, match="Unknown workflow: 'missing'"):
         run_task(task, config)
@@ -302,5 +330,5 @@ def test_run_task_with_a_matrix_task_naming_no_entry_says_which() -> None:
 def test_a_matrix_result_records_library_versions() -> None:
     from dataeval_flow._versions import library_versions
 
-    result = _matrix(_config({"outlier_threshold": [2.0, 3.0]}))
+    result = _matrix(_config({"outliers.outlier_threshold": [2.0, 3.0]}))
     assert result.metadata.library_versions == library_versions()

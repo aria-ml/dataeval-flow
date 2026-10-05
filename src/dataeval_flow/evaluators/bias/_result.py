@@ -12,8 +12,8 @@ from dataeval_flow.evaluators._result import EvaluatorResult
 __all__ = [
     "BalanceResult",
     "DiversityResult",
-    "MetadataSummaryOutput",
-    "MetadataSummaryResult",
+    "FactorSummaryOutput",
+    "FactorSummaryResult",
     "ParityResult",
 ]
 
@@ -86,17 +86,17 @@ class ParityResult(EvaluatorResult[ParityOutput]):
     """
 
 
-class MetadataSummaryOutput(CoreOutput):
-    """``metadata-summary``'s output: each metadata factor's type, binning, nulls and range or top values.
+class FactorSummaryOutput(CoreOutput):
+    """``factor-summary``'s output: each metadata factor's type, binning, nulls and range or top values.
 
     ``data()`` holds ``factors``, the kept factor names, and ``summary``, each factor's type, level, binning, nulls, and
     its range or top values, and each dropped factor with its reasons.
     """
 
 
-class MetadataSummaryResult(EvaluatorResult[MetadataSummaryOutput]):
-    """The result of a ``metadata-summary`` run; ``output`` is a
-    :class:`~dataeval_flow.evaluators.bias.MetadataSummaryOutput`.
+class FactorSummaryResult(EvaluatorResult[FactorSummaryOutput]):
+    """The result of a ``factor-summary`` run; ``output`` is a
+    :class:`~dataeval_flow.evaluators.bias.FactorSummaryOutput`.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
     fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope

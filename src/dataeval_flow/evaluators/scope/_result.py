@@ -17,7 +17,7 @@ __all__ = [
     "LabelReconciliationResult",
     "OntologyValidationOutput",
     "OntologyValidationResult",
-    "PrioritizeResult",
+    "PrioritizationResult",
     "RepresentationResult",
 ]
 
@@ -80,8 +80,8 @@ class CoverageResult(EvaluatorResult[CoverageOutput]):
         return coverage_section(output, sources, detailed=detailed)
 
 
-class PrioritizeResult(EvaluatorResult[PrioritizeOutput]):
-    """The result of a ``prioritize`` run: ``output`` is DataEval's ``PrioritizeOutput``.
+class PrioritizationResult(EvaluatorResult[PrioritizeOutput]):
+    """The result of a ``prioritization`` run: ``output`` is DataEval's ``PrioritizeOutput``.
 
     ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
     fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope

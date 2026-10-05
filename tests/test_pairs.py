@@ -121,7 +121,7 @@ def test_two_pairs_sharing_a_key_fail_the_step_when_the_keys_were_unknown_at_loa
     assert "both give the pair key `a_vs_b_vs_c`" in dupes.errors[0]
 
 
-_RATE = {"name": "rate", "check": "duplicate-rate", "input": "dupes"}
+_RATE = {"name": "rate", "check": "image-duplicates", "input": "dupes"}
 
 
 def test_a_check_over_a_pairwise_step_runs_once_per_pair() -> None:

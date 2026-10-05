@@ -90,23 +90,26 @@ CASES: dict[str, Case] = {
     "detection": Case(
         lambda: CoverageDetections(),
         {"crop_padding": 0.1, "crop_min_size": 4, "num_observations": 10, "min_class_samples": 5},
-        {"crops": {"padding": 0.1, "min_size": 4}, "coverage": {"num_observations": 10, "min_class_samples": 5}},
+        {
+            "wrap": {"params": {"padding": 0.1, "min_size": 4}},
+            "coverage": {"num_observations": 10, "min_class_samples": 5},
+        },
         True,
     ),
     "few": Case(lambda: CoverageImages(count=40), extractor=True),
-    "gaps_off": Case(lambda: CoverageImages(), {"run_gap_analysis": False}, {"gaps": None}),
-    "shannon": Case(lambda: CoverageImages(), {"diversity_method": "shannon"}, {"diversity": "shannon"}),
+    "gaps_off": Case(lambda: CoverageImages(), {"run_gap_analysis": False}, {"factor-gaps": False}),
+    "shannon": Case(lambda: CoverageImages(), {"diversity_method": "shannon"}, {"diversity": {"method": "shannon"}}),
     "expected": Case(
         lambda: CoverageImages(),
         {"ontology_expected": {"bird": 0.4, "nope": 0.1}},
-        {"expected": {"bird": 0.4, "nope": 0.1}},
+        {"representation": {"expected": {"bird": 0.4, "nope": 0.1}}},
     ),
     "unlabelled": Case(lambda: CoverageImages(labeled=False, factors=False)),
     "no_factors": Case(lambda: CoverageImages(factors=False)),
     "strict": Case(
         lambda: CoverageImages(),
         {
-            "health_thresholds": {
+            "checks": {
                 "class_imbalance_ratio": 2.0,
                 "gap_count": 1,
                 "completeness_score": 0.9,
@@ -114,10 +117,10 @@ CASES: dict[str, Case] = {
             }
         },
         {
-            "health_thresholds": {
-                "class-imbalance": {"ratio": 2.0},
-                "coverage-gaps": {"count": 1},
-                "completeness-score": {"warning": 0.9, "info": 0.9},
+            "checks": {
+                "class-imbalance": {"warning": 2.0},
+                "factor-coverage-gaps": {"warning": 1},
+                "dimensional-completeness": {"warning": 0.9, "info": 0.9},
                 "class-coverage": {"dispersion": 1.5},
             }
         },

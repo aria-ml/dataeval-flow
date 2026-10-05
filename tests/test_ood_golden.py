@@ -24,6 +24,8 @@ Deliberate differences, each with its reason:
 - **Deviations are computed for the most out-of-distribution agreed images.** Legacy took the first
   `max_ood_insights` flagged images in index order, and showed the agreed ones among them. The deviations of the
   images both computed agree.
+- **Names follow the naming pass** (naming spec §3.2, §5.3): recorded titles and step names are read through
+  `tests/golden/_renames.py`.
 """
 
 import json
@@ -38,13 +40,15 @@ import pytest
 from dataeval_flow import PipelineConfig, run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.steps import ChainResult
+from tests.golden._renames import step as renamed
+from tests.golden._renames import title
 from tests.golden.ood import CASES, SINGLE_SOURCE, pipeline
 from tests.golden.rerouting import approximately
 
 _GOLDEN = json.loads((Path(__file__).parent / "golden" / "ood.json").read_text())
-_INSIGHTS = ("OOD Factor Predictors", "OOD Sample Metadata Deviations")
+_INSIGHTS = ("Factor Predictors", "Factor Deviation")
 _HEADINGS = {"ood-kneighbors": "OOD (K-Neighbors)", "ood-domain-classifier": "OOD (Domain Classifier)"}
-_EXPLAINED = tuple(name for name in SINGLE_SOURCE if CASES[name].preset.get("metadata_insights", True))
+_EXPLAINED = tuple(name for name in SINGLE_SOURCE if CASES[name].preset.get("factor-deviation", True))
 
 
 def test_every_case_is_recorded() -> None:
@@ -85,7 +89,7 @@ def _run(name: str) -> ChainResult:
     task = {"name": "t", "workflow": "ood", "sources": list(case.datasets()), "extractor": "flat"}
     config = PipelineConfig.model_validate({**dict(pipeline(name)), "workflows": [workflow], "tasks": [task]})
     # The factor steps read metadata where anything was flagged, and DataEval bins the toys' continuous factors.
-    explains = case.preset.get("metadata_insights", True) and _GOLDEN[name]["union"]
+    explains = case.preset.get("factor-deviation", True) and _GOLDEN[name]["union"]
     with pytest.warns(UserWarning, match="binned automatically") if explains else nullcontext():
         result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
@@ -108,12 +112,12 @@ def _as_brief(description: str) -> str:
 @pytest.mark.parametrize("name", SINGLE_SOURCE)
 def test_the_findings_agree_with_legacy(name: str) -> None:
     case, golden = CASES[name], _GOLDEN[name]
-    legacy = [finding for finding in golden["findings"] if finding["title"] not in _INSIGHTS]
+    legacy = [finding for finding in golden["findings"] if title(finding["title"]) not in _INSIGHTS]
     titles = [_HEADINGS[step] for step in case.steps.values()]
     expected = [
         (
             finding["severity"],
-            titles[index] if index < len(titles) else finding["title"],
+            titles[index] if index < len(titles) else title(finding["title"]),
             _as_brief(finding["description"]),
         )
         for index, finding in enumerate(legacy)
@@ -133,7 +137,7 @@ def test_the_flags_scores_and_agreement_agree_with_legacy(name: str) -> None:
         assert scores == approximately(golden["detectors"][key]["scores"])
     if name not in SINGLE_SOURCE:
         return
-    (union,) = _elements(result, "agreement").values()
+    (union,) = _elements(result, renamed("ood-detection", "agreement")).values()
     assert (union.union, union.mutual) == (golden["union"], golden["mutual"])
     assert union.unique == {case.steps[key]: indices for key, indices in golden["unique"].items()}
     assert union.scores == approximately(golden["normalized"])

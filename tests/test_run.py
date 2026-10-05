@@ -142,11 +142,13 @@ def test_two_protocol_extractors_never_share_embeddings_or_clusters(monkeypatch:
 
 _CLUSTERING_CLEANERS = [
     DataCleaningConfig(
-        outlier_method="zscore",
-        outlier_flags=["dimension"],
-        outlier_cluster_threshold=2.0,
-        outlier_cluster_algorithm="kmeans",
-        outlier_n_clusters=2,
+        outliers={  # type: ignore[arg-type]
+            "flags": ["dimension"],
+            "outlier_threshold": "zscore",
+            "cluster_threshold": 2.0,
+            "cluster_algorithm": "kmeans",
+            "n_clusters": 2,
+        },
     ),
 ]
 
@@ -259,7 +261,7 @@ def test_load_config_reads_a_file_named_as_a_string(tmp_path: Path) -> None:
 def test_a_cleaning_run_carries_a_thumbnail_of_each_item_its_report_names() -> None:
     """The white image its outliers flag (7), and both members of its exact (0, 5) and near (3, 9) duplicate groups,
     each captured once. Each is named by ``data``, the preset's name for the Dataset ``run`` hands it."""
-    config = DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel", "visual"])
+    config = DataCleaningConfig(outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
     result = run(config, ToyImages(count=40, near_duplicate=True))
     assert sorted(asset.item.index for asset in result.assets) == [0, 3, 5, 7, 9]
     assert {(asset.item.source, asset.media_type, asset.width, asset.height) for asset in result.assets} == {
@@ -286,7 +288,9 @@ def test_an_ood_run_reads_each_image_s_thumbnail_from_its_own_test_source() -> N
             return np.zeros_like(image), target, datum
 
     detectors = [{"type": "ood-kneighbors", "name": "k3", "k": 3}, {"type": "ood-kneighbors", "name": "k5", "k": 5}]
-    config = OODDetectionConfig.model_validate({"name": "ood", "detectors": detectors, "metadata_insights": False})
+    config = OODDetectionConfig.model_validate(
+        {"name": "ood", "detectors": detectors, "factor-predictors": False, "factor-deviation": False}
+    )
     data = {"reference": ToyImages(seed=0, count=20), "day": ToyImages(seed=1, count=12), "night": Dark(count=4)}
     result = run(config, data, extractor=FlattenExtractorConfig(batch_size=8))
     night = [asset for asset in result.assets if asset.item.source == "tests[night]"]
@@ -303,7 +307,7 @@ def test_with_images_off_no_item_is_read_for_a_thumbnail(monkeypatch: pytest.Mon
         raise AssertionError("captured with images off")
 
     monkeypatch.setattr(capture_module, "capture", refuse)
-    config = DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel", "visual"])
+    config = DataCleaningConfig(outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
     result = run(config, ToyImages(count=40, near_duplicate=True), report_images=False)
     assert result.assets == []
     assert "assets" not in result.to_dict()
@@ -342,13 +346,15 @@ def test_an_ood_thumbnail_is_the_image_scored_though_its_view_shuffles_unseeded(
         ],
         extractors=[FlattenExtractorConfig(name="flat", batch_size=8)],
         workflows=[
-            OODDetectionConfig.model_validate({"name": "ood", "detectors": detectors, "metadata_insights": False})
+            OODDetectionConfig.model_validate(
+                {"name": "ood", "detectors": detectors, "factor-predictors": False, "factor-deviation": False}
+            )
         ],
         tasks=[TaskConfig(name="t", workflow="ood", sources=["reference", "test"], extractor="flat")],
     )
     result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
-    union = (result.steps["agreement"].elements or {})["test"].output
+    union = (result.steps["ood-union"].elements or {})["test"].output
     agreed = {ItemRef(source="tests[test]", index=index) for index in union.mutual}
     shades = {
         asset.item: int(np.asarray(Image.open(io.BytesIO(base64.b64decode(asset.data))).convert("L")).max())
@@ -442,19 +448,19 @@ def test_the_result_block_limits_a_run_s_tables() -> None:
     from tests.finding_blocks import walk
 
     config = toy_pipeline(
-        workflows=[DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel", "visual"])],
+        workflows=[
+            DataCleaningConfig(name="clean", outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
+        ],
         tasks=[TaskConfig(name="t", workflow="clean", sources="src")],
         dataset=ToyImages(count=40, near_duplicate=True),
     )
     config.result = ResultConfig(max_rows=1, preview_rows=-1, max_images=0)
     result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
-    assert result.steps["dupes"].type == "duplicates"
+    assert result.steps["duplicates"].type == "duplicates"
     report = result._document(detailed=True).blocks
     # The Duplicates finding shows the step it judged as its evidence.
-    (dupes,) = [
-        block for block in walk(report) if isinstance(block, Section) and block.title == "From Duplicates · dupes"
-    ]
+    (dupes,) = [block for block in walk(report) if isinstance(block, Section) and block.title == "From Duplicates"]
     blocks = list(walk(dupes.blocks))
     (groups,) = [block for block in blocks if isinstance(block, Table)]
     assert (len(groups.rows), groups.preview) == (1, None)

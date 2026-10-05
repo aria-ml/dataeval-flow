@@ -246,8 +246,8 @@ Notice:
   the detection dataset itself, `coverage` would measure whole images as one class, and warn that it has no class
   breakdown.
 - `params:` passes DataEval's `DetectionCrops` arguments. `min_size: 32` drops boxes whose shorter side is under 32
-  pixels; `data-coverage` passes its `crops.min_size` to its own `wrap` step the same way. A tiny crop carries no SIFT
-  features for BoVW to describe.
+  pixels; `data-coverage` passes its `wrap.params.min_size` to its own `wrap` step the same way. A tiny crop carries
+  no SIFT features for BoVW to describe.
 - Coverage embeds the crops with the task's extractor, which every step uses unless it names its own `extractor:`.
   BoVW needs no model file; [an ONNX model](../notebooks/onnx_embeddings.py) is the higher-fidelity choice once you
   have one.
@@ -292,29 +292,30 @@ workflows:
       - {name: split, transform: split, input: clean, test_frac: 0.2, val_frac: 0.1}
       - {name: train_balance, evaluator: balance, input: split.train}
       - {name: labels, evaluator: labels, input: clean}
-      - {name: merged_duplicates, check: duplicate-rate, input: dupes}
-      - {name: imbalance, check: class-imbalance, input: labels, ratio: 3.0}
+      - {name: merged_duplicates, check: image-duplicates, input: dupes}
+      - {name: imbalance, check: class-imbalance, input: labels, warning: 3.0}
 ```
 
 `merged_duplicates` judges the duplicates in the merged dataset, before `remove`. It warns where more than 0% of the
 images are exact duplicates, or 5% near duplicates. `imbalance` warns where the cleaned dataset's largest class
 outnumbers its smallest by more than 3 to 1. The task's health now says `warning` where either does, and
 `--fail-on-warning` fails the run. The report gives each finding a section, with the step it judged below it: the
-Duplicates finding holds `dupes`' duplicate groups, and the Label Distribution finding holds `labels`' class counts.
+Image Duplicates finding holds `dupes`' duplicate groups, and the Class Imbalance finding holds `labels`' class counts.
 The [Check and Combine Catalog](../reference/checks.md) lists every check and its thresholds.
 
 ## 6. Run data-cleaning as a step
 
 A workflow type that is a preset, such as `data-cleaning`, runs as a step with its whole chain: its evaluators, the
-checks that judge them against its `health_thresholds`, and a `clean` step that removes each flagged image and box,
+checks that judge them against its `checks`, and a `clean` step that removes each flagged image and box,
 and each duplicate but the first. Name the entry with `workflow:`, and read the cleaned Dataset as `cleaning.clean`:
 
 ```yaml
 workflows:
   - name: tidy
     type: data-cleaning
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: adaptive
 
   - name: street_clean
     inputs: [data]
@@ -328,11 +329,11 @@ tasks:
     sources: [street_2024]
 ```
 
-`cleaning` runs data-cleaning's steps as `cleaning/outliers`, `cleaning/dupes` and so on, to `cleaning/clean`. In the
+`cleaning` runs data-cleaning's steps as `cleaning/outliers`, `cleaning/duplicates` and so on, to `cleaning/clean`. In the
 report, each of its checks' findings has a section, with the steps it judged below it, headed such as
 `From Outliers · cleaning/outliers`, and `cleaning/clean` has one of its own, `Remove · cleaning/clean`. Its checks'
 findings count toward the task's health, as section 5's do.
-Only `clean` can be read from outside, and only as `cleaning.clean`: `cleaning` alone and `cleaning.dupes` fail the
+Only `clean` can be read from outside, and only as `cleaning.clean`: `cleaning` alone and `cleaning.duplicates` fail the
 config load. [Workflow types as presets](../concepts/WorkflowsAsChains.md#workflow-types-as-presets) says more.
 
 ## 7. Read the result

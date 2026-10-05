@@ -70,9 +70,9 @@ def test_several_grids_run_in_order_each_crossed_alone() -> None:
 
 
 def test_a_list_of_lists_varies_a_list_setting() -> None:
-    assert [pairs for _, pairs in _runs({"outlier_flags": [["pixel"], ["pixel", "visual"]]})] == [
-        [("outlier_flags", ["pixel"])],
-        [("outlier_flags", ["pixel", "visual"])],
+    assert [pairs for _, pairs in _runs({"outliers.flags": [["pixel"], ["pixel", "visual"]]})] == [
+        [("outliers.flags", ["pixel"])],
+        [("outliers.flags", ["pixel", "visual"])],
     ]
 
 
@@ -85,10 +85,10 @@ def test_an_empty_or_malformed_matrix_is_refused(matrix: object) -> None:
 @pytest.mark.parametrize(
     ("matrix", "key", "value"),
     [
-        ({"outlier_threshold": 3.0}, "outlier_threshold", "3.0"),
-        ([{"outlier_method": "iqr"}], "outlier_method", "iqr"),
-        ({"outlier_threshold": {"a": 1}}, "outlier_threshold", "{a: 1}"),
-        ({"outlier_threshold": None}, "outlier_threshold", "null"),
+        ({"outliers.outlier_threshold": 3.0}, "outliers.outlier_threshold", "3.0"),
+        ([{"outliers.outlier_threshold": "iqr"}], "outliers.outlier_threshold", "iqr"),
+        ({"outliers.outlier_threshold": {"a": 1}}, "outliers.outlier_threshold", "{a: 1}"),
+        ({"outliers.outlier_threshold": None}, "outliers.outlier_threshold", "null"),
     ],
 )
 def test_a_value_neither_a_list_nor_a_range_is_refused_in_one_plain_message(
@@ -122,21 +122,27 @@ def test_a_range_that_cannot_count_is_refused_in_one_plain_message(bounds: dict,
 
 
 def test_a_label_writes_keys_as_written_and_values_as_yaml_does() -> None:
-    pairs = [("outlier_threshold", None), ("sources", ["train", "jan"]), ("x", 2.5), ("on", True), ("m", "iqr")]
-    assert run_label(pairs) == "outlier_threshold=null, sources=[train, jan], x=2.5, on=true, m=iqr"
+    pairs = [
+        ("outliers.outlier_threshold", None),
+        ("sources", ["train", "jan"]),
+        ("x", 2.5),
+        ("on", True),
+        ("m", "iqr"),
+    ]
+    assert run_label(pairs) == "outliers.outlier_threshold=null, sources=[train, jan], x=2.5, on=true, m=iqr"
     assert show_value({"k": 5}) == "{k: 5}"
 
 
 def test_a_matrix_saves_back_as_written() -> None:
     text = (
         "name: t\nworkflow: w\nsources: src\nmatrix:\n"
-        "  - outlier_threshold: {from: 2, to: 4, step: 1}\n    outlier_method: [zscore]\n"
-        "  - outlier_method: [iqr]\n"
+        "  - outliers.n_clusters: {from: 2, to: 4, step: 1}\n    outliers.outlier_threshold: [zscore]\n"
+        "  - outliers.outlier_threshold: [iqr]\n"
     )
     data = yaml.safe_load(text)
     dumped = TaskConfig.model_validate(data).model_dump()
     assert dumped["matrix"] == data["matrix"]
-    assert list(dumped["matrix"][0]) == ["outlier_threshold", "outlier_method"]
+    assert list(dumped["matrix"][0]) == ["outliers.n_clusters", "outliers.outlier_threshold"]
     assert yaml.safe_load(yaml.safe_dump(dumped))["matrix"] == data["matrix"]
 
 

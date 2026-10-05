@@ -14,7 +14,7 @@ from dataeval_flow.evaluators.shift import OODKNeighborsConfig
 from dataeval_flow.evaluators.shift._report import derived_threshold, ood_section
 from dataeval_flow.evaluators.shift._rows import OODRowsOutput
 from dataeval_flow.steps import ChainResult, CheckContext
-from dataeval_flow.steps.checks import OODCheck, OODCheckConfig
+from dataeval_flow.steps.checks import OODCheck, OODConfig
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 
@@ -34,13 +34,13 @@ def _output(flags: list[bool]) -> OODOutput:
 
 
 def _judge(output: Any, **thresholds: Any) -> Any:
-    config = OODCheckConfig(input="knn", subject="KNN", **thresholds)
+    config = OODConfig(input="knn", subject="KNN", **thresholds)
     (finding,) = OODCheck().run(config, {"input": SimpleNamespace(value=output, config=None)}, CheckContext("t", "s"))
     return finding
 
 
 @pytest.mark.parametrize(
-    ("flagged", "severity"), [(0, "ok"), (1, "info"), (9, "info"), (10, "warning"), (40, "warning")]
+    ("flagged", "severity"), [(0, "ok"), (1, "ok"), (2, "info"), (10, "info"), (11, "warning"), (40, "warning")]
 )
 def test_severity_follows_the_percent_of_images_flagged(flagged: int, severity: str) -> None:
     finding = _judge(_output([True] * flagged + [False] * (100 - flagged)))
@@ -55,8 +55,9 @@ def test_a_null_threshold_judges_nothing_at_its_level() -> None:
     assert _judge(_output([False] * 100), warning=None, info=None).severity == "info"
 
 
-def test_info_zero_makes_nothing_flagged_info_as_legacy_did() -> None:
-    assert _judge(_output([False] * 10), info=0.0).severity == "info"
+def test_info_zero_makes_any_flagged_image_info_and_none_ok() -> None:
+    assert _judge(_output([False] * 10), info=0.0).severity == "ok"
+    assert _judge(_output([True] + [False] * 9), info=0.0).severity == "info"
 
 
 def test_on_detection_rows_the_percent_is_of_assessed_images_and_detections_are_counted() -> None:

@@ -12,7 +12,11 @@ from dataeval_flow._matrix._build import expand_matrix
 from tests.chain_toys import chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages, shifted_sources
 
-_CLEANING = {"name": "cleaning", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
+_CLEANING = {
+    "name": "cleaning",
+    "type": "data-cleaning",
+    "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"},
+}
 _KNN = {"name": "knn", "type": "ood-kneighbors", "k": 5, "distance_metric": "euclidean"}
 _OOD = {"name": "ood", "type": "ood-detection", "detectors": [_KNN, {"type": "ood-domain-classifier", "n_folds": 3}]}
 
@@ -46,25 +50,25 @@ def _refusal(build: Any, *fragments: str) -> None:
 
 
 def test_each_run_is_a_validated_pipeline_holding_only_its_task() -> None:
-    config = _cleaning({"outlier_threshold": [None, 3.0]})
+    config = _cleaning({"outliers.outlier_threshold": ["iqr", 3.0]})
     runs = _runs(config)
-    assert [run.label for run in runs] == ["outlier_threshold=null", "outlier_threshold=3.0"]
+    assert [run.label for run in runs] == ["outliers.outlier_threshold=iqr", "outliers.outlier_threshold=3.0"]
     assert [run.number for run in runs] == [1, 2]
     for run in runs:
         assert [task.name for task in run.pipeline.tasks] == ["t"]
         assert run.task.matrix is None
-    assert runs[1].pipeline.workflows[0].outlier_threshold == 3.0
-    assert config.workflows[0].outlier_threshold is None
+    assert runs[1].pipeline.workflows[0].outliers.outlier_threshold == 3.0
+    assert config.workflows[0].outliers.outlier_threshold == "zscore"
 
 
 def test_a_path_into_a_nested_setting_left_at_its_default_sets_it() -> None:
-    config = _cleaning({"health_thresholds.image_outliers": [1.0, 5.0]})
+    config = _cleaning({"checks.image-outliers.warning": [1.0, 5.0]})
     runs = _runs(config)
-    assert [run.pipeline.workflows[0].health_thresholds.image_outliers for run in runs] == [1.0, 5.0]
+    assert [run.pipeline.workflows[0].checks.image_outliers.warning for run in runs] == [1.0, 5.0]
 
 
 def test_an_untouched_entry_passes_through_as_the_same_instance() -> None:
-    config = _cleaning({"outlier_threshold": [3.0]})
+    config = _cleaning({"outliers.outlier_threshold": [3.0]})
     (run,) = _runs(config)
     assert run.pipeline.extractors[0] is config.extractors[0]
     assert run.pipeline.datasets[0] is config.datasets[0]
@@ -142,7 +146,7 @@ def test_a_step_setting_left_at_its_default_is_set_and_one_the_step_lacks_is_ref
         "inputs": ["a"],
         "steps": [
             {"name": "out", "evaluator": "outl", "input": "a"},
-            {"name": "gate", "check": "outlier-rate", "input": "out"},
+            {"name": "gate", "check": "image-outliers", "input": "out"},
         ],
     }
 
@@ -153,8 +157,8 @@ def test_a_step_setting_left_at_its_default_is_set_and_one_the_step_lacks_is_ref
             tasks=[{"name": "t", "workflow": "w", "sources": "src", "matrix": matrix}],
         )
 
-    runs = _runs(build({"steps.gate.image": [0.05, 0.2]}))
-    assert [run.pipeline.workflows[0].steps[1].config.image for run in runs] == [0.05, 0.2]
+    runs = _runs(build({"steps.gate.warning": [0.05, 0.2]}))
+    assert [run.pipeline.workflows[0].steps[1].config.warning for run in runs] == [0.05, 0.2]
     _refusal(lambda: build({"steps.gate.imag": [0.05]}), "workflow 'w' has no setting `steps.gate.imag`")
 
 
@@ -184,7 +188,7 @@ def test_sources_and_extractor_are_the_task_s_own() -> None:
 def test_a_matrix_task_as_written_skips_the_task_checks_when_its_runs_pass() -> None:
     # Cluster detection needs an extractor; the task names none, and every run supplies one.
     config = chain_pipeline(
-        workflows=[{**_CLEANING, "outlier_cluster_threshold": 1.0}],
+        workflows=[{**_CLEANING, "outliers": {**_CLEANING["outliers"], "cluster_threshold": 1.0}}],
         extractor=True,
         tasks=[{"name": "t", "workflow": "cleaning", "sources": "src", "matrix": {"extractor": ["flat"]}}],
     )
@@ -202,7 +206,7 @@ def test_a_sibling_task_is_not_checked_against_the_matrix_s_overrides() -> None:
                 "workflow": "cleaning",
                 "sources": "src",
                 "extractor": "flat",
-                "matrix": {"outlier_cluster_threshold": [1.0]},
+                "matrix": {"outliers.cluster_threshold": [1.0]},
             },
             {"name": "sibling", "workflow": "cleaning", "sources": "src"},
         ],
@@ -220,11 +224,11 @@ def test_a_sibling_task_is_not_checked_against_the_matrix_s_overrides() -> None:
         ({"type": ["data-analysis"]}, "a matrix varies settings, not identities"),
         ({"sources": ["missing"]}, "names no source `missing`"),
         ({"extractor": ["missing"]}, "names no extractor `missing`"),
-        ({"outlier_threshold": [-1.0]}, "run 1 (outlier_threshold=-1.0)"),
-        ({"outlier_threshold": [3, 3.0]}, "runs 1 and 2"),
-        ({"outlier_threshold.x": [1.0]}, "is unset, so `outlier_threshold.x` has nothing to set"),
-        ([{"health_thresholds": [{}], "health_thresholds.near_duplicates": [1.0]}], "sets part of"),
-        ([{"health_thresholds": [None], "health_thresholds.near_duplicates": [1.0]}], "sets part of"),
+        ({"outliers.cluster_algorithm": ["bogus"]}, "run 1 (outliers.cluster_algorithm=bogus)"),
+        ({"outliers.outlier_threshold": [3, 3.0]}, "runs 1 and 2"),
+        ({"outliers.cluster_threshold.x": [1.0]}, "is unset, so `outliers.cluster_threshold.x` has nothing to set"),
+        ([{"checks": [{}], "checks.image-duplicates.near": [1.0]}], "sets part of"),
+        ([{"checks": [None], "checks.image-duplicates.near": [1.0]}], "sets part of"),
         ({"sources": [None]}, "`sources` value null is not a source name or a list of them"),
         ({"sources": [5]}, "`sources` value 5 is not a source name or a list of them"),
         ({"extractor": [["flat"]]}, "`extractor` value [flat] is not an extractor name or null"),
@@ -304,10 +308,10 @@ def test_a_pool_key_a_run_does_not_read_is_refused_naming_the_run() -> None:
 
 
 def test_a_null_in_a_list_is_a_run_of_its_own() -> None:
-    config = _cleaning({"outlier_threshold": [None, 3.0]})
+    config = _cleaning({"duplicates.flags": [None, ["hash_d4"]]})
     assert [run.values for run in _runs(config)] == [
-        {"outlier_threshold": None},
-        {"outlier_threshold": 3.0},
+        {"duplicates.flags": None},
+        {"duplicates.flags": ["hash_d4"]},
     ]
 
 
@@ -334,7 +338,7 @@ def test_a_detector_s_own_extractor_is_read_by_the_run() -> None:
 
 
 def test_the_matrix_as_written_is_never_written_into() -> None:
-    written = [{"health_thresholds": [{"near_duplicates": 2.0}]}, {"health_thresholds.near_duplicates": [1.0]}]
+    written = [{"checks": [{"image-duplicates": {"near": 2.0}}]}, {"checks.image-duplicates.near": [1.0]}]
     config = _cleaning(copy.deepcopy(written))
-    assert [run.pipeline.workflows[0].health_thresholds.near_duplicates for run in _runs(config)] == [2.0, 1.0]
+    assert [run.pipeline.workflows[0].checks.image_duplicates.near for run in _runs(config)] == [2.0, 1.0]
     assert config.tasks[0].matrix == written

@@ -38,19 +38,18 @@ from tests.workflow_toys import register_count
 _BASE: dict[str, Any] = {
     "name": "cleaning",
     "type": "data-cleaning",
-    "outlier_method": "zscore",
-    "outlier_flags": ["pixel", "visual"],
+    "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
 }
 _STEPS = [
     "outliers",
-    "labels",
-    "by-class",
-    "dupes",
+    "label-health",
+    "outliers-by-class",
+    "duplicates",
     "image-outliers",
     "target-outliers",
-    "classwise",
-    "duplicates",
-    "imbalance",
+    "classwise-outliers",
+    "image-duplicates",
+    "class-imbalance",
     "clean",
 ]
 
@@ -84,9 +83,9 @@ def test_a_data_cleaning_task_returns_a_chain_result_of_its_steps() -> None:
     assert list(result.steps) == _STEPS
     assert _verdicts(result) == [
         ("warning", "Image Outliers", "1 images (8.3%)", "image-outliers"),
-        ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "classwise"),
-        ("warning", "Duplicates", "2 exact (16.7%), 0 near (0.0%)", "duplicates"),
-        ("info", "Label Distribution", "2 classes, 12 items, imbalance 1.0:1", "imbalance"),
+        ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "classwise-outliers"),
+        ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "image-duplicates"),
+        ("info", "Class Imbalance", "2 classes, 12 items, imbalance 1.0:1", "class-imbalance"),
     ]
 
 
@@ -95,7 +94,7 @@ def test_clean_removes_each_flagged_item_and_each_duplicate_but_the_first() -> N
     assert len(clean.output) == 10
     assert clean.details == {
         "removed": {"items": 2, "detections": 0, "tracks": 0, "frames": 0},
-        "by_plan": {"dupes": {"items": 1}, "outliers": {"items": 1}},
+        "by_plan": {"duplicates": {"items": 1}, "outliers": {"items": 1}},
     }
 
 
@@ -105,12 +104,15 @@ def test_clean_says_what_it_kept_and_what_each_plan_named() -> None:
 
     clean = _task(ToyImages(count=24)).steps["clean"]
     assert RemoveTransform().section(clean) == [
-        Paragraph(text="Kept 22 of 24 images. Removed 2 images: 1 named by `dupes`, 1 by `outliers`.")
+        Paragraph(text="Kept 22 of 24 images. Removed 2 images: 1 named by `duplicates`, 1 by `outliers`.")
     ]
 
 
 def test_run_returns_the_chain_and_the_cleaned_dataset() -> None:
-    result = run(DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel", "visual"]), ToyImages(count=12))
+    result = run(
+        DataCleaningConfig(outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}),  # type: ignore[arg-type]
+        ToyImages(count=12),
+    )
     assert isinstance(result, ChainResult)
     clean = result.steps["clean"].output
     assert isinstance(clean, View)
@@ -123,28 +125,34 @@ def _configuration(result: ChainResult) -> list[str]:
 
 
 def test_the_report_keeps_a_threshold_the_user_set_to_null_and_drops_unset_defaults() -> None:
-    shown = _configuration(_task(ToyImages(count=12), health_thresholds={"image_outliers": None}))
-    assert "image_outliers: None" in shown
+    shown = _configuration(_task(ToyImages(count=12), checks={"image-outliers": {"warning": None}}))
+    assert "image-outliers: {warning: None}" in shown
     assert "stats: None" not in shown
     assert "metadata: None" not in shown
-    assert not [line for line in shown if line.endswith(": None") and line != "image_outliers: None"]
+    assert not [line for line in shown if "None" in line and line != "image-outliers: {warning: None}"]
 
 
 def test_the_report_keeps_every_threshold_the_user_nulled() -> None:
     nulls = {
-        "near_duplicates": None,
-        "image_outliers": None,
-        "target_outliers": None,
-        "classwise_outliers": None,
-        "class_label_imbalance": None,
+        "image-duplicates": {"near": None},
+        "image-outliers": {"warning": None},
+        "target-outliers": {"warning": None},
+        "classwise-outliers": {"warning": None},
+        "class-imbalance": {"warning": None},
     }
-    shown = _configuration(_task(ToyImages(count=12), health_thresholds=nulls))
-    assert "health_thresholds:" in shown
-    assert sorted(line for line in shown if line.endswith(": None")) == sorted(f"{key}: None" for key in nulls)
+    shown = _configuration(_task(ToyImages(count=12), checks=nulls))
+    assert "checks:" in shown
+    assert sorted(line for line in shown if "None" in line) == [
+        "class-imbalance: {warning: None}",
+        "classwise-outliers: {warning: None}",
+        "image-duplicates: {exact: 0.0, near: None}",
+        "image-outliers: {warning: None}",
+        "target-outliers: {warning: None}",
+    ]
 
 
 def test_a_null_threshold_judges_nothing() -> None:
-    result = _task(ToyImages(count=12), health_thresholds={"image_outliers": None})
+    result = _task(ToyImages(count=12), checks={"image-outliers": {"warning": None}})
     assert _verdicts(result)[0] == ("info", "Image Outliers", "1 images (8.3%)", "image-outliers")
 
 
@@ -166,7 +174,7 @@ def test_a_data_cleaning_task_reads_its_source_through_its_view() -> None:
     result = run_task(task, config.model_copy(update={"views": [view], "sources": [source]}))
     assert isinstance(result, ChainResult)
     assert result.metadata.lineage[0].items == 16
-    assert ("info", "Label Distribution", "2 classes, 16 items, imbalance 1.0:1", "imbalance") in _verdicts(result)
+    assert ("info", "Class Imbalance", "2 classes, 16 items, imbalance 1.0:1", "class-imbalance") in _verdicts(result)
     assert len(result.steps["clean"].output) == 16
 
 
@@ -194,12 +202,12 @@ def test_a_data_cleaning_step_cleans_each_split_of_a_list() -> None:
     assert _verdicts(result) == [
         ("warning", "Image Outliers", "1 images (8.3%)", "cleaning/image-outliers[s1]"),
         ("warning", "Image Outliers", "1 images (4.2%)", "cleaning/image-outliers[s2]"),
-        ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "cleaning/classwise[s1]"),
-        ("warning", "Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "cleaning/classwise[s2]"),
-        ("warning", "Duplicates", "2 exact (16.7%), 0 near (0.0%)", "cleaning/duplicates[s1]"),
-        ("warning", "Duplicates", "2 exact (8.3%), 0 near (0.0%)", "cleaning/duplicates[s2]"),
-        ("info", "Label Distribution", "2 classes, 12 items, imbalance 1.0:1", "cleaning/imbalance[s1]"),
-        ("info", "Label Distribution", "2 classes, 24 items, imbalance 1.0:1", "cleaning/imbalance[s2]"),
+        ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "cleaning/classwise-outliers[s1]"),
+        ("warning", "Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "cleaning/classwise-outliers[s2]"),
+        ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "cleaning/image-duplicates[s1]"),
+        ("warning", "Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "cleaning/image-duplicates[s2]"),
+        ("info", "Class Imbalance", "2 classes, 12 items, imbalance 1.0:1", "cleaning/class-imbalance[s1]"),
+        ("info", "Class Imbalance", "2 classes, 24 items, imbalance 1.0:1", "cleaning/class-imbalance[s2]"),
     ]
     clean = result.steps["cleaning/clean"].elements or {}
     assert {key: len(element.output) for key, element in clean.items()} == {"s1": 10, "s2": 22}
@@ -233,26 +241,28 @@ def test_a_step_reading_the_cleaned_dataset_is_refused_a_kind_it_cannot_take_bef
 def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
     """Each setting holds a value no other shares, so one routed to the wrong evaluator or check fails."""
     config = DataCleaningConfig(
-        outlier_method="modzscore",
-        outlier_flags=["dimension"],
-        outlier_threshold=4.0,
-        outlier_cluster_threshold=2.5,
-        outlier_cluster_algorithm="kmeans",
-        outlier_n_clusters=3,
-        duplicate_flags=["hash_d4"],
-        duplicate_merge_near=False,
-        duplicate_cluster_sensitivity=0.7,
-        duplicate_cluster_algorithm="hdbscan",
-        duplicate_n_clusters=5,
+        outliers={  # type: ignore[arg-type]
+            "flags": ["dimension"],
+            "outlier_threshold": ("modzscore", 4.0),
+            "cluster_threshold": 2.5,
+            "cluster_algorithm": "kmeans",
+            "n_clusters": 3,
+        },
+        duplicates={  # type: ignore[arg-type]
+            "flags": ["hash_d4"],
+            "merge_near_duplicates": False,
+            "cluster_sensitivity": 0.7,
+            "cluster_algorithm": "hdbscan",
+            "n_clusters": 5,
+        },
         metadata="policy",
         stats="measured",
-        health_thresholds={  # type: ignore[arg-type]
-            "exact_duplicates": 1.0,
-            "near_duplicates": 9.0,
-            "image_outliers": 6.0,
-            "target_outliers": 7.0,
-            "classwise_outliers": 8.0,
-            "class_label_imbalance": None,
+        checks={  # type: ignore[arg-type]
+            "image-duplicates": {"exact": 1.0, "near": 9.0},
+            "image-outliers": {"warning": 6.0},
+            "target-outliers": {"warning": 7.0},
+            "classwise-outliers": {"warning": 8.0},
+            "class-imbalance": {"warning": None},
         },
     )
     chain = DataCleaningWorkflow.chain(config)
@@ -278,16 +288,16 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
         dupes.cluster_algorithm,
         dupes.n_clusters,
         dupes.stats,
-    ) == ("dupes", ["hash_d4"], False, 0.7, "hdbscan", 5, "measured")
-    assert (labels.name, labels.metadata) == ("labels", "policy")
+    ) == ("duplicates", ["hash_d4"], False, 0.7, "hdbscan", 5, "measured")
+    assert (labels.name, labels.metadata) == ("label-health", "policy")
     steps: dict[str, Any] = {step["name"]: step for step in chain.steps}  # type: ignore[index]
     assert (
-        steps["image-outliers"]["image"],
-        steps["target-outliers"]["target"],
-        steps["classwise"]["total"],
-        steps["duplicates"]["exact"],
-        steps["duplicates"]["near"],
-        steps["imbalance"]["ratio"],
+        steps["image-outliers"]["warning"],
+        steps["target-outliers"]["warning"],
+        steps["classwise-outliers"]["warning"],
+        steps["image-duplicates"]["exact"],
+        steps["image-duplicates"]["near"],
+        steps["class-imbalance"]["warning"],
     ) == (6.0, 7.0, 8.0, 1.0, 9.0, None)
 
 
@@ -303,7 +313,9 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
 )
 def test_a_retired_field_is_refused(field: str, value: Any) -> None:
     with pytest.raises(ValidationError, match=re.escape(field)):
-        DataCleaningConfig.model_validate({"outlier_method": "zscore", "outlier_flags": ["pixel"], field: value})
+        DataCleaningConfig.model_validate(
+            {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}, field: value}
+        )
 
 
 def _conformed(ontology: str, plugins: dict[str, list[tuple[str, str]]]) -> PipelineConfig:
@@ -396,11 +408,13 @@ class TestClustersFollowTheirExtractor:
         DatasetCache.clear_instances()
         clean = DataCleaningConfig(
             name="clean",
-            outlier_method="zscore",
-            outlier_flags=["dimension"],
-            outlier_cluster_threshold=2.0,
-            outlier_cluster_algorithm="kmeans",
-            outlier_n_clusters=2,
+            outliers={  # type: ignore[arg-type]
+                "flags": ["dimension"],
+                "outlier_threshold": "zscore",
+                "cluster_threshold": 2.0,
+                "cluster_algorithm": "kmeans",
+                "n_clusters": 2,
+            },
         )
         config = PipelineConfig(
             datasets=[DatasetProtocolConfig(name="toy", dataset=ToyImages())],

@@ -117,13 +117,14 @@ Rename one of them.
 ## Set expected class shares
 
 By default every sanctioned class is held to a uniform share of the dataset. When some classes are legitimately rarer
-than others, give them explicit floors with `expected` — a mapping of class name to its minimum expected
+than others, give them explicit floors with `representation.expected` — a mapping of class name to its minimum expected
 share as a fraction in `[0, 1]`:
 
 ```yaml
-    expected:
-      face_shield: 0.05
-      goggles: 0.02
+    representation:
+      expected:
+        face_shield: 0.05
+        goggles: 0.02
 ```
 
 Named classes use their floor as the collection target instead of the uniform share, and a dataset below the floor is
@@ -132,11 +133,12 @@ is ignored and noted in the result.
 
 ## Lint the label names
 
-`label_pattern` is a regex every concept label should match. It catches a vocabulary that has drifted into mixed
-conventions:
+`ontology-validation.label_pattern` is a regex every concept label should match. It catches a vocabulary that
+has drifted into mixed conventions:
 
 ```yaml
-    label_pattern: '^[a-z0-9_]+$'   # lowercase_snake_case
+    ontology-validation:
+      label_pattern: '^[a-z0-9_]+$'   # lowercase_snake_case
 ```
 
 Labels that fail are reported in the ontology's structure.
@@ -154,20 +156,20 @@ Labels that fail are reported in the ontology's structure.
 - Structure, by `ontology-structure`: the ontology's size, depth and naming. It warns on a label several concepts
   share.
 
-Two of the checks have thresholds, set under `health_thresholds` and keyed by check type. `null` turns a threshold
+Two of the checks have thresholds, set under `checks` and keyed by check type. `null` turns a threshold
 off. The values below are the defaults:
 
 ```yaml
-    health_thresholds:
+    checks:
       leaf-coverage: {coverage: 0.9, empty_branches: 0}
-      label-conformance: {unmatched: 0}
+      label-conformance: {warning: 0}
 ```
 
 | Check | Threshold | Default | Meaning |
 | --- | --- | --- | --- |
 | `leaf-coverage` | `coverage` | `0.9` | Minimum fraction of sanctioned leaf concepts with any examples |
 | `leaf-coverage` | `empty_branches` | `0` | Wholly unpopulated branches tolerated before warning |
-| `label-conformance` | `unmatched` | `0` | Class names that may fail to resolve to a concept |
+| `label-conformance` | `warning` | `0` | Class names that may fail to resolve to a concept |
 
 Leaf coverage and empty branches catch the class you never collected. Unmatched names catch the opposite problem — a
 label in the data that the sanctioned vocabulary does not contain, which is usually a typo, a stale name, or a class
@@ -185,4 +187,4 @@ a label space, that record's digest is used instead.
 - [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html) — the
   authoritative treatment of ontologies and the reconciliation, alignment, and validation operations over them
 - {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field on `LabelSpaceConfig` and
-  `LabelSpaceThresholds`
+  `LabelSpaceChecks`

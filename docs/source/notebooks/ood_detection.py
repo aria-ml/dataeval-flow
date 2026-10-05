@@ -35,7 +35,7 @@
 # - Load MilitaryVehicles as a MAITE dataset using datamaite.
 # - Synthesize incoming test data containing misaligned imagery: ship images inserted under vehicle labels.
 # - Configure the `ood-detection` workflow with K-Neighbors and Domain Classifier detectors using ResNet-18 embeddings.
-# - Enable metadata insights to identify factors correlated with OOD status.
+# - Read the factor steps to identify factors correlated with OOD status.
 # - Inspect the OOD report, score distributions, and flagged images.
 # - Evaluate detector performance on Gaussian noise sensor corruption.
 
@@ -45,7 +45,7 @@
 # - How to configure and execute the `ood-detection` workflow with `run_task()`.
 # - How K-Neighbors (distance-based) and Domain Classifier (LightGBM-based) detectors operate.
 # - How feature representations influence OOD boundaries.
-# - How metadata insights (`factor_deviation`, `factor_predictors`) explain OOD flags.
+# - How the `factor-predictors` and `factor-deviation` steps explain OOD flags.
 # - How to pass in-memory datasets via `DatasetProtocolConfig`.
 # - How to interpret per-image OOD scores and evaluation reports.
 
@@ -266,11 +266,11 @@ extractor_config = TorchExtractorConfig(
 # **Domain Classifier** uses LightGBM with 3-fold cross-validation repeated 3 times.
 # Images consistently predicted as incoming data receive high OOD probabilities.
 #
-# Setting `metadata_insights=True` directs the workflow to analyze metadata factors
-# that correlate with flagged OOD images.
+# The `factor-predictors` and `factor-deviation` steps run by default and analyze the metadata factors
+# that correlate with flagged OOD images; `false` under either key leaves that step out.
 #
 # Each detector is an evaluator entry, which becomes a step, and the preset adds a check
-# per detector, an `agreement` step combining their flags, and two steps explaining the
+# per detector, an `ood-union` step combining their flags, and two steps explaining the
 # flagged images by their metadata.
 
 # %%
@@ -301,12 +301,11 @@ config = PipelineConfig(
                     {"type": "ood-kneighbors", "k": 10, "distance_metric": "cosine", "threshold_perc": 99.0},
                     {"type": "ood-domain-classifier", "n_folds": 3, "n_repeats": 3, "threshold_perc": 99.0},
                 ],
-                "health_thresholds": {
+                "checks": {
                     "ood": {"warning": 5.0, "info": 1.0},  # warn when 5% of a source's images are OOD
                     "ood-agreement": {"warning": 5.0, "info": 1.0},
                 },
-                "metadata_insights": True,
-                "factor_deviation": {"max_items": 50},
+                "factor-deviation": {"max_items": 50},
             }
         ),
     ],
@@ -337,7 +336,7 @@ print(result.report())
 # ### Per-detector summary
 #
 # Each detector scores incoming images independently and flags those scoring above
-# a threshold set from the reference. The `agreement` step reports each threshold as
+# a threshold set from the reference. The `ood-union` step reports each threshold as
 # derived from the flags: the highest score the detector did not flag.
 
 # %%
@@ -349,7 +348,7 @@ def output(step: str) -> Any:
     return result.steps[step].elements["inc_src"].output
 
 
-union = output("agreement")
+union = output("ood-union")
 print(f"Test images:  {union.images}")
 print(f"OOD images:   {len(union.union)} (union across all detectors), {len(union.mutual)} flagged by every one")
 print()
@@ -391,7 +390,7 @@ for method in DETECTORS:
 #
 # You can plot score histograms to evaluate separation between in-distribution
 # and out-of-distribution images relative to the threshold, drawn dashed as the
-# `agreement` step derives it from the flags (the highest score not flagged).
+# `ood-union` step derives it from the flags (the highest score not flagged).
 
 # %%
 fig, axes = plt.subplots(1, len(DETECTORS), figsize=(6 * len(DETECTORS), 4))
@@ -459,7 +458,7 @@ for method in DETECTORS:
 # %% [markdown]
 # ### Metadata insights
 #
-# When metadata insights are enabled, the workflow computes correlations between
+# When the factor steps run (the default), the workflow computes correlations between
 # metadata factors and OOD status. **Factor predictors** report mutual information
 # with OOD flags. **Factor deviations** show per-factor metric deviations for individual
 # OOD images.
@@ -572,7 +571,7 @@ for method in DETECTORS:
 # %% [markdown]
 # ## Results Exploration: Export results
 #
-# You can export raw detector outputs, per-image scores, and metadata insights
+# You can export raw detector outputs, per-image scores, and factor-step outputs
 # to JSON format.
 
 # %%
@@ -590,7 +589,7 @@ print(json_str[:600] + "\n...")
 # - Execute OOD detection workflows and inspect formatted reports.
 # - Score detector precision and recall against known anomaly labels.
 # - Visualize per-image OOD score distributions and identify boundary images.
-# - Use metadata insights to identify factors correlated with OOD status.
+# - Use the factor steps to identify factors correlated with OOD status.
 # - Export structured OOD findings to JSON format.
 
 # %% [markdown]

@@ -56,8 +56,7 @@ class TestConfigToFactoryIntegration:
             "workflows:\n"
             "  - name: modzscore_clean\n"
             "    type: data-cleaning\n"
-            "    outlier_method: modzscore\n"
-            "    outlier_flags: [dimension, pixel]\n"
+            "    outliers: {flags: [dimension, pixel], outlier_threshold: modzscore}\n"
         )
         (config_dir / "06-tasks.yaml").write_text(
             "tasks:\n"
@@ -142,8 +141,7 @@ class TestConfigToFactoryIntegration:
             "    preprocessor: preproc_x\n"
             "workflows:\n"
             "  - type: data-cleaning\n"
-            "    outlier_method: zscore\n"
-            "    outlier_flags: [pixel]\n"
+            "    outliers: {flags: [pixel], outlier_threshold: zscore}\n"
             "tasks:\n"
             "  - name: task1\n"
             "    workflow: data-cleaning\n"
@@ -195,8 +193,7 @@ class TestConfigToFactoryIntegration:
             "workflows:\n"
             "  - name: modzscore_clean\n"
             "    type: data-cleaning\n"
-            "    outlier_method: modzscore\n"
-            "    outlier_flags: [dimension, pixel]\n"
+            "    outliers: {flags: [dimension, pixel], outlier_threshold: modzscore}\n"
             "tasks:\n"
             "  - name: outlier_detection\n"
             "    workflow: modzscore_clean\n"
@@ -293,7 +290,7 @@ class TestConfigMergeBehavior:
         task_yaml = "tasks:\n  - name: {name}\n    workflow: data-cleaning\n    sources: x\n"
         (config_dir / "02-second.yaml").write_text(task_yaml.format(name="task_second"))
         (config_dir / "01-first.yaml").write_text(
-            "workflows:\n  - type: data-cleaning\n    outlier_method: zscore\n    outlier_flags: [pixel]\n"
+            "workflows:\n  - type: data-cleaning\n    outliers: {flags: [pixel], outlier_threshold: zscore}\n"
             + task_yaml.format(name="task_first")
         )
 
@@ -338,11 +335,9 @@ class TestEndToEndCleaningWorkflow:
             "workflows:\n"
             "  - name: modzscore_clean\n"
             "    type: data-cleaning\n"
-            "    outlier_method: modzscore\n"
-            "    outlier_flags:\n"
-            "      - dimension\n"
-            "      - pixel\n"
-            "    outlier_threshold: null\n"
+            "    outliers:\n"
+            "      flags: [dimension, pixel]\n"
+            "      outlier_threshold: modzscore\n"
             "tasks:\n"
             "  - name: e2e_clean\n"
             "    workflow: modzscore_clean\n"
@@ -403,21 +398,21 @@ class TestEndToEndCleaningWorkflow:
         assert results_data["kind"] == "workflow"
         assert list(results_data["steps"]) == [
             "outliers",
-            "labels",
-            "by-class",
-            "dupes",
+            "label-health",
+            "outliers-by-class",
+            "duplicates",
             "image-outliers",
             "target-outliers",
-            "classwise",
-            "duplicates",
-            "imbalance",
+            "classwise-outliers",
+            "image-duplicates",
+            "class-imbalance",
             "clean",
         ]
         # Nothing is flagged in empty statistics, so no duplicate is found and nothing is removed.
         assert [(f["severity"], f["title"]) for f in results_data["findings"]] == [
             ("ok", "Image Outliers"),
             ("ok", "Classwise Outliers"),
-            ("info", "Label Distribution"),
+            ("info", "Class Imbalance"),
         ]
         assert results_data["health"] == {"status": "ok", "warnings": 0, "findings": 3, "failed_steps": []}
         assert results_data["steps"]["clean"]["output"]["items"] == 10
@@ -433,7 +428,7 @@ class TestEndToEndCleaningWorkflow:
 
         # ── 8. Verify mock calls ──────────────────────────────────────
         mock_load_ic.assert_called_once()
-        # `outliers` and `dupes` read the same node, and each makes one request: for the union of both steps'
+        # `outliers` and `duplicates` read the same node, and each makes one request: for the union of both steps'
         # families, the outlier families and the hash families, which the first computes in one pass.
         assert mock_get_stats.call_count == 2
         union = {None: ImageStats.DIMENSION | ImageStats.PIXEL | ImageStats.HASH_DUPLICATES_BASIC}

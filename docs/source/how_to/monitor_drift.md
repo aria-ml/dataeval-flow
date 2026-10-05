@@ -19,8 +19,8 @@ workflows:
       - {type: drift-univariate, method: ks, p_val: 0.01}
       - {name: mmd_chunked, type: drift-mmd, chunking: {chunk_count: 10, threshold: [zscore, 2.5]}}
       - {type: drift-kneighbors, k: 5}
-    health_thresholds:
-      drift: {warn_on_drift: true, chunk_percent: 10.0, consecutive_chunks: 3}
+    checks:
+      drift: {warn_on_drift: true, chunk_percent: 10.0, consecutive_chunks: 2}
 
 tasks:
   - name: cameras
@@ -55,9 +55,9 @@ print(finding.severity, finding.brief)  # warning, 3/10 chunks drifted
 ```
 
 The `drift` check is the step `<detector>-check`. Unchunked, it warns where the detector found drift, or reports
-`info` when `warn_on_drift` is false. Chunked, it warns where the share of drifted chunks reaches `chunk_percent` or
-the longest run of drifted chunks reaches `consecutive_chunks`, and it reports `info` where some chunk drifted but
-neither threshold is reached. A threshold of `null` judges nothing.
+`info` when `warn_on_drift` is false. Chunked, it warns where the share of drifted chunks passes `chunk_percent` or
+the longest run of drifted chunks passes `consecutive_chunks`, and it reports `info` where some chunk drifted but
+neither threshold is passed. A threshold of `null` judges nothing.
 
 A detector that raises, such as a chunked one whose reference is too small to split into 3 chunks, fails its own step
 and the task. The other detectors still run, and their findings are in the result.
@@ -95,8 +95,8 @@ reads a list of addresses.
 ## 3. By class, and by group
 
 To see which classes drift, map detectors to `by:` in the preset's `classwise:`, as `classwise: {drift-mmd: class}`.
-Each mapped detector also runs once per class, unchunked, as the step `<detector>-classes`, judged by
-`<detector>-classes-check`:
+Each mapped detector also runs once per class, unchunked, as the step `<detector>-by-class`, judged by
+`<detector>-by-class-check`:
 
 ```yaml
 workflows:
@@ -112,7 +112,7 @@ A class is tested only where the reference and the test source each hold at leas
 the detector, such as one with no more reference items than `drift-kneighbors`'s `k`, is left out with the detector's
 error. The step lists a class it leaves out under `skipped`, with the reason, and the report names it. The by-class
 finding is one finding for the source, titled `Drift (MMD) by class`, briefed such as `2/8 classes warn`, and it names
-the classes that warned. In Python, `result.steps["drift-mmd-classes"].elements["cam1"].output` is a `PerClassOutput`:
+the classes that warned. In Python, `result.steps["drift-mmd-by-class"].elements["cam1"].output` is a `PerClassOutput`:
 its `outputs` holds each class's `DriftOutput`, by class name, and its `skipped` holds each class's reason. Detection
 data has no single label per item, so the by-class step is skipped for it with that reason. Section 4 shows how to run
 it on crops.
@@ -194,7 +194,7 @@ workflows:
 ```
 
 `test-crops` runs once for each test source. The preset's steps are addressed through `drift`, such as
-`drift/drift-mmd-classes-check`. Three caveats apply to what the recipe measures:
+`drift/drift-mmd-by-class-check`. Three caveats apply to what the recipe measures:
 
 - **It asks about the objects, not the scenes.** Drift on crops asks whether the objects look different, and a change
   in the scene around them does not register. Crops also vary in size, so the extractor's preprocessor must resize
@@ -308,7 +308,7 @@ workflows:
   counts assessed images only. A source with no detection at all fails the detector's step.
 - **`ood-kneighbors` needs `distance_metric: euclidean`** here: cosine distance, DataEval's default, cannot rank one
   number, and load refuses it.
-- **A detector on embeddings and one on uncertainty agree per image,** so the `agreement` step combines them, and its
+- **A detector on embeddings and one on uncertainty agree per image,** so the `ood-union` step combines them, and its
   section pictures each flagged image once.
 
 ## See also

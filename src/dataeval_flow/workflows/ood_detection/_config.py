@@ -1,9 +1,9 @@
-"""The ``ood-detection`` preset's config: its detectors, its metadata insights, and when a finding warns."""
+"""The ``ood-detection`` preset's config: its detectors, its factor steps, and when a finding warns."""
 
-__all__ = ["FactorDeviationSettings", "OODDetectionConfig", "OODDetectionThresholds", "evaluator_entry"]
+__all__ = ["FactorDeviationSettings", "OODDetectionConfig", "OODDetectionChecks", "evaluator_entry"]
 
 from collections.abc import Mapping
-from typing import Annotated, Any, ClassVar, Self
+from typing import Annotated, Any, ClassVar, Literal, Self
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, SerializeAsAny, model_validator
 
@@ -19,7 +19,7 @@ _BASES: dict[str, type[BaseModel]] = {
     "ood-domain-classifier": OODDomainClassifierConfig,
 }
 _EXTRACTOR = "An `extractors:` entry this detector's steps embed with, instead of the task's."
-_RESERVED = ("agreement", "factor-predictors", "factor-deviation")
+_RESERVED = ("ood-union", "ood-agreement", "factor-predictors", "factor-deviation")
 
 
 class OODKNeighborsDetector(OODKNeighborsConfig):
@@ -70,7 +70,7 @@ OODDetector = Annotated[
 ]
 
 
-class OODDetectionThresholds(BaseModel):
+class OODDetectionChecks(BaseModel):
     """When ood-detection's findings warn: each check's fields, keyed by check type."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
@@ -82,8 +82,7 @@ class OODDetectionThresholds(BaseModel):
         default_factory=OODThresholds,
         alias="ood-agreement",
         description=(
-            "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s, as "
-            "legacy judged both with one pair."
+            "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s."
         ),
     )
 
@@ -96,9 +95,7 @@ class FactorDeviationSettings(BaseModel):
     max_items: int = Field(
         default=50,
         gt=0,
-        description=(
-            "The most out-of-distribution agreed images explained per test source. Legacy's `max_ood_insights`."
-        ),
+        description="The most out-of-distribution agreed images explained per test source.",
     )
 
 
@@ -114,11 +111,12 @@ class OODDetectionConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
             detectors:
               - {type: ood-kneighbors, k: 10}
               - {type: ood-domain-classifier, n_folds: 5}
-            health_thresholds:
+            checks:
               ood: {warning: 10.0, info: 1.0}
     """
 
     type: str = Field(default="ood-detection", description="The workflow type this entry configures: `ood-detection`.")
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, serialize_by_alias=True)
     inputs: ClassVar[InputSpec] = InputSpec(
         required=frozenset({InputKind.EMBEDDINGS}),
         optional=frozenset({InputKind.METADATA, InputKind.STATS}),
@@ -133,15 +131,18 @@ class OODDetectionConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
             "the reference. An entry's `name` names its step. An entry may name its own `extractor:`."
         ),
     )
-    metadata_insights: bool = Field(
-        default=True,
-        description="Whether the metadata factors behind the flagged images are explained, by two optional steps.",
+    factor_predictors: Literal[False] | None = Field(
+        default=None,
+        alias="factor-predictors",
+        description="`false` leaves out the `factor-predictors` step; it takes no settings.",
     )
-    factor_deviation: FactorDeviationSettings = Field(
-        default_factory=FactorDeviationSettings, description="The `factor-deviation` step's settings."
+    factor_deviation: FactorDeviationSettings | Literal[False] = Field(
+        default_factory=FactorDeviationSettings,
+        alias="factor-deviation",
+        description="The `factor-deviation` step's settings; `false` leaves it out.",
     )
-    health_thresholds: OODDetectionThresholds = Field(
-        default_factory=OODDetectionThresholds, description="When findings warn, keyed by check type."
+    checks: OODDetectionChecks = Field(
+        default_factory=OODDetectionChecks, description="When findings warn, keyed by check type."
     )
 
     @model_validator(mode="after")
@@ -155,7 +156,7 @@ class OODDetectionConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
         reserved = [name for name in names if name in _RESERVED or name.endswith("-check")]
         if reserved:
             raise ValueError(
-                f"Detector {', '.join(f'`{n}`' for n in reserved)} is a name the preset's own steps use (`agreement`, "
-                "`factor-predictors`, `factor-deviation`, or a name ending in `-check`): rename it."
+                f"Detector {', '.join(f'`{n}`' for n in reserved)} is a name the preset's own steps use (`ood-union`, "
+                "`ood-agreement`, `factor-predictors`, `factor-deviation`, or a name ending in `-check`): rename it."
             )
         return self

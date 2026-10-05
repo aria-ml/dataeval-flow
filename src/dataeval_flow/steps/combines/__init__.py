@@ -1,40 +1,40 @@
 """The built-in combines: steps that make an Output from what evaluators found."""
 
 __all__ = [
-    "ClasswiseOutliers",
-    "ClasswiseOutliersCombine",
-    "ClasswiseOutliersConfig",
-    "ClasswiseRow",
+    "OutliersByClassOutput",
+    "OutliersByClassCombine",
+    "OutliersByClassConfig",
+    "OutliersByClassRow",
     "FactorDeviation",
     "FactorDeviationCombine",
     "FactorDeviationConfig",
-    "FactorDeviations",
+    "FactorDeviationOutput",
     "FactorGap",
     "FactorGapsCombine",
     "FactorGapsConfig",
     "FactorGapsOutput",
-    "FactorPredictors",
+    "FactorPredictorsOutput",
     "FactorPredictorsCombine",
     "FactorPredictorsConfig",
-    "OODUnion",
+    "OODUnionOutput",
     "OODUnionCombine",
     "OODUnionConfig",
 ]
 
 from dataeval_flow.steps.combines._classwise import (
-    ClasswiseOutliers,
-    ClasswiseOutliersCombine,
-    ClasswiseOutliersConfig,
-    ClasswiseRow,
+    OutliersByClassCombine,
+    OutliersByClassConfig,
+    OutliersByClassOutput,
+    OutliersByClassRow,
 )
 from dataeval_flow.steps.combines._factors import (
     FactorDeviation,
     FactorDeviationCombine,
     FactorDeviationConfig,
-    FactorDeviations,
-    FactorPredictors,
+    FactorDeviationOutput,
     FactorPredictorsCombine,
     FactorPredictorsConfig,
+    FactorPredictorsOutput,
 )
 from dataeval_flow.steps.combines._gaps import FactorGap, FactorGapsCombine, FactorGapsConfig, FactorGapsOutput
-from dataeval_flow.steps.combines._ood import OODUnion, OODUnionCombine, OODUnionConfig
+from dataeval_flow.steps.combines._ood import OODUnionCombine, OODUnionConfig, OODUnionOutput

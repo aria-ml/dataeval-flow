@@ -52,10 +52,7 @@ class FactorGapsConfig(CombineConfig, MetadataConfigMixin):
     min_representation: int = Field(
         default=5,
         ge=1,
-        description=(
-            "A combination is a gap where its count is under this while its expected count is over it. Legacy "
-            "`gap_min_representation`."
-        ),
+        description=("A combination is a gap where its count is under this while its expected count is over it."),
     )
 
 

@@ -25,7 +25,7 @@ def _fresh_cache():
 def _config(*, optional: bool, extractor: bool = False) -> Any:
     steps = [
         {"name": "outliers", "evaluator": "clustered", "input": "data", "optional": optional},
-        {"name": "rate", "check": "outlier-rate", "input": "outliers"},
+        {"name": "rate", "check": "image-outliers", "input": "outliers"},
         {"name": "kept", "transform": "remove", "input": "data", "plans": {"outliers": {"min_flags": 1}}},
     ]
     task: dict[str, Any] = {"name": "t", "workflow": "w", "sources": ["src"]}

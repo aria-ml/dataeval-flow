@@ -107,8 +107,10 @@ def pipeline(name: str, *, legacy: bool) -> PipelineConfig:
     DatasetCache.clear_instances()
     ontology: dict[str, Any] | str = "vocab" if case.concepts else dict(case.ontology or {})
     entry: dict[str, Any] = {"name": "w", "type": "label-space", "ontology": ontology}
-    settings = {"expected": case.expected, "label_pattern": case.label_pattern}
-    entry |= {key: value for key, value in settings.items() if value is not None}
+    if case.expected is not None:
+        entry["representation"] = {"expected": case.expected}
+    if case.label_pattern is not None:
+        entry["ontology-validation"] = {"label_pattern": case.label_pattern}
     extra = {"ontologies": [{"name": "vocab", "concepts": case.concepts}]} if case.concepts else {}
     return chain_pipeline(
         workflows=[entry],

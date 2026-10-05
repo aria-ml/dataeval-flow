@@ -28,6 +28,7 @@ from dataeval_flow.steps._step import (
     TransformContext,
 )
 from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepEntry
+from dataeval_flow.workflows._base import Finding
 
 __all__ = [
     "DATASET_KINDS",
@@ -43,6 +44,7 @@ __all__ = [
     "CombineContext",
     "CustomWorkflowConfig",
     "DataType",
+    "Finding",
     "InputSlot",
     "Port",
     "PortEntry",

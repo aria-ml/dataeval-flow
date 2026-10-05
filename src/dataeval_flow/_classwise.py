@@ -1,4 +1,4 @@
-"""Outliers per class: the pivot the `classwise-outliers` combine builds, and the split of outlier issues into images
+"""Outliers per class: the pivot the `outliers-by-class` combine builds, and the split of outlier issues into images
 and boxes that it and the outlier checks read."""
 
 __all__ = ["class_labels_frame", "classwise_pivot", "split_outlier_issues"]
@@ -53,7 +53,7 @@ def classwise_pivot(
     """How many of each class's items, or boxes, were flagged, most first, then a ``Total`` row.
 
     ``None`` where nothing was flagged at the level the labels sit at: boxes for detection, images otherwise. Raises
-    where the labels cannot be joined to the issues, which fails the `classwise-outliers` step that asked.
+    where the labels cannot be joined to the issues, which fails the `outliers-by-class` step that asked.
     """
     has_targets = metadata.multi_target
     if has_targets:

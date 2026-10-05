@@ -44,7 +44,7 @@ class Step:
 
     name: ClassVar[str]
     title: ClassVar[str]
-    """The friendly name a report and a palette show, such as ``K-Fold Split``. A class that declares a ``name`` and no
+    """The friendly name a report and a palette show, such as ``K-Fold``. A class that declares a ``name`` and no
     ``title`` takes its ``name``, so a plugin needs none. A check's ``title`` is also its finding's title."""
     description: ClassVar[str]
     kind: ClassVar[StepKind]

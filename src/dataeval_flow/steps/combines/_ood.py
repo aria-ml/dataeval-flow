@@ -1,7 +1,7 @@
 """`ood-union`: where OOD detectors agree on a test source's images, and where they don't (ood-detection spec
 §5.2)."""
 
-__all__ = ["OODUnion", "OODUnionCombine", "OODUnionConfig", "union_blocks", "union_of"]
+__all__ = ["OODUnionOutput", "OODUnionCombine", "OODUnionConfig", "union_blocks", "union_of"]
 
 from collections.abc import Mapping, Sequence
 from typing import Any, ClassVar, cast
@@ -18,7 +18,7 @@ from dataeval_flow.steps._combine import Combine, CombineConfig, CombineContext
 from dataeval_flow.steps._port import DataType, Port
 
 
-class OODUnion(BaseModel):
+class OODUnionOutput(BaseModel):
     """Each flagged test image's place among the OOD detectors, flagged by every one, by some or by one alone, with
     its agreement score."""
 
@@ -60,7 +60,7 @@ class OODUnion(BaseModel):
     )
 
 
-def union_of(nodes: Sequence[Any]) -> OODUnion:
+def union_of(nodes: Sequence[Any]) -> OODUnionOutput:
     """The detectors' Outputs, one per node, combined into groups, scores and thresholds."""
     first = nodes[0]
     count = len(first.value.is_ood)
@@ -99,7 +99,7 @@ def union_of(nodes: Sequence[Any]) -> OODUnion:
             hit = [row["image"] for row in node.value.rows["detections"] if row["is_ood"]]
             most = np.maximum(most, np.bincount(np.asarray(hit, dtype=int), minlength=count))
         flagged = [int(value) for value in most]
-    return OODUnion(
+    return OODUnionOutput(
         source=first.computed_on[-1].address if first.computed_on else None,
         detectors=[node.step for node in nodes],
         left_out=[node.step for node in nodes if node.step not in taken],
@@ -115,7 +115,7 @@ def union_of(nodes: Sequence[Any]) -> OODUnion:
     )
 
 
-def union_blocks(union: OODUnion) -> list[Block]:
+def union_blocks(union: OODUnionOutput) -> list[Block]:
     """The flagged images, most out of distribution first: those every detector flagged, then, folded away, those
     some did and those one alone did. Each image appears once."""
     blocks: list[Block] = []
@@ -139,7 +139,7 @@ def union_blocks(union: OODUnion) -> list[Block]:
     return blocks
 
 
-def _images(indices: Sequence[int], union: OODUnion) -> list[Block]:
+def _images(indices: Sequence[int], union: OODUnionOutput) -> list[Block]:
     """`indices`, most out of distribution first: each image's thumbnail, item and agreement score, and its flagged
     detections where a detector read them. At most ``result: max_rows``, with a paragraph counting the rest."""
     ranked = sorted(indices, key=lambda index: (-(union.scores[index] or 0.0), index))
@@ -187,12 +187,12 @@ class OODUnionCombine(Combine[OODUnionConfig]):
     alone, and scores their agreement."""
 
     name: ClassVar[str] = "ood-union"
-    title: ClassVar[str] = "OOD Agreement"
+    title: ClassVar[str] = "OOD Union"
     description: ClassVar[str] = "Groups each flagged image as flagged by every OOD detector, by some, or by one alone."
     inputs: ClassVar[tuple[Port, ...]] = (
         Port("input", DataType.OUTPUT, classes=(OODOutput,), count=SourceCount.ONE_OR_MORE),
     )
-    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.OUTPUT, classes=(OODUnion,)),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.OUTPUT, classes=(OODUnionOutput,)),)
     shared_datasets: ClassVar[tuple[str, ...]] = ("input",)
 
     def run(self, config: OODUnionConfig, inputs: Mapping[str, Any], context: CombineContext) -> Mapping[str, Any]:  # noqa: ARG002
@@ -202,4 +202,4 @@ class OODUnionCombine(Combine[OODUnionConfig]):
     def section(self, record: Any) -> list[Block]:
         """The flagged images, each once."""
         union = record.output
-        return union_blocks(union) if isinstance(union, OODUnion) else []
+        return union_blocks(union) if isinstance(union, OODUnionOutput) else []

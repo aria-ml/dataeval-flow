@@ -30,7 +30,7 @@ _VIEWS: dict[str, frozenset[str]] = {
         }
     ),
     "outliers": frozenset({"outliers"}),
-    "prioritize": frozenset({"indices"}),
+    "prioritization": frozenset({"indices"}),
     # `alignment` is the same `LabelAlignment` `data()` already dumps, as a model rather than a dict.
     "label-alignment": frozenset({"alignment"}),
 }
@@ -65,14 +65,14 @@ _ECHOES: dict[str, frozenset[str]] = {
     "factor-leakage": frozenset(),
     "factor-triage": frozenset(),
     "content-digest": frozenset(),
-    "metadata-summary": frozenset(),
+    "factor-summary": frozenset(),
     "balance": frozenset({"plot_type"}),
     "diversity": frozenset({"plot_type"}),
     "parity": frozenset(),
     # `ontology_source` is how the config named the ontology, read back by `leaf-coverage` rather than serialized.
     "representation": frozenset({"ontology_source"}),
     "coverage": frozenset({"class_axis"}),
-    "prioritize": frozenset({"class_labels", "method", "num_bins", "order", "policy"}),
+    "prioritization": frozenset({"class_labels", "method", "num_bins", "order", "policy"}),
     "drift-domain-classifier": frozenset(),
     "drift-kneighbors": frozenset(),
     "drift-mmd": frozenset(),

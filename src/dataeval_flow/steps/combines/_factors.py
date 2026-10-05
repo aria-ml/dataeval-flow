@@ -6,8 +6,8 @@ __all__ = [
     "FactorDeviation",
     "FactorDeviationCombine",
     "FactorDeviationConfig",
-    "FactorDeviations",
-    "FactorPredictors",
+    "FactorDeviationOutput",
+    "FactorPredictorsOutput",
     "FactorPredictorsCombine",
     "FactorPredictorsConfig",
     "collect_factors",
@@ -28,11 +28,11 @@ from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConf
 from dataeval_flow.evaluators.bias._report import ranked_table
 from dataeval_flow.steps._combine import Combine, CombineConfig, CombineContext
 from dataeval_flow.steps._port import DataType, Port
-from dataeval_flow.steps.combines._ood import OODUnion
+from dataeval_flow.steps.combines._ood import OODUnionOutput
 
 _DERIVES = frozenset({InputKind.METADATA, InputKind.STATS})
 _PORTS: tuple[Port, ...] = (
-    Port("ood", DataType.OUTPUT, classes=(OODUnion, OODOutput)),
+    Port("ood", DataType.OUTPUT, classes=(OODUnionOutput, OODOutput)),
     Port("reference", DataType.DATASET, derives=_DERIVES),
     Port("input", DataType.DATASET, derives=_DERIVES),
 )
@@ -129,7 +129,7 @@ class _Flagged:
 def _flagged(value: Any) -> _Flagged:
     """What an `ood-union` Output, or one OOD Output, flagged: every flagged image; the agreed ones, most out of
     distribution first; which images were assessed; and each image's score."""
-    if isinstance(value, OODUnion):
+    if isinstance(value, OODUnionOutput):
         ranked = sorted(value.mutual, key=lambda index: (-(value.scores[index] or 0.0), index))
         return _Flagged(value.union, ranked, np.asarray([score is not None for score in value.scores]), value.scores)
     scores = np.asarray(value.instance_score, dtype=float)
@@ -139,7 +139,7 @@ def _flagged(value: Any) -> _Flagged:
     return _Flagged(flagged, sorted(flagged, key=lambda index: (-scores[index], index)), assessed, listed)
 
 
-class FactorPredictors(BaseModel):
+class FactorPredictorsOutput(BaseModel):
     """How strongly each metadata factor goes with being flagged, strongest first."""
 
     factors: dict[str, float] = Field(
@@ -167,7 +167,7 @@ class FactorDeviation(BaseModel):
     )
 
 
-class FactorDeviations(BaseModel):
+class FactorDeviationOutput(BaseModel):
     """The factors that set each of the most out-of-distribution agreed images apart from the reference."""
 
     source: str | None = Field(description="The test Dataset, whose items the indices name.")
@@ -196,10 +196,7 @@ class FactorDeviationConfig(_FactorsConfig):
     max_items: int = Field(
         default=50,
         gt=0,
-        description=(
-            "The most out-of-distribution agreed images explained, at most. ood-detection's `max_ood_insights` before "
-            "its port."
-        ),
+        description=("The most out-of-distribution agreed images explained, at most."),
     )
 
 
@@ -214,10 +211,10 @@ class FactorPredictorsCombine(Combine[FactorPredictorsConfig]):
     """``factor-predictors``: how strongly each metadata factor goes with the images OOD detectors flagged."""
 
     name: ClassVar[str] = "factor-predictors"
-    title: ClassVar[str] = "OOD Factor Predictors"
+    title: ClassVar[str] = "Factor Predictors"
     description: ClassVar[str] = "Ranks the metadata factors that go with the images OOD detectors flagged."
     inputs: ClassVar[tuple[Port, ...]] = _PORTS
-    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.OUTPUT, classes=(FactorPredictors,)),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.OUTPUT, classes=(FactorPredictorsOutput,)),)
     computed_on: ClassVar[Mapping[str, tuple[str, ...]]] = _COMPUTED_ON
 
     def run(
@@ -232,23 +229,27 @@ class FactorPredictorsCombine(Combine[FactorPredictorsConfig]):
         flagged = _flagged(inputs["ood"].value)
         if not flagged.flagged:
             reason = "No image was flagged, so no factor was compared."
-            return {"output": FactorPredictors(factors={}, flagged=0, reason=reason)}
+            return {"output": FactorPredictorsOutput(factors={}, flagged=0, reason=reason)}
         keep = np.flatnonzero(flagged.assessed)
         collected = collect_factors(context, inputs["reference"], inputs["input"], keep=keep)
         if not collected.test:
             return {
-                "output": FactorPredictors(factors={}, flagged=0, unavailable=collected.unavailable, reason=_NONE_LEFT)
+                "output": FactorPredictorsOutput(
+                    factors={}, flagged=0, unavailable=collected.unavailable, reason=_NONE_LEFT
+                )
             }
         position = {int(index): at for at, index in enumerate(keep)}
         indices = [position[index] for index in flagged.flagged if index in position]
         found = factor_predictors(collected.test, indices)
         ranked = {name: round(float(value), 4) for name, value in sorted(found.items(), key=lambda item: -item[1])}
-        return {"output": FactorPredictors(factors=ranked, flagged=len(indices), unavailable=collected.unavailable)}
+        return {
+            "output": FactorPredictorsOutput(factors=ranked, flagged=len(indices), unavailable=collected.unavailable)
+        }
 
     def section(self, record: Any) -> list[Block]:
         """Each factor and its normalized mutual information, strongest first."""
         output = record.output
-        if not isinstance(output, FactorPredictors):
+        if not isinstance(output, FactorPredictorsOutput):
             return []
         table: list[Block] = (
             [ranked_table(output.factors, headers=("Factor", "MI (normalized)"))] if output.factors else []
@@ -261,10 +262,10 @@ class FactorDeviationCombine(Combine[FactorDeviationConfig]):
     reference."""
 
     name: ClassVar[str] = "factor-deviation"
-    title: ClassVar[str] = "OOD Sample Metadata Deviations"
+    title: ClassVar[str] = "Factor Deviation"
     description: ClassVar[str] = "Names the factors that set the most out-of-distribution agreed images apart."
     inputs: ClassVar[tuple[Port, ...]] = _PORTS
-    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.OUTPUT, classes=(FactorDeviations,)),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.OUTPUT, classes=(FactorDeviationOutput,)),)
     computed_on: ClassVar[Mapping[str, tuple[str, ...]]] = _COMPUTED_ON
 
     def run(
@@ -277,10 +278,12 @@ class FactorDeviationCombine(Combine[FactorDeviationConfig]):
         source = inputs["input"].address
         if not flagged.agreed:
             reason = "No image was flagged by every detector, so none is explained."
-            return {"output": FactorDeviations(source=source, items=[], reason=reason)}
+            return {"output": FactorDeviationOutput(source=source, items=[], reason=reason)}
         collected = collect_factors(context, inputs["reference"], inputs["input"])
         if not collected.test:
-            output = FactorDeviations(source=source, items=[], unavailable=collected.unavailable, reason=_NONE_LEFT)
+            output = FactorDeviationOutput(
+                source=source, items=[], unavailable=collected.unavailable, reason=_NONE_LEFT
+            )
             return {"output": output}
         chosen = flagged.agreed[: config.max_items]
         found = factor_deviation(collected.reference, collected.test, chosen)
@@ -292,13 +295,13 @@ class FactorDeviationCombine(Combine[FactorDeviationConfig]):
             )
             for index, deviations in zip(chosen, found, strict=True)
         ]
-        return {"output": FactorDeviations(source=source, items=items, unavailable=collected.unavailable)}
+        return {"output": FactorDeviationOutput(source=source, items=items, unavailable=collected.unavailable)}
 
     def section(self, record: Any) -> list[Block]:
         """Each explained image, by item, with its three most deviating factors. Its thumbnail is in the agreement's
         section."""
         output = record.output
-        if not isinstance(output, FactorDeviations):
+        if not isinstance(output, FactorDeviationOutput):
             return []
         rows: list[dict[str, Cell]] = [
             {

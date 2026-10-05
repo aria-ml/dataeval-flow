@@ -110,7 +110,7 @@ def _report(*findings: Section, title: str = "Data cleaning") -> Section:
 
 
 _DUPLICATES = Section(title="Duplicates", brief="3 groups", severity="warning", blocks=[Paragraph(text="3 groups.")])
-_LABELS = Section(title="Label Distribution", brief="10 classes", severity="ok")
+_LABELS = Section(title="Class Imbalance", brief="10 classes", severity="ok")
 
 
 class TestLayout:
@@ -177,7 +177,7 @@ class TestLayout:
         """The findings that need a look are open on arrival; the rest are one line each until opened."""
         fragment = render_html([_report(_DUPLICATES, _LABELS)])
         assert '<details class="card warning" id="duplicates" open>' in fragment
-        assert '<details class="card ok" id="label-distribution"><summary>' in fragment
+        assert '<details class="card ok" id="class-imbalance"><summary>' in fragment
 
     def test_the_metadata_factors_and_the_configuration_fold_away(self):
         """Reference a reader opens when they need it, drawn apart from the findings and closed."""

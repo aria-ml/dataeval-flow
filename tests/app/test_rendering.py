@@ -254,10 +254,10 @@ class TestSnippetWorkflow:
         item: dict[str, Any] = {
             "name": "wf1",
             "type": "data-cleaning",
-            "outlier_method": "adaptive",
+            "outliers": {"flags": ["pixel"], "outlier_threshold": "adaptive"},
         }
         result = _snippet_workflow(item)
-        assert "outlier_method: adaptive" in result
+        assert "outliers: {'flags': ['pixel'], 'outlier_threshold': 'adaptive'}" in result
 
     def test_empty_extras_not_shown(self) -> None:
         item: dict[str, Any] = {"name": "wf1", "type": "data-cleaning", "extra": ""}

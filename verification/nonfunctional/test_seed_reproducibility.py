@@ -28,12 +28,14 @@ def _seeded_cleaning_pipeline(
             DataCleaningConfig(
                 name="clean",
                 type="data-cleaning",
-                outlier_method="zscore",
-                outlier_flags=["dimension", "pixel"],
                 # Cluster-based detection is the stochastic part.
-                outlier_cluster_threshold=3.0,
-                outlier_cluster_algorithm="kmeans",
-                outlier_n_clusters=2,
+                outliers={
+                    "flags": ["dimension", "pixel"],
+                    "outlier_threshold": "zscore",
+                    "cluster_threshold": 3.0,
+                    "cluster_algorithm": "kmeans",
+                    "n_clusters": 2,
+                },
             ),
         ],
         tasks=[

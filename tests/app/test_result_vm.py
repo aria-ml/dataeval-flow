@@ -12,7 +12,7 @@ import pytest
 
 from dataeval_flow._app._viewmodel._result_vm import FindingSummary, ResultViewModel, table_data
 from dataeval_flow._blocks import Column, Fields, Flag, ItemRef, Paragraph, Section, Table
-from dataeval_flow.workflows import Finding
+from dataeval_flow.steps import Finding
 
 pytestmark = pytest.mark.optional
 

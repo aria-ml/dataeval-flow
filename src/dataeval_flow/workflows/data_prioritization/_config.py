@@ -1,7 +1,6 @@
 """The ``data-prioritization`` preset's config and its cleaning block."""
 
-from collections.abc import Sequence
-from typing import ClassVar, Literal
+from typing import ClassVar, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -9,47 +8,59 @@ from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import StatsConfigMixin
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
+from dataeval_flow.workflows.data_cleaning._config import DuplicatesSettings, OutliersSettings
 
-__all__ = ["DataPrioritizationCleaningConfig", "DataPrioritizationConfig"]
+__all__ = ["CleaningSettings", "DataPrioritizationConfig", "SelectSettings"]
 
 MethodType = Literal["knn", "kmeans_distance", "kmeans_complexity", "hdbscan_distance", "hdbscan_complexity"]
 OrderType = Literal["easy_first", "hard_first"]
 PolicyType = Literal["difficulty", "stratified", "class_balanced"]
 
 
-class DataPrioritizationCleaningConfig(BaseModel):
-    """Optional cleaning sub-config for outlier/duplicate removal before prioritization.
-
-    When provided, the reference and each pool lose their outliers, and each duplicate but the first of its group,
-    before ranking.
-    """
+class CleaningSettings(BaseModel):
+    """The cleaning before ranking: the reference and each pool lose their outliers, and each duplicate but the first
+    of its group. Its `outliers` and `duplicates` blocks are data-cleaning's."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    outlier_method: Literal["adaptive", "zscore", "modzscore", "iqr"] = Field(
-        description="Statistical method for outlier detection.",
+    outliers: OutliersSettings = Field(description="The `outliers` step's settings.")
+    duplicates: DuplicatesSettings = Field(
+        default_factory=DuplicatesSettings, description="The `duplicates` step's settings."
     )
-    outlier_flags: Sequence[Literal["dimension", "pixel", "visual"]] = Field(
+    dup_types: list[Literal["exact", "near"]] = Field(
+        default_factory=lambda: ["exact", "near"],
         min_length=1,
-        description="Image statistics groups for outlier detection. At least one required.",
+        description="The duplicate kinds removed: `[exact]` keeps near duplicates.",
     )
-    outlier_threshold: float | None = Field(
+
+
+class SelectSettings(BaseModel):
+    """The `select` step's settings: how much of each pool's ranking is kept."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    n: int | None = Field(
         default=None,
-        ge=0.0,
-        description="Custom threshold (None = use DataEval default for chosen method).",
+        ge=1,
+        description=(
+            "How many of each pool's ranked items `selected` keeps. With `fraction` also unset, it keeps them all."
+        ),
     )
-    duplicate_flags: Sequence[Literal["hash_basic", "hash_d4"]] | None = Field(
+    fraction: float | None = Field(
         default=None,
-        description="Hash flag groups for duplicate detection. None = DataEval default (hash_basic).",
+        gt=0.0,
+        le=1.0,
+        description=(
+            "The share of each pool's ranked items `selected` keeps, rounded up. "
+            "With `n` also unset, it keeps them all."
+        ),
     )
-    duplicate_merge_near: bool = Field(
-        default=True,
-        description="Merge overlapping near-duplicate groups from different detection methods.",
-    )
-    duplicate_exact_only: bool = Field(
-        default=False,
-        description="When True, only flag exact duplicates — skip near-duplicate detection.",
-    )
+
+    @model_validator(mode="after")
+    def _one_amount(self) -> Self:
+        if self.n is not None and self.fraction is not None:
+            raise ValueError("`select` takes `n:` or `fraction:`, not both.")
+        return self
 
 
 class DataPrioritizationConfig(WorkflowConfig[ChainResult], StatsConfigMixin):
@@ -66,10 +77,12 @@ class DataPrioritizationConfig(WorkflowConfig[ChainResult], StatsConfigMixin):
             method: knn
             k: 10
             order: hard_first
-            n: 200
+            select:
+              n: 200
             cleaning:
-              outlier_method: adaptive
-              outlier_flags: [dimension, pixel]
+              outliers:
+                flags: [dimension, pixel]
+                outlier_threshold: adaptive
     """
 
     type: str = Field(
@@ -121,32 +134,8 @@ class DataPrioritizationConfig(WorkflowConfig[ChainResult], StatsConfigMixin):
         description="Number of bins for stratified policy.",
     )
 
-    # --- Optional cleaning ---
-    cleaning: DataPrioritizationCleaningConfig | None = Field(
-        default=None,
-        description="Optional cleaning config. When set, outlier/duplicate detection runs before prioritization.",
+    # --- Optional cleaning, and selection ---
+    cleaning: CleaningSettings | None = Field(
+        default=None, description="Cleaning before ranking; unset ranks the data as it is."
     )
-
-    # --- Selection ---
-    n: int | None = Field(
-        default=None,
-        ge=1,
-        description=(
-            "How many of each pool's ranked items `selected` keeps. With `fraction` also unset, it keeps them all."
-        ),
-    )
-    fraction: float | None = Field(
-        default=None,
-        gt=0.0,
-        le=1.0,
-        description=(
-            "The share of each pool's ranked items `selected` keeps, rounded up. "
-            "With `n` also unset, it keeps them all."
-        ),
-    )
-
-    @model_validator(mode="after")
-    def _one_amount(self) -> "DataPrioritizationConfig":
-        if self.n is not None and self.fraction is not None:
-            raise ValueError("A `data-prioritization` entry takes `n:` or `fraction:`, not both.")
-        return self
+    select: SelectSettings = Field(default_factory=SelectSettings, description="The `select` step's settings.")

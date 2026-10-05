@@ -30,13 +30,13 @@ _TITLES = {
     "factor-leakage": "Factor Leakage",
     "factor-triage": "Factor Triage",
     "content-digest": "Content Digest",
-    "metadata-summary": "Metadata Summary",
+    "factor-summary": "Factor Summary",
     "coverage": "Coverage",
     "label-alignment": "Label Alignment",
     "completeness": "Completeness",
     "label-reconciliation": "Label Reconciliation",
     "ontology-validation": "Ontology Validation",
-    "prioritize": "Prioritization",
+    "prioritization": "Prioritization",
     "representation": "Representation",
     "drift-domain-classifier": "Drift (Domain Classifier)",
     "drift-kneighbors": "Drift (K-Neighbors)",
@@ -48,18 +48,18 @@ _TITLES = {
     "divergence": "Divergence",
     "conform": "Conform",
     "export": "Export",
-    "kfold": "K-Fold Split",
+    "kfold": "K-Fold",
     "merge": "Merge",
     "remove": "Remove",
     "select": "Select",
     "split": "Split",
     "view": "View",
     "wrap": "Wrap",
-    "classwise-outliers": "Outliers by Class",
-    "ood-union": "OOD Agreement",
-    "factor-deviation": "OOD Sample Metadata Deviations",
+    "outliers-by-class": "Outliers by Class",
+    "ood-union": "OOD Union",
+    "factor-deviation": "Factor Deviation",
     "factor-gaps": "Factor Gaps",
-    "factor-predictors": "OOD Factor Predictors",
+    "factor-predictors": "Factor Predictors",
     "data-analysis": "Data Analysis",
     "data-cleaning": "Data Cleaning",
     "data-coverage": "Data Coverage",
@@ -87,8 +87,8 @@ def test_every_built_in_step_declares_its_title() -> None:
 
 def test_a_check_keeps_the_title_of_its_finding() -> None:
     titles = {cls.name: cls.title for cls in CHECKS.list(plugins=False)}
-    assert titles["duplicate-rate"] == "Duplicates"
-    assert titles["classwise-outlier-rate"] == "Classwise Outliers"
+    assert titles["image-duplicates"] == "Image Duplicates"
+    assert titles["classwise-outliers"] == "Classwise Outliers"
 
 
 def test_a_plugin_class_without_a_title_takes_its_id() -> None:
@@ -102,13 +102,13 @@ def test_a_plugin_class_without_a_title_takes_its_id() -> None:
 def test_the_catalog_carries_each_title() -> None:
     catalog = {(entry.kind, entry.type): entry.title for entry in list_steps(plugins=False).steps}
     assert catalog[("evaluator", "label-health")] == "Label Health"
-    assert catalog[("transform", "kfold")] == "K-Fold Split"
-    assert catalog[("combine", "classwise-outliers")] == "Outliers by Class"
-    assert catalog[("check", "classwise-outlier-rate")] == "Classwise Outliers"
+    assert catalog[("transform", "kfold")] == "K-Fold"
+    assert catalog[("combine", "outliers-by-class")] == "Outliers by Class"
+    assert catalog[("check", "classwise-outliers")] == "Classwise Outliers"
     assert catalog[("workflow", "data-cleaning")] == "Data Cleaning"
 
 
-_CLEAN = {"name": "clean", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
+_CLEAN = {"name": "clean", "type": "data-cleaning", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
 
 
 def _banner(report: str) -> list[str]:
@@ -220,7 +220,7 @@ def test_a_step_is_headed_by_its_type_title_and_named_where_it_differs() -> None
 
 
 def test_run_of_a_config_with_the_default_entry_name_names_the_id_alone() -> None:
-    result = run(DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel"]), ToyImages())
+    result = run(DataCleaningConfig(outliers={"flags": ["pixel"], "outlier_threshold": "zscore"}), ToyImages())  # type: ignore[arg-type]
     assert _banner(result.report()) == ["DATA CLEANING"]
     assert _first_line(result.report()) == "Workflow: data-cleaning"
     assert "<title>Data Cleaning</title>" in result.to_html()

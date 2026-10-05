@@ -1,17 +1,21 @@
 """The ``label-space`` preset."""
 
 __all__ = [
-    "LabelConformanceLimits",
+    "LabelConformanceSettings",
     "LabelSpaceConfig",
-    "LabelSpaceThresholds",
+    "LabelSpaceChecks",
+    "LabelSpaceRepresentationSettings",
     "LabelSpaceWorkflow",
-    "LeafCoverageLimits",
+    "LeafCoverageSettings",
+    "OntologyValidationSettings",
 ]
 
 from dataeval_flow.workflows.label_space._config import (
-    LabelConformanceLimits,
+    LabelConformanceSettings,
+    LabelSpaceChecks,
     LabelSpaceConfig,
-    LabelSpaceThresholds,
-    LeafCoverageLimits,
+    LabelSpaceRepresentationSettings,
+    LeafCoverageSettings,
+    OntologyValidationSettings,
 )
 from dataeval_flow.workflows.label_space._workflow import LabelSpaceWorkflow

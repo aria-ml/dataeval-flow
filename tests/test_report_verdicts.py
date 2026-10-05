@@ -7,7 +7,8 @@ from dataeval_flow._binning_report import binning_blocks
 from dataeval_flow._blocks import Section, Summary, SummaryItem, Tree
 from dataeval_flow._blocks._html import render_html
 from dataeval_flow._blocks._text import render_text
-from dataeval_flow.workflows import Finding, WorkflowOutput, WorkflowRawOutput, WorkflowReport, WorkflowResult
+from dataeval_flow.steps import Finding
+from dataeval_flow.workflows import WorkflowOutput, WorkflowRawOutput, WorkflowReport, WorkflowResult
 
 _WARNING = SummaryItem(label="Duplicates", value="3 groups", severity="warning")
 

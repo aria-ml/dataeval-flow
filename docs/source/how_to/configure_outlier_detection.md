@@ -10,8 +10,8 @@ control what counts as an outlier and when a finding becomes a warning.
 
 ## Pick a statistical method
 
-`outlier_method` selects how far from typical a statistic has to be before the sample is flagged. There is no
-universally correct choice. It depends on how heavy-tailed your data is.
+The method in `outliers.outlier_threshold` selects how far from typical a statistic has to be before the sample is
+flagged. There is no universally correct choice. It depends on how heavy-tailed your data is.
 
 | Method | Flags a sample when a statistic is… | Use when |
 | --- | --- | --- |
@@ -24,13 +24,14 @@ universally correct choice. It depends on how heavy-tailed your data is.
 workflows:
   - name: quality_check
     type: data-cleaning
-    outlier_method: modzscore
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: modzscore
 ```
 
 ## Choose which statistics to test
 
-`outlier_flags` selects the *groups* of image statistics the method is applied to. At least one is required.
+`outliers.flags` selects the *groups* of image statistics the method is applied to. At least one is required.
 
 - `dimension` — geometry: width, height, aspect ratio, channel count, value range, total pixel count, and (for detection
   boxes) offsets and distances to the image center and edges.
@@ -49,12 +50,12 @@ converted dataset is fast and answers one question cleanly.
 
 ## Override the threshold
 
-`outlier_threshold` replaces the method's built-in cutoff. Leave it unset to use the DataEval default for the method
-you chose; raise it to flag less, lower it to flag more.
+Write `outliers.outlier_threshold` as `[method, bound]` to replace the method's built-in cutoff. Write the method alone
+to use the DataEval default for it; raise the bound to flag less, lower it to flag more.
 
 ```yaml
-    outlier_method: modzscore
-    outlier_threshold: 3.5
+    outliers:
+      outlier_threshold: [modzscore, 3.5]
 ```
 
 Because the right value depends on the dataset, this is the parameter most worth sweeping. A `matrix:` on the task
@@ -81,11 +82,12 @@ extractors:
 workflows:
   - name: quality_check
     type: data-cleaning
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
-    outlier_cluster_threshold: 3.5        # std devs from a cluster center
-    outlier_cluster_algorithm: hdbscan    # or kmeans
-    outlier_n_clusters: 5                 # omit to auto-detect
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: adaptive
+      cluster_threshold: 3.5              # std devs from a cluster center
+      cluster_algorithm: hdbscan          # or kmeans
+      n_clusters: 5                       # omit to auto-detect
 
 tasks:
   - name: check
@@ -94,29 +96,28 @@ tasks:
     extractor: bovw_ext                   # required for cluster-based detection
 ```
 
-Leaving `outlier_cluster_threshold` unset skips cluster-based detection entirely, even when an extractor is
-configured. `outlier_n_clusters` is a hint — omit it and the algorithm auto-detects. `hdbscan` handles clusters of
+Leaving `outliers.cluster_threshold` unset skips cluster-based detection entirely, even when an extractor is
+configured. `outliers.n_clusters` is a hint — omit it and the algorithm auto-detects. `hdbscan` handles clusters of
 varying density and does not need a cluster count; `kmeans` is faster and predictable when you know roughly how many
 groups to expect.
 
 ## Decide when a finding becomes a warning
 
-Detection and *severity* are separate concerns. `health_thresholds` sets the rate at which each finding is elevated
+Detection and *severity* are separate concerns. `checks` sets the rate at which each finding is elevated
 from `info` to `warning` in the report's health line — it does not change what is detected.
 
 ```yaml
-    health_thresholds:
-      exact_duplicates: 0.0         # any byte-identical image warns
-      near_duplicates: 5.0          # % of images in near-duplicate groups
-      image_outliers: 5.0           # % of images flagged
-      target_outliers: 10.0         # % of labels/annotations flagged
-      classwise_outliers: 12.0      # % flagged within any single class
-      class_label_imbalance: 5.0    # max:min class count ratio
+    checks:
+      image-duplicates: {exact: 0.0, near: 5.0}  # % of images in exact- and near-duplicate groups
+      image-outliers: {warning: 5.0}             # % of images flagged
+      target-outliers: {warning: 10.0}           # % of labels/annotations flagged
+      classwise-outliers: {warning: 12.0}        # % flagged within any single class
+      class-imbalance: {warning: 5.0}            # max:min class count ratio
 ```
 
 Rough guidance: tighten toward 1–2% for curated benchmarks and safety-critical datasets; loosen toward 10–15% for
 large web-scraped or naturally diverse collections. For a class hierarchy with a long tail, raise
-`class_label_imbalance` to 10–20 to avoid a warning that only restates the domain.
+`class-imbalance` to 10–20 to avoid a warning that only restates the domain.
 
 ## Verify the effect
 
@@ -141,4 +142,4 @@ inspection.
 - [DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html) — the
   authoritative treatment of the detection methods themselves
 - {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field and default on
-  `DataCleaningConfig` and `DataCleaningHealthThresholds`
+  `DataCleaningConfig` and `DataCleaningChecks`

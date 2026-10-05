@@ -466,6 +466,6 @@ class DivergenceConfig(EvaluatorConfig[DivergenceResult]):
         default="mst",
         description=(
             "How the divergence is counted: `mst`, the cross-source edges of the minimum spanning tree over both "
-            "sources, or `fnn`, nearest neighbours of the other source. Legacy data-analysis's `divergence_method`."
+            "sources, or `fnn`, nearest neighbours of the other source."
         ),
     )

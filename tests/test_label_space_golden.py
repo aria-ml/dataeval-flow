@@ -13,8 +13,9 @@ Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), e
   The golden's datasets declare every label, in index order, so they agree.
 - **The digest's precedence is reversed** (coverage spec §3.5): on a source whose view applies a `Relabel`, the
   source's record wins over the alignment's, where legacy's own stamp won.
-- **No "Class Balance Worklist" without an ontology**: that finding is data-coverage's.
+- **No "Class Shortfall" without an ontology**: that finding is data-coverage's.
 - **The ignored-entries note says `expected`,** the preset's field, where legacy said `ontology_expected`.
+- **Names follow the naming pass** (naming spec §3.2): recorded titles are read through `tests/golden/_renames.py`.
 """
 
 import json
@@ -25,6 +26,7 @@ import pytest
 
 from dataeval_flow import run_tasks
 from dataeval_flow.steps import ChainResult
+from tests.golden._renames import title
 from tests.golden.label_space import CASES, pipeline
 from tests.golden.rerouting import approximately
 
@@ -50,7 +52,9 @@ def test_label_space_gives_what_legacy_data_coverage_gave(name: str) -> None:
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
     golden = _GOLDEN[name]
-    assert [[f.severity, f.title, f.brief, f.description] for f in result.findings] == golden["findings"]
+    assert [[f.severity, f.title, f.brief, f.description] for f in result.findings] == [
+        [s, title(t), *rest] for s, t, *rest in golden["findings"]
+    ]
     representation = result.steps["representation"].output
     assert float(representation.leaf_coverage) == pytest.approx(golden["leaf_coverage"])
     assert int(representation.total_deficit) == golden["total_deficit"]
@@ -58,7 +62,7 @@ def test_label_space_gives_what_legacy_data_coverage_gave(name: str) -> None:
     assert representation.dark_branches.to_dicts() == approximately(golden["dark_branches"])
     assert representation.violations.to_dicts() == approximately(golden["violations"])
     assert representation.ignored_expected == golden["ignored_expected"]
-    assert result.steps["reconciliation"].output.data() == golden["conformance"]
-    alignment = result.steps["alignment"].output.alignment.model_dump(mode="json")
+    assert result.steps["label-reconciliation"].output.data() == golden["conformance"]
+    alignment = result.steps["label-alignment"].output.alignment.model_dump(mode="json")
     assert _sorted_alignment(alignment) == approximately(_sorted_alignment(golden["alignment"]))
-    assert result.steps["structure"].output.data() == golden["structure"]
+    assert result.steps["ontology-validation"].output.data() == golden["structure"]

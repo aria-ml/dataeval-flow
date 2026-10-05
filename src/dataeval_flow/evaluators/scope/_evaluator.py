@@ -9,7 +9,7 @@ __all__ = [
     "LabelAlignmentEvaluator",
     "LabelReconciliationEvaluator",
     "OntologyValidationEvaluator",
-    "PrioritizeEvaluator",
+    "PrioritizationEvaluator",
     "RepresentationEvaluator",
     "usable_labels",
 ]
@@ -44,7 +44,7 @@ from dataeval_flow.evaluators.scope._config import (
     LabelAlignmentConfig,
     LabelReconciliationConfig,
     OntologyValidationConfig,
-    PrioritizeConfig,
+    PrioritizationConfig,
     RepresentationConfig,
 )
 from dataeval_flow.evaluators.scope._result import (
@@ -170,10 +170,10 @@ class CoverageEvaluator(Evaluator[CoverageConfig, CoverageOutput]):
         return output
 
 
-class PrioritizeEvaluator(Evaluator[PrioritizeConfig, PrioritizeOutput]):
-    """``prioritize``: the first source's items ranked by difficulty, per DataEval's Prioritize."""
+class PrioritizationEvaluator(Evaluator[PrioritizationConfig, PrioritizeOutput]):
+    """``prioritization``: the first source's items ranked by difficulty, per DataEval's Prioritize."""
 
-    name: ClassVar[str] = "prioritize"
+    name: ClassVar[str] = "prioritization"
     title: ClassVar[str] = "Prioritization"
     description: ClassVar[str] = "Items ranked by difficulty, optionally against a reference (DataEval Prioritize)"
     dataeval_class: ClassVar[type] = Prioritize
@@ -184,7 +184,7 @@ class PrioritizeEvaluator(Evaluator[PrioritizeConfig, PrioritizeOutput]):
     output_extras: ClassVar[tuple[str, ...]] = ("scores",)
     reads_factors: ClassVar[bool] = False
 
-    def run(self, config: PrioritizeConfig, inputs: Sequence[EvaluatorInputs]) -> PrioritizeOutput:
+    def run(self, config: PrioritizationConfig, inputs: Sequence[EvaluatorInputs]) -> PrioritizeOutput:
         """Rank the first source's items, relative to the second source's where the task names one."""
         data, *rest = inputs
         embeddings = require(data.embeddings, "embeddings", data.source)

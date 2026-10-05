@@ -20,22 +20,22 @@ from dataeval_flow.config._schemas._preprocessor import PreprocessingStep
 from dataeval_flow.config._schemas._view import ViewOperation
 from dataeval_flow.workflows.data_analysis._config import DataAnalysisHealthThresholds
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-from dataeval_flow.workflows.data_cleaning._config import DataCleaningHealthThresholds
+from dataeval_flow.workflows.data_cleaning._config import DataCleaningChecks
 from dataeval_flow.workflows.data_coverage._config import (
-    ClassCoverageLimits,
-    CompletenessScoreLimits,
-    CoverageGapsLimits,
-    CoverageSettings,
-    CropSettings,
-    DataCoverageClassImbalanceLimits,
+    ClassCoverageSettings,
+    CropParams,
+    DataCoverageChecks,
+    DataCoverageClassImbalanceSettings,
     DataCoverageConfig,
-    DataCoverageThresholds,
-    DataCoverageUncoveredRateLimits,
-    GapSettings,
+    DataCoverageCoverageSettings,
+    DataCoverageUncoveredItemsSettings,
+    DimensionalCompletenessSettings,
+    FactorCoverageGapsSettings,
+    FactorGapsSettings,
 )
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringThresholds
+from dataeval_flow.workflows.drift_monitoring import DriftMonitoringChecks
 from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
-from dataeval_flow.workflows.ood_detection import OODDetectionThresholds
+from dataeval_flow.workflows.ood_detection import OODDetectionChecks
 from tests.chain_toys import chain_pipeline
 
 pytestmark = pytest.mark.required
@@ -57,11 +57,17 @@ class TestTopLevelKeys:
 
         assert "did you mean" not in str(info.value)
 
-    def test_the_legacy_selections_key_is_still_read_as_views(self) -> None:
-        with pytest.warns(DeprecationWarning, match="selections"):
-            config = PipelineConfig.model_validate({"selections": [{"name": "first", "operations": []}]})
+    def test_selections_is_refused_as_an_unknown_section(self) -> None:
+        with pytest.raises(ValidationError, match="selections"):
+            PipelineConfig.model_validate({"selections": []})
 
-        assert [view.name for view in config.views or ()] == ["first"]
+    def test_a_source_selection_key_is_refused(self) -> None:
+        with pytest.raises(ValidationError, match="selection"):
+            PipelineConfig.model_validate({"sources": [{"name": "s", "dataset": "d", "selection": "v"}]})
+
+    def test_a_views_steps_key_is_refused(self) -> None:
+        with pytest.raises(ValidationError, match="steps"):
+            ViewConfig.model_validate({"name": "v", "steps": []})
 
     def test_the_schema_lets_an_editor_flag_a_misspelled_section(self) -> None:
         # What an editor validating a file against params.schema.json reads to underline an unknown key.
@@ -83,18 +89,18 @@ _NESTED = [
     pytest.param(DataCoverageConfig, {}, id="workflow"),
     pytest.param(MetadataTriageConfig, {}, id="another-workflow"),
     pytest.param(DataAnalysisHealthThresholds, {}, id="analysis-thresholds"),
-    pytest.param(DataCleaningHealthThresholds, {}, id="cleaning-thresholds"),
-    pytest.param(DataCoverageThresholds, {}, id="coverage-thresholds"),
-    pytest.param(DataCoverageClassImbalanceLimits, {}, id="coverage-class-imbalance"),
-    pytest.param(CoverageGapsLimits, {}, id="coverage-gaps"),
-    pytest.param(ClassCoverageLimits, {}, id="coverage-class-coverage"),
-    pytest.param(DataCoverageUncoveredRateLimits, {}, id="coverage-uncovered-rate"),
-    pytest.param(CompletenessScoreLimits, {}, id="coverage-completeness-score"),
-    pytest.param(CoverageSettings, {}, id="coverage-settings"),
-    pytest.param(CropSettings, {}, id="coverage-crops"),
-    pytest.param(GapSettings, {}, id="coverage-gap-settings"),
-    pytest.param(DriftMonitoringThresholds, {}, id="drift-thresholds"),
-    pytest.param(OODDetectionThresholds, {}, id="ood-thresholds"),
+    pytest.param(DataCleaningChecks, {}, id="cleaning-thresholds"),
+    pytest.param(DataCoverageChecks, {}, id="coverage-thresholds"),
+    pytest.param(DataCoverageClassImbalanceSettings, {}, id="coverage-class-imbalance"),
+    pytest.param(FactorCoverageGapsSettings, {}, id="factor-coverage-gaps"),
+    pytest.param(ClassCoverageSettings, {}, id="coverage-class-coverage"),
+    pytest.param(DataCoverageUncoveredItemsSettings, {}, id="coverage-uncovered-rate"),
+    pytest.param(DimensionalCompletenessSettings, {}, id="coverage-completeness-score"),
+    pytest.param(DataCoverageCoverageSettings, {}, id="coverage-settings"),
+    pytest.param(CropParams, {}, id="coverage-crops"),
+    pytest.param(FactorGapsSettings, {}, id="coverage-gap-settings"),
+    pytest.param(DriftMonitoringChecks, {}, id="drift-thresholds"),
+    pytest.param(OODDetectionChecks, {}, id="ood-thresholds"),
 ]
 
 
@@ -126,7 +132,9 @@ class TestConfigFolder:
 
 
 _STILL_WRITES_MODE = [
-    pytest.param(DataCleaningConfig, {"outlier_method": "zscore", "outlier_flags": ["pixel"]}, id="data-cleaning"),
+    pytest.param(
+        DataCleaningConfig, {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}, id="data-cleaning"
+    ),
     pytest.param(DataCoverageConfig, {}, id="data-coverage"),
     pytest.param(MetadataTriageConfig, {}, id="metadata-triage"),
 ]
@@ -140,7 +148,7 @@ def test_a_workflow_entry_that_still_writes_mode_is_refused(model: type[BaseMode
 
 
 def test_a_pipeline_whose_workflow_still_writes_mode_fails_to_load_naming_it() -> None:
-    entry = {"name": "c", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
+    entry = {"name": "c", "type": "data-cleaning", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
     with pytest.raises(ValidationError) as info:
         chain_pipeline(workflows=[{**entry, "mode": "advisory"}])
     assert [error["loc"][-1] for error in info.value.errors() if error["type"] == "extra_forbidden"] == ["mode"]

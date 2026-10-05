@@ -1,6 +1,6 @@
 """The ``drift-monitoring`` preset's config: its detectors, which run by class, and when a finding warns."""
 
-__all__ = ["DriftMonitoringConfig", "DriftMonitoringThresholds", "evaluator_entry"]
+__all__ = ["DriftMonitoringConfig", "DriftMonitoringChecks", "evaluator_entry"]
 
 from collections.abc import Mapping
 from typing import Annotated, Any, ClassVar, Self
@@ -66,7 +66,7 @@ def evaluator_entry(detector: Any) -> Any:
     return _BASES[detector.type].model_validate(detector.model_dump(exclude={"extractor"}))
 
 
-_RESERVED = ("-check", "-classes", "-unchunked")
+_RESERVED = ("-check", "-by-class", "-unchunked")
 
 
 def _detector_entry(entry: Any) -> Any:
@@ -105,10 +105,10 @@ DriftDetector = Annotated[
 ]
 
 
-class DriftMonitoringThresholds(BaseModel):
+class DriftMonitoringChecks(BaseModel):
     """When drift-monitoring's findings warn: the `drift` check's fields, applied to every detector's checks."""
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
     drift: DriftThresholds = Field(
         default_factory=DriftThresholds, description="The `drift` check's thresholds, whole-set and by class."
@@ -156,8 +156,8 @@ class DriftMonitoringConfig(WorkflowConfig[ChainResult]):
             "`{uncertainty: predicted}`, or with settings; `min_items` is 2 unless written."
         ),
     )
-    health_thresholds: DriftMonitoringThresholds = Field(
-        default_factory=DriftMonitoringThresholds, description="When findings warn, keyed by check type."
+    checks: DriftMonitoringChecks = Field(
+        default_factory=DriftMonitoringChecks, description="When findings warn, keyed by check type."
     )
 
     @field_validator("classwise", mode="before")

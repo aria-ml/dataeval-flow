@@ -103,13 +103,9 @@ def test_real_cleaning_params():
     descriptors = introspect_model(DataCleaningConfig)
     by_name = {d.name: d for d in descriptors}
 
-    assert by_name["outlier_method"].kind == FieldKind.SELECT
-    assert "adaptive" in by_name["outlier_method"].choices
-
-    assert by_name["outlier_flags"].kind == FieldKind.MULTI_SELECT
-    assert "dimension" in by_name["outlier_flags"].choices
-
-    assert by_name["health_thresholds"].kind == FieldKind.NESTED
+    assert by_name["outliers"].kind == FieldKind.NESTED
+    assert by_name["duplicates"].kind == FieldKind.NESTED
+    assert by_name["checks"].kind == FieldKind.NESTED
 
 
 def test_real_drift_params():
@@ -119,7 +115,7 @@ def test_real_drift_params():
     by_name = {d.name: d for d in descriptors}
 
     assert by_name["detectors"].kind == FieldKind.LIST
-    assert by_name["health_thresholds"].kind == FieldKind.NESTED
+    assert by_name["checks"].kind == FieldKind.NESTED
 
 
 # ---------------------------------------------------------------------------

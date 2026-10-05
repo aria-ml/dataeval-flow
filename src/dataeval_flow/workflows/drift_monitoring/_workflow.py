@@ -19,8 +19,8 @@ class DriftMonitoringWorkflow(Preset, Workflow[DriftMonitoringConfig, ChainResul
 
     The task's first source is ``reference``; every later one is an element of ``tests``. Per detector, the settings
     expand to ``<detector>`` (its evaluator) and ``<detector>-check`` (``drift``). Each detector ``classwise`` maps
-    then adds ``<detector>-classes`` (its evaluator, unchunked, with the mapped ``by:``) and
-    ``<detector>-classes-check`` (``drift``, with the bare kind, ``class`` or ``predicted``). A detector's own
+    then adds ``<detector>-by-class`` (its evaluator, unchunked, with the mapped ``by:``) and
+    ``<detector>-by-class-check`` (``drift``, with the bare kind, ``class`` or ``predicted``). A detector's own
     ``extractor`` goes on its evaluate steps. Every step runs once per test source.
     """
 
@@ -36,7 +36,7 @@ class DriftMonitoringWorkflow(Preset, Workflow[DriftMonitoringConfig, ChainResul
     @classmethod
     def chain(cls, config: DriftMonitoringConfig) -> PresetChain:
         """Each detector and its check, then each classwise run and its check, in detector order."""
-        limits = config.health_thresholds.drift.model_dump()
+        limits = config.checks.drift.model_dump()
         evaluators: list[Any] = []
         steps: list[dict[str, Any]] = []
         by_class: list[dict[str, Any]] = []
@@ -61,7 +61,7 @@ class DriftMonitoringWorkflow(Preset, Workflow[DriftMonitoringConfig, ChainResul
                 evaluators.append(entry.model_copy(update={"name": unchunked, "chunking": None}))
             by_class += [
                 {
-                    "name": f"{name}-classes",
+                    "name": f"{name}-by-class",
                     "evaluator": unchunked,
                     "input": ["reference", "tests"],
                     "by": by.model_dump(),
@@ -69,9 +69,9 @@ class DriftMonitoringWorkflow(Preset, Workflow[DriftMonitoringConfig, ChainResul
                     **own,
                 },
                 {
-                    "name": f"{name}-classes-check",
+                    "name": f"{name}-by-class-check",
                     "check": "drift",
-                    "input": f"{name}-classes",
+                    "input": f"{name}-by-class",
                     "by": "predicted" if by.predicted is not None else "class",
                     "subject": subject,
                     **limits,

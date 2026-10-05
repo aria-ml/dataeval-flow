@@ -1,6 +1,6 @@
 """`export`: a chain's Dataset written to disk, and recorded in the result (spec §6.3)."""
 
-__all__ = ["ExportRecord", "ExportStepConfig", "ExportTransform"]
+__all__ = ["ExportRecord", "ExportTransformConfig", "ExportTransform"]
 
 from collections.abc import Mapping
 from typing import Any, ClassVar, Literal
@@ -12,7 +12,7 @@ from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import StepSkipped, Transform, TransformConfig, TransformContext
 
 
-class ExportStepConfig(TransformConfig):
+class ExportTransformConfig(TransformConfig):
     """An `export` step's settings: the format, what to do about an occupied destination, and where."""
 
     input: str = Field(description="The Dataset to write. Object detection only.")
@@ -49,7 +49,7 @@ class ExportRecord(BaseModel):
     provenance: dict[str, Any] = Field(description="The provenance written beside it, in `provenance.json`.")
 
 
-class ExportTransform(Transform[ExportStepConfig]):
+class ExportTransform(Transform[ExportTransformConfig]):
     """``export``: write a Dataset under the run's output directory, and record where; each element of a list under
     its key. Skipped without an output directory."""
 
@@ -60,19 +60,19 @@ class ExportTransform(Transform[ExportStepConfig]):
     outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.EXPORT),)
 
     @classmethod
-    def destinations(cls, config: ExportStepConfig, *, task: str, step: str) -> tuple[str, ...]:
+    def destinations(cls, config: ExportTransformConfig, *, task: str, step: str) -> tuple[str, ...]:
         """``to``, or ``<task>.<step>``."""
         return (config.to or f"{task}.{step}",)
 
     def output_kinds(
         self,
-        config: ExportStepConfig,  # noqa: ARG002
+        config: ExportTransformConfig,  # noqa: ARG002
         input_kinds: Mapping[str, str | None],  # noqa: ARG002
     ) -> Mapping[str, str | None]:
         """An export makes no Dataset."""
         return {}
 
-    def _where(self, config: ExportStepConfig, context: TransformContext) -> str:
+    def _where(self, config: ExportTransformConfig, context: TransformContext) -> str:
         """The directory under ``datasets/`` this run writes: ``to``, or ``<task>.<step>``; then ``run-<n>`` in a task
         matrix's run; then an element's key where the step runs once per element of a list."""
         (to,) = self.destinations(config, task=context.task, step=context.step)
@@ -83,7 +83,9 @@ class ExportTransform(Transform[ExportStepConfig]):
             parts.append(one_directory_segment(context.element, what="List key"))
         return "/".join(parts)
 
-    def run(self, config: ExportStepConfig, inputs: Mapping[str, Any], context: TransformContext) -> Mapping[str, Any]:
+    def run(
+        self, config: ExportTransformConfig, inputs: Mapping[str, Any], context: TransformContext
+    ) -> Mapping[str, Any]:
         """Write the input, or skip when the run writes no files."""
         from dataeval_flow._export import write_node, write_source
 

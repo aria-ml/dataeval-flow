@@ -27,7 +27,9 @@ class TestTaskMatrix:
     ) -> None:
         cfg, data_dir = image_folder_pipeline_builder(
             workflows=[
-                DataCleaningConfig(name="clean_main", outlier_method="zscore", outlier_flags=["dimension", "pixel"])
+                DataCleaningConfig(
+                    name="clean_main", outliers={"flags": ["dimension", "pixel"], "outlier_threshold": "zscore"}
+                )
             ],
             tasks=[
                 TaskConfig.model_validate(
@@ -36,7 +38,7 @@ class TestTaskMatrix:
                         "workflow": "clean_main",
                         "sources": "main",
                         "extractor": "flat",
-                        "matrix": {"outlier_method": ["zscore", "modzscore"]},
+                        "matrix": {"outliers.outlier_threshold": ["zscore", "modzscore"]},
                     }
                 ),
             ],
@@ -44,6 +46,9 @@ class TestTaskMatrix:
         result = run_tasks(cfg, data_dir=data_dir)["matrix_task"]
         assert isinstance(result, MatrixResult)
         assert result.success
-        assert [run.label for run in result.runs] == ["outlier_method=zscore", "outlier_method=modzscore"]
+        assert [run.label for run in result.runs] == [
+            "outliers.outlier_threshold=zscore",
+            "outliers.outlier_threshold=modzscore",
+        ]
         assert all(run.result.success for run in result.runs)
         assert result.report().strip()

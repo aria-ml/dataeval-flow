@@ -71,7 +71,7 @@ def _duplicate_group_counts(output):
 
 @pytest.mark.required
 class TestOutlierColumnsAreDeclared:
-    """What flags an outlier is what `outlier_flags` and `outliers_from` name.
+    """What flags an outlier is what `outliers.flags` and `outliers_from` name.
 
     The cold/warm tests and `test_only_the_declared_families_flag` run `find_outliers`,
     the production call site data-cleaning's `outliers` step reaches, on statistics
@@ -83,8 +83,8 @@ class TestOutlierColumnsAreDeclared:
     """
 
     def _params(self):
-        """The `outliers` evaluator data-cleaning's `outlier_method: modzscore` and `outlier_flags: [visual]`
-        configure, with no `stats:` policy named."""
+        """The `outliers` evaluator that data-cleaning's `outliers: {flags: [visual], outlier_threshold: modzscore}`
+        configures, with no `stats:` policy named."""
         return OutliersConfig(name="outliers", flags=["visual"], outlier_threshold="modzscore", per_target=True)
 
     def _issues(self, dataset):
@@ -144,7 +144,7 @@ class TestOutlierColumnsAreDeclared:
 
 @pytest.mark.required
 class TestDuplicateColumnsAreDeclared:
-    """What detects a duplicate is what `duplicate_flags` names."""
+    """What detects a duplicate is what `duplicates.flags` names."""
 
     @pytest.fixture
     def paired_images(self):

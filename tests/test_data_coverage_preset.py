@@ -42,26 +42,26 @@ def test_its_chain_follows_legacy_s_finding_order() -> None:
         "coverage",
         "class-coverage",
         "completeness",
-        "completeness-check",
-        "labels",
-        "labels-check",
-        "summary",
+        "dimensional-completeness",
+        "label-health",
+        "class-imbalance",
+        "factor-summary",
         "balance",
         "diversity",
-        "gaps",
-        "gaps-check",
-        "worklist",
-        "shortfall",
+        "factor-gaps",
+        "factor-coverage-gaps",
+        "representation",
+        "class-shortfall",
     ]
 
 
 def test_naive_coverage_adds_the_uncovered_rate() -> None:
-    assert "uncovered" in _names(DataCoverageConfig(name="w", coverage={"method": "naive"}))  # type: ignore[arg-type]
+    assert "uncovered-items" in _names(DataCoverageConfig(name="w", coverage={"method": "naive"}))  # type: ignore[arg-type]
 
 
 def test_settings_leave_out_their_steps() -> None:
-    names = _names(DataCoverageConfig(name="w", completeness=False, gaps=None))
-    assert not {"completeness", "completeness-check", "gaps", "gaps-check"} & set(names)
+    names = _names(DataCoverageConfig.model_validate({"name": "w", "completeness": False, "factor-gaps": False}))
+    assert not {"completeness", "dimensional-completeness", "factor-gaps", "factor-coverage-gaps"} & set(names)
 
 
 @pytest.mark.parametrize("key", sorted(_MOVED))
@@ -97,29 +97,27 @@ def test_a_dumped_config_reloads() -> None:
 @pytest.mark.parametrize(
     ("limits", "message"),
     [
-        ({"class-imbalance": {"ratio": 2.0, "info": 3.0}}, "`info` (3.0) must not exceed `ratio` (2.0)."),
-        ({"completeness-score": {"warning": 0.9, "info": 0.7}}, "`warning` (0.9) must not exceed `info` (0.7)."),
+        ({"class-imbalance": {"warning": 2.0, "info": 3.0}}, "`info` (3.0) must not exceed `warning` (2.0)."),
+        ({"dimensional-completeness": {"warning": 0.9, "info": 0.7}}, "`warning` (0.9) must not exceed `info` (0.7)."),
     ],
 )
 def test_explicitly_crossed_bands_are_refused_where_they_were_written(limits: dict[str, Any], message: str) -> None:
     with pytest.raises(ValidationError, match=re.escape(message)) as caught:
-        DataCoverageConfig.model_validate({"name": "w", "health_thresholds": limits})
-    assert caught.value.errors()[0]["loc"][0] == "health_thresholds"
+        DataCoverageConfig.model_validate({"name": "w", "checks": limits})
+    assert caught.value.errors()[0]["loc"][0] == "checks"
 
 
 def test_a_ratio_under_the_fixed_band_moves_the_band_as_legacy_did() -> None:
-    config = DataCoverageConfig.model_validate({"name": "w", "health_thresholds": {"class-imbalance": {"ratio": 1.5}}})
-    assert config.health_thresholds.class_imbalance.info == 1.5
-    result = _run({"health_thresholds": {"class-imbalance": {"ratio": 1.5}}}, CoverageDetections())
+    config = DataCoverageConfig.model_validate({"name": "w", "checks": {"class-imbalance": {"warning": 1.5}}})
+    assert config.checks.class_imbalance.info == 1.5
+    result = _run({"checks": {"class-imbalance": {"warning": 1.5}}}, CoverageDetections())
     assert result.success, result.errors
-    assert next(f.severity for f in result.findings if f.title == "Label Distribution") == "warning"
+    assert next(f.severity for f in result.findings if f.title == "Class Imbalance") == "warning"
 
 
 def test_a_warning_over_the_fixed_band_moves_the_band_as_legacy_did() -> None:
-    config = DataCoverageConfig.model_validate(
-        {"name": "w", "health_thresholds": {"completeness-score": {"warning": 0.9}}}
-    )
-    assert config.health_thresholds.completeness_score.info == 0.9
+    config = DataCoverageConfig.model_validate({"name": "w", "checks": {"dimensional-completeness": {"warning": 0.9}}})
+    assert config.checks.dimensional_completeness.info == 0.9
     assert DataCoverageConfig.model_validate(config.model_dump()) == config
     assert DataCoverageConfig.model_validate(config.model_dump(by_alias=False)) == config
 
@@ -134,7 +132,7 @@ def test_a_matrix_over_a_warning_that_crosses_the_fixed_band_runs() -> None:
                 "workflow": "w",
                 "sources": ["src"],
                 "extractor": "flat",
-                "matrix": {"health_thresholds.completeness-score.warning": [0.5, 0.9]},
+                "matrix": {"checks.dimensional-completeness.warning": [0.5, 0.9]},
             }
         ],
         datasets={"src": CoverageImages()},
@@ -156,8 +154,8 @@ def test_a_flat_number_under_a_snake_case_name_is_still_refused() -> None:
 
 
 def test_every_box_dropped_says_there_is_nothing_to_embed() -> None:
-    result = _run({"crops": {"min_size": 10000}}, CoverageDetections(), extractor=True)
-    description = next(f.description for f in result.findings if f.title == "Embedding Coverage") or ""
+    result = _run({"wrap": {"params": {"min_size": 10000}}}, CoverageDetections(), extractor=True)
+    description = next(f.description for f in result.findings if f.title == "Class Coverage") or ""
     assert "no items to embed" in description
     assert description.endswith(".")
     assert not description.endswith("..")
@@ -167,9 +165,9 @@ def test_detection_data_with_no_extractor_runs_and_reports_not_assessed() -> Non
     result = _run({}, CoverageDetections())
     assert result.success, result.errors
     by_title = {finding.title: finding for finding in result.findings}
-    assert by_title["Embedding Coverage"].brief == "not assessed"
+    assert by_title["Class Coverage"].brief == "not assessed"
     assert by_title["Dimensional Completeness"].brief == "not assessed"
-    assert by_title["Label Distribution"].severity == "warning"
+    assert by_title["Class Imbalance"].severity == "warning"
 
 
 def test_classification_data_reads_its_embeddings_once() -> None:
@@ -206,7 +204,7 @@ def test_a_matrix_varies_a_hyphenated_threshold() -> None:
                 "workflow": "w",
                 "sources": ["src"],
                 "extractor": "flat",
-                "matrix": {"health_thresholds.class-coverage.dispersion": [0.5, 1.5]},
+                "matrix": {"checks.class-coverage.dispersion": [0.5, 1.5]},
             }
         ],
         datasets={"src": CoverageImages()},
@@ -217,5 +215,5 @@ def test_a_matrix_varies_a_hyphenated_threshold() -> None:
     severities = []
     for run in result.runs:
         assert isinstance(run.result, ChainResult)
-        severities.append(next(f.severity for f in run.result.findings if f.title == "Embedding Coverage"))
+        severities.append(next(f.severity for f in run.result.findings if f.title == "Class Coverage"))
     assert severities == ["info", "warning"]

@@ -1,4 +1,5 @@
-"""How metadata triage reads to a person: the `metadata-issues` check's findings, and the `triage` step's section.
+"""How metadata triage reads to a person: the `metadata-issues` check's findings, and the `factor-triage` step's
+section.
 
 Spec §10.10.
 """

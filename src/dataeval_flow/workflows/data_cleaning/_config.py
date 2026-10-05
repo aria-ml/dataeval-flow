@@ -1,100 +1,197 @@
-"""The ``data-cleaning`` workflow's config and health thresholds."""
+"""The ``data-cleaning`` workflow's config and check settings."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.evaluators._threshold import ThresholdSpec
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
 
-__all__ = ["DataCleaningConfig", "DataCleaningHealthThresholds"]
+__all__ = [
+    "ClasswiseOutliersSettings",
+    "DataCleaningChecks",
+    "DataCleaningClassImbalanceSettings",
+    "DataCleaningConfig",
+    "DuplicatesSettings",
+    "ImageDuplicatesSettings",
+    "ImageOutliersSettings",
+    "OutliersSettings",
+    "TargetOutliersSettings",
+]
 
 
-class DataCleaningHealthThresholds(BaseModel):
-    """Configurable warning thresholds for data cleaning health status.
-
-    Each threshold is a percentage (0–100). When the detected rate exceeds the
-    threshold the corresponding finding is elevated to ``severity="warning"``;
-    otherwise it stays at ``severity="info"``.
-
-    Set a threshold to ``None`` to judge nothing: its finding is still made, as ``info``.
-    """
+class ImageOutliersSettings(BaseModel):
+    """The `image-outliers` check's settings in data-cleaning."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    exact_duplicates: float | None = Field(
+    warning: float | None = Field(
+        default=3.0,
+        ge=0.0,
+        le=100.0,
+        description=(
+            "Most images, as a percentage of the Dataset, that may be flagged as statistical outliers (unusual "
+            "dimensions, brightness, entropy, or visual statistics) before the finding warns; `null` judges nothing. "
+            "Lower to 1% for safety-critical datasets; raise to 5-10% for diverse real-world collections."
+        ),
+    )
+
+
+class TargetOutliersSettings(BaseModel):
+    """The `target-outliers` check's settings in data-cleaning."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    warning: float | None = Field(
+        default=3.0,
+        ge=0.0,
+        le=100.0,
+        description=(
+            "Most targets (boxes), as a percentage of all, that may be flagged as outliers (unusual box sizes, aspect "
+            "ratios, or annotation counts) before the finding warns; `null` judges nothing. Lower to 1% for "
+            "annotation-quality audits; raise to 5-10% for dense object detection."
+        ),
+    )
+
+
+class ClasswiseOutliersSettings(BaseModel):
+    """The `classwise-outliers` check's settings in data-cleaning."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    warning: float | None = Field(
+        default=3.0,
+        ge=0.0,
+        le=100.0,
+        description=(
+            "Most items, as a percentage of those in any one class, that may be outliers before the finding warns; "
+            "`null` judges nothing. A class over it may point to labelling errors or a loose class definition."
+        ),
+    )
+
+
+class ImageDuplicatesSettings(BaseModel):
+    """The `image-duplicates` check's settings in data-cleaning."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    exact: float | None = Field(
         default=0.0,
         ge=0.0,
         le=100.0,
         description=(
-            "Max allowable % of images in exact-duplicate groups. "
-            "Exact duplicates are byte-identical images that inflate dataset size without "
-            "adding information. Default 0% — any exact duplicates trigger a warning. "
-            "Raise above 0 only if your pipeline intentionally includes repeated images "
-            "(e.g. augmentation-before-split workflows)."
+            "Most images, as a percentage of the Dataset, that may sit in exact-duplicate groups before the finding "
+            "warns; `null` judges nothing. 0 warns on any. Raise it only where repeated images are intended."
         ),
     )
-    near_duplicates: float | None = Field(
+
+    near: float | None = Field(
         default=5.0,
         ge=0.0,
         le=100.0,
         description=(
-            "Max allowable % of images in near-duplicate groups. "
-            "Near duplicates are visually similar images (crops, resizes, minor edits) "
-            "that can bias model training toward repeated content. Default 5%. "
-            "Lower to 1–2% for curated benchmarks; raise to 10–15% for large-scale "
-            "web-scraped datasets where some redundancy is expected."
+            "Most images, as a percentage of the Dataset, that may sit in near-duplicate groups before the finding "
+            "warns; `null` judges nothing. Lower to 1-2% for curated benchmarks; raise to 10-15% for web-scraped data."
         ),
     )
-    image_outliers: float | None = Field(
-        default=3.0,
-        ge=0.0,
-        le=100.0,
-        description=(
-            "Max allowable % of images flagged as statistical outliers "
-            "(unusual dimensions, brightness, entropy, or visual statistics). Default 3%. "
-            "Lower to 1% for safety-critical datasets; raise to 5–10% for diverse "
-            "real-world collections where high visual variance is expected."
-        ),
-    )
-    target_outliers: float | None = Field(
-        default=3.0,
-        ge=0.0,
-        le=100.0,
-        description=(
-            "Max allowable % of targets (labels/annotations) flagged as outliers "
-            "(unusual bounding-box sizes, aspect ratios, or annotation counts). Default 3%. "
-            "Lower to 1% for annotation-quality audits; raise to 5–10% for datasets "
-            "with naturally high annotation variance (e.g. dense object detection)."
-        ),
-    )
-    classwise_outliers: float | None = Field(
-        default=3.0,
-        ge=0.0,
-        le=100.0,
-        description=(
-            "Max allowable % of items flagged as outliers within any single class. Default 3%. "
-            "This catches classes where outlier concentration is disproportionately high, "
-            "which may indicate labeling errors or class definition issues. "
-            "Lower to 1% for label-quality audits; raise to 5–10% for classes with "
-            "inherently high visual diversity."
-        ),
-    )
-    class_label_imbalance: float | None = Field(
+
+
+class DataCleaningClassImbalanceSettings(BaseModel):
+    """The `class-imbalance` check's settings in data-cleaning."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    warning: float | None = Field(
         default=5.0,
         ge=1.0,
         description=(
-            "Max allowable ratio between the largest and smallest class counts "
-            "(max_class / min_class). Default 5:1. "
-            "For binary classification, 3:1 is a common threshold for 'imbalanced'. "
-            "For large class hierarchies (25+ classes), the long tail naturally "
-            "increases this ratio — raise to 10–20:1 to avoid false warnings. "
-            "Set to 1.0 to require perfectly balanced classes."
+            "Largest class count over smallest past which the finding warns; `null` judges nothing but an empty "
+            "class. 3:1 is a common bar for two classes; raise to 10-20:1 for 25 or more classes, whose long tail "
+            "raises it naturally."
         ),
     )
+
+
+class DataCleaningChecks(BaseModel):
+    """When data-cleaning's findings warn: each check's settings, keyed by check type."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
+
+    image_outliers: ImageOutliersSettings = Field(
+        default_factory=ImageOutliersSettings,
+        alias="image-outliers",
+        description="The `image-outliers` check's settings.",
+    )
+    target_outliers: TargetOutliersSettings = Field(
+        default_factory=TargetOutliersSettings,
+        alias="target-outliers",
+        description="The `target-outliers` check's settings.",
+    )
+    classwise_outliers: ClasswiseOutliersSettings = Field(
+        default_factory=ClasswiseOutliersSettings,
+        alias="classwise-outliers",
+        description="The `classwise-outliers` check's settings.",
+    )
+    image_duplicates: ImageDuplicatesSettings = Field(
+        default_factory=ImageDuplicatesSettings,
+        alias="image-duplicates",
+        description="The `image-duplicates` check's settings.",
+    )
+    class_imbalance: DataCleaningClassImbalanceSettings = Field(
+        default_factory=DataCleaningClassImbalanceSettings,
+        alias="class-imbalance",
+        description="The `class-imbalance` check's settings.",
+    )
+
+
+class OutliersSettings(BaseModel):
+    """The `outliers` step's settings: which statistics, and how far out an outlier sits. data-prioritization's
+    `cleaning:` takes the same block."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    flags: Sequence[Literal["dimension", "pixel", "visual"]] = Field(
+        min_length=1, description="Image statistics groups to judge. At least one."
+    )
+    outlier_threshold: ThresholdSpec | Mapping[str, ThresholdSpec] = Field(
+        description=(
+            "The method, such as `zscore`, `modzscore`, `iqr` or `adaptive`, alone for its default bound or as "
+            "`[method, bound]`, or a bare bound; or a mapping from metric name to any of these."
+        ),
+    )
+    cluster_threshold: float | None = Field(
+        default=None,
+        description="Standard deviations from a cluster's center past which an item is an outlier; needs an extractor. "
+        "Unset skips cluster detection.",
+    )
+    cluster_algorithm: Literal["kmeans", "hdbscan"] | None = Field(
+        default=None, description="The clustering algorithm cluster detection uses."
+    )
+    n_clusters: int | None = Field(default=None, gt=0, description="Expected number of clusters; unset detects it.")
+
+
+class DuplicatesSettings(BaseModel):
+    """The `duplicates` step's settings. data-prioritization's `cleaning:` takes the same block."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    flags: Sequence[Literal["hash_basic", "hash_d4"]] | None = Field(
+        default=None, description="Hash groups to compare; unset is DataEval's default, `hash_basic`."
+    )
+    merge_near_duplicates: bool = Field(
+        default=True, description="Merge overlapping near-duplicate groups found by different methods."
+    )
+    cluster_sensitivity: float | None = Field(
+        default=None, description="Cluster-based near-duplicate threshold; needs an extractor. Unset skips it."
+    )
+    cluster_algorithm: Literal["kmeans", "hdbscan"] | None = Field(
+        default=None, description="The clustering algorithm cluster detection uses."
+    )
+    n_clusters: int | None = Field(default=None, gt=0, description="Expected number of clusters; unset detects it.")
 
 
 class DataCleaningConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, StatsConfigMixin):
@@ -111,8 +208,9 @@ class DataCleaningConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
         workflows:
           - name: clean_zscore_stats
             type: data-cleaning
-            outlier_method: zscore
-            outlier_flags: [pixel, visual]
+            outliers:
+              flags: [pixel, visual]
+              outlier_threshold: zscore
     """
 
     type: str = Field(default="data-cleaning", description="The workflow type this entry configures: `data-cleaning`.")
@@ -123,75 +221,25 @@ class DataCleaningConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
         sources=SourceCount.ONE,
     )
 
-    # --- Outlier detection params ---
-    outlier_method: Literal["adaptive", "zscore", "modzscore", "iqr"] = Field(
-        description="Statistical method for outlier detection",
-    )
-    outlier_flags: Sequence[Literal["dimension", "pixel", "visual"]] = Field(
-        min_length=1,
-        description="Image statistics groups for outlier detection. At least one required.",
-    )
-    outlier_threshold: float | None = Field(
-        default=None,
-        ge=0.0,
-        description="Custom threshold (None = use DataEval default for chosen method)",
-    )
-    outlier_cluster_threshold: float | None = Field(
-        default=None,
-        description=(
-            "Std devs from cluster center to flag as outlier (requires extractor). None = skip cluster detection."
-        ),
-    )
-    outlier_cluster_algorithm: Literal["kmeans", "hdbscan"] | None = Field(
-        default=None,
-        description="Clustering algorithm for cluster-based outlier detection.",
-    )
-    outlier_n_clusters: int | None = Field(
-        default=None,
-        description="Expected number of clusters. None = auto-detect.",
+    outliers: OutliersSettings = Field(description="The `outliers` step's settings.")
+    duplicates: DuplicatesSettings = Field(
+        default_factory=DuplicatesSettings, description="The `duplicates` step's settings."
     )
 
-    # --- Duplicate detection params ---
-    duplicate_flags: Sequence[Literal["hash_basic", "hash_d4"]] | None = Field(
-        default=None,
-        description=(
-            "Hash flag groups for duplicate detection. None = DataEval default (hash_basic: xxhash + phash + dhash)."
-        ),
-    )
-    duplicate_merge_near: bool = Field(
-        default=True,
-        description="Merge overlapping near-duplicate groups from different detection methods.",
-    )
-    duplicate_cluster_sensitivity: float | None = Field(
-        default=None,
-        description=(
-            "Threshold for cluster-based near duplicate detection (requires extractor). None = skip cluster detection."
-        ),
-    )
-    duplicate_cluster_algorithm: Literal["kmeans", "hdbscan"] | None = Field(
-        default=None,
-        description="Clustering algorithm for cluster-based duplicate detection.",
-    )
-    duplicate_n_clusters: int | None = Field(
-        default=None,
-        description="Expected number of clusters for duplicate detection. None = auto-detect.",
-    )
-
-    # --- Health thresholds ---
-    health_thresholds: DataCleaningHealthThresholds = Field(
-        default_factory=DataCleaningHealthThresholds,
-        description="Warning thresholds for dataset health status. Findings are flagged as warnings.",
+    # --- Checks ---
+    checks: DataCleaningChecks = Field(
+        default_factory=DataCleaningChecks, description="When findings warn, keyed by check type."
     )
 
     def wanted_kinds(self) -> frozenset[InputKind]:
         """Stats and metadata always, and clusters too when a cluster parameter is set."""
         cluster_fields = (
-            self.outlier_cluster_threshold,
-            self.outlier_cluster_algorithm,
-            self.outlier_n_clusters,
-            self.duplicate_cluster_sensitivity,
-            self.duplicate_cluster_algorithm,
-            self.duplicate_n_clusters,
+            self.outliers.cluster_threshold,
+            self.outliers.cluster_algorithm,
+            self.outliers.n_clusters,
+            self.duplicates.cluster_sensitivity,
+            self.duplicates.cluster_algorithm,
+            self.duplicates.n_clusters,
         )
         clusters = frozenset({InputKind.CLUSTERS}) if any(f is not None for f in cluster_fields) else frozenset()
         return self.inputs.required | clusters

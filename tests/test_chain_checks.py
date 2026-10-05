@@ -9,8 +9,7 @@ import pytest
 from dataeval_flow._blocks import Section, Summary
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.evaluators.quality import DuplicatesConfig
-from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows import Finding
+from dataeval_flow.steps import ChainResult, Finding
 from tests.chain_toys import CountGroups, GroupLimit, chain_pipeline, register_toys, run_chain_task, run_toy_chain
 from tests.evaluator_toys import ToyImages
 from tests.workflow_toys import ToyCountConfig, register_count

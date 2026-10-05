@@ -230,7 +230,7 @@ from dataeval_flow.evaluators.shift import (
     DriftUnivariateConfig,
 )
 from dataeval_flow.steps.checks import DriftThresholds
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig, DriftMonitoringThresholds
+from dataeval_flow.workflows.drift_monitoring import DriftMonitoringChecks, DriftMonitoringConfig
 
 drift_task = TaskConfig(
     name="milco-drift-overall",
@@ -261,7 +261,7 @@ config = PipelineConfig(
                 DriftMMDConfig(n_permutations=100, chunking=chunking),
                 DriftUnivariateConfig(method="cvm"),  # non-chunked overall test
             ],
-            health_thresholds=DriftMonitoringThresholds(
+            checks=DriftMonitoringChecks(
                 drift=DriftThresholds(
                     chunk_percent=15.0,  # warn if >15% of chunks drift
                     consecutive_chunks=2,  # warn on 2+ consecutive drifted chunks

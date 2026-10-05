@@ -13,7 +13,7 @@ from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 
 _BASE: dict[str, Any] = {"name": "prio", "type": "data-prioritization", "method": "knn", "k": 3}
-_CLEANING: dict[str, Any] = {"outlier_method": "zscore", "outlier_flags": ["pixel", "visual"]}
+_CLEANING: dict[str, Any] = {"outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}}
 
 
 def _pair(**pool: Any) -> Callable[[], dict[str, Any]]:
@@ -26,7 +26,7 @@ CASES: dict[str, tuple[dict[str, Any], Callable[[], dict[str, Any]]]] = {
     "easy_first": ({"order": "easy_first"}, _pair()),
     "cleaned": ({"cleaning": _CLEANING}, _pair()),
     "near_duplicates": ({"cleaning": _CLEANING}, _pair(near_duplicate=True)),
-    "exact_only": ({"cleaning": {**_CLEANING, "duplicate_exact_only": True}}, _pair(near_duplicate=True)),
+    "exact_only": ({"cleaning": {**_CLEANING, "dup_types": ["exact"]}}, _pair(near_duplicate=True)),
     "unlabelled_pool": ({"cleaning": _CLEANING}, _pair(labeled=False)),
     "two_pools": (
         {"cleaning": _CLEANING},

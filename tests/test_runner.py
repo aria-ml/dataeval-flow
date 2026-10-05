@@ -148,8 +148,7 @@ def _write_config(tmp_path: Path, *, disable: str | None = None, extra: str = ""
         "workflows:",
         "  - name: wf",
         "    type: data-cleaning",
-        "    outlier_method: modzscore",
-        "    outlier_flags: [dimension]",
+        "    outliers: {flags: [dimension], outlier_threshold: modzscore}",
         "tasks:",
     ]
     for name in ("task_a", "task_b"):
@@ -516,7 +515,7 @@ class TestResultFiles:
 
 def _findings_result(*, warnings: bool) -> object:
     """A fake workflow result with real findings: a warning where *warnings*, and one passing finding."""
-    from dataeval_flow.workflows import Finding
+    from dataeval_flow.steps import Finding
 
     result = _fake_result(warnings=1 if warnings else 0)
     passing = Finding(severity="ok", title="Label Balance", brief="2 classes")
@@ -646,7 +645,7 @@ class TestCIReports:
         import xml.etree.ElementTree as ET
 
         from dataeval_flow._ci_reports import junit_report
-        from dataeval_flow.workflows import Finding
+        from dataeval_flow.steps import Finding
 
         result = _findings_result(warnings=False)
         result.findings = [Finding(severity="ok", title="Outliers", brief=b) for b in "ab"]  # type: ignore[attr-defined]
@@ -672,7 +671,7 @@ class TestCIReports:
 
     def test_markdown_shows_names_and_findings_as_written(self):
         from dataeval_flow._ci_reports import markdown_summary
-        from dataeval_flow.workflows import Finding
+        from dataeval_flow.steps import Finding
 
         result = _findings_result(warnings=False)
         result.findings = [Finding(severity="ok", title="Missing <NA>", brief="*none*")]  # type: ignore[attr-defined]

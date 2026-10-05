@@ -232,7 +232,7 @@ Given an unlabeled pool and what is already labeled, which unlabeled items are t
 ```yaml
 evaluators:
   - name: next_to_label
-    type: prioritize
+    type: prioritization
     order: hard_first
 
 tasks:
@@ -268,11 +268,11 @@ From Python:
 ```python
 from dataeval_flow import run
 from dataeval_flow.config.extractors import BoVWExtractorConfig
-from dataeval_flow.evaluators.scope import PrioritizeConfig
+from dataeval_flow.evaluators.scope import PrioritizationConfig
 
 bovw_ext = BoVWExtractorConfig(name="bovw_ext", vocab_size=512, batch_size=32)
 result = run(
-    PrioritizeConfig(order="hard_first"),
+    PrioritizationConfig(order="hard_first"),
     {"data": unlabeled_dataset, "reference": labeled_dataset},
     extractor=bovw_ext,
 )

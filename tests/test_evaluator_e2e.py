@@ -13,7 +13,10 @@ from dataeval_flow.workflows import WorkflowResult
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from tests.evaluator_toys import ToyImages, exact_groups, output_json, toy_pipeline
 
-_CLEAN = DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["dimension", "pixel", "visual"])
+_CLEAN = DataCleaningConfig(
+    name="clean",
+    outliers={"flags": ["dimension", "pixel", "visual"], "outlier_threshold": "zscore"},  # type: ignore[arg-type]
+)
 
 
 def _dupes_task(sources: str | list[str] = "src") -> TaskConfig:

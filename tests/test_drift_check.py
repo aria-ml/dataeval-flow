@@ -9,7 +9,7 @@ from dataeval_flow import run_task
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.shift import DriftKNeighborsConfig
 from dataeval_flow.steps import ChainResult, CheckContext
-from dataeval_flow.steps.checks import DriftCheck, DriftCheckConfig
+from dataeval_flow.steps.checks import DriftCheck, DriftConfig
 from tests.chain_toys import chain_pipeline
 from tests.drift_toys import ClassImages
 from tests.evaluator_toys import ToyImages
@@ -56,12 +56,13 @@ def test_chunked_briefs_its_chunks_and_warns_at_chunk_percent():
     drifted, total = (int(part) for part in finding.brief.split(" ")[0].split("/"))
     assert finding.brief.endswith("chunks drifted")
     assert total >= 1
-    assert finding.severity == ("warning" if drifted / total >= 0.10 else "info" if drifted else "ok")
+    assert finding.severity == ("warning" if drifted / total > 0.10 else "info" if drifted else "ok")
 
 
-def test_chunked_warns_at_consecutive_chunks_when_percent_is_off():
+def test_chunked_warns_past_consecutive_chunks_when_percent_is_off():
     finding = _finding(_SHIFTED, entry={"chunking": {"chunk_count": 4}}, chunk_percent=None, consecutive_chunks=1)
-    assert finding.severity == ("warning" if not finding.brief.startswith("0/") else "ok")
+    longest = int(finding.description.rsplit("max consecutive: ", 1)[1])
+    assert finding.severity == ("warning" if longest > 1 else "info" if longest else "ok")
 
 
 def test_chunked_with_both_thresholds_off_is_info():
@@ -88,7 +89,7 @@ def test_by_class_rolls_up_under_the_title():
 def _judged(flags: list[bool], **limits: Any) -> Any:
     """The finding `drift` makes on a chunked Output whose chunks drifted as `flags` say."""
     output = SimpleNamespace(details=pl.DataFrame({"drifted": flags}), drifted=any(flags))
-    config = DriftCheckConfig.model_validate({"input": "knn", **limits})
+    config = DriftConfig.model_validate({"input": "knn", **limits})
     (finding,) = DriftCheck().run(config, {"input": SimpleNamespace(value=output, config=None)}, CheckContext("t", "s"))
     return finding
 

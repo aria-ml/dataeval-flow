@@ -18,7 +18,7 @@ _RULE = "=" * 80
 @pytest.fixture
 def cleaned():
     DatasetCache.clear_instances()
-    config = DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel", "visual"])
+    config = DataCleaningConfig(name="clean", outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
     yield run(config, ToyImages(count=24))
     DatasetCache.clear_instances()
 
@@ -43,26 +43,26 @@ def test_data_cleaning_short_text_is_its_summary_health_and_steps(cleaned) -> No
 ================================================================================
   Image Outliers ....................................... 1 images (4.2%)  [!!]
   Classwise Outliers ............ worst: b (8.3%), 1/1 classes over 3.0%  [!!]
-  Duplicates ............................. 2 exact (8.3%), 0 near (0.0%)  [!!]
-  Label Distribution .............. 2 classes, 24 items, imbalance 1.0:1  [..]
+  Image Duplicates ....................... 2 exact (8.3%), 0 near (0.0%)  [!!]
+  Class Imbalance ................. 2 classes, 24 items, imbalance 1.0:1  [..]
 
   Health: 3 warning(s) [!!] — review flagged findings
 
 ================================================================================
   STEPS
 ================================================================================
-  Step             Status  Note
-  ---------------  ------  -----------
-  outliers         ok
-  labels           ok
-  by-class         ok
-  dupes            ok
-  image-outliers   ok
-  target-outliers  ok      no findings
-  classwise        ok
-  duplicates       ok
-  imbalance        ok
-  clean            ok
+  Step                Status  Note
+  ------------------  ------  -----------
+  outliers            ok
+  label-health        ok
+  outliers-by-class   ok
+  duplicates          ok
+  image-outliers      ok
+  target-outliers     ok      no findings
+  classwise-outliers  ok
+  image-duplicates    ok
+  class-imbalance     ok
+  clean               ok
 
 ================================================================================
   METADATA FACTORS

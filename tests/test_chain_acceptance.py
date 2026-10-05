@@ -194,12 +194,12 @@ workflows:
     steps:
       - {name: outliers, evaluator: outliers, input: data}
       - {name: labels, evaluator: labels, input: data}
-      - {name: by-class, combine: classwise-outliers, input: data, outliers: outliers}
+      - {name: by-class, combine: outliers-by-class, input: data, outliers: outliers}
       - {name: dupes, evaluator: dupes, input: data}
-      - {name: image-outliers, check: outlier-rate, input: outliers}
-      - {name: target-outliers, check: target-outlier-rate, input: outliers, labels: labels}
-      - {name: classwise, check: classwise-outlier-rate, input: by-class}
-      - {name: duplicates, check: duplicate-rate, input: dupes}
+      - {name: image-outliers, check: image-outliers, input: outliers}
+      - {name: target-outliers, check: target-outliers, input: outliers, labels: labels}
+      - {name: classwise, check: classwise-outliers, input: by-class}
+      - {name: duplicates, check: image-duplicates, input: dupes}
       - {name: imbalance, check: class-imbalance, input: labels}
 
 tasks:
@@ -253,7 +253,7 @@ def test_a_not_assessed_description_ends_in_one_full_stop(tmp_path: Path) -> Non
 def test_a_data_cleaning_step_hands_its_cleaned_dataset_to_an_export(tmp_path: Path) -> None:
     text = """
 workflows:
-  - {name: basic_clean, type: data-cleaning, outlier_method: zscore, outlier_flags: [pixel, visual]}
+  - {name: basic_clean, type: data-cleaning, outliers: {flags: [pixel, visual], outlier_threshold: zscore}}
   - name: clean_export
     inputs: [data]
     steps:
@@ -266,14 +266,14 @@ tasks:
     assert result.success, result.errors
     assert [(f.severity, f.title, f.step) for f in result.findings] == [
         ("ok", "Image Outliers", "cleaning/image-outliers"),
-        ("ok", "Classwise Outliers", "cleaning/classwise"),
-        ("warning", "Duplicates", "cleaning/duplicates"),
-        ("info", "Label Distribution", "cleaning/imbalance"),
+        ("ok", "Classwise Outliers", "cleaning/classwise-outliers"),
+        ("warning", "Image Duplicates", "cleaning/image-duplicates"),
+        ("info", "Class Imbalance", "cleaning/class-imbalance"),
     ]
     assert result.health == {"status": "warning", "warnings": 1, "findings": 4, "failed_steps": []}
     assert result.steps["cleaning/clean"].details == {
         "removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0},
-        "by_plan": {"dupes": {"items": 1}, "outliers": {}},
+        "by_plan": {"duplicates": {"items": 1}, "outliers": {}},
     }
     written = _coco(tmp_path / "datasets" / "prep.dataset")
     assert (len(written["images"]), len(written["annotations"])) == (23, 46)

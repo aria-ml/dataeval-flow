@@ -525,7 +525,7 @@ test_cases:
       - Synthetic ImageFolder dataset configured
     expected_results:
       - DataCoverageWorkflow returns success=True and a non-empty report()
-      - The label distribution and Class Balance Worklist findings are made, and the metadata summary is present
+      - The label distribution and Class Shortfall findings are made, and the metadata summary is present
       - Embedding coverage and completeness are not assessed (skipped, not fatal) with no extractor
 
   "20-2":
@@ -540,7 +540,7 @@ test_cases:
     expected_results:
       - label-space returns success=True and a non-empty report()
       - A declared ontology yields either an ontology assessment or a recorded skip reason
-      - The findings are Label Space Coverage, Label Conformance, Label Alignment and Ontology Structure, in order
+      - The findings are Leaf Coverage, Label Conformance, Mergeability and Ontology Structure, in order
       - The result records the alignment's label_space_digest
 
   "22-1":

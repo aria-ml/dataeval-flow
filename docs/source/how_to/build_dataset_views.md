@@ -255,11 +255,6 @@ keystrokes: an unseeded one produces a new view on every run and nothing is ever
 A merged source's key covers every operand and the view it was merged under, so narrowing one operand's view
 invalidates that dataset and nothing else.
 
-## A note on the legacy vocabulary
-
-Older configs used `selections` / `selection` / `steps` where current ones use `views` / `view` / `operations`. The old
-keys are still accepted and emit a `DeprecationWarning`. New configs should use the current names.
-
 ## Related material
 
 - [Reproducibility](../concepts/Reproducibility.md) — why a seeded, declarative view is part of a defensible result

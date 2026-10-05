@@ -391,7 +391,7 @@
             }
           ],
           "default": 0.5,
-          "description": "A class's dispersion under which it is clustered; `null` turns it off. Legacy `min_dispersion`.",
+          "description": "A class's dispersion under which it is clustered; `null` turns it off.",
           "title": "Dispersion"
         },
         "isotropy": {
@@ -405,7 +405,7 @@
             }
           ],
           "default": 0.5,
-          "description": "A class's isotropy under which it is one-dimensional; `null` turns it off. Legacy `min_isotropy`.",
+          "description": "A class's isotropy under which it is one-dimensional; `null` turns it off.",
           "title": "Isotropy"
         },
         "near_duplicates": {
@@ -420,7 +420,7 @@
             }
           ],
           "default": 0.1,
-          "description": "A class's near-duplicate share over which it is duplicate-padded; `null` turns it off. Legacy `max_near_duplicate_fraction`.",
+          "description": "A class's near-duplicate share over which it is duplicate-padded; `null` turns it off.",
           "title": "Near Duplicates"
         },
         "check": {
@@ -481,7 +481,7 @@
           "title": "Input",
           "type": "string"
         },
-        "ratio": {
+        "warning": {
           "anyOf": [
             {
               "minimum": 1.0,
@@ -492,8 +492,8 @@
             }
           ],
           "default": 5.0,
-          "description": "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` judges nothing but an empty class, which warns unless `empty` is false. data-cleaning's `health_thresholds.class_label_imbalance`.",
-          "title": "Ratio"
+          "description": "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` judges nothing but an empty class, which warns unless `empty` is false.",
+          "title": "Warning"
         },
         "info": {
           "anyOf": [
@@ -506,7 +506,7 @@
             }
           ],
           "default": null,
-          "description": "A ratio at or under which the finding is ok, between which and `ratio` it informs; `null` makes every ratio under `ratio` information. Must not exceed `ratio`.",
+          "description": "A ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every ratio under `warning` information. Must not exceed `warning`.",
           "title": "Info"
         },
         "empty": {
@@ -517,7 +517,7 @@
         },
         "check": {
           "const": "class-imbalance",
-          "description": "`class-imbalance`: Warns when the largest class outnumbers the smallest by more than `ratio`.",
+          "description": "`class-imbalance`: Warns when the largest class outnumbers the smallest by more than `warning`.",
           "title": "Check",
           "type": "string"
         },
@@ -722,15 +722,15 @@
       "title": "CheckStep_class-sufficiency",
       "type": "object"
     },
-    "CheckStep_classwise-outlier-rate": {
+    "CheckStep_classwise-outliers": {
       "additionalProperties": false,
       "properties": {
         "input": {
-          "description": "A `classwise-outliers` Output.",
+          "description": "An `outliers-by-class` Output.",
           "title": "Input",
           "type": "string"
         },
-        "total": {
+        "warning": {
           "anyOf": [
             {
               "maximum": 100.0,
@@ -742,12 +742,12 @@
             }
           ],
           "default": 3.0,
-          "description": "Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too. `null` judges nothing. data-cleaning's `health_thresholds.classwise_outliers`.",
-          "title": "Total"
+          "description": "Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too. `null` judges nothing.",
+          "title": "Warning"
         },
         "check": {
-          "const": "classwise-outlier-rate",
-          "description": "`classwise-outlier-rate`: Warns when outliers pass `total` percent across classes; names the worst class.",
+          "const": "classwise-outliers",
+          "description": "`classwise-outliers`: Warns when outliers pass `warning` percent across classes; names the worst class.",
           "title": "Check",
           "type": "string"
         },
@@ -792,10 +792,10 @@
         "check",
         "name"
       ],
-      "title": "CheckStep_classwise-outlier-rate",
+      "title": "CheckStep_classwise-outliers",
       "type": "object"
     },
-    "CheckStep_completeness-score": {
+    "CheckStep_dimensional-completeness": {
       "additionalProperties": false,
       "properties": {
         "input": {
@@ -815,7 +815,7 @@
             }
           ],
           "default": 0.5,
-          "description": "The score under which the finding warns; `null` turns it off. Legacy `completeness_score`.",
+          "description": "The score under which the finding warns; `null` turns it off.",
           "title": "Warning"
         },
         "info": {
@@ -830,12 +830,12 @@
             }
           ],
           "default": 0.8,
-          "description": "The score under which the finding informs; `null` turns it off. Legacy's hard-coded 0.8.",
+          "description": "The score under which the finding informs; `null` turns it off.",
           "title": "Info"
         },
         "check": {
-          "const": "completeness-score",
-          "description": "`completeness-score`: Warns when the embeddings fill too little of their space's dimensions.",
+          "const": "dimensional-completeness",
+          "description": "`dimensional-completeness`: Warns when the embeddings fill too little of their space's dimensions.",
           "title": "Check",
           "type": "string"
         },
@@ -880,79 +880,7 @@
         "check",
         "name"
       ],
-      "title": "CheckStep_completeness-score",
-      "type": "object"
-    },
-    "CheckStep_coverage-gaps": {
-      "additionalProperties": false,
-      "properties": {
-        "input": {
-          "description": "A `factor-gaps` Output.",
-          "title": "Input",
-          "type": "string"
-        },
-        "count": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 3,
-          "description": "The number of gaps at which the finding warns: this many or more (legacy's `>=`); `null` judges nothing. Legacy `gap_count`.",
-          "title": "Count"
-        },
-        "check": {
-          "const": "coverage-gaps",
-          "description": "`coverage-gaps`: Warns when enough class-factor-value combinations are under-represented.",
-          "title": "Check",
-          "type": "string"
-        },
-        "name": {
-          "description": "The step's name, which is the address of its output.",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
-          "title": "Name",
-          "type": "string"
-        },
-        "optional": {
-          "default": false,
-          "description": "Whether a failure is recorded as a skip that does not fail the task.",
-          "title": "Optional",
-          "type": "boolean"
-        },
-        "pairs": {
-          "default": false,
-          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
-          "title": "Pairs",
-          "type": "boolean"
-        },
-        "by": {
-          "anyOf": [
-            {
-              "enum": [
-                "class",
-                "predicted"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
-          "title": "By"
-        }
-      },
-      "required": [
-        "input",
-        "check",
-        "name"
-      ],
-      "title": "CheckStep_coverage-gaps",
+      "title": "CheckStep_dimensional-completeness",
       "type": "object"
     },
     "CheckStep_distribution-shift": {
@@ -975,7 +903,7 @@
             }
           ],
           "default": 0.5,
-          "description": "The divergence above which the finding warns; `null` never warns. Legacy data-analysis's `health_thresholds.distribution_shift`.",
+          "description": "The divergence above which the finding warns; `null` never warns.",
           "title": "Warning"
         },
         "info": {
@@ -990,7 +918,7 @@
             }
           ],
           "default": null,
-          "description": "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times `warning`, legacy's band; `null` has no `info` band. Must not exceed `warning`.",
+          "description": "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times `warning`; `null` has no `info` band. Must not exceed `warning`.",
           "title": "Info"
         },
         "check": {
@@ -1048,7 +976,7 @@
       "properties": {
         "warn_on_drift": {
           "default": true,
-          "description": "Unchunked, and per class: drift is a warning, or info when false. drift-monitoring's legacy `any_drift_is_warning` and `classwise_any_drift_is_warning`.",
+          "description": "Unchunked, and per class: drift is a warning, or info when false.",
           "title": "Warn On Drift",
           "type": "boolean"
         },
@@ -1064,21 +992,21 @@
             }
           ],
           "default": 10.0,
-          "description": "Chunked: the share of drifted chunks, in percent, at which the finding warns; `null` judges none.",
+          "description": "Chunked: the share of drifted chunks, in percent, past which the finding warns; `null` judges none.",
           "title": "Chunk Percent"
         },
         "consecutive_chunks": {
           "anyOf": [
             {
-              "minimum": 1,
+              "minimum": 0,
               "type": "integer"
             },
             {
               "type": "null"
             }
           ],
-          "default": 3,
-          "description": "Chunked: the longest run of drifted chunks at which the finding warns; `null` judges none.",
+          "default": 2,
+          "description": "Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row and 0 on any drifted chunk; `null` judges none.",
           "title": "Consecutive Chunks"
         },
         "input": {
@@ -1149,94 +1077,6 @@
       "title": "CheckStep_drift",
       "type": "object"
     },
-    "CheckStep_duplicate-rate": {
-      "additionalProperties": false,
-      "properties": {
-        "input": {
-          "description": "A `duplicates` Output.",
-          "title": "Input",
-          "type": "string"
-        },
-        "exact": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.0,
-          "description": "Most images, as a percentage of the Dataset, that may sit in exact-duplicate groups before the finding warns; `null` judges nothing. data-cleaning's `health_thresholds.exact_duplicates`.",
-          "title": "Exact"
-        },
-        "near": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 5.0,
-          "description": "Most images, as a percentage of the Dataset, that may sit in near-duplicate groups before the finding warns; `null` judges nothing. data-cleaning's `health_thresholds.near_duplicates`.",
-          "title": "Near"
-        },
-        "check": {
-          "const": "duplicate-rate",
-          "description": "`duplicate-rate`: Warns when more than `exact` or `near` percent of the images are duplicates.",
-          "title": "Check",
-          "type": "string"
-        },
-        "name": {
-          "description": "The step's name, which is the address of its output.",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
-          "title": "Name",
-          "type": "string"
-        },
-        "optional": {
-          "default": false,
-          "description": "Whether a failure is recorded as a skip that does not fail the task.",
-          "title": "Optional",
-          "type": "boolean"
-        },
-        "pairs": {
-          "default": false,
-          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
-          "title": "Pairs",
-          "type": "boolean"
-        },
-        "by": {
-          "anyOf": [
-            {
-              "enum": [
-                "class",
-                "predicted"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
-          "title": "By"
-        }
-      },
-      "required": [
-        "input",
-        "check",
-        "name"
-      ],
-      "title": "CheckStep_duplicate-rate",
-      "type": "object"
-    },
     "CheckStep_eval-coverage": {
       "additionalProperties": false,
       "properties": {
@@ -1252,7 +1092,7 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "description": "The percent of assessed test images flagged past which the finding warns; `null` never warns.",
           "title": "Warning"
         },
         "info": {
@@ -1267,7 +1107,7 @@
             }
           ],
           "default": 2.0,
-          "description": "The percent flagged at which the finding is `info`, below which it is `ok`; `null` is never `info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so `2.0` suits `threshold_perc: 99`.",
+          "description": "The percent flagged past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so `2.0` suits `threshold_perc: 99`.",
           "title": "Info"
         },
         "input": {
@@ -1325,6 +1165,239 @@
       "title": "CheckStep_eval-coverage",
       "type": "object"
     },
+    "CheckStep_factor-coverage-gaps": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `factor-gaps` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 2,
+          "description": "The most under-represented class-factor-value combinations before the finding warns; `null` never warns.",
+          "title": "Warning"
+        },
+        "check": {
+          "const": "factor-coverage-gaps",
+          "description": "`factor-coverage-gaps`: Warns when enough class-factor-value combinations are under-represented.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_factor-coverage-gaps",
+      "type": "object"
+    },
+    "CheckStep_image-duplicates": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `duplicates` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "exact": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.0,
+          "description": "Most images, as a percentage of the Dataset, that may sit in exact-duplicate groups before the finding warns; `null` judges nothing.",
+          "title": "Exact"
+        },
+        "near": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "Most images, as a percentage of the Dataset, that may sit in near-duplicate groups before the finding warns; `null` judges nothing.",
+          "title": "Near"
+        },
+        "check": {
+          "const": "image-duplicates",
+          "description": "`image-duplicates`: Warns when more than `exact` or `near` percent of the images are duplicates.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_image-duplicates",
+      "type": "object"
+    },
+    "CheckStep_image-outliers": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "An `outliers` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Most images, as a percentage of the Dataset, that may be flagged before the finding warns; `null` judges nothing.",
+          "title": "Warning"
+        },
+        "check": {
+          "const": "image-outliers",
+          "description": "`image-outliers`: Warns when more than `warning` percent of a Dataset's images are outliers.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_image-outliers",
+      "type": "object"
+    },
     "CheckStep_label-conformance": {
       "additionalProperties": false,
       "properties": {
@@ -1333,7 +1406,7 @@
           "title": "Input",
           "type": "string"
         },
-        "unmatched": {
+        "warning": {
           "anyOf": [
             {
               "minimum": 0,
@@ -1344,8 +1417,8 @@
             }
           ],
           "default": 0,
-          "description": "Class names that may resolve to no concept; more warn. An ambiguous name always warns. `null` turns the unmatched criterion off. Legacy data-coverage's `health_thresholds.unmatched_class_count`.",
-          "title": "Unmatched"
+          "description": "Class names that may resolve to no concept; more warn. An ambiguous name always warns. `null` turns the unmatched criterion off.",
+          "title": "Warning"
         },
         "check": {
           "const": "label-conformance",
@@ -1417,7 +1490,7 @@
             }
           ],
           "default": 0.9,
-          "description": "The least share of the ontology's leaves that must have examples; under it the finding warns. `null` turns this criterion off. Legacy data-coverage's `health_thresholds.leaf_coverage`.",
+          "description": "The least share of the ontology's leaves that must have examples; under it the finding warns. `null` turns this criterion off.",
           "title": "Coverage"
         },
         "empty_branches": {
@@ -1431,7 +1504,7 @@
             }
           ],
           "default": 0,
-          "description": "Wholly empty branches tolerated; more warn. `null` turns this criterion off. Legacy data-coverage's `health_thresholds.dark_branch_count`.",
+          "description": "Wholly empty branches tolerated; more warn. `null` turns this criterion off.",
           "title": "Empty Branches"
         },
         "check": {
@@ -1532,7 +1605,7 @@
             }
           ],
           "default": 0,
-          "description": "Most items, counted over every exact-duplicate group with members in two splits, that may leak before the finding warns; `null` judges nothing. Legacy data-analysis warned on any.",
+          "description": "Most items, counted over every exact-duplicate group with members in two splits, that may leak before the finding warns; `null` judges nothing.",
           "title": "Exact"
         },
         "near": {
@@ -1809,7 +1882,7 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "description": "The percent of assessed test images flagged past which the finding warns; `null` never warns.",
           "title": "Warning"
         },
         "info": {
@@ -1824,7 +1897,7 @@
             }
           ],
           "default": 1.0,
-          "description": "The percent at which the finding is `info`, below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing. ood-detection's `health_thresholds.ood_pct_info` before its port.",
+          "description": "The percent past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing.",
           "title": "Info"
         },
         "input": {
@@ -1910,7 +1983,7 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "description": "The percent of assessed test images flagged past which the finding warns; `null` never warns.",
           "title": "Warning"
         },
         "info": {
@@ -1925,7 +1998,7 @@
             }
           ],
           "default": 1.0,
-          "description": "The percent at which the finding is `info`, below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing. ood-detection's `health_thresholds.ood_pct_info` before its port.",
+          "description": "The percent past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing.",
           "title": "Info"
         },
         "input": {
@@ -1983,79 +2056,6 @@
       "title": "CheckStep_ood-agreement",
       "type": "object"
     },
-    "CheckStep_outlier-rate": {
-      "additionalProperties": false,
-      "properties": {
-        "input": {
-          "description": "An `outliers` Output.",
-          "title": "Input",
-          "type": "string"
-        },
-        "image": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 3.0,
-          "description": "Most images, as a percentage of the Dataset, that may be flagged before the finding warns; `null` judges nothing. data-cleaning's `health_thresholds.image_outliers`.",
-          "title": "Image"
-        },
-        "check": {
-          "const": "outlier-rate",
-          "description": "`outlier-rate`: Warns when more than `image` percent of a Dataset's images are outliers.",
-          "title": "Check",
-          "type": "string"
-        },
-        "name": {
-          "description": "The step's name, which is the address of its output.",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
-          "title": "Name",
-          "type": "string"
-        },
-        "optional": {
-          "default": false,
-          "description": "Whether a failure is recorded as a skip that does not fail the task.",
-          "title": "Optional",
-          "type": "boolean"
-        },
-        "pairs": {
-          "default": false,
-          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
-          "title": "Pairs",
-          "type": "boolean"
-        },
-        "by": {
-          "anyOf": [
-            {
-              "enum": [
-                "class",
-                "predicted"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
-          "title": "By"
-        }
-      },
-      "required": [
-        "input",
-        "check",
-        "name"
-      ],
-      "title": "CheckStep_outlier-rate",
-      "type": "object"
-    },
     "CheckStep_shortcut-risk": {
       "additionalProperties": false,
       "properties": {
@@ -2064,7 +2064,7 @@
           "title": "Input",
           "type": "string"
         },
-        "mutual_information": {
+        "warning": {
           "anyOf": [
             {
               "maximum": 1.0,
@@ -2076,8 +2076,8 @@
             }
           ],
           "default": 0.1,
-          "description": "The mutual information with the class, from 0 to 1, past which a factor warns; `null` judges nothing. Legacy data-analysis's 0.1.",
-          "title": "Mutual Information"
+          "description": "The mutual information with the class, from 0 to 1, past which a factor warns; `null` judges nothing.",
+          "title": "Warning"
         },
         "check": {
           "const": "shortcut-risk",
@@ -2252,7 +2252,7 @@
       "title": "CheckStep_stratification",
       "type": "object"
     },
-    "CheckStep_target-outlier-rate": {
+    "CheckStep_target-outliers": {
       "additionalProperties": false,
       "properties": {
         "input": {
@@ -2265,7 +2265,7 @@
           "title": "Labels",
           "type": "string"
         },
-        "target": {
+        "warning": {
           "anyOf": [
             {
               "maximum": 100.0,
@@ -2277,12 +2277,12 @@
             }
           ],
           "default": 3.0,
-          "description": "Most targets, as a percentage of all, that may be flagged before the finding warns; `null` judges nothing. data-cleaning's `health_thresholds.target_outliers`.",
-          "title": "Target"
+          "description": "Most targets, as a percentage of all, that may be flagged before the finding warns; `null` judges nothing.",
+          "title": "Warning"
         },
         "check": {
-          "const": "target-outlier-rate",
-          "description": "`target-outlier-rate`: Warns when more than `target` percent of the boxes are outliers.",
+          "const": "target-outliers",
+          "description": "`target-outliers`: Warns when more than `warning` percent of the boxes are outliers.",
           "title": "Check",
           "type": "string"
         },
@@ -2328,10 +2328,10 @@
         "check",
         "name"
       ],
-      "title": "CheckStep_target-outlier-rate",
+      "title": "CheckStep_target-outliers",
       "type": "object"
     },
-    "CheckStep_uncovered-rate": {
+    "CheckStep_uncovered-items": {
       "additionalProperties": false,
       "properties": {
         "input": {
@@ -2339,7 +2339,7 @@
           "title": "Input",
           "type": "string"
         },
-        "rate": {
+        "warning": {
           "anyOf": [
             {
               "maximum": 100.0,
@@ -2351,12 +2351,12 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of the Dataset's items uncovered past which the finding warns; `null` judges nothing. Judge only `naive` coverage: adaptive coverage marks `percent` of the items uncovered by construction. data-coverage's `health_thresholds.uncovered-rate.rate`, legacy `health_thresholds.uncovered_rate`.",
-          "title": "Rate"
+          "description": "The percent of the Dataset's items uncovered past which the finding warns; `null` judges nothing. Judge only `naive` coverage: adaptive coverage marks `percent` of the items uncovered by construction.",
+          "title": "Warning"
         },
         "check": {
-          "const": "uncovered-rate",
-          "description": "`uncovered-rate`: Warns when more than `rate` percent of a Dataset's items are uncovered.",
+          "const": "uncovered-items",
+          "description": "`uncovered-items`: Warns when more than `warning` percent of a Dataset's items are uncovered.",
           "title": "Check",
           "type": "string"
         },
@@ -2401,7 +2401,7 @@
         "check",
         "name"
       ],
-      "title": "CheckStep_uncovered-rate",
+      "title": "CheckStep_uncovered-items",
       "type": "object"
     },
     "CheckStep_untrained-classes": {
@@ -2770,7 +2770,7 @@
       "title": "ChunkedDriftConfig",
       "type": "object"
     },
-    "ClassCoverageLimits": {
+    "ClassCoverageSettings": {
       "additionalProperties": false,
       "description": "The `class-coverage` check's fields, with legacy data-coverage's defaults.",
       "properties": {
@@ -2785,7 +2785,7 @@
             }
           ],
           "default": 0.5,
-          "description": "An assessable class's dispersion under which it is clustered, and the Embedding Coverage finding warns; `null` turns this criterion off. Legacy `min_dispersion`.",
+          "description": "An assessable class's dispersion under which it is clustered, and the Class Coverage finding warns; `null` turns this criterion off.",
           "title": "Dispersion"
         },
         "isotropy": {
@@ -2799,7 +2799,7 @@
             }
           ],
           "default": 0.5,
-          "description": "An assessable class's isotropy under which it is one-dimensional, and the Embedding Coverage finding warns; `null` turns this criterion off. Legacy `min_isotropy`.",
+          "description": "An assessable class's isotropy under which it is one-dimensional, and the Class Coverage finding warns; `null` turns this criterion off.",
           "title": "Isotropy"
         },
         "near_duplicates": {
@@ -2814,33 +2814,11 @@
             }
           ],
           "default": 0.1,
-          "description": "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Embedding Coverage finding warns; `null` turns this criterion off. Legacy `max_near_duplicate_fraction`.",
+          "description": "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Class Coverage finding warns; `null` turns this criterion off.",
           "title": "Near Duplicates"
         }
       },
-      "title": "ClassCoverageLimits",
-      "type": "object"
-    },
-    "ClassImbalanceLimits": {
-      "additionalProperties": false,
-      "description": "The `class-imbalance` check's field, with legacy data-splitting's default.",
-      "properties": {
-        "ratio": {
-          "anyOf": [
-            {
-              "minimum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 10.0,
-          "description": "Largest class count over smallest that may hold before the whole set's Label Distribution finding warns; `null` judges nothing but an empty class. Legacy data-splitting's 10.",
-          "title": "Ratio"
-        }
-      },
-      "title": "ClassImbalanceLimits",
+      "title": "ClassCoverageSettings",
       "type": "object"
     },
     "ClassKeys": {
@@ -2882,6 +2860,61 @@
         }
       },
       "title": "ClassKeys",
+      "type": "object"
+    },
+    "ClasswiseOutliersSettings": {
+      "additionalProperties": false,
+      "description": "The `classwise-outliers` check's settings in data-cleaning.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Most items, as a percentage of those in any one class, that may be outliers before the finding warns; `null` judges nothing. A class over it may point to labelling errors or a loose class definition.",
+          "title": "Warning"
+        }
+      },
+      "title": "ClasswiseOutliersSettings",
+      "type": "object"
+    },
+    "CleaningSettings": {
+      "additionalProperties": false,
+      "description": "The cleaning before ranking: the reference and each pool lose their outliers, and each duplicate but the first\nof its group. Its `outliers` and `duplicates` blocks are data-cleaning's.",
+      "properties": {
+        "outliers": {
+          "$ref": "#/$defs/OutliersSettings",
+          "description": "The `outliers` step's settings."
+        },
+        "duplicates": {
+          "$ref": "#/$defs/DuplicatesSettings",
+          "description": "The `duplicates` step's settings."
+        },
+        "dup_types": {
+          "description": "The duplicate kinds removed: `[exact]` keeps near duplicates.",
+          "items": {
+            "enum": [
+              "exact",
+              "near"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Dup Types",
+          "type": "array"
+        }
+      },
+      "required": [
+        "outliers"
+      ],
+      "title": "CleaningSettings",
       "type": "object"
     },
     "CocoDatasetConfig": {
@@ -3017,53 +3050,6 @@
       "title": "CocoDatasetConfig",
       "type": "object"
     },
-    "CombineStep_classwise-outliers": {
-      "additionalProperties": false,
-      "properties": {
-        "input": {
-          "description": "The Dataset the outliers were found in; its labels name each item's class.",
-          "title": "Input",
-          "type": "string"
-        },
-        "outliers": {
-          "description": "An `outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true`.",
-          "title": "Outliers",
-          "type": "string"
-        },
-        "combine": {
-          "const": "classwise-outliers",
-          "description": "`classwise-outliers`: Pivots an Outliers Output by class: each class's flagged items or boxes.",
-          "title": "Combine",
-          "type": "string"
-        },
-        "name": {
-          "description": "The step's name, which is the address of its output.",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
-          "title": "Name",
-          "type": "string"
-        },
-        "optional": {
-          "default": false,
-          "description": "Whether a failure is recorded as a skip that does not fail the task.",
-          "title": "Optional",
-          "type": "boolean"
-        },
-        "pairs": {
-          "default": false,
-          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
-          "title": "Pairs",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "input",
-        "outliers",
-        "combine",
-        "name"
-      ],
-      "title": "CombineStep_classwise-outliers",
-      "type": "object"
-    },
     "CombineStep_factor-deviation": {
       "additionalProperties": false,
       "properties": {
@@ -3110,7 +3096,7 @@
         },
         "max_items": {
           "default": 50,
-          "description": "The most out-of-distribution agreed images explained, at most. ood-detection's `max_ood_insights` before its port.",
+          "description": "The most out-of-distribution agreed images explained, at most.",
           "exclusiveMinimum": 0,
           "title": "Max Items",
           "type": "integer"
@@ -3185,7 +3171,7 @@
         },
         "min_representation": {
           "default": 5,
-          "description": "A combination is a gap where its count is under this while its expected count is over it. Legacy `gap_min_representation`.",
+          "description": "A combination is a gap where its count is under this while its expected count is over it.",
           "minimum": 1,
           "title": "Min Representation",
           "type": "integer"
@@ -3354,6 +3340,53 @@
       "title": "CombineStep_ood-union",
       "type": "object"
     },
+    "CombineStep_outliers-by-class": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "The Dataset the outliers were found in; its labels name each item's class.",
+          "title": "Input",
+          "type": "string"
+        },
+        "outliers": {
+          "description": "An `outliers` Output computed on exactly `input`; for a detection Dataset, with `per_target: true`.",
+          "title": "Outliers",
+          "type": "string"
+        },
+        "combine": {
+          "const": "outliers-by-class",
+          "description": "`outliers-by-class`: Pivots an Outliers Output by class: each class's flagged items or boxes.",
+          "title": "Combine",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "outliers",
+        "combine",
+        "name"
+      ],
+      "title": "CombineStep_outliers-by-class",
+      "type": "object"
+    },
     "CompletenessConfig": {
       "additionalProperties": false,
       "description": "Config for ``completeness``: how much of the embedding space's dimensions the data fills.\n\nWraps ``dataeval.core.completeness`` on the task extractor's embeddings, rescaled to the unit interval per dimension\nfirst, as legacy data-coverage did. It takes no settings.\n\nExample YAML::\n\n    evaluators:\n      - name: completeness\n        type: completeness",
@@ -3372,44 +3405,6 @@
         }
       },
       "title": "CompletenessConfig",
-      "type": "object"
-    },
-    "CompletenessScoreLimits": {
-      "additionalProperties": false,
-      "description": "The `completeness-score` check's fields, with legacy data-coverage's defaults.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.5,
-          "description": "The completeness score under which the Dimensional Completeness finding warns; `null` turns this band off. Must not exceed `info`. Legacy `completeness_score`.",
-          "title": "Warning"
-        },
-        "info": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.8,
-          "description": "The score under which the finding informs, at or over which it is ok; `null` turns this band off, and with `warning` also `null` the finding judges nothing. Legacy's hard-coded 0.8, or `warning` where that is higher and `info` is unset.",
-          "title": "Info"
-        }
-      },
-      "title": "CompletenessScoreLimits",
       "type": "object"
     },
     "ContentDigestConfig": {
@@ -3540,90 +3535,7 @@
       "title": "CoverageConfig",
       "type": "object"
     },
-    "CoverageGapsLimits": {
-      "additionalProperties": false,
-      "description": "The `coverage-gaps` check's field, with legacy data-coverage's default.",
-      "properties": {
-        "count": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 3,
-          "description": "The number of under-represented class-factor-value combinations at which the Metadata Coverage Gaps finding warns, this many or more; fewer inform, and `null` never warns. Legacy `gap_count`.",
-          "title": "Count"
-        }
-      },
-      "title": "CoverageGapsLimits",
-      "type": "object"
-    },
-    "CoverageSettings": {
-      "additionalProperties": false,
-      "description": "The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`\nis written partly.",
-      "properties": {
-        "method": {
-          "default": "adaptive",
-          "description": "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or `naive`, a fixed analytic radius, judged by an `uncovered-rate` step. DataEval's naive radius overflows past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`.",
-          "enum": [
-            "naive",
-            "adaptive"
-          ],
-          "title": "Method",
-          "type": "string"
-        },
-        "percent": {
-          "default": 0.01,
-          "description": "Fraction of items flagged as uncovered, for `adaptive` only.",
-          "exclusiveMaximum": 1.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Percent",
-          "type": "number"
-        },
-        "num_observations": {
-          "default": 50,
-          "description": "Neighbors an item needs within the radius to count as covered.",
-          "exclusiveMinimum": 0,
-          "title": "Num Observations",
-          "type": "integer"
-        },
-        "min_class_samples": {
-          "default": 20,
-          "description": "Items a class needs before its dispersion and isotropy are judged.",
-          "exclusiveMinimum": 0,
-          "title": "Min Class Samples",
-          "type": "integer"
-        },
-        "isotropy_min_samples": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Items a class needs before its isotropy is measured; unset uses DataEval's default.",
-          "title": "Isotropy Min Samples"
-        },
-        "near_duplicate_factor": {
-          "default": 0.5,
-          "description": "The fraction of the radius within which two items are near-duplicates.",
-          "exclusiveMinimum": 0.0,
-          "title": "Near Duplicate Factor",
-          "type": "number"
-        }
-      },
-      "title": "CoverageSettings",
-      "type": "object"
-    },
-    "CropSettings": {
+    "CropParams": {
       "additionalProperties": false,
       "description": "`DetectionCrops`' settings, used on detection data only.",
       "properties": {
@@ -3642,7 +3554,7 @@
           "type": "integer"
         }
       },
-      "title": "CropSettings",
+      "title": "CropParams",
       "type": "object"
     },
     "CustomWorkflowConfig": {
@@ -3714,9 +3626,6 @@
                 "$ref": "#/$defs/TransformStep_wrap"
               },
               {
-                "$ref": "#/$defs/CombineStep_classwise-outliers"
-              },
-              {
                 "$ref": "#/$defs/CombineStep_factor-deviation"
               },
               {
@@ -3727,6 +3636,9 @@
               },
               {
                 "$ref": "#/$defs/CombineStep_ood-union"
+              },
+              {
+                "$ref": "#/$defs/CombineStep_outliers-by-class"
               },
               {
                 "$ref": "#/$defs/CheckStep_class-coverage"
@@ -3741,13 +3653,10 @@
                 "$ref": "#/$defs/CheckStep_class-sufficiency"
               },
               {
-                "$ref": "#/$defs/CheckStep_classwise-outlier-rate"
+                "$ref": "#/$defs/CheckStep_classwise-outliers"
               },
               {
-                "$ref": "#/$defs/CheckStep_completeness-score"
-              },
-              {
-                "$ref": "#/$defs/CheckStep_coverage-gaps"
+                "$ref": "#/$defs/CheckStep_dimensional-completeness"
               },
               {
                 "$ref": "#/$defs/CheckStep_distribution-shift"
@@ -3756,10 +3665,16 @@
                 "$ref": "#/$defs/CheckStep_drift"
               },
               {
-                "$ref": "#/$defs/CheckStep_duplicate-rate"
+                "$ref": "#/$defs/CheckStep_eval-coverage"
               },
               {
-                "$ref": "#/$defs/CheckStep_eval-coverage"
+                "$ref": "#/$defs/CheckStep_factor-coverage-gaps"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_image-duplicates"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_image-outliers"
               },
               {
                 "$ref": "#/$defs/CheckStep_label-conformance"
@@ -3786,19 +3701,16 @@
                 "$ref": "#/$defs/CheckStep_ood-agreement"
               },
               {
-                "$ref": "#/$defs/CheckStep_outlier-rate"
-              },
-              {
                 "$ref": "#/$defs/CheckStep_shortcut-risk"
               },
               {
                 "$ref": "#/$defs/CheckStep_stratification"
               },
               {
-                "$ref": "#/$defs/CheckStep_target-outlier-rate"
+                "$ref": "#/$defs/CheckStep_target-outliers"
               },
               {
-                "$ref": "#/$defs/CheckStep_uncovered-rate"
+                "$ref": "#/$defs/CheckStep_uncovered-items"
               },
               {
                 "$ref": "#/$defs/CheckStep_untrained-classes"
@@ -4115,9 +4027,59 @@
       "title": "DataAnalysisHealthThresholds",
       "type": "object"
     },
+    "DataCleaningChecks": {
+      "additionalProperties": false,
+      "description": "When data-cleaning's findings warn: each check's settings, keyed by check type.",
+      "properties": {
+        "image-outliers": {
+          "$ref": "#/$defs/ImageOutliersSettings",
+          "description": "The `image-outliers` check's settings."
+        },
+        "target-outliers": {
+          "$ref": "#/$defs/TargetOutliersSettings",
+          "description": "The `target-outliers` check's settings."
+        },
+        "classwise-outliers": {
+          "$ref": "#/$defs/ClasswiseOutliersSettings",
+          "description": "The `classwise-outliers` check's settings."
+        },
+        "image-duplicates": {
+          "$ref": "#/$defs/ImageDuplicatesSettings",
+          "description": "The `image-duplicates` check's settings."
+        },
+        "class-imbalance": {
+          "$ref": "#/$defs/DataCleaningClassImbalanceSettings",
+          "description": "The `class-imbalance` check's settings."
+        }
+      },
+      "title": "DataCleaningChecks",
+      "type": "object"
+    },
+    "DataCleaningClassImbalanceSettings": {
+      "additionalProperties": false,
+      "description": "The `class-imbalance` check's settings in data-cleaning.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "Largest class count over smallest past which the finding warns; `null` judges nothing but an empty class. 3:1 is a common bar for two classes; raise to 10-20:1 for 25 or more classes, whose long tail raises it naturally.",
+          "title": "Warning"
+        }
+      },
+      "title": "DataCleaningClassImbalanceSettings",
+      "type": "object"
+    },
     "DataCleaningConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.\n\nThe type is a preset: these settings expand to a chain of steps, whose checks make the findings and whose\n``clean`` step removes each flagged item and each duplicate but the first (see ``DataCleaningWorkflow``).\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outlier_method: zscore\n        outlier_flags: [pixel, visual]",
+      "description": "The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.\n\nThe type is a preset: these settings expand to a chain of steps, whose checks make the findings and whose\n``clean`` step removes each flagged item and each duplicate but the first (see ``DataCleaningWorkflow``).\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outliers:\n          flags: [pixel, visual]\n          outlier_threshold: zscore",
       "properties": {
         "stats": {
           "anyOf": [
@@ -4174,271 +4136,58 @@
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
-        "outlier_method": {
-          "description": "Statistical method for outlier detection",
-          "enum": [
-            "adaptive",
-            "zscore",
-            "modzscore",
-            "iqr"
-          ],
-          "title": "Outlier Method",
-          "type": "string"
+        "outliers": {
+          "$ref": "#/$defs/OutliersSettings",
+          "description": "The `outliers` step's settings."
         },
-        "outlier_flags": {
-          "description": "Image statistics groups for outlier detection. At least one required.",
-          "items": {
-            "enum": [
-              "dimension",
-              "pixel",
-              "visual"
-            ],
-            "type": "string"
-          },
-          "minItems": 1,
-          "title": "Outlier Flags",
-          "type": "array"
+        "duplicates": {
+          "$ref": "#/$defs/DuplicatesSettings",
+          "description": "The `duplicates` step's settings."
         },
-        "outlier_threshold": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Custom threshold (None = use DataEval default for chosen method)",
-          "title": "Outlier Threshold"
-        },
-        "outlier_cluster_threshold": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Std devs from cluster center to flag as outlier (requires extractor). None = skip cluster detection.",
-          "title": "Outlier Cluster Threshold"
-        },
-        "outlier_cluster_algorithm": {
-          "anyOf": [
-            {
-              "enum": [
-                "kmeans",
-                "hdbscan"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Clustering algorithm for cluster-based outlier detection.",
-          "title": "Outlier Cluster Algorithm"
-        },
-        "outlier_n_clusters": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Expected number of clusters. None = auto-detect.",
-          "title": "Outlier N Clusters"
-        },
-        "duplicate_flags": {
-          "anyOf": [
-            {
-              "items": {
-                "enum": [
-                  "hash_basic",
-                  "hash_d4"
-                ],
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Hash flag groups for duplicate detection. None = DataEval default (hash_basic: xxhash + phash + dhash).",
-          "title": "Duplicate Flags"
-        },
-        "duplicate_merge_near": {
-          "default": true,
-          "description": "Merge overlapping near-duplicate groups from different detection methods.",
-          "title": "Duplicate Merge Near",
-          "type": "boolean"
-        },
-        "duplicate_cluster_sensitivity": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Threshold for cluster-based near duplicate detection (requires extractor). None = skip cluster detection.",
-          "title": "Duplicate Cluster Sensitivity"
-        },
-        "duplicate_cluster_algorithm": {
-          "anyOf": [
-            {
-              "enum": [
-                "kmeans",
-                "hdbscan"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Clustering algorithm for cluster-based duplicate detection.",
-          "title": "Duplicate Cluster Algorithm"
-        },
-        "duplicate_n_clusters": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Expected number of clusters for duplicate detection. None = auto-detect.",
-          "title": "Duplicate N Clusters"
-        },
-        "health_thresholds": {
-          "$ref": "#/$defs/DataCleaningHealthThresholds",
-          "description": "Warning thresholds for dataset health status. Findings are flagged as warnings."
+        "checks": {
+          "$ref": "#/$defs/DataCleaningChecks",
+          "description": "When findings warn, keyed by check type."
         }
       },
       "required": [
-        "outlier_method",
-        "outlier_flags"
+        "outliers"
       ],
       "title": "DataCleaningConfig",
       "type": "object"
     },
-    "DataCleaningHealthThresholds": {
+    "DataCoverageChecks": {
       "additionalProperties": false,
-      "description": "Configurable warning thresholds for data cleaning health status.\n\nEach threshold is a percentage (0\u2013100). When the detected rate exceeds the\nthreshold the corresponding finding is elevated to ``severity=\"warning\"``;\notherwise it stays at ``severity=\"info\"``.\n\nSet a threshold to ``None`` to judge nothing: its finding is still made, as ``info``.",
+      "description": "When data-coverage's findings warn: each check's fields, keyed by check type.",
       "properties": {
-        "exact_duplicates": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.0,
-          "description": "Max allowable % of images in exact-duplicate groups. Exact duplicates are byte-identical images that inflate dataset size without adding information. Default 0% \u2014 any exact duplicates trigger a warning. Raise above 0 only if your pipeline intentionally includes repeated images (e.g. augmentation-before-split workflows).",
-          "title": "Exact Duplicates"
+        "class-imbalance": {
+          "$ref": "#/$defs/DataCoverageClassImbalanceSettings",
+          "description": "The `class-imbalance` check's thresholds."
         },
-        "near_duplicates": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 5.0,
-          "description": "Max allowable % of images in near-duplicate groups. Near duplicates are visually similar images (crops, resizes, minor edits) that can bias model training toward repeated content. Default 5%. Lower to 1\u20132% for curated benchmarks; raise to 10\u201315% for large-scale web-scraped datasets where some redundancy is expected.",
-          "title": "Near Duplicates"
+        "factor-coverage-gaps": {
+          "$ref": "#/$defs/FactorCoverageGapsSettings",
+          "description": "The `factor-coverage-gaps` check's threshold."
         },
-        "image_outliers": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 3.0,
-          "description": "Max allowable % of images flagged as statistical outliers (unusual dimensions, brightness, entropy, or visual statistics). Default 3%. Lower to 1% for safety-critical datasets; raise to 5\u201310% for diverse real-world collections where high visual variance is expected.",
-          "title": "Image Outliers"
+        "class-coverage": {
+          "$ref": "#/$defs/ClassCoverageSettings",
+          "description": "The `class-coverage` check's thresholds."
         },
-        "target_outliers": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 3.0,
-          "description": "Max allowable % of targets (labels/annotations) flagged as outliers (unusual bounding-box sizes, aspect ratios, or annotation counts). Default 3%. Lower to 1% for annotation-quality audits; raise to 5\u201310% for datasets with naturally high annotation variance (e.g. dense object detection).",
-          "title": "Target Outliers"
+        "uncovered-items": {
+          "$ref": "#/$defs/DataCoverageUncoveredItemsSettings",
+          "description": "The `uncovered-items` check's threshold, under `naive` coverage."
         },
-        "classwise_outliers": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 3.0,
-          "description": "Max allowable % of items flagged as outliers within any single class. Default 3%. This catches classes where outlier concentration is disproportionately high, which may indicate labeling errors or class definition issues. Lower to 1% for label-quality audits; raise to 5\u201310% for classes with inherently high visual diversity.",
-          "title": "Classwise Outliers"
-        },
-        "class_label_imbalance": {
-          "anyOf": [
-            {
-              "minimum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 5.0,
-          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1. For binary classification, 3:1 is a common threshold for 'imbalanced'. For large class hierarchies (25+ classes), the long tail naturally increases this ratio \u2014 raise to 10\u201320:1 to avoid false warnings. Set to 1.0 to require perfectly balanced classes.",
-          "title": "Class Label Imbalance"
+        "dimensional-completeness": {
+          "$ref": "#/$defs/DimensionalCompletenessSettings",
+          "description": "The `dimensional-completeness` check's thresholds."
         }
       },
-      "title": "DataCleaningHealthThresholds",
+      "title": "DataCoverageChecks",
       "type": "object"
     },
-    "DataCoverageClassImbalanceLimits": {
+    "DataCoverageClassImbalanceSettings": {
       "additionalProperties": false,
-      "description": "The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset: the schema\ngives data-splitting's limits the short name.",
+      "description": "The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset, so it\nreaches the schema `$defs` apart from data-splitting's and data-cleaning's limits.",
       "properties": {
-        "ratio": {
+        "warning": {
           "anyOf": [
             {
               "minimum": 1.0,
@@ -4449,8 +4198,8 @@
             }
           ],
           "default": 5.0,
-          "description": "Largest class count over smallest, among the classes with labels, past which the Label Distribution finding warns; `null` judges nothing but an empty class, which always warns. Legacy `class_imbalance_ratio`.",
-          "title": "Ratio"
+          "description": "Largest class count over smallest, among the classes with labels, past which the Class Imbalance finding warns; `null` judges nothing but an empty class, which always warns.",
+          "title": "Warning"
         },
         "info": {
           "anyOf": [
@@ -4463,16 +4212,16 @@
             }
           ],
           "default": 2.0,
-          "description": "The ratio at or under which the finding is ok, between which and `ratio` it informs; `null` makes every ratio under `ratio` information. Must not exceed `ratio`. Legacy's hard-coded 2.0, or `ratio` where that is lower and `info` is unset.",
+          "description": "The ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every ratio under `warning` information. Must not exceed `warning`. Defaults to 2.0, or `warning` where that is lower and `info` is unset.",
           "title": "Info"
         }
       },
-      "title": "DataCoverageClassImbalanceLimits",
+      "title": "DataCoverageClassImbalanceSettings",
       "type": "object"
     },
     "DataCoverageConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``data-coverage`` entry: coverage, crops, completeness, diversity, gaps and the worklist's\nminimum shares, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: coverage\n        type: data-coverage\n        metadata: standard\n        coverage: {method: adaptive, num_observations: 50}\n        crops: {padding: 0.1}\n        gaps: {mi_threshold: 0.1}",
+      "description": "The settings of one ``data-coverage`` entry: each step type's settings, keyed by the step type, and when a\nfinding warns.\n\nExample YAML::\n\n    workflows:\n      - name: coverage\n        type: data-coverage\n        metadata: standard\n        coverage: {method: adaptive, num_observations: 50}\n        wrap: {params: {padding: 0.1}}\n        factor-gaps: {mi_threshold: 0.1}",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -4516,6 +4265,113 @@
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
+        "representation": {
+          "$ref": "#/$defs/DataCoverageRepresentationSettings",
+          "description": "The `representation` step's settings."
+        },
+        "coverage": {
+          "$ref": "#/$defs/DataCoverageCoverageSettings",
+          "description": "The `coverage` step's settings, run when the task names an extractor."
+        },
+        "wrap": {
+          "$ref": "#/$defs/WrapSettings",
+          "description": "The `wrap` step's settings, used on detection data only."
+        },
+        "completeness": {
+          "default": true,
+          "description": "Whether the completeness steps run, when the task names an extractor.",
+          "title": "Completeness",
+          "type": "boolean"
+        },
+        "diversity": {
+          "$ref": "#/$defs/DiversitySettings"
+        },
+        "factor-gaps": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactorGapsSettings"
+            },
+            {
+              "const": false,
+              "type": "boolean"
+            }
+          ],
+          "description": "The `factor-gaps` step's settings; `false` leaves out the gap analysis and its check.",
+          "title": "Factor-Gaps"
+        },
+        "checks": {
+          "$ref": "#/$defs/DataCoverageChecks",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "title": "DataCoverageConfig",
+      "type": "object"
+    },
+    "DataCoverageCoverageSettings": {
+      "additionalProperties": false,
+      "description": "The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`\nis written partly.",
+      "properties": {
+        "method": {
+          "default": "adaptive",
+          "description": "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or `naive`, a fixed analytic radius, judged by an `uncovered-items` step. DataEval's naive radius overflows past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`.",
+          "enum": [
+            "naive",
+            "adaptive"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "percent": {
+          "default": 0.01,
+          "description": "Fraction of items flagged as uncovered, for `adaptive` only.",
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Percent",
+          "type": "number"
+        },
+        "num_observations": {
+          "default": 50,
+          "description": "Neighbors an item needs within the radius to count as covered.",
+          "exclusiveMinimum": 0,
+          "title": "Num Observations",
+          "type": "integer"
+        },
+        "min_class_samples": {
+          "default": 20,
+          "description": "Items a class needs before its dispersion and isotropy are judged.",
+          "exclusiveMinimum": 0,
+          "title": "Min Class Samples",
+          "type": "integer"
+        },
+        "isotropy_min_samples": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Items a class needs before its isotropy is measured; unset uses DataEval's default.",
+          "title": "Isotropy Min Samples"
+        },
+        "near_duplicate_factor": {
+          "default": 0.5,
+          "description": "The fraction of the radius within which two items are near-duplicates.",
+          "exclusiveMinimum": 0.0,
+          "title": "Near Duplicate Factor",
+          "type": "number"
+        }
+      },
+      "title": "DataCoverageCoverageSettings",
+      "type": "object"
+    },
+    "DataCoverageRepresentationSettings": {
+      "additionalProperties": false,
+      "description": "The `representation` step's settings: each class's minimum share, for the worklist.",
+      "properties": {
         "expected": {
           "anyOf": [
             {
@@ -4531,84 +4387,18 @@
             }
           ],
           "default": null,
-          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1], for the worklist; a name that is no class is ignored and noted.",
+          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1]; a name that is no class is ignored and noted.",
           "title": "Expected"
-        },
-        "coverage": {
-          "$ref": "#/$defs/CoverageSettings",
-          "description": "The `coverage` step's settings, run when the task names an extractor."
-        },
-        "crops": {
-          "$ref": "#/$defs/CropSettings"
-        },
-        "completeness": {
-          "default": true,
-          "description": "Whether the completeness steps run, when the task names an extractor.",
-          "title": "Completeness",
-          "type": "boolean"
-        },
-        "diversity": {
-          "default": "simpson",
-          "description": "The `diversity` step's method.",
-          "enum": [
-            "simpson",
-            "shannon"
-          ],
-          "title": "Diversity",
-          "type": "string"
-        },
-        "gaps": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/GapSettings"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "The gap analysis's settings; `null` leaves it out."
-        },
-        "health_thresholds": {
-          "$ref": "#/$defs/DataCoverageThresholds",
-          "description": "When findings warn, keyed by check type."
         }
       },
-      "title": "DataCoverageConfig",
+      "title": "DataCoverageRepresentationSettings",
       "type": "object"
     },
-    "DataCoverageThresholds": {
+    "DataCoverageUncoveredItemsSettings": {
       "additionalProperties": false,
-      "description": "When data-coverage's findings warn: each check's fields, keyed by check type.",
+      "description": "The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.\nNamed for the preset, as `DataCoverageClassImbalanceSettings` is.",
       "properties": {
-        "class-imbalance": {
-          "$ref": "#/$defs/DataCoverageClassImbalanceLimits",
-          "description": "The `class-imbalance` check's thresholds."
-        },
-        "coverage-gaps": {
-          "$ref": "#/$defs/CoverageGapsLimits",
-          "description": "The `coverage-gaps` check's threshold."
-        },
-        "class-coverage": {
-          "$ref": "#/$defs/ClassCoverageLimits",
-          "description": "The `class-coverage` check's thresholds."
-        },
-        "uncovered-rate": {
-          "$ref": "#/$defs/DataCoverageUncoveredRateLimits",
-          "description": "The `uncovered-rate` check's threshold, under `naive` coverage."
-        },
-        "completeness-score": {
-          "$ref": "#/$defs/CompletenessScoreLimits",
-          "description": "The `completeness-score` check's thresholds."
-        }
-      },
-      "title": "DataCoverageThresholds",
-      "type": "object"
-    },
-    "DataCoverageUncoveredRateLimits": {
-      "additionalProperties": false,
-      "description": "The `uncovered-rate` check's field, with legacy data-coverage's default, read under `naive` coverage only.\nNamed for the preset, as `DataCoverageClassImbalanceLimits` is.",
-      "properties": {
-        "rate": {
+        "warning": {
           "anyOf": [
             {
               "maximum": 100.0,
@@ -4620,99 +4410,16 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of the items uncovered past which the Uncovered Rate finding warns, under `naive` coverage only; `null` judges nothing. Legacy `uncovered_rate`.",
-          "title": "Rate"
+          "description": "The percent of the items uncovered past which the Uncovered Items finding warns, under `naive` coverage only; `null` judges nothing.",
+          "title": "Warning"
         }
       },
-      "title": "DataCoverageUncoveredRateLimits",
-      "type": "object"
-    },
-    "DataPrioritizationCleaningConfig": {
-      "additionalProperties": false,
-      "description": "Optional cleaning sub-config for outlier/duplicate removal before prioritization.\n\nWhen provided, the reference and each pool lose their outliers, and each duplicate but the first of its group,\nbefore ranking.",
-      "properties": {
-        "outlier_method": {
-          "description": "Statistical method for outlier detection.",
-          "enum": [
-            "adaptive",
-            "zscore",
-            "modzscore",
-            "iqr"
-          ],
-          "title": "Outlier Method",
-          "type": "string"
-        },
-        "outlier_flags": {
-          "description": "Image statistics groups for outlier detection. At least one required.",
-          "items": {
-            "enum": [
-              "dimension",
-              "pixel",
-              "visual"
-            ],
-            "type": "string"
-          },
-          "minItems": 1,
-          "title": "Outlier Flags",
-          "type": "array"
-        },
-        "outlier_threshold": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Custom threshold (None = use DataEval default for chosen method).",
-          "title": "Outlier Threshold"
-        },
-        "duplicate_flags": {
-          "anyOf": [
-            {
-              "items": {
-                "enum": [
-                  "hash_basic",
-                  "hash_d4"
-                ],
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Hash flag groups for duplicate detection. None = DataEval default (hash_basic).",
-          "title": "Duplicate Flags"
-        },
-        "duplicate_merge_near": {
-          "default": true,
-          "description": "Merge overlapping near-duplicate groups from different detection methods.",
-          "title": "Duplicate Merge Near",
-          "type": "boolean"
-        },
-        "duplicate_exact_only": {
-          "default": false,
-          "description": "When True, only flag exact duplicates \u2014 skip near-duplicate detection.",
-          "title": "Duplicate Exact Only",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "outlier_method",
-        "outlier_flags"
-      ],
-      "title": "DataPrioritizationCleaningConfig",
+      "title": "DataCoverageUncoveredItemsSettings",
       "type": "object"
     },
     "DataPrioritizationConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``data-prioritization`` entry: how data is ranked against a reference, and cleaned first.\n\nRequires at least two sources: the first is the reference (labeled) dataset,\nand each later source is a pool, ranked against it on its own.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        method: knn\n        k: 10\n        order: hard_first\n        n: 200\n        cleaning:\n          outlier_method: adaptive\n          outlier_flags: [dimension, pixel]",
+      "description": "The settings of one ``data-prioritization`` entry: how data is ranked against a reference, and cleaned first.\n\nRequires at least two sources: the first is the reference (labeled) dataset,\nand each later source is a pool, ranked against it on its own.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        method: knn\n        k: 10\n        order: hard_first\n        select:\n          n: 200\n        cleaning:\n          outliers:\n            flags: [dimension, pixel]\n            outlier_threshold: adaptive",
       "properties": {
         "stats": {
           "anyOf": [
@@ -4856,46 +4563,63 @@
         "cleaning": {
           "anyOf": [
             {
-              "$ref": "#/$defs/DataPrioritizationCleaningConfig"
+              "$ref": "#/$defs/CleaningSettings"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Optional cleaning config. When set, outlier/duplicate detection runs before prioritization."
+          "description": "Cleaning before ranking; unset ranks the data as it is."
         },
-        "n": {
+        "select": {
+          "$ref": "#/$defs/SelectSettings",
+          "description": "The `select` step's settings."
+        }
+      },
+      "title": "DataPrioritizationConfig",
+      "type": "object"
+    },
+    "DataSplittingChecks": {
+      "additionalProperties": false,
+      "description": "When data-splitting's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "class-imbalance": {
+          "$ref": "#/$defs/DataSplittingClassImbalanceSettings",
+          "description": "The `class-imbalance` check's thresholds, on the whole set."
+        },
+        "stratification": {
+          "$ref": "#/$defs/StratificationThresholds",
+          "description": "The `stratification` check's thresholds, on each fold."
+        },
+        "uncovered-items": {
+          "$ref": "#/$defs/DataSplittingUncoveredItemsSettings",
+          "description": "The `uncovered-items` check's thresholds, on the whole set and each part, under `naive` coverage."
+        }
+      },
+      "title": "DataSplittingChecks",
+      "type": "object"
+    },
+    "DataSplittingClassImbalanceSettings": {
+      "additionalProperties": false,
+      "description": "The `class-imbalance` check's field, with legacy data-splitting's default.",
+      "properties": {
+        "warning": {
           "anyOf": [
             {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How many of each pool's ranked items `selected` keeps. With `fraction` also unset, it keeps them all.",
-          "title": "N"
-        },
-        "fraction": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0.0,
-              "maximum": 1.0,
+              "minimum": 1.0,
               "type": "number"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "description": "The share of each pool's ranked items `selected` keeps, rounded up. With `n` also unset, it keeps them all.",
-          "title": "Fraction"
+          "default": 10.0,
+          "description": "Largest class count over smallest that may hold before the whole set's Class Imbalance finding warns; `null` judges nothing but an empty class.",
+          "title": "Warning"
         }
       },
-      "title": "DataPrioritizationConfig",
+      "title": "DataSplittingClassImbalanceSettings",
       "type": "object"
     },
     "DataSplittingConfig": {
@@ -5014,35 +4738,78 @@
           "title": "Rebalance"
         },
         "coverage": {
-          "$ref": "#/$defs/SplittingCoverage",
+          "$ref": "#/$defs/DataSplittingCoverageSettings",
           "description": "The `coverage` steps' settings, run on the whole set and each part when the task names an extractor."
         },
-        "health_thresholds": {
-          "$ref": "#/$defs/DataSplittingThresholds",
+        "checks": {
+          "$ref": "#/$defs/DataSplittingChecks",
           "description": "When findings warn, keyed by check type."
         }
       },
       "title": "DataSplittingConfig",
       "type": "object"
     },
-    "DataSplittingThresholds": {
+    "DataSplittingCoverageSettings": {
       "additionalProperties": false,
-      "description": "When data-splitting's findings warn: each check's fields, keyed by check type.",
+      "description": "The `coverage` steps' settings, as a `coverage` evaluator entry reads them, with legacy data-splitting's\ndefaults; each keeps its default when `coverage:` is written partly.",
       "properties": {
-        "class-imbalance": {
-          "$ref": "#/$defs/ClassImbalanceLimits",
-          "description": "The `class-imbalance` check's thresholds, on the whole set."
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "naive",
+                "adaptive"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the coverage radius is set: `naive`, a fixed analytic radius, or `adaptive`, a cutoff on the `percent` most sparsely neighbored items. Unset uses DataEval's default (`adaptive`). Only `naive` coverage is judged, by `uncovered-items` steps. DataEval's naive radius overflows past about 340 embedding dimensions, so `naive` suits low-dimensional embeddings; with a wide extractor its coverage steps are skipped with `failed: OverflowError`.",
+          "title": "Method"
         },
-        "stratification": {
-          "$ref": "#/$defs/StratificationThresholds",
-          "description": "The `stratification` check's thresholds, on each fold."
+        "num_observations": {
+          "default": 50,
+          "description": "Neighbors an item needs within the radius to count as covered, fewer than the smallest part's items.",
+          "exclusiveMinimum": 0,
+          "title": "Num Observations",
+          "type": "integer"
         },
-        "uncovered-rate": {
-          "$ref": "#/$defs/UncoveredRateLimits",
-          "description": "The `uncovered-rate` check's thresholds, on the whole set and each part, under `naive` coverage."
+        "percent": {
+          "default": 0.01,
+          "description": "Fraction of each part's items flagged as uncovered, for `adaptive` only.",
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Percent",
+          "type": "number"
         }
       },
-      "title": "DataSplittingThresholds",
+      "title": "DataSplittingCoverageSettings",
+      "type": "object"
+    },
+    "DataSplittingUncoveredItemsSettings": {
+      "additionalProperties": false,
+      "description": "The `uncovered-items` check's field, with legacy data-splitting's default.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "The percent of a Dataset's items uncovered past which its Uncovered Items finding warns, under `naive` coverage only; `null` judges nothing.",
+          "title": "Warning"
+        }
+      },
+      "title": "DataSplittingUncoveredItemsSettings",
       "type": "object"
     },
     "DatasetProtocolConfig": {
@@ -5214,6 +4981,44 @@
       "title": "DemoDatasetConfig",
       "type": "object"
     },
+    "DimensionalCompletenessSettings": {
+      "additionalProperties": false,
+      "description": "The `dimensional-completeness` check's fields, with legacy data-coverage's defaults.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "The completeness score under which the Dimensional Completeness finding warns; `null` turns this band off. Must not exceed `info`.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.8,
+          "description": "The score under which the finding informs, at or over which it is ok; `null` turns this band off, and with `warning` also `null` the finding judges nothing. An unset `info` is 0.8, or `warning` where that is higher.",
+          "title": "Info"
+        }
+      },
+      "title": "DimensionalCompletenessSettings",
+      "type": "object"
+    },
     "DivergenceConfig": {
       "additionalProperties": false,
       "description": "Config for ``divergence``: how far apart two sources' embeddings sit.\n\nWraps ``dataeval.core.divergence_mst`` or ``divergence_fnn`` over the task extractor's embeddings of two sources,\nthe first then the second: 0 where they overlap, 1 where they are wholly apart. It is a distance, not a test: the\n``distribution-shift`` check judges it. Needs an extractor on the task.\n\nExample YAML::\n\n    evaluators:\n      - name: shift\n        type: divergence\n        method: mst",
@@ -5232,7 +5037,7 @@
         },
         "method": {
           "default": "mst",
-          "description": "How the divergence is counted: `mst`, the cross-source edges of the minimum spanning tree over both sources, or `fnn`, nearest neighbours of the other source. Legacy data-analysis's `divergence_method`.",
+          "description": "How the divergence is counted: `mst`, the cross-source edges of the minimum spanning tree over both sources, or `fnn`, nearest neighbours of the other source.",
           "enum": [
             "mst",
             "fnn"
@@ -5326,6 +5131,24 @@
         }
       },
       "title": "DiversityConfig",
+      "type": "object"
+    },
+    "DiversitySettings": {
+      "additionalProperties": false,
+      "description": "The `diversity` step's settings.",
+      "properties": {
+        "method": {
+          "default": "simpson",
+          "description": "The diversity index.",
+          "enum": [
+            "simpson",
+            "shannon"
+          ],
+          "title": "Method",
+          "type": "string"
+        }
+      },
+      "title": "DiversitySettings",
       "type": "object"
     },
     "DriftDomainClassifierConfig": {
@@ -5823,6 +5646,18 @@
       "title": "DriftMMDDetector",
       "type": "object"
     },
+    "DriftMonitoringChecks": {
+      "additionalProperties": false,
+      "description": "When drift-monitoring's findings warn: the `drift` check's fields, applied to every detector's checks.",
+      "properties": {
+        "drift": {
+          "$ref": "#/$defs/DriftThresholds",
+          "description": "The `drift` check's thresholds, whole-set and by class."
+        }
+      },
+      "title": "DriftMonitoringChecks",
+      "type": "object"
+    },
     "DriftMonitoringConfig": {
       "additionalProperties": false,
       "description": "The settings of one ``drift-monitoring`` entry: the detectors each test source is tested with, which also run\nby class, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: drift\n        type: drift-monitoring\n        detectors:\n          - {type: drift-mmd}\n          - {name: ks, type: drift-univariate, chunking: {chunk_count: 5}}\n        classwise:\n          drift-mmd: class",
@@ -5898,8 +5733,8 @@
           "title": "Classwise",
           "type": "object"
         },
-        "health_thresholds": {
-          "$ref": "#/$defs/DriftMonitoringThresholds",
+        "checks": {
+          "$ref": "#/$defs/DriftMonitoringChecks",
           "description": "When findings warn, keyed by check type."
         }
       },
@@ -5909,25 +5744,13 @@
       "title": "DriftMonitoringConfig",
       "type": "object"
     },
-    "DriftMonitoringThresholds": {
-      "additionalProperties": false,
-      "description": "When drift-monitoring's findings warn: the `drift` check's fields, applied to every detector's checks.",
-      "properties": {
-        "drift": {
-          "$ref": "#/$defs/DriftThresholds",
-          "description": "The `drift` check's thresholds, whole-set and by class."
-        }
-      },
-      "title": "DriftMonitoringThresholds",
-      "type": "object"
-    },
     "DriftThresholds": {
       "additionalProperties": false,
       "description": "When a drift verdict warns: on drift, or, chunk by chunk, on how many chunks drift and how many in a row.",
       "properties": {
         "warn_on_drift": {
           "default": true,
-          "description": "Unchunked, and per class: drift is a warning, or info when false. drift-monitoring's legacy `any_drift_is_warning` and `classwise_any_drift_is_warning`.",
+          "description": "Unchunked, and per class: drift is a warning, or info when false.",
           "title": "Warn On Drift",
           "type": "boolean"
         },
@@ -5943,21 +5766,21 @@
             }
           ],
           "default": 10.0,
-          "description": "Chunked: the share of drifted chunks, in percent, at which the finding warns; `null` judges none.",
+          "description": "Chunked: the share of drifted chunks, in percent, past which the finding warns; `null` judges none.",
           "title": "Chunk Percent"
         },
         "consecutive_chunks": {
           "anyOf": [
             {
-              "minimum": 1,
+              "minimum": 0,
               "type": "integer"
             },
             {
               "type": "null"
             }
           ],
-          "default": 3,
-          "description": "Chunked: the longest run of drifted chunks at which the finding warns; `null` judges none.",
+          "default": 2,
+          "description": "Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row and 0 on any drifted chunk; `null` judges none.",
           "title": "Consecutive Chunks"
         }
       },
@@ -6522,6 +6345,84 @@
       "title": "DuplicatesConfig",
       "type": "object"
     },
+    "DuplicatesSettings": {
+      "additionalProperties": false,
+      "description": "The `duplicates` step's settings. data-prioritization's `cleaning:` takes the same block.",
+      "properties": {
+        "flags": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "hash_basic",
+                  "hash_d4"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hash groups to compare; unset is DataEval's default, `hash_basic`.",
+          "title": "Flags"
+        },
+        "merge_near_duplicates": {
+          "default": true,
+          "description": "Merge overlapping near-duplicate groups found by different methods.",
+          "title": "Merge Near Duplicates",
+          "type": "boolean"
+        },
+        "cluster_sensitivity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cluster-based near-duplicate threshold; needs an extractor. Unset skips it.",
+          "title": "Cluster Sensitivity"
+        },
+        "cluster_algorithm": {
+          "anyOf": [
+            {
+              "enum": [
+                "kmeans",
+                "hdbscan"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The clustering algorithm cluster detection uses.",
+          "title": "Cluster Algorithm"
+        },
+        "n_clusters": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Expected number of clusters; unset detects it.",
+          "title": "N Clusters"
+        }
+      },
+      "title": "DuplicatesSettings",
+      "type": "object"
+    },
     "EvaluatorStep": {
       "additionalProperties": false,
       "properties": {
@@ -6656,19 +6557,63 @@
       "title": "ExportConfig",
       "type": "object"
     },
+    "FactorCoverageGapsSettings": {
+      "additionalProperties": false,
+      "description": "The `factor-coverage-gaps` check's field, with legacy data-coverage's default.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 2,
+          "description": "The most under-represented class-factor-value combinations before the Factor Coverage Gaps finding warns; `null` never warns.",
+          "title": "Warning"
+        }
+      },
+      "title": "FactorCoverageGapsSettings",
+      "type": "object"
+    },
     "FactorDeviationSettings": {
       "additionalProperties": false,
       "description": "The `factor-deviation` step's own setting.",
       "properties": {
         "max_items": {
           "default": 50,
-          "description": "The most out-of-distribution agreed images explained per test source. Legacy's `max_ood_insights`.",
+          "description": "The most out-of-distribution agreed images explained per test source.",
           "exclusiveMinimum": 0,
           "title": "Max Items",
           "type": "integer"
         }
       },
       "title": "FactorDeviationSettings",
+      "type": "object"
+    },
+    "FactorGapsSettings": {
+      "additionalProperties": false,
+      "description": "The `factor-gaps` step's settings.",
+      "properties": {
+        "mi_threshold": {
+          "default": 0.1,
+          "description": "The least mutual information with the class a factor needs to be searched.",
+          "minimum": 0.0,
+          "title": "Mi Threshold",
+          "type": "number"
+        },
+        "min_representation": {
+          "default": 5,
+          "description": "A combination is a gap under this count while its expected count is over it.",
+          "minimum": 1,
+          "title": "Min Representation",
+          "type": "integer"
+        }
+      },
+      "title": "FactorGapsSettings",
       "type": "object"
     },
     "FactorLeakageConfig": {
@@ -6714,6 +6659,39 @@
         "factors"
       ],
       "title": "FactorLeakageConfig",
+      "type": "object"
+    },
+    "FactorSummaryConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``factor-summary``: each metadata factor's type, binning, nulls, and range or top values.\n\nA Flow-only evaluator over DataEval's ``Metadata``, as legacy data-coverage's Metadata Distribution was; audit\nreuses it.\n\nExample YAML::\n\n    evaluators:\n      - name: summary\n        type: factor-summary\n        metadata: standard",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "factor-summary",
+          "default": "factor-summary",
+          "description": "The evaluator type this entry configures: `factor-summary`.",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "FactorSummaryConfig",
       "type": "object"
     },
     "FactorTriageConfig": {
@@ -6814,28 +6792,6 @@
         }
       },
       "title": "FlattenExtractorConfig",
-      "type": "object"
-    },
-    "GapSettings": {
-      "additionalProperties": false,
-      "description": "The `factor-gaps` step's settings.",
-      "properties": {
-        "mi_threshold": {
-          "default": 0.1,
-          "description": "The least mutual information with the class a factor needs to be searched.",
-          "minimum": 0.0,
-          "title": "Mi Threshold",
-          "type": "number"
-        },
-        "min_representation": {
-          "default": 5,
-          "description": "A combination is a gap under this count while its expected count is over it.",
-          "minimum": 1,
-          "title": "Min Representation",
-          "type": "integer"
-        }
-      },
-      "title": "GapSettings",
       "type": "object"
     },
     "HuggingFaceDatasetConfig": {
@@ -6968,6 +6924,44 @@
       "title": "HuggingFaceDatasetConfig",
       "type": "object"
     },
+    "ImageDuplicatesSettings": {
+      "additionalProperties": false,
+      "description": "The `image-duplicates` check's settings in data-cleaning.",
+      "properties": {
+        "exact": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.0,
+          "description": "Most images, as a percentage of the Dataset, that may sit in exact-duplicate groups before the finding warns; `null` judges nothing. 0 warns on any. Raise it only where repeated images are intended.",
+          "title": "Exact"
+        },
+        "near": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "Most images, as a percentage of the Dataset, that may sit in near-duplicate groups before the finding warns; `null` judges nothing. Lower to 1-2% for curated benchmarks; raise to 10-15% for web-scraped data.",
+          "title": "Near"
+        }
+      },
+      "title": "ImageDuplicatesSettings",
+      "type": "object"
+    },
     "ImageFolderDatasetConfig": {
       "additionalProperties": false,
       "description": "Dataset config for image_folder format.\n\nYAML example::\n\n    datasets:\n      - name: photos\n        format: image_folder\n        path: photos\n        recursive: true\n        infer_labels: true",
@@ -7087,6 +7081,29 @@
       "title": "ImageFolderDatasetConfig",
       "type": "object"
     },
+    "ImageOutliersSettings": {
+      "additionalProperties": false,
+      "description": "The `image-outliers` check's settings in data-cleaning.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Most images, as a percentage of the Dataset, that may be flagged as statistical outliers (unusual dimensions, brightness, entropy, or visual statistics) before the finding warns; `null` judges nothing. Lower to 1% for safety-critical datasets; raise to 5-10% for diverse real-world collections.",
+          "title": "Warning"
+        }
+      },
+      "title": "ImageOutliersSettings",
+      "type": "object"
+    },
     "InputSlot": {
       "additionalProperties": false,
       "description": "One input of a custom workflow, which a task binds to a source.",
@@ -7168,11 +7185,11 @@
       "title": "LabelAlignmentConfig",
       "type": "object"
     },
-    "LabelConformanceLimits": {
+    "LabelConformanceSettings": {
       "additionalProperties": false,
       "description": "The `label-conformance` check's field, with legacy data-coverage's default.",
       "properties": {
-        "unmatched": {
+        "warning": {
           "anyOf": [
             {
               "minimum": 0,
@@ -7183,16 +7200,16 @@
             }
           ],
           "default": 0,
-          "description": "Class names that may resolve to no concept; `null` turns it off. Legacy `unmatched_class_count`.",
-          "title": "Unmatched"
+          "description": "Class names that may resolve to no concept; `null` turns it off.",
+          "title": "Warning"
         }
       },
-      "title": "LabelConformanceLimits",
+      "title": "LabelConformanceSettings",
       "type": "object"
     },
     "LabelHealthConfig": {
       "additionalProperties": false,
-      "description": "Config for ``label-health``: how a Dataset's labels spread over its classes.\n\nWraps ``dataeval.core.label_stats`` over the Dataset's metadata. It adds the number of classes the Dataset\ndeclares, seen or not, and where its labels came from. The ``class-imbalance`` and ``target-outlier-rate`` checks\nread it.\n\nExample YAML::\n\n    evaluators:\n      - name: labels\n        type: label-health",
+      "description": "Config for ``label-health``: how a Dataset's labels spread over its classes.\n\nWraps ``dataeval.core.label_stats`` over the Dataset's metadata. It adds the number of classes the Dataset\ndeclares, seen or not, and where its labels came from. The ``class-imbalance`` and ``target-outliers`` checks\nread it.\n\nExample YAML::\n\n    evaluators:\n      - name: labels\n        type: label-health",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -7259,9 +7276,25 @@
       "title": "LabelReconciliationConfig",
       "type": "object"
     },
+    "LabelSpaceChecks": {
+      "additionalProperties": false,
+      "description": "When label-space's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "leaf-coverage": {
+          "$ref": "#/$defs/LeafCoverageSettings",
+          "description": "The `leaf-coverage` check's thresholds."
+        },
+        "label-conformance": {
+          "$ref": "#/$defs/LabelConformanceSettings",
+          "description": "The `label-conformance` check's threshold."
+        }
+      },
+      "title": "LabelSpaceChecks",
+      "type": "object"
+    },
     "LabelSpaceConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``label-space`` entry: the ontology to judge labels against, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: vocab\n        type: label-space\n        ontology: vehicles\n        expected: {truck: 0.2}",
+      "description": "The settings of one ``label-space`` entry: the ontology to judge labels against, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: vocab\n        type: label-space\n        ontology: vehicles\n        representation: {expected: {truck: 0.2}}",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -7288,6 +7321,28 @@
           "description": "The ontology to judge labels against: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children.",
           "title": "Ontology"
         },
+        "representation": {
+          "$ref": "#/$defs/LabelSpaceRepresentationSettings",
+          "description": "The `representation` step's settings."
+        },
+        "ontology-validation": {
+          "$ref": "#/$defs/OntologyValidationSettings"
+        },
+        "checks": {
+          "$ref": "#/$defs/LabelSpaceChecks",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "required": [
+        "ontology"
+      ],
+      "title": "LabelSpaceConfig",
+      "type": "object"
+    },
+    "LabelSpaceRepresentationSettings": {
+      "additionalProperties": false,
+      "description": "The `representation` step's settings in label-space: each class's minimum share.",
+      "properties": {
         "expected": {
           "anyOf": [
             {
@@ -7303,50 +7358,14 @@
             }
           ],
           "default": null,
-          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1], as `representation` reads it. A name resolving to no concept or to several is ignored and noted.",
+          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1]. A name resolving to no concept or to several is ignored and noted.",
           "title": "Expected"
-        },
-        "label_pattern": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "A regex every ontology label should match, as `ontology-validation` reads it.",
-          "title": "Label Pattern"
-        },
-        "health_thresholds": {
-          "$ref": "#/$defs/LabelSpaceThresholds",
-          "description": "When findings warn, keyed by check type."
         }
       },
-      "required": [
-        "ontology"
-      ],
-      "title": "LabelSpaceConfig",
+      "title": "LabelSpaceRepresentationSettings",
       "type": "object"
     },
-    "LabelSpaceThresholds": {
-      "additionalProperties": false,
-      "description": "When label-space's findings warn: each check's fields, keyed by check type.",
-      "properties": {
-        "leaf-coverage": {
-          "$ref": "#/$defs/LeafCoverageLimits",
-          "description": "The `leaf-coverage` check's thresholds."
-        },
-        "label-conformance": {
-          "$ref": "#/$defs/LabelConformanceLimits",
-          "description": "The `label-conformance` check's threshold."
-        }
-      },
-      "title": "LabelSpaceThresholds",
-      "type": "object"
-    },
-    "LeafCoverageLimits": {
+    "LeafCoverageSettings": {
       "additionalProperties": false,
       "description": "The `leaf-coverage` check's fields, with legacy data-coverage's defaults.",
       "properties": {
@@ -7362,7 +7381,7 @@
             }
           ],
           "default": 0.9,
-          "description": "The least share of the ontology's leaves with examples; `null` turns it off. Legacy `leaf_coverage`.",
+          "description": "The least share of the ontology's leaves with examples; `null` turns it off.",
           "title": "Coverage"
         },
         "empty_branches": {
@@ -7376,11 +7395,11 @@
             }
           ],
           "default": 0,
-          "description": "Wholly empty branches tolerated; `null` turns it off. Legacy `dark_branch_count`.",
+          "description": "Wholly empty branches tolerated; `null` turns it off.",
           "title": "Empty Branches"
         }
       },
-      "title": "LeafCoverageLimits",
+      "title": "LeafCoverageSettings",
       "type": "object"
     },
     "LoggingConfig": {
@@ -7462,6 +7481,21 @@
         "step"
       ],
       "title": "MatrixRange",
+      "type": "object"
+    },
+    "MetadataIssuesSettings": {
+      "additionalProperties": false,
+      "description": "The `metadata-issues` check's settings in metadata-triage.",
+      "properties": {
+        "max_examples": {
+          "default": 20,
+          "description": "Distinct values shown per kind per factor in the report. Display only: a suggested correction always enumerates every value, because one covering a truncated set would read as complete and not be.",
+          "minimum": 1,
+          "title": "Max Examples",
+          "type": "integer"
+        }
+      },
+      "title": "MetadataIssuesSettings",
       "type": "object"
     },
     "MetadataPolicyConfig": {
@@ -7667,42 +7701,21 @@
       "title": "MetadataPolicyConfig",
       "type": "object"
     },
-    "MetadataSummaryConfig": {
+    "MetadataTriageChecks": {
       "additionalProperties": false,
-      "description": "Config for ``metadata-summary``: each metadata factor's type, binning, nulls, and range or top values.\n\nA Flow-only evaluator over DataEval's ``Metadata``, as legacy data-coverage's Metadata Distribution was; audit\nreuses it.\n\nExample YAML::\n\n    evaluators:\n      - name: summary\n        type: metadata-summary\n        metadata: standard",
+      "description": "metadata-triage's check settings, keyed by check type.",
       "properties": {
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
-        },
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "metadata-summary",
-          "default": "metadata-summary",
-          "description": "The evaluator type this entry configures: `metadata-summary`.",
-          "title": "Type",
-          "type": "string"
+        "metadata-issues": {
+          "$ref": "#/$defs/MetadataIssuesSettings",
+          "description": "The `metadata-issues` check's settings."
         }
       },
-      "title": "MetadataSummaryConfig",
+      "title": "MetadataTriageChecks",
       "type": "object"
     },
     "MetadataTriageConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``factor-triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``metadata-issues`` check, which takes ``max_examples``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
+      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``factor-triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``metadata-issues`` check, which takes ``max_examples``\nunder ``checks``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        checks:\n          metadata-issues:\n            max_examples: 20",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -7746,12 +7759,9 @@
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
-        "max_examples": {
-          "default": 20,
-          "description": "Distinct values shown per kind per factor in the report. Display only \u2014 a suggested correction always enumerates every value, because one covering a truncated set would read as complete and not be.",
-          "minimum": 1,
-          "title": "Max Examples",
-          "type": "integer"
+        "checks": {
+          "$ref": "#/$defs/MetadataTriageChecks",
+          "description": "The `metadata-issues` check's settings, keyed by check type."
         },
         "verify": {
           "default": true,
@@ -7778,9 +7788,25 @@
       "title": "MetadataTriageConfig",
       "type": "object"
     },
+    "OODDetectionChecks": {
+      "additionalProperties": false,
+      "description": "When ood-detection's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "ood": {
+          "$ref": "#/$defs/OODThresholds",
+          "description": "The `ood` check's thresholds, applied to each detector's check."
+        },
+        "ood-agreement": {
+          "$ref": "#/$defs/OODThresholds",
+          "description": "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s."
+        }
+      },
+      "title": "OODDetectionChecks",
+      "type": "object"
+    },
     "OODDetectionConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``ood-detection`` entry: the detectors each test source is scored with, whether the metadata\nbehind what they flag is explained, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: ood\n        type: ood-detection\n        detectors:\n          - {type: ood-kneighbors, k: 10}\n          - {type: ood-domain-classifier, n_folds: 5}\n        health_thresholds:\n          ood: {warning: 10.0, info: 1.0}",
+      "description": "The settings of one ``ood-detection`` entry: the detectors each test source is scored with, whether the metadata\nbehind what they flag is explained, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: ood\n        type: ood-detection\n        detectors:\n          - {type: ood-kneighbors, k: 10}\n          - {type: ood-domain-classifier, n_folds: 5}\n        checks:\n          ood: {warning: 10.0, info: 1.0}",
       "properties": {
         "stats": {
           "anyOf": [
@@ -7859,18 +7885,35 @@
           "title": "Detectors",
           "type": "array"
         },
-        "metadata_insights": {
-          "default": true,
-          "description": "Whether the metadata factors behind the flagged images are explained, by two optional steps.",
-          "title": "Metadata Insights",
-          "type": "boolean"
+        "factor-predictors": {
+          "anyOf": [
+            {
+              "const": false,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`false` leaves out the `factor-predictors` step; it takes no settings.",
+          "title": "Factor-Predictors"
         },
-        "factor_deviation": {
-          "$ref": "#/$defs/FactorDeviationSettings",
-          "description": "The `factor-deviation` step's settings."
+        "factor-deviation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactorDeviationSettings"
+            },
+            {
+              "const": false,
+              "type": "boolean"
+            }
+          ],
+          "description": "The `factor-deviation` step's settings; `false` leaves it out.",
+          "title": "Factor-Deviation"
         },
-        "health_thresholds": {
-          "$ref": "#/$defs/OODDetectionThresholds",
+        "checks": {
+          "$ref": "#/$defs/OODDetectionChecks",
           "description": "When findings warn, keyed by check type."
         }
       },
@@ -7878,22 +7921,6 @@
         "detectors"
       ],
       "title": "OODDetectionConfig",
-      "type": "object"
-    },
-    "OODDetectionThresholds": {
-      "additionalProperties": false,
-      "description": "When ood-detection's findings warn: each check's fields, keyed by check type.",
-      "properties": {
-        "ood": {
-          "$ref": "#/$defs/OODThresholds",
-          "description": "The `ood` check's thresholds, applied to each detector's check."
-        },
-        "ood-agreement": {
-          "$ref": "#/$defs/OODThresholds",
-          "description": "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s, as legacy judged both with one pair."
-        }
-      },
-      "title": "OODDetectionThresholds",
       "type": "object"
     },
     "OODDomainClassifierConfig": {
@@ -8252,7 +8279,7 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "description": "The percent of assessed test images flagged past which the finding warns; `null` never warns.",
           "title": "Warning"
         },
         "info": {
@@ -8267,7 +8294,7 @@
             }
           ],
           "default": 1.0,
-          "description": "The percent at which the finding is `info`, below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing. ood-detection's `health_thresholds.ood_pct_info` before its port.",
+          "description": "The percent past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing.",
           "title": "Info"
         }
       },
@@ -8518,6 +8545,27 @@
         "ontology"
       ],
       "title": "OntologyValidationConfig",
+      "type": "object"
+    },
+    "OntologyValidationSettings": {
+      "additionalProperties": false,
+      "description": "The `ontology-validation` step's settings.",
+      "properties": {
+        "label_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A regex every ontology label should match.",
+          "title": "Label Pattern"
+        }
+      },
+      "title": "OntologyValidationSettings",
       "type": "object"
     },
     "OutliersConfig": {
@@ -9334,6 +9382,539 @@
       "title": "OutliersConfig",
       "type": "object"
     },
+    "OutliersSettings": {
+      "additionalProperties": false,
+      "description": "The `outliers` step's settings: which statistics, and how far out an outlier sits. data-prioritization's\n`cleaning:` takes the same block.",
+      "properties": {
+        "flags": {
+          "description": "Image statistics groups to judge. At least one.",
+          "items": {
+            "enum": [
+              "dimension",
+              "pixel",
+              "visual"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Flags",
+          "type": "array"
+        },
+        "outlier_threshold": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  ],
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  ],
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "maxItems": 2,
+                            "minItems": 2,
+                            "prefixItems": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            ],
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 3,
+                    "minItems": 3,
+                    "prefixItems": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "maxItems": 2,
+                            "minItems": 2,
+                            "prefixItems": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            ],
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "maxItems": 2,
+                        "minItems": 2,
+                        "prefixItems": [
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        ],
+                        "type": "array"
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "maxItems": 2,
+                            "minItems": 2,
+                            "prefixItems": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            ],
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "maxItems": 2,
+                        "minItems": 2,
+                        "prefixItems": [
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        ],
+                        "type": "array"
+                      }
+                    ],
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            }
+          ],
+          "description": "The method, such as `zscore`, `modzscore`, `iqr` or `adaptive`, alone for its default bound or as `[method, bound]`, or a bare bound; or a mapping from metric name to any of these.",
+          "title": "Outlier Threshold"
+        },
+        "cluster_threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Standard deviations from a cluster's center past which an item is an outlier; needs an extractor. Unset skips cluster detection.",
+          "title": "Cluster Threshold"
+        },
+        "cluster_algorithm": {
+          "anyOf": [
+            {
+              "enum": [
+                "kmeans",
+                "hdbscan"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The clustering algorithm cluster detection uses.",
+          "title": "Cluster Algorithm"
+        },
+        "n_clusters": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Expected number of clusters; unset detects it.",
+          "title": "N Clusters"
+        }
+      },
+      "required": [
+        "flags",
+        "outlier_threshold"
+      ],
+      "title": "OutliersSettings",
+      "type": "object"
+    },
     "ParityConfig": {
       "additionalProperties": false,
       "description": "Config for ``parity``, DataEval's Parity.\n\nTests each metadata factor for association with the class labels (chi-squared, reported as Cram\u00e9r's V). A factor\nsignificantly associated with the class is a shortcut a model can learn.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators parity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: parity\n        type: parity\n        p_value_threshold: 0.01",
@@ -9622,9 +10203,9 @@
       "title": "PreprocessorConfig",
       "type": "object"
     },
-    "PrioritizeConfig": {
+    "PrioritizationConfig": {
       "additionalProperties": false,
-      "description": "Config for ``prioritize``, DataEval's Prioritize.\n\nRanks the first source's items from easiest to hardest, or the reverse, by where they sit in the embedding space.\nA second source is the reference: the items are then ranked relative to it, as when choosing what to label next\nbeside data already labeled. Needs an extractor on the task.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators prioritize`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: next_to_label\n        type: prioritize\n        order: hard_first\n\n    tasks:\n      - name: rank_unlabeled\n        evaluator: next_to_label\n        sources: [unlabeled, labeled]\n        extractor: bovw_ext",
+      "description": "Config for ``prioritization``, DataEval's Prioritize.\n\nRanks the first source's items from easiest to hardest, or the reverse, by where they sit in the embedding space.\nA second source is the reference: the items are then ranked relative to it, as when choosing what to label next\nbeside data already labeled. Needs an extractor on the task.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators prioritization`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: next_to_label\n        type: prioritization\n        order: hard_first\n\n    tasks:\n      - name: rank_unlabeled\n        evaluator: next_to_label\n        sources: [unlabeled, labeled]\n        extractor: bovw_ext",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -9632,9 +10213,9 @@
           "type": "string"
         },
         "type": {
-          "const": "prioritize",
-          "default": "prioritize",
-          "description": "The evaluator type this entry configures: `prioritize`.",
+          "const": "prioritization",
+          "default": "prioritization",
+          "description": "The evaluator type this entry configures: `prioritization`.",
           "title": "Type",
           "type": "string"
         },
@@ -9767,7 +10348,7 @@
           "title": "Num Bins"
         }
       },
-      "title": "PrioritizeConfig",
+      "title": "PrioritizationConfig",
       "type": "object"
     },
     "ReductionOptionsConfig": {
@@ -10315,9 +10896,46 @@
       "title": "ResultConfig",
       "type": "object"
     },
+    "SelectSettings": {
+      "additionalProperties": false,
+      "description": "The `select` step's settings: how much of each pool's ranking is kept.",
+      "properties": {
+        "n": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many of each pool's ranked items `selected` keeps. With `fraction` also unset, it keeps them all.",
+          "title": "N"
+        },
+        "fraction": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "maximum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The share of each pool's ranked items `selected` keeps, rounded up. With `n` also unset, it keeps them all.",
+          "title": "Fraction"
+        }
+      },
+      "title": "SelectSettings",
+      "type": "object"
+    },
     "SourceConfig": {
       "additionalProperties": false,
-      "description": "Named source definition \u2014 bundles a dataset with an optional view.\n\nName a `dataset` to read one dataset, or `merge` to concatenate other sources\ninto one dataset.\n\nYAML example::\n\n    sources:\n      - name: cifar_train_subset\n        dataset: cifar10_train\n        view: first_5k\n      - name: merged\n        merge: [m3fd_conformed, drone_conformed]\n\nThe legacy ``selection`` key is accepted as a deprecated alias for ``view``.",
+      "description": "Named source definition \u2014 bundles a dataset with an optional view.\n\nName a `dataset` to read one dataset, or `merge` to concatenate other sources\ninto one dataset.\n\nYAML example::\n\n    sources:\n      - name: cifar_train_subset\n        dataset: cifar10_train\n        view: first_5k\n      - name: merged\n        merge: [m3fd_conformed, drone_conformed]",
       "properties": {
         "name": {
           "description": "Identifier for the source",
@@ -10371,46 +10989,6 @@
         "name"
       ],
       "title": "SourceConfig",
-      "type": "object"
-    },
-    "SplittingCoverage": {
-      "additionalProperties": false,
-      "description": "The `coverage` steps' settings, as a `coverage` evaluator entry reads them, with legacy data-splitting's\ndefaults; each keeps its default when `coverage:` is written partly.",
-      "properties": {
-        "method": {
-          "anyOf": [
-            {
-              "enum": [
-                "naive",
-                "adaptive"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How the coverage radius is set: `naive`, a fixed analytic radius, or `adaptive`, a cutoff on the `percent` most sparsely neighbored items. Unset uses DataEval's default (`adaptive`). Only `naive` coverage is judged, by `uncovered-rate` steps. DataEval's naive radius overflows past about 340 embedding dimensions, so `naive` suits low-dimensional embeddings; with a wide extractor its coverage steps are skipped with `failed: OverflowError`.",
-          "title": "Method"
-        },
-        "num_observations": {
-          "default": 50,
-          "description": "Neighbors an item needs within the radius to count as covered, fewer than the smallest part's items. Legacy's `num_observations`.",
-          "exclusiveMinimum": 0,
-          "title": "Num Observations",
-          "type": "integer"
-        },
-        "percent": {
-          "default": 0.01,
-          "description": "Fraction of each part's items flagged as uncovered, for `adaptive` only. Legacy's `coverage_percent`.",
-          "exclusiveMaximum": 1.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Percent",
-          "type": "number"
-        }
-      },
-      "title": "SplittingCoverage",
       "type": "object"
     },
     "StatsMeasureConfig": {
@@ -10556,6 +11134,29 @@
         }
       },
       "title": "StratificationThresholds",
+      "type": "object"
+    },
+    "TargetOutliersSettings": {
+      "additionalProperties": false,
+      "description": "The `target-outliers` check's settings in data-cleaning.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Most targets (boxes), as a percentage of all, that may be flagged as outliers (unusual box sizes, aspect ratios, or annotation counts) before the finding warns; `null` judges nothing. Lower to 1% for annotation-quality audits; raise to 5-10% for dense object detection.",
+          "title": "Warning"
+        }
+      },
+      "title": "TargetOutliersSettings",
       "type": "object"
     },
     "TaskConfig": {
@@ -11104,7 +11705,7 @@
           "type": "string"
         },
         "ranking": {
-          "description": "A `prioritize` step computed on `input`.",
+          "description": "A `prioritization` step computed on `input`.",
           "title": "Ranking",
           "type": "string"
         },
@@ -11509,32 +12110,9 @@
       "title": "UncertaintyExtractorConfig",
       "type": "object"
     },
-    "UncoveredRateLimits": {
-      "additionalProperties": false,
-      "description": "The `uncovered-rate` check's field, with legacy data-splitting's default.",
-      "properties": {
-        "rate": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 5.0,
-          "description": "The percent of a Dataset's items uncovered past which its Uncovered Rate finding warns, under `naive` coverage only; `null` judges nothing. Legacy data-splitting's 5.",
-          "title": "Rate"
-        }
-      },
-      "title": "UncoveredRateLimits",
-      "type": "object"
-    },
     "ViewConfig": {
       "additionalProperties": false,
-      "description": "Named view pipeline configuration.\n\nDefines a reusable pipeline of dataset operations, referenced by name from\nsources. Similar to PreprocessorConfig.\n\nFor backward compatibility the legacy ``steps`` key is accepted on input as\nan alias for ``operations`` (with a :class:`DeprecationWarning`).",
+      "description": "Named view pipeline configuration.\n\nDefines a reusable pipeline of dataset operations, referenced by name from\nsources. Similar to PreprocessorConfig.",
       "properties": {
         "name": {
           "description": "Identifier for the view, referenced by sources.",
@@ -11672,6 +12250,18 @@
         "name"
       ],
       "title": "WorkflowStep",
+      "type": "object"
+    },
+    "WrapSettings": {
+      "additionalProperties": false,
+      "description": "The `wrap` step's settings, for the crops data-coverage measures detection data on: `DetectionCrops`' `params`.\nThe preset fixes the wrapper and `other_kinds`.",
+      "properties": {
+        "params": {
+          "$ref": "#/$defs/CropParams",
+          "description": "`DetectionCrops`' parameters."
+        }
+      },
+      "title": "WrapSettings",
       "type": "object"
     },
     "YoloDatasetConfig": {
@@ -11822,7 +12412,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Top-level pipeline configuration.\n\nAll sections use a define-once, reference-by-name pattern.\nSources compose datasets with optional views; extractors\ncompose model type/params with optional preprocessors.\nTasks reference workflows, sources, and extractors by name.\n\nThe legacy ``selections`` key is accepted as a deprecated alias for\n``views`` (with a :class:`DeprecationWarning`).\n\nA key that is none of these sections is refused, naming the section it most resembles: a misspelled section\nwould otherwise be dropped, and the run go ahead without it.",
+  "description": "Top-level pipeline configuration.\n\nAll sections use a define-once, reference-by-name pattern.\nSources compose datasets with optional views; extractors\ncompose model type/params with optional preprocessors.\nTasks reference workflows, sources, and extractors by name.\n\nA key that is none of these sections is refused, naming the section it most resembles: a misspelled section\nwould otherwise be dropped, and the run go ahead without it.",
   "properties": {
     "logging": {
       "anyOf": [
@@ -12144,6 +12734,9 @@
                 "$ref": "#/$defs/FactorLeakageConfig"
               },
               {
+                "$ref": "#/$defs/FactorSummaryConfig"
+              },
+              {
                 "$ref": "#/$defs/FactorTriageConfig"
               },
               {
@@ -12154,9 +12747,6 @@
               },
               {
                 "$ref": "#/$defs/LabelReconciliationConfig"
-              },
-              {
-                "$ref": "#/$defs/MetadataSummaryConfig"
               },
               {
                 "$ref": "#/$defs/OntologyValidationConfig"
@@ -12174,7 +12764,7 @@
                 "$ref": "#/$defs/ParityConfig"
               },
               {
-                "$ref": "#/$defs/PrioritizeConfig"
+                "$ref": "#/$defs/PrioritizationConfig"
               },
               {
                 "$ref": "#/$defs/RepresentationConfig"

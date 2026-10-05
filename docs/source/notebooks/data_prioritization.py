@@ -317,7 +317,7 @@ from dataeval_flow.workflows.data_prioritization import DataPrioritizationConfig
 
 ref_dataset = labeled_dataset
 
-from dataeval_flow.workflows.data_prioritization import DataPrioritizationCleaningConfig
+from dataeval_flow.workflows.data_prioritization import CleaningSettings
 
 workflow = DataPrioritizationConfig(
     name="vehicles_prioritize",
@@ -325,11 +325,10 @@ workflow = DataPrioritizationConfig(
     k=5,
     order="hard_first",
     policy="difficulty",
-    cleaning=DataPrioritizationCleaningConfig(
-        outlier_method="adaptive",
-        outlier_flags=["dimension", "pixel", "visual"],
-        outlier_threshold=3.0,  # lower than default 3.5 to catch subtler corruptions
-        duplicate_exact_only=True,
+    cleaning=CleaningSettings(
+        # The adaptive bound is lower than the default 3.5, to catch subtler corruptions.
+        outliers={"flags": ["dimension", "pixel", "visual"], "outlier_threshold": ("adaptive", 3.0)},
+        dup_types=["exact"],
     ),
 )
 
@@ -404,7 +403,7 @@ assert result.success
 # %% [markdown]
 # ### Prioritization report
 #
-# The report lists each step of the preset. Its `rank` step pictures the 25 highest-priority
+# The report lists each step of the preset. Its `prioritization` step pictures the 25 highest-priority
 # and the 25 lowest-priority frames.
 
 # %%
@@ -575,7 +574,7 @@ except ImportError:
 # %% [markdown]
 # ## Step 7: Keep the top of the ranking
 #
-# Set `n:` or `fraction:` on the workflow and each pool's top items become `selected`, a Dataset
+# Set `select: {n: ...}` or `select: {fraction: ...}` on the workflow and each pool's top items become `selected`, a Dataset
 # a custom workflow can hand to later steps. Here you keep the top 100 frames for a labeling batch.
 
 # %%
@@ -594,14 +593,14 @@ print(f"Selected for labeling: {len(batch)} frames, the first {len(batch)} of th
 # - Run the preset via `run_task()`.
 # - Benchmark prioritization results against random selection baselines.
 # - Contrast distance-based prioritization with model uncertainty sampling.
-# - Keep the top of each ranking as `selected`, with `n` or `fraction`.
+# - Keep the top of each ranking as `selected`, with `select.n` or `select.fraction`.
 
 # %% [markdown]
 # ## Next steps
 #
 # - **Alternative ranking methods**: Evaluate `kmeans_distance` or `hdbscan_complexity` policies.
 # - **Class-balanced sampling**: Use `policy="class_balanced"` to balance ranking across known classes.
-# - **Threshold tuning**: Adjust `outlier_threshold` and `outlier_flags` to control pruning sensitivity.
+# - **Threshold tuning**: Adjust `cleaning.outliers.outlier_threshold` and `cleaning.outliers.flags` to control pruning sensitivity.
 
 # %% [markdown]
 # ## Related guides

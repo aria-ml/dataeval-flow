@@ -1,5 +1,5 @@
-"""The label-space checks: legacy data-coverage's Label Space Coverage, Label Conformance and Ontology Structure
-findings, as steps (coverage spec §3.4)."""
+"""The label-space checks: legacy data-coverage's Label Space Coverage (now Leaf Coverage), Label Conformance and
+Ontology Structure findings, as steps (coverage spec §3.4)."""
 
 __all__ = [
     "ClassShortfallCheck",
@@ -79,16 +79,13 @@ class LeafCoverageConfig(CheckConfig):
         le=1.0,
         description=(
             "The least share of the ontology's leaves that must have examples; under it the finding warns. `null` "
-            "turns this criterion off. Legacy data-coverage's `health_thresholds.leaf_coverage`."
+            "turns this criterion off."
         ),
     )
     empty_branches: int | None = Field(
         default=0,
         ge=0,
-        description=(
-            "Wholly empty branches tolerated; more warn. `null` turns this criterion off. Legacy data-coverage's "
-            "`health_thresholds.dark_branch_count`."
-        ),
+        description=("Wholly empty branches tolerated; more warn. `null` turns this criterion off."),
     )
 
 
@@ -98,7 +95,7 @@ class LeafCoverageCheck(Check[LeafCoverageConfig]):
 
     name: ClassVar[str] = "leaf-coverage"
     description: ClassVar[str] = "Warns when too few of an ontology's leaves have examples, or a branch is empty."
-    title: ClassVar[str] = "Label Space Coverage"
+    title: ClassVar[str] = "Leaf Coverage"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(RepresentationOutput,)),)
 
     def run(self, config: LeafCoverageConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
@@ -148,12 +145,12 @@ class LabelConformanceConfig(CheckConfig):
     """A `label-conformance` step's input, and how many class names may fail to resolve."""
 
     input: str = Field(description="A `label-reconciliation` Output.")
-    unmatched: int | None = Field(
+    warning: int | None = Field(
         default=0,
         ge=0,
         description=(
             "Class names that may resolve to no concept; more warn. An ambiguous name always warns. `null` turns "
-            "the unmatched criterion off. Legacy data-coverage's `health_thresholds.unmatched_class_count`."
+            "the unmatched criterion off."
         ),
     )
 
@@ -170,7 +167,7 @@ class LabelConformanceCheck(Check[LabelConformanceConfig]):
         """The matched, unmatched and ambiguous names."""
         data = inputs["input"].value.data()
         matched, unmatched, ambiguous = data["matched"], data["unmatched"], data["ambiguous"]
-        warns = (config.unmatched is not None and len(unmatched) > config.unmatched) or bool(ambiguous)
+        warns = (config.warning is not None and len(unmatched) > config.warning) or bool(ambiguous)
         notes: list[str] = []
         if data["conforms"]:
             brief = "conforms"
@@ -288,7 +285,7 @@ class ClassShortfallCheck(Check[ClassShortfallConfig]):
 
     name: ClassVar[str] = "class-shortfall"
     description: ClassVar[str] = "Lists the classes short of an even spread, and warns on an unmet minimum share."
-    title: ClassVar[str] = "Class Balance Worklist"
+    title: ClassVar[str] = "Class Shortfall"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(RepresentationOutput,)),)
 
     def run(self, config: ClassShortfallConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002

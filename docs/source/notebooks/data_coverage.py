@@ -145,16 +145,16 @@ plt.show()
 # is a preset: its settings expand to a chain of steps, each an evaluator, a check that
 # judges one, or a transform. Without an extractor, the steps that embed the images,
 # `coverage` and `completeness`, are skipped, and the steps that read labels and metadata
-# run: `labels`, `summary`, `balance`, `diversity`, `gaps` (the gap analysis) and
-# `worklist` (what each class lacks of an even spread).
+# run: `label-health`, `factor-summary`, `balance`, `diversity`, `factor-gaps` (the gap analysis)
+# and `representation` (what each class lacks of an even spread).
 #
 # You will evaluate intrinsic image factors (such as brightness, contrast, and
 # sharpness) as metadata conditions. The gap analysis cross-tabulates class labels against
 # binned factors to detect whether particular vehicle classes were imaged under
 # limited operational conditions.
 #
-# `health_thresholds` is keyed by the type of the check it sets: `class-imbalance` judges
-# the label distribution, and `coverage-gaps` the gap analysis.
+# `checks` is keyed by the type of the check it sets: `class-imbalance` judges
+# the label distribution, and `factor-coverage-gaps` the gap analysis.
 
 # %%
 from dataeval_flow import PipelineConfig, run_task
@@ -184,15 +184,17 @@ vehicle_factors = MetadataPolicyConfig(
     },
 )
 
-metadata_only_workflow = DataCoverageConfig(
-    name="coverage-metadata-only",
-    metadata="vehicle_factors",
-    gaps={"min_representation": 5},  # Flag class-factor-value combos with < 5 samples
-    diversity="simpson",
-    health_thresholds={
-        "class-imbalance": {"ratio": 3.0},  # Catch moderate class imbalance
-        "coverage-gaps": {"count": 2},  # Warn if >= 2 gaps found
-    },
+metadata_only_workflow = DataCoverageConfig.model_validate(
+    {
+        "name": "coverage-metadata-only",
+        "metadata": "vehicle_factors",
+        "factor-gaps": {"min_representation": 5},  # Flag class-factor-value combos with < 5 samples
+        "diversity": {"method": "simpson"},
+        "checks": {
+            "class-imbalance": {"warning": 3.0},  # Catch moderate class imbalance
+            "factor-coverage-gaps": {"warning": 2},  # Warn if >= 2 gaps found
+        },
+    }
 )
 
 task_metadata = TaskConfig(
@@ -220,9 +222,9 @@ result_metadata = run_task(task_metadata, config_metadata, cache_dir=Path("./cac
 # %% [markdown]
 # ### Coverage report (metadata only)
 #
-# The report gives each finding a section: Label Distribution, Metadata Coverage Gaps and
-# the Class Balance Worklist. The metadata summary, balance and diversity are report
-# sections, not findings. Embedding Coverage and Dimensional Completeness are reported as
+# The report gives each finding a section: Class Imbalance, Factor Coverage Gaps and
+# the Class Shortfall. The metadata summary, balance and diversity are report
+# sections, not findings. Class Coverage and Dimensional Completeness are reported as
 # not assessed, and the Steps table at the end says why each embedding step was skipped.
 
 # %%
@@ -232,11 +234,11 @@ print(result_metadata.report())
 # ### Drill into each step's output
 #
 # The result is a `ChainResult`. `result.steps` holds each step's output by step name,
-# for programmatic inspection. The `labels` step's output is a `label-health` count of
+# for programmatic inspection. The `label-health` step's output is a `label-health` count of
 # every class the dataset declares, at 0 where it has no labels.
 
 # %%
-label_health = result_metadata.steps["labels"].output.data()
+label_health = result_metadata.steps["label-health"].output.data()
 print(f"Number of classes: {label_health['class_count']}")
 print(f"Empty images: {label_health['empty_image_count']}")
 print("\nClass distribution (five largest, five smallest):")
@@ -249,7 +251,7 @@ for cls, count in by_size[-5:]:
 
 # %%
 # Metadata gaps: evaluate if a class was only imaged under narrow conditions
-gaps = result_metadata.steps["gaps"].output
+gaps = result_metadata.steps["factor-gaps"].output
 print(f"Metadata coverage gaps: {len(gaps.gaps)}\n")
 
 print("  Mutual information (class -> factor), five strongest:")
@@ -269,7 +271,7 @@ if not gaps.gaps:
 
 # %%
 # The class worklist: each class short of an even spread over the declared classes
-worklist = result_metadata.steps["worklist"].output
+worklist = result_metadata.steps["representation"].output
 print(f"Total deficit: {worklist.total_deficit} labels\n")
 for row in worklist.data().iter_rows(named=True):
     print(f"  {row['label']:>14}  {row['action']:<8} have {row['count']:>4}, want {row['target']:>4}")
@@ -278,14 +280,14 @@ for row in worklist.data().iter_rows(named=True):
 # ### Interpreting the findings
 #
 # In this output, the imbalance ratio (1.8:1) satisfies the configured threshold of 3.0.
-# The Label Distribution finding warns anyway, because four declared classes, the Air
+# The Class Imbalance finding warns anyway, because four declared classes, the Air
 # Defense types, have zero samples. `class-imbalance` takes its ratio over the classes with
 # labels, and a declared class with none always warns.
 #
 # The gap analysis finds nothing. A factor is searched for gaps only when its mutual
 # information with the class reaches `mi_threshold`, 0.1 by default, and the strongest
 # here, `contrast`, scores 0.0027. The measured image statistics barely vary with the
-# vehicle class in this sample, so Metadata Coverage Gaps is `ok`.
+# vehicle class in this sample, so Factor Coverage Gaps is `ok`.
 #
 # The worklist cell lists six classes short of an even spread over the 24 declared
 # classes, 266 labels in all: the four Air Defense types have 0 of a target of 62, and
@@ -360,19 +362,19 @@ for row in representation.data().head(8).iter_rows(named=True):
 #
 # `label-space` makes four findings:
 #
-# - **Label Space Coverage**: Identifies leaf coverage (76.9%, 20 of the ontology's 26
+# - **Leaf Coverage**: Identifies leaf coverage (76.9%, 20 of the ontology's 26
 #   leaves) and specific missing concepts. In addition to the four held-out Air Defense
 #   classes, it surfaces `aircraft` and `watercraft` concepts defined in the taxonomy. It
 #   warns: the coverage is under the default 0.9, and Air Defense is a wholly empty branch.
 # - **Label Conformance**: Verifies whether all collected dataset classes exist in the
 #   ontology. All 24 class names resolve to exactly one concept.
-# - **Label Alignment**: Shows mapping between dataset class names and ontology concepts,
+# - **Mergeability**: Shows mapping between dataset class names and ontology concepts,
 #   providing relabeling rules where names differ. Here every class carries over one-to-one.
 # - **Ontology Structure**: Reports concept hierarchy size, leaf counts, and depth: 34
 #   concepts, 26 leaves, depth 4, and one single-child link, which it notes.
 #
 # The two worklists differ in what they spread the 1,500 labels over. `data-coverage`'s
-# Class Balance Worklist spreads them over the 24 classes the dataset declares, a target of
+# Class Shortfall spreads them over the 24 classes the dataset declares, a target of
 # 62 each, 266 labels short. `label-space` spreads them over the ontology's 26 leaves, a
 # target of 58 each, 358 labels short, and so adds `aircraft` and `watercraft`.
 
@@ -453,27 +455,29 @@ print("unmatched:", list(check["unmatched"]))
 # than 256 samples, isotropy reports `null`, while `dispersion` and `near_duplicate_fraction`
 # evaluate fully.
 #
-# The `coverage` settings are the `coverage` step's. `completeness-score` judges the
+# The `coverage` settings are the `coverage` step's. `dimensional-completeness` judges the
 # completeness step, and `class-coverage` judges each class's coverage.
 
 # %%
 from dataeval_flow.config.extractors import BoVWExtractorConfig
 
-full_workflow = DataCoverageConfig(
-    name="coverage-full",
-    metadata="vehicle_factors",
-    coverage={
-        "method": "adaptive",
-        "percent": 0.01,  # adaptive: flag the sparsest 1% of observations
-        "num_observations": 50,  # Number of neighbors for coverage analysis
-    },
-    gaps={"min_representation": 5},
-    diversity="simpson",
-    health_thresholds={
-        "completeness-score": {"warning": 0.5},  # Warn if completeness < 0.5
-        "class-imbalance": {"ratio": 3.0},
-        "coverage-gaps": {"count": 2},
-    },
+full_workflow = DataCoverageConfig.model_validate(
+    {
+        "name": "coverage-full",
+        "metadata": "vehicle_factors",
+        "coverage": {
+            "method": "adaptive",
+            "percent": 0.01,  # adaptive: flag the sparsest 1% of observations
+            "num_observations": 50,  # Number of neighbors for coverage analysis
+        },
+        "factor-gaps": {"min_representation": 5},
+        "diversity": {"method": "simpson"},
+        "checks": {
+            "dimensional-completeness": {"warning": 0.5},  # Warn if completeness < 0.5
+            "class-imbalance": {"warning": 3.0},
+            "factor-coverage-gaps": {"warning": 2},
+        },
+    }
 )
 
 task_full = TaskConfig(
@@ -501,7 +505,7 @@ result_full = run_task(task_full, config_full, cache_dir=Path("./cache"))
 # %% [markdown]
 # ### Full coverage report
 #
-# Now the report includes Embedding Coverage and Dimensional Completeness in addition
+# Now the report includes Class Coverage and Dimensional Completeness in addition
 # to the label and metadata findings. The label and metadata evidence repeats Step 1's,
 # so this cell prints the short form, `report(detailed=False)`: the summary of findings,
 # the health and the Steps table. `report()` gives the full evidence; the cells below read
@@ -547,7 +551,7 @@ with pl.Config(tbl_rows=-1, tbl_hide_dataframe_shape=True, tbl_hide_column_data_
 #
 # Adaptive coverage flags its `percent` of the items by construction, so 15 of 1,500
 # uncovered (1.0%) is the setting at work rather than a finding. The 15 fall in 12 classes,
-# no more than 2 in any one. The Embedding Coverage finding informs while any item is
+# no more than 2 in any one. The Class Coverage finding informs while any item is
 # uncovered, and warns only on a clustered, one-dimensional or duplicate-padded class:
 # there is none.
 
@@ -566,44 +570,44 @@ print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}"
 # ## Step 4: Tune health thresholds
 #
 # Health thresholds control when findings escalate from `info` to
-# `warning`. Each preset keys its `health_thresholds` by check type. The right
+# `warning`. Each preset keys its `checks` by check type. The right
 # thresholds depend on your domain:
 #
 # | Preset | Check | Field | Default | Safety-critical | Web-scraped data |
 # |---|---|---|---|---|---|
-# | `data-coverage` | `uncovered-rate` | `rate` | 10% | 3–5% | 15–20% |
-# | `data-coverage` | `completeness-score` | `warning` | 0.5 | 0.7–0.8 | 0.3–0.4 |
-# | `data-coverage` | `class-imbalance` | `ratio` | 5:1 | 2–3:1 | 10–20:1 |
-# | `data-coverage` | `coverage-gaps` | `count` | 3 | 1 | 5–10 |
+# | `data-coverage` | `uncovered-items` | `warning` | 10% | 3–5% | 15–20% |
+# | `data-coverage` | `dimensional-completeness` | `warning` | 0.5 | 0.7–0.8 | 0.3–0.4 |
+# | `data-coverage` | `class-imbalance` | `warning` | 5:1 | 2–3:1 | 10–20:1 |
+# | `data-coverage` | `factor-coverage-gaps` | `warning` | 3 | 1 | 5–10 |
 # | `data-coverage` | `class-coverage` | `dispersion` | 0.5 | 0.7 | 0.3 |
 # | `data-coverage` | `class-coverage` | `isotropy` | 0.5 | 0.7 | 0.3 |
 # | `data-coverage` | `class-coverage` | `near_duplicates` | 0.1 | 0.02 | 0.25 |
 # | `label-space` | `leaf-coverage` | `coverage` | 0.9 | 0.95 | 0.6 |
 # | `label-space` | `leaf-coverage` | `empty_branches` | 0 | 0 | 2–5 |
-# | `label-space` | `label-conformance` | `unmatched` | 0 | 0 | 3–10 |
+# | `label-space` | `label-conformance` | `warning` | 0 | 0 | 3–10 |
 #
-# `class-imbalance` and `completeness-score` also take `info`, the band between `ok` and
+# `class-imbalance` and `dimensional-completeness` also take `info`, the band between `ok` and
 # a warning: a ratio over 2.0, or a score under 0.8, informs by default. `null` turns a
 # threshold off.
 #
-# `uncovered-rate` judges only `naive` coverage, since adaptive coverage flags its
+# `uncovered-items` judges only `naive` coverage, since adaptive coverage flags its
 # `percent` of the items by construction. The label-space thresholds go on the
-# `label-space` entry, as `LabelSpaceConfig(..., health_thresholds={"leaf-coverage": {"coverage": 0.95}})`.
+# `label-space` entry, as `LabelSpaceConfig(..., checks={"leaf-coverage": {"coverage": 0.95}})`.
 
 # %%
-from dataeval_flow.workflows.data_coverage import DataCoverageThresholds
+from dataeval_flow.workflows.data_coverage import DataCoverageChecks
 
-strict_thresholds = DataCoverageThresholds.model_validate(
+strict_thresholds = DataCoverageChecks.model_validate(
     {
-        "completeness-score": {"warning": 0.6},
-        "class-imbalance": {"ratio": 2.0},
-        "coverage-gaps": {"count": 1},
+        "dimensional-completeness": {"warning": 0.6},
+        "class-imbalance": {"warning": 2.0},
+        "factor-coverage-gaps": {"warning": 1},
         "class-coverage": {"dispersion": 0.7, "isotropy": 0.7, "near_duplicates": 0.02},
     }
 )
 
 strict_workflow = full_workflow.model_copy(
-    update={"name": "coverage-strict", "health_thresholds": strict_thresholds},
+    update={"name": "coverage-strict", "checks": strict_thresholds},
 )
 
 task_strict = TaskConfig(
@@ -637,7 +641,7 @@ for default, strict in zip(result_full.findings, result_strict.findings, strict=
 # Exactly one additional warning triggers: Dimensional Completeness (0.573) falls below
 # the strict 0.6 threshold. The other strict limits change nothing: no class's dispersion
 # is under 0.7, every class's near-duplicate fraction prints as 0.00, isotropy is not
-# measured, there are no gaps to count, and Label Distribution warns already for its empty
+# measured, there are no gaps to count, and Class Imbalance warns already for its empty
 # classes.
 #
 # You can adjust individual health thresholds to match your domain tolerance without

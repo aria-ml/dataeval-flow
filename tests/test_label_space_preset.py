@@ -11,7 +11,7 @@ from tests.chain_toys import ToyDetections, chain_pipeline
 from tests.evaluator_toys import ToyImages
 
 _ONTOLOGY = {"x": {"a": None, "b": None, "c": None}}
-_TITLES = ["Label Space Coverage", "Label Conformance", "Label Alignment", "Ontology Structure"]
+_TITLES = ["Leaf Coverage", "Label Conformance", "Mergeability", "Ontology Structure"]
 
 
 def _run(entry: dict, datasets: dict | None = None, **task: object) -> ChainResult:
@@ -32,11 +32,11 @@ def test_its_chain_is_four_evaluators_each_judged() -> None:
     assert names == [
         "representation",
         "leaf-coverage",
-        "reconciliation",
-        "conformance",
-        "alignment",
+        "label-reconciliation",
+        "label-conformance",
+        "label-alignment",
         "mergeability",
-        "structure",
+        "ontology-validation",
         "ontology-structure",
     ]
     assert all(entry.ontology == _ONTOLOGY for entry in chain.evaluators)  # type: ignore[attr-defined]
@@ -46,7 +46,7 @@ def test_it_makes_legacy_s_four_findings_in_order_and_stamps_the_digest() -> Non
     result = _run({"ontology": _ONTOLOGY})
     assert result.success, result.errors
     assert [finding.title for finding in result.findings] == _TITLES
-    assert result.metadata.label_space_digest == result.steps["alignment"].output.alignment.label_space_digest
+    assert result.metadata.label_space_digest == result.steps["label-alignment"].output.alignment.label_space_digest
     assert result.metadata.metadata_binning is None
 
 
@@ -72,10 +72,8 @@ def test_it_runs_on_detection_data_counting_box_labels() -> None:
 
 
 def test_thresholds_are_keyed_by_check_type_and_reach_the_checks() -> None:
-    result = _run(
-        {"ontology": _ONTOLOGY, "health_thresholds": {"leaf-coverage": {"coverage": None, "empty_branches": None}}}
-    )
-    leaf = next(finding for finding in result.findings if finding.title == "Label Space Coverage")
+    result = _run({"ontology": _ONTOLOGY, "checks": {"leaf-coverage": {"coverage": None, "empty_branches": None}}})
+    leaf = next(finding for finding in result.findings if finding.title == "Leaf Coverage")
     assert leaf.severity == "info"  # `c` has no examples, but neither criterion judges
 
 
@@ -87,7 +85,7 @@ def test_a_matrix_varies_a_hyphenated_threshold() -> None:
                 "name": "w",
                 "type": "label-space",
                 "ontology": _ONTOLOGY,
-                "health_thresholds": {"leaf-coverage": {"empty_branches": None}},
+                "checks": {"leaf-coverage": {"empty_branches": None}},
             }
         ],
         tasks=[
@@ -95,7 +93,7 @@ def test_a_matrix_varies_a_hyphenated_threshold() -> None:
                 "name": "t",
                 "workflow": "w",
                 "sources": ["src"],
-                "matrix": {"health_thresholds.leaf-coverage.coverage": [0.1, 0.9]},
+                "matrix": {"checks.leaf-coverage.coverage": [0.1, 0.9]},
             }
         ],
         datasets={"src": ToyImages(count=20)},

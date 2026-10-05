@@ -4,7 +4,7 @@ __all__ = [
     "DistributionShiftCheck",
     "DistributionShiftConfig",
     "DriftCheck",
-    "DriftCheckConfig",
+    "DriftConfig",
     "DriftThresholds",
     "evaluator_heading",
 ]
@@ -30,25 +30,27 @@ class DriftThresholds(BaseModel):
 
     warn_on_drift: bool = Field(
         default=True,
-        description=(
-            "Unchunked, and per class: drift is a warning, or info when false. drift-monitoring's legacy "
-            "`any_drift_is_warning` and `classwise_any_drift_is_warning`."
-        ),
+        description=("Unchunked, and per class: drift is a warning, or info when false."),
     )
     chunk_percent: float | None = Field(
         default=10.0,
         ge=0.0,
         le=100.0,
-        description="Chunked: the share of drifted chunks, in percent, at which the finding warns; `null` judges none.",
+        description=(
+            "Chunked: the share of drifted chunks, in percent, past which the finding warns; `null` judges none."
+        ),
     )
     consecutive_chunks: int | None = Field(
-        default=3,
-        ge=1,
-        description="Chunked: the longest run of drifted chunks at which the finding warns; `null` judges none.",
+        default=2,
+        ge=0,
+        description=(
+            "Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row "
+            "and 0 on any drifted chunk; `null` judges none."
+        ),
     )
 
 
-class DriftCheckConfig(CheckConfig, DriftThresholds):
+class DriftConfig(CheckConfig, DriftThresholds):
     """A `drift` step's input, its thresholds, and what its finding is titled."""
 
     input: str = Field(description="A drift evaluator's Output.")
@@ -67,7 +69,7 @@ def evaluator_heading(entry: Any) -> str:
     return title if entry.name == entry.type else f"{title} · {entry.name}"
 
 
-class DriftCheck(Check[DriftCheckConfig]):
+class DriftCheck(Check[DriftConfig]):
     """``drift``: warns on drift, or, chunked, when enough chunks drift or enough drift in a row."""
 
     name: ClassVar[str] = "drift"
@@ -75,7 +77,7 @@ class DriftCheck(Check[DriftCheckConfig]):
     title: ClassVar[str] = "Drift"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(DriftOutput,)),)
 
-    def run(self, config: DriftCheckConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(self, config: DriftConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """One finding: the verdict, or the chunks' verdicts."""
         node = inputs["input"]
         output = node.value
@@ -90,8 +92,8 @@ class DriftCheck(Check[DriftCheckConfig]):
             longest = max(longest, run)
         percent = 100.0 * drifted / len(chunks)
         judged = config.chunk_percent is not None or config.consecutive_chunks is not None
-        warns = (config.chunk_percent is not None and drifted > 0 and percent >= config.chunk_percent) or (
-            config.consecutive_chunks is not None and longest >= config.consecutive_chunks
+        warns = (config.chunk_percent is not None and drifted > 0 and percent > config.chunk_percent) or (
+            config.consecutive_chunks is not None and longest > config.consecutive_chunks
         )
         severity = ("warning" if warns else "info" if drifted else "ok") if judged else "info"
         return [
@@ -112,10 +114,7 @@ class DistributionShiftConfig(CheckConfig):
         default=0.5,
         ge=0.0,
         le=1.0,
-        description=(
-            "The divergence above which the finding warns; `null` never warns. Legacy data-analysis's "
-            "`health_thresholds.distribution_shift`."
-        ),
+        description=("The divergence above which the finding warns; `null` never warns."),
     )
     info: float | None = Field(
         default=None,
@@ -123,7 +122,7 @@ class DistributionShiftConfig(CheckConfig):
         le=1.0,
         description=(
             "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times "
-            "`warning`, legacy's band; `null` has no `info` band. Must not exceed `warning`."
+            "`warning`; `null` has no `info` band. Must not exceed `warning`."
         ),
     )
 

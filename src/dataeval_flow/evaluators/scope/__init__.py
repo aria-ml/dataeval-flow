@@ -20,9 +20,9 @@ __all__ = [
     "OntologyValidationEvaluator",
     "OntologyValidationOutput",
     "OntologyValidationResult",
-    "PrioritizeConfig",
-    "PrioritizeEvaluator",
-    "PrioritizeResult",
+    "PrioritizationConfig",
+    "PrioritizationEvaluator",
+    "PrioritizationResult",
     "RepresentationConfig",
     "RepresentationEvaluator",
     "RepresentationResult",
@@ -36,7 +36,7 @@ from dataeval_flow.evaluators.scope._config import (
     LabelAlignmentResult,
     LabelReconciliationConfig,
     OntologyValidationConfig,
-    PrioritizeConfig,
+    PrioritizationConfig,
     RepresentationConfig,
 )
 from dataeval_flow.evaluators.scope._evaluator import (
@@ -45,7 +45,7 @@ from dataeval_flow.evaluators.scope._evaluator import (
     LabelAlignmentEvaluator,
     LabelReconciliationEvaluator,
     OntologyValidationEvaluator,
-    PrioritizeEvaluator,
+    PrioritizationEvaluator,
     RepresentationEvaluator,
 )
 from dataeval_flow.evaluators.scope._result import (
@@ -56,6 +56,6 @@ from dataeval_flow.evaluators.scope._result import (
     LabelReconciliationResult,
     OntologyValidationOutput,
     OntologyValidationResult,
-    PrioritizeResult,
+    PrioritizationResult,
     RepresentationResult,
 )

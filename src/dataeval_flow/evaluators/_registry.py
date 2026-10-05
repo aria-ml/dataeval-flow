@@ -11,7 +11,7 @@ __all__ = ["EVALUATORS", "get_evaluator", "list_evaluators"]
 _BUILTINS = {
     "balance": "dataeval_flow.evaluators.bias._evaluator:BalanceEvaluator",
     "diversity": "dataeval_flow.evaluators.bias._evaluator:DiversityEvaluator",
-    "metadata-summary": "dataeval_flow.evaluators.bias._evaluator:MetadataSummaryEvaluator",
+    "factor-summary": "dataeval_flow.evaluators.bias._evaluator:FactorSummaryEvaluator",
     "parity": "dataeval_flow.evaluators.bias._evaluator:ParityEvaluator",
     "duplicates": "dataeval_flow.evaluators.quality._evaluator:DuplicatesEvaluator",
     "factor-leakage": "dataeval_flow.evaluators.quality._leakage:FactorLeakageEvaluator",
@@ -22,7 +22,7 @@ _BUILTINS = {
     "representation": "dataeval_flow.evaluators.scope._evaluator:RepresentationEvaluator",
     "completeness": "dataeval_flow.evaluators.scope._evaluator:CompletenessEvaluator",
     "coverage": "dataeval_flow.evaluators.scope._evaluator:CoverageEvaluator",
-    "prioritize": "dataeval_flow.evaluators.scope._evaluator:PrioritizeEvaluator",
+    "prioritization": "dataeval_flow.evaluators.scope._evaluator:PrioritizationEvaluator",
     "label-alignment": "dataeval_flow.evaluators.scope._evaluator:LabelAlignmentEvaluator",
     "label-reconciliation": "dataeval_flow.evaluators.scope._evaluator:LabelReconciliationEvaluator",
     "ontology-validation": "dataeval_flow.evaluators.scope._evaluator:OntologyValidationEvaluator",

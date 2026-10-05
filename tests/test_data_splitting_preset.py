@@ -33,15 +33,15 @@ def _names(**settings: Any) -> list[str]:
     return [step["name"] for step in _steps(**settings)]
 
 
-_WHOLE = ["labels", "labels-check", "balance", "diversity", "coverage", "split"]
+_WHOLE = ["label-health", "class-imbalance", "balance", "diversity", "coverage", "split"]
 
 
 def test_the_default_chain() -> None:
     assert _names() == [
         *_WHOLE,
-        "labels-train",
-        "labels-val",
-        "labels-test",
+        "label-health-train",
+        "label-health-val",
+        "label-health-test",
         "stratification",
         "coverage-train",
         "coverage-val",
@@ -52,19 +52,19 @@ def test_the_default_chain() -> None:
 def test_rebalancing_adds_a_view_its_labels_and_a_shown_column() -> None:
     chain = DataSplittingWorkflow.chain(DataSplittingConfig(rebalance="interclass"))
     steps = {dict(step)["name"]: dict(step) for step in chain.steps}
-    assert steps["rebalance"]["operations"] == [{"type": "ClassBalance", "params": {"method": "interclass"}}]
-    assert steps["stratification"]["shown"] == "labels-rebalanced"
-    assert steps["coverage-train"]["input"] == "rebalance"
-    assert chain.outputs == {"train": "rebalance", "val": "split.val", "test": "split.test"}
+    assert steps["rebalanced"]["operations"] == [{"type": "ClassBalance", "params": {"method": "interclass"}}]
+    assert steps["stratification"]["shown"] == "label-health-rebalanced"
+    assert steps["coverage-train"]["input"] == "rebalanced"
+    assert chain.outputs == {"train": "rebalanced", "val": "split.val", "test": "split.test"}
 
 
 def test_naive_coverage_adds_an_uncovered_check_per_coverage_step() -> None:
     names = _names(coverage={"method": "naive"})
     assert [name for name in names if name.startswith("uncovered")] == [
-        "uncovered",
-        "uncovered-train",
-        "uncovered-val",
-        "uncovered-test",
+        "uncovered-items",
+        "uncovered-items-train",
+        "uncovered-items-val",
+        "uncovered-items-test",
     ]
 
 
@@ -76,7 +76,7 @@ def test_two_folds_or_more_run_kfold() -> None:
 @pytest.mark.parametrize(("settings", "gone"), [({"val_frac": 0.0}, "val"), ({"folds": 3, "test_frac": 0.0}, "test")])
 def test_a_part_the_settings_leave_empty_gets_no_steps(settings: dict[str, Any], gone: str) -> None:
     names = _names(**settings)
-    assert f"labels-{gone}" not in names
+    assert f"label-health-{gone}" not in names
     assert f"coverage-{gone}" not in names
 
 
@@ -97,10 +97,10 @@ def test_a_whole_dump_of_a_kfold_entry_reloads() -> None:
 
 def test_thresholds_are_keyed_by_check_type() -> None:
     entry = DataSplittingConfig.model_validate(
-        {"health_thresholds": {"class-imbalance": {"ratio": 3}, "uncovered-rate": {"rate": 1}}}
+        {"checks": {"class-imbalance": {"warning": 3}, "uncovered-items": {"warning": 1}}}
     )
-    dumped = entry.model_dump(mode="json")["health_thresholds"]
-    assert (dumped["class-imbalance"]["ratio"], dumped["uncovered-rate"]["rate"]) == (3, 1)
+    dumped = entry.model_dump(mode="json")["checks"]
+    assert (dumped["class-imbalance"]["warning"], dumped["uncovered-items"]["warning"]) == (3, 1)
 
 
 def test_a_partial_coverage_keeps_legacy_s_defaults() -> None:
@@ -128,7 +128,7 @@ def test_a_task_splits_and_records_the_parts() -> None:
     assert result.success, result.errors
     indices = (result.steps["split"].details or {})["indices"]
     assert sorted(i for part in indices.values() for i in part) == list(range(60))
-    assert {"Label Distribution", "Stratification"} <= {finding.title for finding in result.findings}
+    assert {"Class Imbalance", "Stratification"} <= {finding.title for finding in result.findings}
     assert (result.steps["coverage"].status, result.steps["coverage"].reason) == ("skipped", _NO_EXTRACTOR)
 
 

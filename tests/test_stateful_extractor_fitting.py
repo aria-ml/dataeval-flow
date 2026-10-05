@@ -130,7 +130,7 @@ def test_every_entry_point_builds_and_fits_once_per_task(
     task, config = _pipeline()
     result = entry_point(task, config)
     assert result.success, result.errors
-    classes = result.steps["drift-mmd-classes"].elements
+    classes = result.steps["drift-mmd-by-class"].elements
     assert {key: element.status for key, element in classes.items()} == {"incoming": "ok", "later": "ok"}
     assert len(recording) == 1
     assert recording[0].fitted_on is not None
@@ -372,14 +372,14 @@ def _cleaning(seed: int | None) -> PipelineConfig:
     """Two cleaning tasks on one source, clustering it twice each: once for outliers, once for duplicates."""
     clean = DataCleaningConfig(
         name="clean",
-        outlier_method="zscore",
-        outlier_flags=["dimension"],
-        outlier_cluster_threshold=2.0,
-        outlier_cluster_algorithm="kmeans",
-        outlier_n_clusters=2,
-        duplicate_cluster_sensitivity=1.0,
-        duplicate_cluster_algorithm="kmeans",
-        duplicate_n_clusters=3,
+        outliers={  # type: ignore[arg-type]
+            "flags": ["dimension"],
+            "outlier_threshold": "zscore",
+            "cluster_threshold": 2.0,
+            "cluster_algorithm": "kmeans",
+            "n_clusters": 2,
+        },
+        duplicates={"cluster_sensitivity": 1.0, "cluster_algorithm": "kmeans", "n_clusters": 3},  # type: ignore[arg-type]
     )
     return PipelineConfig(
         seed=seed,

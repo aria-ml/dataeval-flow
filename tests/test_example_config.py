@@ -108,10 +108,10 @@ class TestExampleStatsPolicyParses:
 
 @pytest.mark.required
 class TestExampleCleaningWorkflowCanReadItsOwnPolicy:
-    """The `clean` workflow's `outlier_flags` must be satisfied by `multispectral`.
+    """The `clean` workflow's `outliers.flags` must be satisfied by `multispectral`.
 
     `check_consumers` refused this policy because the whole-image entry did not measure
-    what `outlier_flags: [visual]` needed on `~`.
+    what `outliers.flags: [visual]` needed on `~`.
     """
 
     def _resolve(self) -> tuple[ResolvedStatsPolicy, DataCleaningConfig]:
@@ -126,10 +126,10 @@ class TestExampleCleaningWorkflowCanReadItsOwnPolicy:
     def test_the_declared_outlier_flags_are_satisfied(self):
         resolved, clean_params = self._resolve()
         outlier_flags = ImageStats.NONE
-        for name in clean_params.outlier_flags:
+        for name in clean_params.outliers.flags:
             outlier_flags |= OUTLIER_FLAG_MAP[name]
 
-        # Must not raise: `outlier_flags: [visual]` is exactly what `~` has to measure.
+        # Must not raise: `outliers.flags: [visual]` is exactly what `~` has to measure.
         check_consumers(
             resolved,
             outlier_flags=outlier_flags,

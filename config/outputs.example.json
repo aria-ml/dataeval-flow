@@ -34,28 +34,30 @@
         "name": "skysealand_cleaning",
         "type": "data-cleaning",
         "ontology": null,
-        "outlier_method": "adaptive",
-        "outlier_flags": [
-          "dimension",
-          "pixel",
-          "visual"
-        ],
-        "outlier_threshold": 3.5,
-        "outlier_cluster_threshold": 3.5,
-        "outlier_cluster_algorithm": "hdbscan",
-        "outlier_n_clusters": 4,
-        "duplicate_flags": null,
-        "duplicate_merge_near": true,
-        "duplicate_cluster_sensitivity": 0.5,
-        "duplicate_cluster_algorithm": "hdbscan",
-        "duplicate_n_clusters": 4,
-        "health_thresholds": {
-          "exact_duplicates": 0.0,
-          "near_duplicates": 5.0,
-          "image_outliers": 5.0,
-          "target_outliers": 10.0,
-          "classwise_outliers": 12.0,
-          "class_label_imbalance": 5.0
+        "outliers": {
+          "flags": [
+            "dimension",
+            "pixel",
+            "visual"
+          ],
+          "outlier_threshold": ["adaptive", 3.5],
+          "cluster_threshold": 3.5,
+          "cluster_algorithm": "hdbscan",
+          "n_clusters": 4
+        },
+        "duplicates": {
+          "flags": null,
+          "merge_near_duplicates": true,
+          "cluster_sensitivity": 0.5,
+          "cluster_algorithm": "hdbscan",
+          "n_clusters": 4
+        },
+        "checks": {
+          "image-duplicates": {"exact": 0.0, "near": 5.0},
+          "image-outliers": {"warning": 5.0},
+          "target-outliers": {"warning": 10.0},
+          "classwise-outliers": {"warning": 12.0},
+          "class-imbalance": {"warning": 5.0}
         }
       },
       "extractor": {
@@ -404,7 +406,7 @@
       },
       "elapsed_s": 13.916
     },
-    "labels": {
+    "label-health": {
       "kind": "evaluator",
       "type": "label-health",
       "status": "ok",
@@ -441,9 +443,9 @@
       },
       "elapsed_s": 0.128
     },
-    "by-class": {
+    "outliers-by-class": {
       "kind": "combine",
-      "type": "classwise-outliers",
+      "type": "outliers-by-class",
       "status": "ok",
       "inputs": [
         "data",
@@ -471,7 +473,7 @@
       },
       "elapsed_s": 0.026
     },
-    "dupes": {
+    "duplicates": {
       "kind": "evaluator",
       "type": "duplicates",
       "status": "ok",
@@ -513,7 +515,7 @@
     },
     "image-outliers": {
       "kind": "check",
-      "type": "outlier-rate",
+      "type": "image-outliers",
       "status": "ok",
       "inputs": [
         "outliers"
@@ -526,11 +528,11 @@
     },
     "target-outliers": {
       "kind": "check",
-      "type": "target-outlier-rate",
+      "type": "target-outliers",
       "status": "ok",
       "inputs": [
         "outliers",
-        "labels"
+        "label-health"
       ],
       "output": {
         "findings": 1,
@@ -538,12 +540,12 @@
       },
       "elapsed_s": 0.005
     },
-    "classwise": {
+    "classwise-outliers": {
       "kind": "check",
-      "type": "classwise-outlier-rate",
+      "type": "classwise-outliers",
       "status": "ok",
       "inputs": [
-        "by-class"
+        "outliers-by-class"
       ],
       "output": {
         "findings": 1,
@@ -551,12 +553,12 @@
       },
       "elapsed_s": 0.0
     },
-    "duplicates": {
+    "image-duplicates": {
       "kind": "check",
-      "type": "duplicate-rate",
+      "type": "image-duplicates",
       "status": "ok",
       "inputs": [
-        "dupes"
+        "duplicates"
       ],
       "output": {
         "findings": 0,
@@ -564,12 +566,12 @@
       },
       "elapsed_s": 0.003
     },
-    "imbalance": {
+    "class-imbalance": {
       "kind": "check",
       "type": "class-imbalance",
       "status": "ok",
       "inputs": [
-        "labels"
+        "label-health"
       ],
       "output": {
         "findings": 1,
@@ -583,7 +585,7 @@
       "status": "ok",
       "inputs": [
         "data",
-        "dupes",
+        "duplicates",
         "outliers"
       ],
       "output": {
@@ -598,7 +600,7 @@
           "frames": 0
         },
         "by_plan": {
-          "dupes": {},
+          "duplicates": {},
           "outliers": {
             "items": 2,
             "detections": 16
@@ -667,11 +669,11 @@
           ]
         }
       ],
-      "step": "classwise"
+      "step": "classwise-outliers"
     },
     {
       "severity": "warning",
-      "title": "Label Distribution",
+      "title": "Class Imbalance",
       "brief": "4 classes, 20 items, imbalance 26.1:1",
       "description": null,
       "blocks": [
@@ -719,7 +721,7 @@
           "text": "Imbalance ratio: 26.1 (max/min)"
         }
       ],
-      "step": "imbalance"
+      "step": "class-imbalance"
     }
   ],
   "assets": [

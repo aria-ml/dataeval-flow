@@ -18,6 +18,7 @@ from dataeval_flow.steps import (
     CombineContext,
     CustomWorkflowConfig,
     DataType,
+    Finding,
     Port,
     get_check,
     get_combine,
@@ -25,7 +26,6 @@ from dataeval_flow.steps import (
     list_steps,
 )
 from dataeval_flow.steps._registry import CHECKS
-from dataeval_flow.workflows import Finding
 from tests.chain_toys import GroupLimitConfig, chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages
 

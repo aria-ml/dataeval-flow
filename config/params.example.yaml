@@ -261,18 +261,18 @@
 # workflows:
 #   - name: standard_clean
 #     type: data-cleaning
-#     outlier_method: adaptive
-#     outlier_flags: [dimension, pixel, visual]
+#     outliers:
+#       flags: [dimension, pixel, visual]
+#       outlier_threshold: adaptive
 #
 #   - name: strict_clean
 #     type: data-cleaning
-#     outlier_method: zscore
-#     outlier_flags: [dimension, pixel, visual]
-#     outlier_threshold: 2.0
-#     health_thresholds:
-#       exact_duplicates: 0.0
-#       near_duplicates: 1.0
-#       image_outliers: 1.0
+#     outliers:
+#       flags: [dimension, pixel, visual]
+#       outlier_threshold: [zscore, 2.0]
+#     checks:
+#       image-duplicates: {exact: 0.0, near: 1.0}
+#       image-outliers: {warning: 1.0}
 #
 #   - name: basic_drift
 #     type: drift-monitoring          # each test source is tested on its own against the first, the reference
@@ -285,14 +285,15 @@
 #           chunk_size: 500           # or chunk_count; the reference needs >= 3 chunks
 #           incomplete: keep          # keep | drop | append the reference's short final chunk
 #     classwise: {drift-univariate: class}   # detectors to also run per key, unchunked: class or predicted
-#     health_thresholds:
+#     checks:
 #       drift: {warn_on_drift: true, chunk_percent: 10.0, consecutive_chunks: 3}
 #
 #   - name: clean
 #     type: data-cleaning
 #     stats: multispectral
-#     outlier_method: modzscore
-#     outlier_flags: [visual]
+#     outliers:
+#       flags: [visual]
+#       outlier_threshold: modzscore
 
 # -----------------------------------------------------------------------------
 # EVALUATORS — Named evaluator instances (type + params)

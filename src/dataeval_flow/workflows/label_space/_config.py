@@ -1,7 +1,14 @@
 """The ``label-space`` preset's config: the ontology, the minimum shares and label pattern, and when a finding warns
 (coverage spec §3.1)."""
 
-__all__ = ["LabelConformanceLimits", "LabelSpaceConfig", "LabelSpaceThresholds", "LeafCoverageLimits"]
+__all__ = [
+    "LabelConformanceSettings",
+    "LabelSpaceChecks",
+    "LabelSpaceConfig",
+    "LabelSpaceRepresentationSettings",
+    "LeafCoverageSettings",
+    "OntologyValidationSettings",
+]
 
 from typing import Annotated, Any, ClassVar
 
@@ -12,7 +19,7 @@ from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
 
 
-class LeafCoverageLimits(BaseModel):
+class LeafCoverageSettings(BaseModel):
     """The `leaf-coverage` check's fields, with legacy data-coverage's defaults."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -21,39 +28,61 @@ class LeafCoverageLimits(BaseModel):
         default=0.9,
         ge=0.0,
         le=1.0,
-        description=(
-            "The least share of the ontology's leaves with examples; `null` turns it off. Legacy `leaf_coverage`."
-        ),
+        description=("The least share of the ontology's leaves with examples; `null` turns it off."),
     )
     empty_branches: int | None = Field(
         default=0,
         ge=0,
-        description="Wholly empty branches tolerated; `null` turns it off. Legacy `dark_branch_count`.",
+        description="Wholly empty branches tolerated; `null` turns it off.",
     )
 
 
-class LabelConformanceLimits(BaseModel):
+class LabelConformanceSettings(BaseModel):
     """The `label-conformance` check's field, with legacy data-coverage's default."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    unmatched: int | None = Field(
+    warning: int | None = Field(
         default=0,
         ge=0,
-        description="Class names that may resolve to no concept; `null` turns it off. Legacy `unmatched_class_count`.",
+        description="Class names that may resolve to no concept; `null` turns it off.",
     )
 
 
-class LabelSpaceThresholds(BaseModel):
+class LabelSpaceRepresentationSettings(BaseModel):
+    """The `representation` step's settings in label-space: each class's minimum share."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    expected: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] | None = Field(
+        default=None,
+        description=(
+            "Class name to its minimum expected share of the dataset, a fraction in [0, 1]. A name resolving to no "
+            "concept or to several is ignored and noted."
+        ),
+    )
+
+
+class OntologyValidationSettings(BaseModel):
+    """The `ontology-validation` step's settings."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    label_pattern: str | None = Field(default=None, description="A regex every ontology label should match.")
+
+
+class LabelSpaceChecks(BaseModel):
     """When label-space's findings warn: each check's fields, keyed by check type."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
-    leaf_coverage: LeafCoverageLimits = Field(
-        default_factory=LeafCoverageLimits, alias="leaf-coverage", description="The `leaf-coverage` check's thresholds."
+    leaf_coverage: LeafCoverageSettings = Field(
+        default_factory=LeafCoverageSettings,
+        alias="leaf-coverage",
+        description="The `leaf-coverage` check's thresholds.",
     )
-    label_conformance: LabelConformanceLimits = Field(
-        default_factory=LabelConformanceLimits,
+    label_conformance: LabelConformanceSettings = Field(
+        default_factory=LabelConformanceSettings,
         alias="label-conformance",
         description="The `label-conformance` check's threshold.",
     )
@@ -68,10 +97,11 @@ class LabelSpaceConfig(WorkflowConfig[ChainResult]):
           - name: vocab
             type: label-space
             ontology: vehicles
-            expected: {truck: 0.2}
+            representation: {expected: {truck: 0.2}}
     """
 
     type: str = Field(default="label-space", description="The workflow type this entry configures: `label-space`.")
+    model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, serialize_by_alias=True)
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
 
     # Overridden to be required, which the schema then shows; the base declares it optional.
@@ -81,18 +111,16 @@ class LabelSpaceConfig(WorkflowConfig[ChainResult]):
             "serialized RDF artifact resolved against the data root, or a nested mapping of concept to children."
         ),
     )
-    expected: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] | None = Field(
-        default=None,
-        description=(
-            "Class name to its minimum expected share of the dataset, a fraction in [0, 1], as `representation` "
-            "reads it. A name resolving to no concept or to several is ignored and noted."
-        ),
+    representation: LabelSpaceRepresentationSettings = Field(
+        default_factory=LabelSpaceRepresentationSettings, description="The `representation` step's settings."
     )
-    label_pattern: str | None = Field(
-        default=None, description="A regex every ontology label should match, as `ontology-validation` reads it."
+    ontology_validation: OntologyValidationSettings = Field(
+        default_factory=OntologyValidationSettings,
+        alias="ontology-validation",
+        description="The `ontology-validation` step's settings.",
     )
-    health_thresholds: LabelSpaceThresholds = Field(
-        default_factory=LabelSpaceThresholds, description="When findings warn, keyed by check type."
+    checks: LabelSpaceChecks = Field(
+        default_factory=LabelSpaceChecks, description="When findings warn, keyed by check type."
     )
 
     @model_validator(mode="before")

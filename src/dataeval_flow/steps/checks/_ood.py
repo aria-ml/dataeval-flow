@@ -6,7 +6,7 @@ __all__ = [
     "OODAgreementCheck",
     "OODAgreementConfig",
     "OODCheck",
-    "OODCheckConfig",
+    "OODConfig",
     "OODThresholds",
     "assessed_images",
     "ood_severity",
@@ -23,8 +23,8 @@ from dataeval_flow._blocks import Paragraph
 from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps.checks._drift import evaluator_heading
-from dataeval_flow.steps.combines._ood import OODUnion
-from dataeval_flow.workflows import Finding
+from dataeval_flow.steps.combines._ood import OODUnionOutput
+from dataeval_flow.workflows._base import Finding
 
 Severity = Literal["ok", "info", "warning"]
 
@@ -38,32 +38,27 @@ class OODThresholds(BaseModel):
         default=10.0,
         ge=0.0,
         le=100.0,
-        description=(
-            "The percent of assessed test images flagged at which the finding warns; `null` never warns. "
-            "ood-detection's `health_thresholds.ood_pct_warning` before its port."
-        ),
+        description=("The percent of assessed test images flagged past which the finding warns; `null` never warns."),
     )
     info: float | None = Field(
         default=1.0,
         ge=0.0,
         le=100.0,
         description=(
-            "The percent at which the finding is `info`, below which it is `ok`; `null` is never `info`. With both "
-            "`null`, the finding is `info` and judges nothing. ood-detection's `health_thresholds.ood_pct_info` before "
-            "its port."
+            "The percent past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. "
+            "With both `null`, the finding is `info` and judges nothing."
         ),
     )
 
 
 def ood_severity(percent: float, thresholds: OODThresholds) -> Severity:
-    """The severity `percent` earns: `warning` from `warning`, `info` from `info`, else `ok`. With both `null`,
-    `info`, which judges nothing, as `_limits.unjudged` rules for one threshold. "From" is `>=`, legacy's
-    comparison."""
+    """The severity `percent` earns: `warning` past `warning`, `info` past `info`, else `ok`; with both `null`,
+    `info`, which judges nothing, as `_limits.unjudged` rules for one threshold."""
     if thresholds.warning is None and thresholds.info is None:
         return "info"
-    if thresholds.warning is not None and percent >= thresholds.warning:
+    if thresholds.warning is not None and percent > thresholds.warning:
         return "warning"
-    if thresholds.info is not None and percent >= thresholds.info:
+    if thresholds.info is not None and percent > thresholds.info:
         return "info"
     return "ok"
 
@@ -74,7 +69,7 @@ def assessed_images(output: OODOutput) -> int:
     return len(output.is_ood) - (len(rows["unassessed"]) if rows else 0)
 
 
-class OODCheckConfig(CheckConfig, OODThresholds):
+class OODConfig(CheckConfig, OODThresholds):
     """An `ood` step's input, its thresholds, and what its finding is titled."""
 
     input: str = Field(description="An OOD evaluator's Output.")
@@ -87,7 +82,7 @@ class OODCheckConfig(CheckConfig, OODThresholds):
     )
 
 
-class OODCheck(Check[OODCheckConfig]):
+class OODCheck(Check[OODConfig]):
     """``ood``: how many of a test source's images an OOD detector flagged, `info` and warning past its thresholds."""
 
     name: ClassVar[str] = "ood"
@@ -95,7 +90,7 @@ class OODCheck(Check[OODCheckConfig]):
     title: ClassVar[str] = "OOD"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODOutput,)),)
 
-    def run(self, config: OODCheckConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(self, config: OODConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """One finding: the images flagged of those assessed, and on detection rows the detections flagged."""
         node = inputs["input"]
         output = node.value
@@ -130,7 +125,7 @@ class OODAgreementCheck(Check[OODAgreementConfig]):
         "Judges the share of a test source's images every OOD detector flagged, and counts those one alone flagged."
     )
     title: ClassVar[str] = "OOD Agreement"
-    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODUnion,)),)
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODUnionOutput,)),)
 
     def run(self, config: OODAgreementConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """The aggregate finding, and the unique one where any image is unique."""
@@ -140,7 +135,7 @@ class OODAgreementCheck(Check[OODAgreementConfig]):
         findings = [
             Finding(
                 severity=ood_severity(percent, config),
-                title="Aggregate OOD (all detectors agree)",
+                title=self.title,
                 brief=f"{mutual}/{len(union.union)} OOD images agreed by all detectors ({percent:.1f}%)",
                 description=(
                     "Ranked most out of distribution first. A score is a multiple of the detector's threshold, "
@@ -154,7 +149,7 @@ class OODAgreementCheck(Check[OODAgreementConfig]):
             findings.append(
                 Finding(
                     severity="info",
-                    title="Unique OOD Samples (single-detector only)",
+                    title=self.title,
                     brief=f"{unique} image(s) flagged by only one detector",
                     description=f"Images one detector flagged and the others did not{partial}.",
                 )
@@ -171,9 +166,9 @@ class EvalCoverageConfig(CheckConfig, OODThresholds):
         ge=0.0,
         le=100.0,
         description=(
-            "The percent flagged at which the finding is `info`, below which it is `ok`; `null` is never `info`. A "
-            "split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so `2.0` "
-            "suits `threshold_perc: 99`."
+            "The percent flagged past which the finding is `info`, at or below which it is `ok`; `null` is never "
+            "`info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so "
+            "`2.0` suits `threshold_perc: 99`."
         ),
     )
 
@@ -183,7 +178,7 @@ class EvalCoverageCheck(Check[EvalCoverageConfig]):
 
     name: ClassVar[str] = "eval-coverage"
     description: ClassVar[str] = "Warns when much of an evaluation split lies beyond what train covers."
-    title: ClassVar[str] = "Evaluation Coverage"
+    title: ClassVar[str] = "Eval Coverage"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODOutput,)),)
 
     def run(self, config: EvalCoverageConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002

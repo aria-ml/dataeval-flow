@@ -36,8 +36,8 @@ class TestDataCoverageWorkflow:
         assert result.report().strip()
         titles = [finding.title for finding in result.findings]
         # An ImageFolder source's labels are its directory names, which the label finding's title says.
-        assert {"Label/Directory_Name Distribution", "Class Balance Worklist"} <= set(titles)
-        assert result.steps["summary"].output is not None
+        assert {"Class Imbalance", "Class Shortfall"} <= set(titles)
+        assert result.steps["factor-summary"].output is not None
 
     def test_coverage_runs_without_extractor(
         self,
@@ -54,6 +54,6 @@ class TestDataCoverageWorkflow:
         assert isinstance(result, ChainResult)
         assert result.steps["coverage"].status == "skipped"
         by_title = {finding.title: finding for finding in result.findings}
-        assert "Label/Directory_Name Distribution" in by_title
-        assert by_title["Embedding Coverage"].brief == "not assessed"
+        assert "Class Imbalance" in by_title
+        assert by_title["Class Coverage"].brief == "not assessed"
         assert by_title["Dimensional Completeness"].brief == "not assessed"
