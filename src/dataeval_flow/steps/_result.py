@@ -158,7 +158,7 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         self.preset_chain: PresetChain | None = None
         """What the preset entry expanded to, with the report's groups, record and next steps; ``None`` otherwise."""
         self.verdict: Verdict | None = None
-        """Whether the data is ready, for a preset chain that declares `blocking` and ran; ``None`` otherwise."""
+        """Whether the data is ready, for a preset chain that declares `blocking` and succeeded; ``None`` otherwise."""
 
     @classmethod
     def from_run(cls, name: str, run: "ChainRun", *, type_id: str | None = None, preset: bool = False) -> "ChainResult":

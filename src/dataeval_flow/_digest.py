@@ -42,8 +42,8 @@ class DatasetDigest:
 def dataset_digest(dataset: Any) -> DatasetDigest:
     """Digest every item of `dataset`, as the ``content-digest`` evaluator does.
 
-    A training job calls it on the data it is about to train on and compares the result with the digests a run
-    recorded, so it can refuse data that is not what the run recorded. It reads each item once, never through a cache.
+    A training job calls it before it trains and compares the result with the digests a run recorded, so it can refuse
+    data that is not what the run recorded. It reads each item once, never through a cache.
 
     Each item's image is hashed as its dtype, shape and bytes. Its target is hashed the same way: the array for
     classification, and the ``boxes`` and ``labels`` arrays for detection (``scores`` don't count). Its metadata is
@@ -60,8 +60,11 @@ def dataset_digest(dataset: Any) -> DatasetDigest:
     ----------
     dataset : AnnotatedDataset
         Any dataset Flow reads: ``len()`` and indexing, each item an ``(image, target, metadata)`` tuple, and its class
-        names in ``dataset.metadata["index2label"]`` where it declares them. Pass the data as it will be trained on:
-        read through the same views the recorded source applied.
+        names in ``dataset.metadata["index2label"]`` where it declares them. Pass the dataset as Flow loads it, before
+        any training transform: from :func:`~dataeval_flow.load_dataset` with the ``datasets:`` entry's format and
+        options, through the same views the recorded source applied. Data in another shape gives another digest:
+        resized or normalized images, ``(image, int)`` tuples, images in height-width-channel order, or a dataset
+        with no ``index2label``.
 
     Returns
     -------

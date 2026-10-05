@@ -75,7 +75,7 @@ class PresetChain:
     """The check types whose unaccepted warning makes the chain not ready (audit spec §6); ``None`` gives no verdict."""
     accepted: Mapping[str, str] = field(default_factory=dict)
     """Why each check type's warning is accepted, by check type: an accepted warning neither blocks nor counts as an
-    unaccepted warning in the verdict."""
+    unaccepted warning in the verdict, but an acceptance whose check warned leaves the verdict ready with caveats."""
     next_steps: NextSteps = field(default_factory=NextSteps)
     """What the report says to do about each warning and each check left unassessed."""
 

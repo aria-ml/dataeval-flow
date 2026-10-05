@@ -107,7 +107,7 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
     - on train only: ``crops``, then ``coverage`` and ``completeness`` (optional) with ``class-coverage``,
       ``uncovered-items`` under ``naive`` coverage, and ``dimensional-completeness``; ``factor-summary``, ``balance``
       and ``diversity`` (optional) with ``shortcut-risk``; and ``factor-gaps`` (optional) with
-      ``factor-coverage-gaps``, where ``factor-gaps`` is set.
+      ``factor-coverage-gaps``, unless ``factor-gaps`` is false.
 
     Every split's metadata is encoded like train's. The report gives the verdict, a record of what was audited, and
     the findings under five questions, with next steps. It makes no Dataset, so it declares no outputs.
