@@ -187,6 +187,12 @@ def test_a_preset_spells_no_setting_with_a_step_prefix(cls: type) -> None:
 
 # The fewest settings each preset needs to build its chain, with every optional step on.
 _MINIMAL = {
+    "audit": {
+        "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"},
+        "ontology": {"animal": {"cat": None}},
+        "factor-leakage": {"factors": ["site"]},
+        "coverage": {"method": "naive"},
+    },
     "data-cleaning": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}},
     "data-coverage": {"coverage": {"method": "naive"}},
     "data-prioritization": {"cleaning": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}},

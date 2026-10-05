@@ -10,6 +10,7 @@ from dataeval_flow.config import PipelineConfig
 from dataeval_flow.workflows import list_workflows
 
 SPECS = {
+    "audit": (SourceCount.ONE_OR_MORE, {InputKind.METADATA, InputKind.STATS}, {InputKind.EMBEDDINGS}),
     "data-analysis": (SourceCount.ONE_OR_MORE, {InputKind.STATS, InputKind.METADATA}, {InputKind.EMBEDDINGS}),
     "data-cleaning": (SourceCount.ONE, {InputKind.STATS, InputKind.METADATA}, {InputKind.CLUSTERS}),
     "data-coverage": (SourceCount.ONE, {InputKind.METADATA}, {InputKind.EMBEDDINGS}),

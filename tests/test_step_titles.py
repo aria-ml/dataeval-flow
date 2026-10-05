@@ -60,6 +60,7 @@ _TITLES = {
     "factor-deviation": "Factor Deviation",
     "factor-gaps": "Factor Gaps",
     "factor-predictors": "Factor Predictors",
+    "audit": "Audit",
     "data-analysis": "Data Analysis",
     "data-cleaning": "Data Cleaning",
     "data-coverage": "Data Coverage",

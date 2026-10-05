@@ -19,6 +19,7 @@ from dataeval_flow.workflows import Workflow, WorkflowConfig, WorkflowContext, g
 from tests.example_plugin import BrightnessConfig, CountConfig, CountResult, CountWorkflow
 
 BUILTIN_WORKFLOWS = [
+    "audit",
     "data-analysis",
     "data-cleaning",
     "data-coverage",

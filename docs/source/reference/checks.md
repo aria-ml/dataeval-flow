@@ -9,12 +9,12 @@ that make Datasets.
 
 Each entry's **Used in** names the presets that run the check; where it names none, chain the check in a [workflow of
 your own](../how_to/write_a_custom_workflow.md). See the [Preset Catalog](presets.md) for each preset's chain.
-`class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage` and `distribution-shift` run in a
-workflow of your own, to audit a set of splits before training. [Audit a set of
+[`audit`](presets.md#audit) runs `class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage`
+and `distribution-shift`, to audit a set of splits before training. [Audit a set of
 splits](../how_to/write_a_custom_workflow.md#11-audit-a-set-of-splits) chains `leakage`, `distribution-shift` and
-`eval-coverage` after `data-splitting`. Each example assumes the pipeline defines `datasets:`, the sources `train`,
-`test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor `bovw_ext`, as [Evaluator
-recipes](../how_to/evaluator_recipes.md) does.
+`eval-coverage` after `data-splitting`, in a workflow of your own. Each example assumes the pipeline defines
+`datasets:`, the sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor
+`bovw_ext`, as [Evaluator recipes](../how_to/evaluator_recipes.md) does.
 
 ## At a glance
 
@@ -95,7 +95,7 @@ With nothing flagged, the finding is `ok`.
 | `warning` | a percentage, or `null` | `3.0` | Most images, as a percentage of the Dataset, that may be flagged before the finding warns |
 
 - **Judges:** [`outliers`](evaluators.md#outliers)
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning)
+- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning)
 
 ```yaml
 evaluators:
@@ -195,7 +195,7 @@ The shares of images in exact and in near duplicate groups are judged apart.
 | `near` | a percentage, or `null` | `5.0` | Most images that may sit in near-duplicate groups before the finding warns |
 
 - **Judges:** [`duplicates`](evaluators.md#duplicates)
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning)
+- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning)
 
 ```yaml
 evaluators:
@@ -231,7 +231,8 @@ The ratio is taken over the classes with labels. A class with none is named and 
 | `empty` | `true` or `false` | `true` | Whether a declared class with no labels warns; `false` leaves it to `untrained-classes` and `class-sufficiency` |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning), [`data-coverage`](presets.md#data-coverage), [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning),
+  [`data-coverage`](presets.md#data-coverage), [`data-splitting`](presets.md#data-splitting)
 
 ```yaml
 evaluators:
@@ -268,7 +269,7 @@ split lacks included. A `null` limit judges nothing, and with both `null` the fi
 | `eval` | an integer of at least 0, or `null` | `30` | The fewest labels each class train holds needs in each evaluation split; at 30, a per-class metric's 95% interval is about ±18 points |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)
-- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **Used in:** [`audit`](presets.md#audit)
 
 ```yaml
 evaluators:
@@ -305,7 +306,7 @@ holds a labelled class, it is not assessed (`no evaluation split holds a labelle
 | `declared` | `true` or `false` | `false` | Whether a declared class with no labels in train also warns |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)
-- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **Used in:** [`audit`](presets.md#audit)
 
 ```yaml
 evaluators:
@@ -380,7 +381,7 @@ It warns on more unmatched names than `warning`, or on any ambiguous name, and i
 | `warning` | a count, or `null` | `0` | Unmatched names tolerated; `null` turns it off |
 
 - **Judges:** [`label-reconciliation`](evaluators.md#label-reconciliation)
-- **Used in:** [`label-space`](presets.md#label-space)
+- **Used in:** [`audit`](presets.md#audit), [`label-space`](presets.md#label-space)
 
 ```yaml
 ontologies:
@@ -498,7 +499,7 @@ detections dropped.
 | `near_duplicates` | a fraction, or `null` | `0.1` | The near-duplicate share over which a class is padded; `null` turns it off |
 
 - **Judges:** [`coverage`](evaluators.md#coverage)
-- **Used in:** [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
 
 ```yaml
 evaluators:
@@ -532,7 +533,8 @@ skipped with "failed: OverflowError".
 | `warning` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
 
 - **Judges:** [`coverage`](evaluators.md#coverage)
-- **Used in:** [`data-coverage`](presets.md#data-coverage), [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage),
+  [`data-splitting`](presets.md#data-splitting)
 
 ```yaml
 evaluators:
@@ -565,7 +567,7 @@ informs, and above both it is `ok`. With both bands `null` nothing is judged and
 | `info` | a score from 0 to 1, or `null` | `0.8` | The score under which the finding informs |
 
 - **Judges:** [`completeness`](evaluators.md#completeness)
-- **Used in:** [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
 
 ```yaml
 evaluators:
@@ -596,7 +598,7 @@ It warns past `warning` gaps, is `info` up to that many, and is `ok` with none.
 | `warning` | a count, or `null` | `2` | The most under-represented class-factor-value combinations before the finding warns; `null` never warns |
 
 - **Judges:** [`factor-gaps`](combines.md#factor-gaps)
-- **Used in:** [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
 
 ```yaml
 evaluators:
@@ -664,7 +666,7 @@ assessed (`no factor to score`). With `warning: null` the finding is `info`.
 | `warning` | 0 to 1, or `null` | `0.1` | The mutual information with the class past which a factor warns; `null` judges nothing |
 
 - **Judges:** [`balance`](evaluators.md#balance)
-- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **Used in:** [`audit`](presets.md#audit)
 
 ```yaml
 evaluators:
@@ -702,7 +704,7 @@ percentage points. The largest, rounded to one place, is judged. Run once per fo
 | `warning` | percentage points, or `null` | `10.0` | The largest deviation above which the finding warns; `null` never warns |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)
-- **Used in:** [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-splitting`](presets.md#data-splitting)
 
 ```yaml
 evaluators:
@@ -743,7 +745,7 @@ holds an element, as there is then no pair of splits; an empty or failed `factor
 | `groups` | an integer of at least 0, or `null` | `0` | Most group values held by both splits of a pair before the finding warns |
 
 - **Judges:** [`duplicates`](evaluators.md#duplicates), [`factor-leakage`](evaluators.md#factor-leakage)
-- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **Used in:** [`audit`](presets.md#audit)
 
 ```yaml
 evaluators:
@@ -776,7 +778,7 @@ divergence. A `null` limit judges nothing at its level, and with both `null` the
 | `info` | a number from 0 to 1, or `null` | 0.4 times `warning` | The divergence above which the finding is `info`, at or below which it is `ok`; `null` has no `info` band; must not exceed `warning` |
 
 - **Judges:** [`divergence`](evaluators.md#divergence)
-- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **Used in:** [`audit`](presets.md#audit)
 
 ```yaml
 evaluators:
@@ -813,7 +815,7 @@ DataEval's 95 where unset; a split drawn like train has about 100 minus that per
 
 - **Judges:** [`ood-domain-classifier`](evaluators.md#ood-domain-classifier),
   [`ood-kneighbors`](evaluators.md#ood-kneighbors)
-- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **Used in:** [`audit`](presets.md#audit)
 
 ```yaml
 evaluators:
@@ -973,7 +975,7 @@ It has no thresholds.
 | `max_examples` | an integer of at least 1 | `20` | Distinct values shown per kind per factor; display only |
 
 - **Judges:** [`factor-triage`](evaluators.md#factor-triage)
-- **Used in:** [`metadata-triage`](presets.md#metadata-triage)
+- **Used in:** [`audit`](presets.md#audit), [`metadata-triage`](presets.md#metadata-triage)
 
 ```yaml
 evaluators:

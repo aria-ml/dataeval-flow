@@ -4,6 +4,11 @@
 
 ### Added
 
+- The `audit` preset: one chain over train and each evaluation split before training. Its report gives a verdict
+  ("Not ready", "Ready with caveats" or "Ready"), a record of what was audited, with each split's items, classes,
+  metadata factors and digests and the criteria applied, the findings under five questions, and next steps for each
+  warning and each check not assessed. `blocking:` names the check types whose warning makes it not ready, and
+  `accepted:` gives a reason a check type's warning is accepted
 - A Find the Right Step index leading from a question to the preset and steps that answer it; preset, combine and
   naming-conventions reference pages; and evaluator and check catalogs grouped by question, each entry giving its
   ports, settings, the checks that judge it, the presets that run it and an example
