@@ -41,7 +41,7 @@ class OODDetectionWorkflow(Preset, Workflow[OODDetectionConfig, ChainResult]):
     @classmethod
     def chain(cls, config: OODDetectionConfig) -> PresetChain:
         """Each detector and its check, then the agreement and its check, then the factor steps."""
-        ood = config.health_thresholds.ood.model_dump()
+        ood = config.checks.ood.model_dump()
         evaluators: list[Any] = []
         steps: list[dict[str, Any]] = []
         for detector in config.detectors:
@@ -57,7 +57,7 @@ class OODDetectionWorkflow(Preset, Workflow[OODDetectionConfig, ChainResult]):
         names = [detector.name for detector in config.detectors]
         steps.append({"name": "agreement", "combine": "ood-union", "input": names})
         if len(names) > 1:
-            agreement = config.health_thresholds.ood_agreement.model_dump()
+            agreement = config.checks.ood_agreement.model_dump()
             steps.append({"name": "agreement-check", "check": "ood-agreement", "input": "agreement", **agreement})
         if config.metadata_insights:
             policies = {key: value for key, value in (("metadata", config.metadata), ("stats", config.stats)) if value}

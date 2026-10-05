@@ -34,7 +34,7 @@
   through a new `dataset` input kind that hands an evaluator the Dataset itself
 - `label-space` preset: a dataset's labels judged against a declared ontology, as legacy data-coverage judged them
   with `ontology:` set: leaf coverage and the worklist, conformance, alignment with the `Relabel` stanza, and the
-  ontology's structure. Its `health_thresholds` are keyed by check type: `leaf-coverage` (`coverage`,
+  ontology's structure. Its `checks` are keyed by check type: `leaf-coverage` (`coverage`,
   `empty_branches`) and `label-conformance` (`warning`)
 - `label-reconciliation` evaluator: which class names resolve to exactly one ontology concept
 - `ontology-validation` evaluator: an ontology's structural and naming facts
@@ -243,7 +243,7 @@
 - A workflow declares `name` and `description` as class variables, not properties
 - `WorkflowParametersBase` becomes `WorkflowConfig`, the base of every workflow config, no longer their union
 - `Reportable` is `Finding`; `WorkflowOutputsBase` / `WorkflowReportBase` are `WorkflowRawOutput` / `WorkflowReport`
-- `DriftHealthThresholds` / `OODHealthThresholds` are `DriftMonitoringHealthThresholds` / `OODDetectionHealthThresholds`
+- `DriftHealthThresholds` / `OODHealthThresholds` are `DriftMonitoringChecks` / `OODDetectionChecks`
 - Data-prioritization's `CleaningConfig` is `DataPrioritizationCleaningConfig`
 - A workflow package's modules (`params`, `outputs`, `workflow`, `report`) are private; import from the package
 - `list_workflows()` / `list_evaluators()` return the classes; `get_*` return the class, not an instance
@@ -275,21 +275,25 @@
   `drift-domain-classifier`, `drift-kneighbors`, `drift-mmd`, `drift-univariate`, `drift-wasserstein`,
   `ood-domain-classifier` and `ood-kneighbors` (were `shift.*`)
 - `data-cleaning` is a preset: its evaluators find outliers, duplicates and label counts, and its checks judge them
-  against `health_thresholds`. It returns a `ChainResult`, whose `steps` and `findings` replace `raw` and `report`,
+  against `checks`, keyed by check type. It returns a `ChainResult`, whose `steps` and `findings` replace `raw` and `report`,
   and `run()` on a `DataCleaningConfig` is typed to `ChainResult`. Its steps are named in kebab case, as ids are:
   `outliers`, `labels`, `by-class`, `dupes`, `image-outliers`, `target-outliers`, `classwise`, `duplicates`,
-  `imbalance` and `clean`
+  `imbalance` and `clean`. Legacy `health_thresholds` is refused: `image_outliers`, `target_outliers` and
+  `classwise_outliers` are `checks.image-outliers.warning`, `checks.target-outliers.warning` and
+  `checks.classwise-outliers.warning`; `exact_duplicates` and `near_duplicates` are `checks.image-duplicates.exact` and
+  `.near`; and `class_label_imbalance` is `checks.class-imbalance.warning`
 - `data-prioritization` is a preset: `cleaning:` runs as `outliers`, `duplicates` and `remove` steps on the reference
   and each pool, `rank` (`prioritization`) ranks each pool against the reference, and `selected` (`select`) keeps the top
   of each ranking. It returns a `ChainResult`, whose `steps` replace `raw` and `report`, and it makes no findings: the
   Pruning warning and each pool's info finding are gone
-- `metadata-triage` is a preset: `factor-triage` reads the metadata, and `metadata-issues` makes its findings. It
+- `metadata-triage` is a preset: `factor-triage` reads the metadata, and `metadata-issues` makes its findings, with
+  `max_examples` set under `checks.metadata-issues`. It
   returns a `ChainResult`: the issues, the stanza and the verification are its `triage` step's output
 - `drift-monitoring` is a preset: each detector is a step judged by a `drift` check, and each detector `classwise`
   names also runs by class. Each test source is tested on its own against the reference, where they were merged;
   `merge` them in a custom workflow to test them as one. `detectors:` takes drift evaluator entries
   (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), `classwise:` lists detector
-  names, and `health_thresholds` is keyed by check type, `drift: {warn_on_drift, chunk_percent, consecutive_chunks}`.
+  names, and `checks` is keyed by check type, `drift: {warn_on_drift, chunk_percent, consecutive_chunks}`.
   It returns a `ChainResult`; a detector that raises fails its step and the task. A classwise detector makes a
   whole-set finding and a by-class finding, so it can add two warnings where legacy added one. Classwise reads each
   item's label through DataEval's `Metadata`, so it needs a dataset with `.metadata`; without it the by-class run is
@@ -297,7 +301,7 @@
   - `method: univariate|mmd|kneighbors|domain_classifier` is
     `type: drift-univariate|drift-mmd|drift-kneighbors|drift-domain-classifier`, and the univariate `test` is `method`
   - a detector's `classwise: true` is its name in `classwise: [...]`
-  - `any_drift_is_warning` and `classwise_any_drift_is_warning` are `health_thresholds.drift.warn_on_drift`;
+  - `any_drift_is_warning` and `classwise_any_drift_is_warning` are `checks.drift.warn_on_drift`;
     `chunk_drift_pct_warning` is `chunk_percent`, and `consecutive_chunks_warning` is `consecutive_chunks`
   - `chunking.threshold_multiplier: k` is `chunking.threshold: [zscore, k]`. Legacy chunked every detector with a
     z-score threshold of 3, while an unset `threshold` now uses DataEval's default for the detector, a constant AUROC
@@ -311,15 +315,15 @@
     type need distinct `name`s
   - a domain-classifier detector thresholds on `n_std` unless `threshold_perc` is written, where legacy always used
     the 95th percentile: write `threshold_perc: 95` to keep legacy's verdicts
-  - `health_thresholds.ood_pct_warning` and `ood_pct_info` are `health_thresholds.ood.warning` and `info`, and
-    `health_thresholds["ood-agreement"]` judges the agreement
+  - `health_thresholds.ood_pct_warning` and `ood_pct_info` are `checks.ood.warning` and `info`, and
+    `checks["ood-agreement"]` judges the agreement
   - `max_ood_insights` is `factor_deviation.max_items`
   - `value_range` and the `metadata_*` fields are gone: set `value_range` on the dataset, and name a `metadata:` policy
 - A result's JSON writes NaN and infinities as `null`, which strict JSON parsers require
 - `drift-kneighbors` on the `uncertainty` extractor refuses a written `distance_metric: cosine`, which cannot rank one
   number
 - The TUI offers workflow, evaluator and extractor types registered after import, plugins included
-- `data-cleaning`'s `health_thresholds` take `None`, which judges nothing: the finding is still made, as `info`
+- `data-cleaning`'s `checks` take `None`, which judges nothing: the finding is still made, as `info`
 - A custom workflow's or preset's result records the encodings its steps read, as `metadata_binning` and
   `encoding_digest`: one record where they read one Dataset one way, and `per_split`, keyed by the Dataset's address,
   where they read several. `dataeval-flow encoding` reads it
@@ -358,7 +362,7 @@
   Its findings are Class Imbalance, Stratification for each fold, and Uncovered Items under `naive` coverage;
   balance and diversity are report sections, and the split's sizes are in the `split` step's section and the
   `lineage`. Only object-detection Datasets can be exported, so a classification split's parts can be read but not yet
-  exported. `health_thresholds` is keyed by check type: `class-imbalance`, `stratification`, `uncovered-items`. To
+  exported. `checks` is keyed by check type: `class-imbalance`, `stratification`, `uncovered-items`. To
   upgrade:
   - `num_folds` is `folds`
   - `rebalance_method` is `rebalance`
@@ -379,7 +383,7 @@
   judged. Naive coverage that overflows is skipped, where legacy re-ran it as adaptive. On detection data, coverage's
   uncovered items index the `crops` Dataset, one item per box, where legacy named each one's image and box. It no
   longer judges an ontology: a `label-space` entry on the same source does, and a data-coverage run on a conformed
-  source records no label space of its own, so `label-space` carries the join key. `health_thresholds` is keyed by
+  source records no label space of its own, so `label-space` carries the join key. `checks` is keyed by
   check type: `class-imbalance`, `factor-coverage-gaps`, `class-coverage`, `uncovered-items` and
   `dimensional-completeness`. Every legacy field is refused by name, with its replacement. To upgrade:
   - `coverage_method`, `coverage_percent`, `num_observations`, `min_class_samples`, `isotropy_min_samples` and
@@ -398,16 +402,16 @@
   - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source`
     are refused: name a policy under `metadata:`
   - `value_range` is refused: set it on the dataset. `stats` is refused, since no step of data-coverage reads statistics
-  - in `health_thresholds`, `class_imbalance_ratio` is `class-imbalance.warning`, and legacy's fixed band at 2.0 is
-    `class-imbalance.info`; `gap_count` is `factor-coverage-gaps.warning`; `min_dispersion`, `min_isotropy` and
-    `max_near_duplicate_fraction` are `class-coverage.dispersion`, `.isotropy` and `.near_duplicates`;
-    `uncovered_rate` is `uncovered-items.warning`; and `completeness_score` is `dimensional-completeness.warning`,
+  - in `health_thresholds`, which is now `checks`, `class_imbalance_ratio` is `class-imbalance.warning`, and
+    legacy's fixed band at 2.0 is `class-imbalance.info`; `gap_count` is `factor-coverage-gaps.warning`;
+    `min_dispersion`, `min_isotropy` and `max_near_duplicate_fraction` are `class-coverage.dispersion`,
+    `.isotropy` and `.near_duplicates`; `uncovered_rate` is `uncovered-items.warning`; and `completeness_score` is `dimensional-completeness.warning`,
     and legacy's fixed band at 0.8 is `dimensional-completeness.info`. An unset `info` follows `warning` as
     legacy's band did, so `warning: 1.5` or `warning: 0.9` alone loads; two written bounds that cross are refused
   - an ImageFolder source's label finding is titled "Class Imbalance", where it was "Label
     Distribution"
   - `health_thresholds.leaf_coverage`, `dark_branch_count` and `unmatched_class_count` are `label-space`'s
-    `health_thresholds.leaf-coverage.coverage`, `leaf-coverage.empty_branches` and `label-conformance.warning`
+    `checks.leaf-coverage.coverage`, `leaf-coverage.empty_branches` and `label-conformance.warning`
   - `output.raw` and `metadata.has_extractor` are gone: `coverage`, `completeness` and `metadata_gaps` are the
     `coverage`, `completeness` and `gaps` steps' outputs, `label_distribution` is `labels`', `metadata_distribution`
     is `summary`'s, a skipped step's reason is its `reason`, and `coverage.dropped_detections` is
@@ -512,7 +516,7 @@
   ood-detection returns a `ChainResult`, and its detectors are OOD evaluator entries
 - `DataSplittingResult` and its output and metadata types; a data-splitting result is a `ChainResult`
 - `DataCoverageResult` and its output and metadata types, and `DataCoverageHealthThresholds`; a data-coverage result is
-  a `ChainResult`, and its thresholds are `DataCoverageThresholds`
+  a `ChainResult`, and its thresholds are `DataCoverageChecks`
 
 ## v0.2.2
 

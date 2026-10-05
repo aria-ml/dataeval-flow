@@ -1257,7 +1257,7 @@
             }
           ],
           "default": 0.0,
-          "description": "Most images, as a percentage of the Dataset, that may sit in exact-duplicate groups before the finding warns; `null` judges nothing. data-cleaning's `health_thresholds.exact_duplicates`.",
+          "description": "Most images, as a percentage of the Dataset, that may sit in exact-duplicate groups before the finding warns; `null` judges nothing.",
           "title": "Exact"
         },
         "near": {
@@ -1272,7 +1272,7 @@
             }
           ],
           "default": 5.0,
-          "description": "Most images, as a percentage of the Dataset, that may sit in near-duplicate groups before the finding warns; `null` judges nothing. data-cleaning's `health_thresholds.near_duplicates`.",
+          "description": "Most images, as a percentage of the Dataset, that may sit in near-duplicate groups before the finding warns; `null` judges nothing.",
           "title": "Near"
         },
         "check": {
@@ -2770,7 +2770,7 @@
       "title": "ChunkedDriftConfig",
       "type": "object"
     },
-    "ClassCoverageLimits": {
+    "ClassCoverageSettings": {
       "additionalProperties": false,
       "description": "The `class-coverage` check's fields, with legacy data-coverage's defaults.",
       "properties": {
@@ -2818,29 +2818,7 @@
           "title": "Near Duplicates"
         }
       },
-      "title": "ClassCoverageLimits",
-      "type": "object"
-    },
-    "ClassImbalanceLimits": {
-      "additionalProperties": false,
-      "description": "The `class-imbalance` check's field, with legacy data-splitting's default.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "minimum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 10.0,
-          "description": "Largest class count over smallest that may hold before the whole set's Class Imbalance finding warns; `null` judges nothing but an empty class.",
-          "title": "Warning"
-        }
-      },
-      "title": "ClassImbalanceLimits",
+      "title": "ClassCoverageSettings",
       "type": "object"
     },
     "ClassKeys": {
@@ -2882,6 +2860,29 @@
         }
       },
       "title": "ClassKeys",
+      "type": "object"
+    },
+    "ClasswiseOutliersSettings": {
+      "additionalProperties": false,
+      "description": "The `classwise-outliers` check's settings in data-cleaning.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Most items, as a percentage of those in any one class, that may be outliers before the finding warns; `null` judges nothing. A class over it may point to labelling errors or a loose class definition.",
+          "title": "Warning"
+        }
+      },
+      "title": "ClasswiseOutliersSettings",
       "type": "object"
     },
     "CocoDatasetConfig": {
@@ -3374,44 +3375,6 @@
       "title": "CompletenessConfig",
       "type": "object"
     },
-    "CompletenessScoreLimits": {
-      "additionalProperties": false,
-      "description": "The `dimensional-completeness` check's fields, with legacy data-coverage's defaults.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.5,
-          "description": "The completeness score under which the Dimensional Completeness finding warns; `null` turns this band off. Must not exceed `info`. Legacy `completeness_score`.",
-          "title": "Warning"
-        },
-        "info": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.8,
-          "description": "The score under which the finding informs, at or over which it is ok; `null` turns this band off, and with `warning` also `null` the finding judges nothing. Legacy's hard-coded 0.8, or `warning` where that is higher and `info` is unset.",
-          "title": "Info"
-        }
-      },
-      "title": "CompletenessScoreLimits",
-      "type": "object"
-    },
     "ContentDigestConfig": {
       "additionalProperties": false,
       "description": "Config for ``content-digest``: SHA-256 digests of every item a Dataset holds.\n\nReads each item from the Dataset itself, never through a cache, and digests its image and labels (the content\ndigest, with the class names) and its metadata (the metadata digest), whatever the items' order.\n:func:`~dataeval_flow.dataset_digest` computes the same values, so a training job can check it holds the data a\nrun read. It takes no settings.\n\nExample YAML::\n\n    evaluators:\n      - name: digest\n        type: content-digest",
@@ -3538,28 +3501,6 @@
         }
       },
       "title": "CoverageConfig",
-      "type": "object"
-    },
-    "CoverageGapsLimits": {
-      "additionalProperties": false,
-      "description": "The `factor-coverage-gaps` check's field, with legacy data-coverage's default.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 2,
-          "description": "The most under-represented class-factor-value combinations before the Factor Coverage Gaps finding warns; `null` never warns.",
-          "title": "Warning"
-        }
-      },
-      "title": "CoverageGapsLimits",
       "type": "object"
     },
     "CoverageSettings": {
@@ -4115,6 +4056,56 @@
       "title": "DataAnalysisHealthThresholds",
       "type": "object"
     },
+    "DataCleaningChecks": {
+      "additionalProperties": false,
+      "description": "When data-cleaning's findings warn: each check's settings, keyed by check type.",
+      "properties": {
+        "image-outliers": {
+          "$ref": "#/$defs/ImageOutliersSettings",
+          "description": "The `image-outliers` check's settings."
+        },
+        "target-outliers": {
+          "$ref": "#/$defs/TargetOutliersSettings",
+          "description": "The `target-outliers` check's settings."
+        },
+        "classwise-outliers": {
+          "$ref": "#/$defs/ClasswiseOutliersSettings",
+          "description": "The `classwise-outliers` check's settings."
+        },
+        "image-duplicates": {
+          "$ref": "#/$defs/ImageDuplicatesSettings",
+          "description": "The `image-duplicates` check's settings."
+        },
+        "class-imbalance": {
+          "$ref": "#/$defs/DataCleaningClassImbalanceSettings",
+          "description": "The `class-imbalance` check's settings."
+        }
+      },
+      "title": "DataCleaningChecks",
+      "type": "object"
+    },
+    "DataCleaningClassImbalanceSettings": {
+      "additionalProperties": false,
+      "description": "The `class-imbalance` check's settings in data-cleaning.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "Largest class count over smallest past which the finding warns; `null` judges nothing but an empty class. 3:1 is a common bar for two classes; raise to 10-20:1 for 25 or more classes, whose long tail raises it naturally.",
+          "title": "Warning"
+        }
+      },
+      "title": "DataCleaningClassImbalanceSettings",
+      "type": "object"
+    },
     "DataCleaningConfig": {
       "additionalProperties": false,
       "description": "The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.\n\nThe type is a preset: these settings expand to a chain of steps, whose checks make the findings and whose\n``clean`` step removes each flagged item and each duplicate but the first (see ``DataCleaningWorkflow``).\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outlier_method: zscore\n        outlier_flags: [pixel, visual]",
@@ -4325,9 +4316,9 @@
           "description": "Expected number of clusters for duplicate detection. None = auto-detect.",
           "title": "Duplicate N Clusters"
         },
-        "health_thresholds": {
-          "$ref": "#/$defs/DataCleaningHealthThresholds",
-          "description": "Warning thresholds for dataset health status. Findings are flagged as warnings."
+        "checks": {
+          "$ref": "#/$defs/DataCleaningChecks",
+          "description": "When findings warn, keyed by check type."
         }
       },
       "required": [
@@ -4337,104 +4328,35 @@
       "title": "DataCleaningConfig",
       "type": "object"
     },
-    "DataCleaningHealthThresholds": {
+    "DataCoverageChecks": {
       "additionalProperties": false,
-      "description": "Configurable warning thresholds for data cleaning health status.\n\nEach threshold is a percentage (0\u2013100). When the detected rate exceeds the\nthreshold the corresponding finding is elevated to ``severity=\"warning\"``;\notherwise it stays at ``severity=\"info\"``.\n\nSet a threshold to ``None`` to judge nothing: its finding is still made, as ``info``.",
+      "description": "When data-coverage's findings warn: each check's fields, keyed by check type.",
       "properties": {
-        "exact_duplicates": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.0,
-          "description": "Max allowable % of images in exact-duplicate groups. Exact duplicates are byte-identical images that inflate dataset size without adding information. Default 0% \u2014 any exact duplicates trigger a warning. Raise above 0 only if your pipeline intentionally includes repeated images (e.g. augmentation-before-split workflows).",
-          "title": "Exact Duplicates"
+        "class-imbalance": {
+          "$ref": "#/$defs/DataCoverageClassImbalanceSettings",
+          "description": "The `class-imbalance` check's thresholds."
         },
-        "near_duplicates": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 5.0,
-          "description": "Max allowable % of images in near-duplicate groups. Near duplicates are visually similar images (crops, resizes, minor edits) that can bias model training toward repeated content. Default 5%. Lower to 1\u20132% for curated benchmarks; raise to 10\u201315% for large-scale web-scraped datasets where some redundancy is expected.",
-          "title": "Near Duplicates"
+        "factor-coverage-gaps": {
+          "$ref": "#/$defs/FactorCoverageGapsSettings",
+          "description": "The `factor-coverage-gaps` check's threshold."
         },
-        "image_outliers": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 3.0,
-          "description": "Max allowable % of images flagged as statistical outliers (unusual dimensions, brightness, entropy, or visual statistics). Default 3%. Lower to 1% for safety-critical datasets; raise to 5\u201310% for diverse real-world collections where high visual variance is expected.",
-          "title": "Image Outliers"
+        "class-coverage": {
+          "$ref": "#/$defs/ClassCoverageSettings",
+          "description": "The `class-coverage` check's thresholds."
         },
-        "target_outliers": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 3.0,
-          "description": "Max allowable % of targets (labels/annotations) flagged as outliers (unusual bounding-box sizes, aspect ratios, or annotation counts). Default 3%. Lower to 1% for annotation-quality audits; raise to 5\u201310% for datasets with naturally high annotation variance (e.g. dense object detection).",
-          "title": "Target Outliers"
+        "uncovered-items": {
+          "$ref": "#/$defs/DataCoverageUncoveredItemsSettings",
+          "description": "The `uncovered-items` check's threshold, under `naive` coverage."
         },
-        "classwise_outliers": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 3.0,
-          "description": "Max allowable % of items flagged as outliers within any single class. Default 3%. This catches classes where outlier concentration is disproportionately high, which may indicate labeling errors or class definition issues. Lower to 1% for label-quality audits; raise to 5\u201310% for classes with inherently high visual diversity.",
-          "title": "Classwise Outliers"
-        },
-        "class_label_imbalance": {
-          "anyOf": [
-            {
-              "minimum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 5.0,
-          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1. For binary classification, 3:1 is a common threshold for 'imbalanced'. For large class hierarchies (25+ classes), the long tail naturally increases this ratio \u2014 raise to 10\u201320:1 to avoid false warnings. Set to 1.0 to require perfectly balanced classes.",
-          "title": "Class Label Imbalance"
+        "dimensional-completeness": {
+          "$ref": "#/$defs/DimensionalCompletenessSettings",
+          "description": "The `dimensional-completeness` check's thresholds."
         }
       },
-      "title": "DataCleaningHealthThresholds",
+      "title": "DataCoverageChecks",
       "type": "object"
     },
-    "DataCoverageClassImbalanceLimits": {
+    "DataCoverageClassImbalanceSettings": {
       "additionalProperties": false,
       "description": "The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset: the schema\ngives data-splitting's limits the short name.",
       "properties": {
@@ -4467,7 +4389,7 @@
           "title": "Info"
         }
       },
-      "title": "DataCoverageClassImbalanceLimits",
+      "title": "DataCoverageClassImbalanceSettings",
       "type": "object"
     },
     "DataCoverageConfig": {
@@ -4568,45 +4490,17 @@
           ],
           "description": "The gap analysis's settings; `null` leaves it out."
         },
-        "health_thresholds": {
-          "$ref": "#/$defs/DataCoverageThresholds",
+        "checks": {
+          "$ref": "#/$defs/DataCoverageChecks",
           "description": "When findings warn, keyed by check type."
         }
       },
       "title": "DataCoverageConfig",
       "type": "object"
     },
-    "DataCoverageThresholds": {
+    "DataCoverageUncoveredItemsSettings": {
       "additionalProperties": false,
-      "description": "When data-coverage's findings warn: each check's fields, keyed by check type.",
-      "properties": {
-        "class-imbalance": {
-          "$ref": "#/$defs/DataCoverageClassImbalanceLimits",
-          "description": "The `class-imbalance` check's thresholds."
-        },
-        "factor-coverage-gaps": {
-          "$ref": "#/$defs/CoverageGapsLimits",
-          "description": "The `factor-coverage-gaps` check's threshold."
-        },
-        "class-coverage": {
-          "$ref": "#/$defs/ClassCoverageLimits",
-          "description": "The `class-coverage` check's thresholds."
-        },
-        "uncovered-items": {
-          "$ref": "#/$defs/DataCoverageUncoveredRateLimits",
-          "description": "The `uncovered-items` check's threshold, under `naive` coverage."
-        },
-        "dimensional-completeness": {
-          "$ref": "#/$defs/CompletenessScoreLimits",
-          "description": "The `dimensional-completeness` check's thresholds."
-        }
-      },
-      "title": "DataCoverageThresholds",
-      "type": "object"
-    },
-    "DataCoverageUncoveredRateLimits": {
-      "additionalProperties": false,
-      "description": "The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.\nNamed for the preset, as `DataCoverageClassImbalanceLimits` is.",
+      "description": "The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.\nNamed for the preset, as `DataCoverageClassImbalanceSettings` is.",
       "properties": {
         "warning": {
           "anyOf": [
@@ -4624,7 +4518,7 @@
           "title": "Warning"
         }
       },
-      "title": "DataCoverageUncoveredRateLimits",
+      "title": "DataCoverageUncoveredItemsSettings",
       "type": "object"
     },
     "DataPrioritizationCleaningConfig": {
@@ -4898,6 +4792,48 @@
       "title": "DataPrioritizationConfig",
       "type": "object"
     },
+    "DataSplittingChecks": {
+      "additionalProperties": false,
+      "description": "When data-splitting's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "class-imbalance": {
+          "$ref": "#/$defs/DataSplittingClassImbalanceSettings",
+          "description": "The `class-imbalance` check's thresholds, on the whole set."
+        },
+        "stratification": {
+          "$ref": "#/$defs/StratificationThresholds",
+          "description": "The `stratification` check's thresholds, on each fold."
+        },
+        "uncovered-items": {
+          "$ref": "#/$defs/DataSplittingUncoveredItemsSettings",
+          "description": "The `uncovered-items` check's thresholds, on the whole set and each part, under `naive` coverage."
+        }
+      },
+      "title": "DataSplittingChecks",
+      "type": "object"
+    },
+    "DataSplittingClassImbalanceSettings": {
+      "additionalProperties": false,
+      "description": "The `class-imbalance` check's field, with legacy data-splitting's default.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10.0,
+          "description": "Largest class count over smallest that may hold before the whole set's Class Imbalance finding warns; `null` judges nothing but an empty class.",
+          "title": "Warning"
+        }
+      },
+      "title": "DataSplittingClassImbalanceSettings",
+      "type": "object"
+    },
     "DataSplittingConfig": {
       "additionalProperties": false,
       "description": "The settings of one ``data-splitting`` entry: the split or folds, rebalancing, coverage, and when a finding\nwarns.\n\nExample YAML::\n\n    workflows:\n      - name: splits\n        type: data-splitting\n        folds: 3\n        test_frac: 0.2\n        rebalance: interclass",
@@ -5017,32 +4953,35 @@
           "$ref": "#/$defs/SplittingCoverage",
           "description": "The `coverage` steps' settings, run on the whole set and each part when the task names an extractor."
         },
-        "health_thresholds": {
-          "$ref": "#/$defs/DataSplittingThresholds",
+        "checks": {
+          "$ref": "#/$defs/DataSplittingChecks",
           "description": "When findings warn, keyed by check type."
         }
       },
       "title": "DataSplittingConfig",
       "type": "object"
     },
-    "DataSplittingThresholds": {
+    "DataSplittingUncoveredItemsSettings": {
       "additionalProperties": false,
-      "description": "When data-splitting's findings warn: each check's fields, keyed by check type.",
+      "description": "The `uncovered-items` check's field, with legacy data-splitting's default.",
       "properties": {
-        "class-imbalance": {
-          "$ref": "#/$defs/ClassImbalanceLimits",
-          "description": "The `class-imbalance` check's thresholds, on the whole set."
-        },
-        "stratification": {
-          "$ref": "#/$defs/StratificationThresholds",
-          "description": "The `stratification` check's thresholds, on each fold."
-        },
-        "uncovered-items": {
-          "$ref": "#/$defs/UncoveredRateLimits",
-          "description": "The `uncovered-items` check's thresholds, on the whole set and each part, under `naive` coverage."
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "The percent of a Dataset's items uncovered past which its Uncovered Items finding warns, under `naive` coverage only; `null` judges nothing.",
+          "title": "Warning"
         }
       },
-      "title": "DataSplittingThresholds",
+      "title": "DataSplittingUncoveredItemsSettings",
       "type": "object"
     },
     "DatasetProtocolConfig": {
@@ -5212,6 +5151,44 @@
         "dataset"
       ],
       "title": "DemoDatasetConfig",
+      "type": "object"
+    },
+    "DimensionalCompletenessSettings": {
+      "additionalProperties": false,
+      "description": "The `dimensional-completeness` check's fields, with legacy data-coverage's defaults.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "The completeness score under which the Dimensional Completeness finding warns; `null` turns this band off. Must not exceed `info`. Legacy `completeness_score`.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.8,
+          "description": "The score under which the finding informs, at or over which it is ok; `null` turns this band off, and with `warning` also `null` the finding judges nothing. Legacy's hard-coded 0.8, or `warning` where that is higher and `info` is unset.",
+          "title": "Info"
+        }
+      },
+      "title": "DimensionalCompletenessSettings",
       "type": "object"
     },
     "DivergenceConfig": {
@@ -5823,6 +5800,18 @@
       "title": "DriftMMDDetector",
       "type": "object"
     },
+    "DriftMonitoringChecks": {
+      "additionalProperties": false,
+      "description": "When drift-monitoring's findings warn: the `drift` check's fields, applied to every detector's checks.",
+      "properties": {
+        "drift": {
+          "$ref": "#/$defs/DriftThresholds",
+          "description": "The `drift` check's thresholds, whole-set and by class."
+        }
+      },
+      "title": "DriftMonitoringChecks",
+      "type": "object"
+    },
     "DriftMonitoringConfig": {
       "additionalProperties": false,
       "description": "The settings of one ``drift-monitoring`` entry: the detectors each test source is tested with, which also run\nby class, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: drift\n        type: drift-monitoring\n        detectors:\n          - {type: drift-mmd}\n          - {name: ks, type: drift-univariate, chunking: {chunk_count: 5}}\n        classwise:\n          drift-mmd: class",
@@ -5898,8 +5887,8 @@
           "title": "Classwise",
           "type": "object"
         },
-        "health_thresholds": {
-          "$ref": "#/$defs/DriftMonitoringThresholds",
+        "checks": {
+          "$ref": "#/$defs/DriftMonitoringChecks",
           "description": "When findings warn, keyed by check type."
         }
       },
@@ -5907,18 +5896,6 @@
         "detectors"
       ],
       "title": "DriftMonitoringConfig",
-      "type": "object"
-    },
-    "DriftMonitoringThresholds": {
-      "additionalProperties": false,
-      "description": "When drift-monitoring's findings warn: the `drift` check's fields, applied to every detector's checks.",
-      "properties": {
-        "drift": {
-          "$ref": "#/$defs/DriftThresholds",
-          "description": "The `drift` check's thresholds, whole-set and by class."
-        }
-      },
-      "title": "DriftMonitoringThresholds",
       "type": "object"
     },
     "DriftThresholds": {
@@ -6656,6 +6633,28 @@
       "title": "ExportConfig",
       "type": "object"
     },
+    "FactorCoverageGapsSettings": {
+      "additionalProperties": false,
+      "description": "The `factor-coverage-gaps` check's field, with legacy data-coverage's default.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 2,
+          "description": "The most under-represented class-factor-value combinations before the Factor Coverage Gaps finding warns; `null` never warns.",
+          "title": "Warning"
+        }
+      },
+      "title": "FactorCoverageGapsSettings",
+      "type": "object"
+    },
     "FactorDeviationSettings": {
       "additionalProperties": false,
       "description": "The `factor-deviation` step's own setting.",
@@ -7001,6 +7000,44 @@
       "title": "HuggingFaceDatasetConfig",
       "type": "object"
     },
+    "ImageDuplicatesSettings": {
+      "additionalProperties": false,
+      "description": "The `image-duplicates` check's settings in data-cleaning.",
+      "properties": {
+        "exact": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.0,
+          "description": "Most images, as a percentage of the Dataset, that may sit in exact-duplicate groups before the finding warns; `null` judges nothing. 0 warns on any. Raise it only where repeated images are intended.",
+          "title": "Exact"
+        },
+        "near": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "Most images, as a percentage of the Dataset, that may sit in near-duplicate groups before the finding warns; `null` judges nothing. Lower to 1-2% for curated benchmarks; raise to 10-15% for web-scraped data.",
+          "title": "Near"
+        }
+      },
+      "title": "ImageDuplicatesSettings",
+      "type": "object"
+    },
     "ImageFolderDatasetConfig": {
       "additionalProperties": false,
       "description": "Dataset config for image_folder format.\n\nYAML example::\n\n    datasets:\n      - name: photos\n        format: image_folder\n        path: photos\n        recursive: true\n        infer_labels: true",
@@ -7120,6 +7157,29 @@
       "title": "ImageFolderDatasetConfig",
       "type": "object"
     },
+    "ImageOutliersSettings": {
+      "additionalProperties": false,
+      "description": "The `image-outliers` check's settings in data-cleaning.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Most images, as a percentage of the Dataset, that may be flagged as statistical outliers (unusual dimensions, brightness, entropy, or visual statistics) before the finding warns; `null` judges nothing. Lower to 1% for safety-critical datasets; raise to 5-10% for diverse real-world collections.",
+          "title": "Warning"
+        }
+      },
+      "title": "ImageOutliersSettings",
+      "type": "object"
+    },
     "InputSlot": {
       "additionalProperties": false,
       "description": "One input of a custom workflow, which a task binds to a source.",
@@ -7201,7 +7261,7 @@
       "title": "LabelAlignmentConfig",
       "type": "object"
     },
-    "LabelConformanceLimits": {
+    "LabelConformanceSettings": {
       "additionalProperties": false,
       "description": "The `label-conformance` check's field, with legacy data-coverage's default.",
       "properties": {
@@ -7220,7 +7280,7 @@
           "title": "Warning"
         }
       },
-      "title": "LabelConformanceLimits",
+      "title": "LabelConformanceSettings",
       "type": "object"
     },
     "LabelHealthConfig": {
@@ -7292,6 +7352,22 @@
       "title": "LabelReconciliationConfig",
       "type": "object"
     },
+    "LabelSpaceChecks": {
+      "additionalProperties": false,
+      "description": "When label-space's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "leaf-coverage": {
+          "$ref": "#/$defs/LeafCoverageSettings",
+          "description": "The `leaf-coverage` check's thresholds."
+        },
+        "label-conformance": {
+          "$ref": "#/$defs/LabelConformanceSettings",
+          "description": "The `label-conformance` check's threshold."
+        }
+      },
+      "title": "LabelSpaceChecks",
+      "type": "object"
+    },
     "LabelSpaceConfig": {
       "additionalProperties": false,
       "description": "The settings of one ``label-space`` entry: the ontology to judge labels against, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: vocab\n        type: label-space\n        ontology: vehicles\n        expected: {truck: 0.2}",
@@ -7352,8 +7428,8 @@
           "description": "A regex every ontology label should match, as `ontology-validation` reads it.",
           "title": "Label Pattern"
         },
-        "health_thresholds": {
-          "$ref": "#/$defs/LabelSpaceThresholds",
+        "checks": {
+          "$ref": "#/$defs/LabelSpaceChecks",
           "description": "When findings warn, keyed by check type."
         }
       },
@@ -7363,23 +7439,7 @@
       "title": "LabelSpaceConfig",
       "type": "object"
     },
-    "LabelSpaceThresholds": {
-      "additionalProperties": false,
-      "description": "When label-space's findings warn: each check's fields, keyed by check type.",
-      "properties": {
-        "leaf-coverage": {
-          "$ref": "#/$defs/LeafCoverageLimits",
-          "description": "The `leaf-coverage` check's thresholds."
-        },
-        "label-conformance": {
-          "$ref": "#/$defs/LabelConformanceLimits",
-          "description": "The `label-conformance` check's threshold."
-        }
-      },
-      "title": "LabelSpaceThresholds",
-      "type": "object"
-    },
-    "LeafCoverageLimits": {
+    "LeafCoverageSettings": {
       "additionalProperties": false,
       "description": "The `leaf-coverage` check's fields, with legacy data-coverage's defaults.",
       "properties": {
@@ -7413,7 +7473,7 @@
           "title": "Empty Branches"
         }
       },
-      "title": "LeafCoverageLimits",
+      "title": "LeafCoverageSettings",
       "type": "object"
     },
     "LoggingConfig": {
@@ -7495,6 +7555,21 @@
         "step"
       ],
       "title": "MatrixRange",
+      "type": "object"
+    },
+    "MetadataIssuesSettings": {
+      "additionalProperties": false,
+      "description": "The `metadata-issues` check's settings in metadata-triage.",
+      "properties": {
+        "max_examples": {
+          "default": 20,
+          "description": "Distinct values shown per kind per factor in the report. Display only: a suggested correction always enumerates every value, because one covering a truncated set would read as complete and not be.",
+          "minimum": 1,
+          "title": "Max Examples",
+          "type": "integer"
+        }
+      },
+      "title": "MetadataIssuesSettings",
       "type": "object"
     },
     "MetadataPolicyConfig": {
@@ -7700,9 +7775,21 @@
       "title": "MetadataPolicyConfig",
       "type": "object"
     },
+    "MetadataTriageChecks": {
+      "additionalProperties": false,
+      "description": "metadata-triage's check settings, keyed by check type.",
+      "properties": {
+        "metadata-issues": {
+          "$ref": "#/$defs/MetadataIssuesSettings",
+          "description": "The `metadata-issues` check's settings."
+        }
+      },
+      "title": "MetadataTriageChecks",
+      "type": "object"
+    },
     "MetadataTriageConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``factor-triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``metadata-issues`` check, which takes ``max_examples``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        max_examples: 20",
+      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``factor-triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``metadata-issues`` check, which takes ``max_examples``\nunder ``checks``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        checks:\n          metadata-issues:\n            max_examples: 20",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -7746,12 +7833,9 @@
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
-        "max_examples": {
-          "default": 20,
-          "description": "Distinct values shown per kind per factor in the report. Display only \u2014 a suggested correction always enumerates every value, because one covering a truncated set would read as complete and not be.",
-          "minimum": 1,
-          "title": "Max Examples",
-          "type": "integer"
+        "checks": {
+          "$ref": "#/$defs/MetadataTriageChecks",
+          "description": "The `metadata-issues` check's settings, keyed by check type."
         },
         "verify": {
           "default": true,
@@ -7778,9 +7862,25 @@
       "title": "MetadataTriageConfig",
       "type": "object"
     },
+    "OODDetectionChecks": {
+      "additionalProperties": false,
+      "description": "When ood-detection's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "ood": {
+          "$ref": "#/$defs/OODThresholds",
+          "description": "The `ood` check's thresholds, applied to each detector's check."
+        },
+        "ood-agreement": {
+          "$ref": "#/$defs/OODThresholds",
+          "description": "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s, as legacy judged both with one pair."
+        }
+      },
+      "title": "OODDetectionChecks",
+      "type": "object"
+    },
     "OODDetectionConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``ood-detection`` entry: the detectors each test source is scored with, whether the metadata\nbehind what they flag is explained, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: ood\n        type: ood-detection\n        detectors:\n          - {type: ood-kneighbors, k: 10}\n          - {type: ood-domain-classifier, n_folds: 5}\n        health_thresholds:\n          ood: {warning: 10.0, info: 1.0}",
+      "description": "The settings of one ``ood-detection`` entry: the detectors each test source is scored with, whether the metadata\nbehind what they flag is explained, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: ood\n        type: ood-detection\n        detectors:\n          - {type: ood-kneighbors, k: 10}\n          - {type: ood-domain-classifier, n_folds: 5}\n        checks:\n          ood: {warning: 10.0, info: 1.0}",
       "properties": {
         "stats": {
           "anyOf": [
@@ -7869,8 +7969,8 @@
           "$ref": "#/$defs/FactorDeviationSettings",
           "description": "The `factor-deviation` step's settings."
         },
-        "health_thresholds": {
-          "$ref": "#/$defs/OODDetectionThresholds",
+        "checks": {
+          "$ref": "#/$defs/OODDetectionChecks",
           "description": "When findings warn, keyed by check type."
         }
       },
@@ -7878,22 +7978,6 @@
         "detectors"
       ],
       "title": "OODDetectionConfig",
-      "type": "object"
-    },
-    "OODDetectionThresholds": {
-      "additionalProperties": false,
-      "description": "When ood-detection's findings warn: each check's fields, keyed by check type.",
-      "properties": {
-        "ood": {
-          "$ref": "#/$defs/OODThresholds",
-          "description": "The `ood` check's thresholds, applied to each detector's check."
-        },
-        "ood-agreement": {
-          "$ref": "#/$defs/OODThresholds",
-          "description": "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s, as legacy judged both with one pair."
-        }
-      },
-      "title": "OODDetectionThresholds",
       "type": "object"
     },
     "OODDomainClassifierConfig": {
@@ -10558,6 +10642,29 @@
       "title": "StratificationThresholds",
       "type": "object"
     },
+    "TargetOutliersSettings": {
+      "additionalProperties": false,
+      "description": "The `target-outliers` check's settings in data-cleaning.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Most targets (boxes), as a percentage of all, that may be flagged as outliers (unusual box sizes, aspect ratios, or annotation counts) before the finding warns; `null` judges nothing. Lower to 1% for annotation-quality audits; raise to 5-10% for dense object detection.",
+          "title": "Warning"
+        }
+      },
+      "title": "TargetOutliersSettings",
+      "type": "object"
+    },
     "TaskConfig": {
       "additionalProperties": false,
       "description": "Task/workflow configuration schema.\n\nTasks reference sources (dataset+selection bundles) and an optional\nextractor (model+preprocessor+batch_size bundle) by name.\n\nA config file names what a task runs under ``workflow:`` or ``evaluator:``, so the\nfile says which kind of task it is. Loaded, either lands in ``workflow``, and ``kind``\nrecords which key the file used. Running a task reads ``kind`` only to look the name\nup in ``workflows:`` or ``evaluators:``; saved, the task is written back under its key.",
@@ -11507,29 +11614,6 @@
         "preds_type"
       ],
       "title": "UncertaintyExtractorConfig",
-      "type": "object"
-    },
-    "UncoveredRateLimits": {
-      "additionalProperties": false,
-      "description": "The `uncovered-items` check's field, with legacy data-splitting's default.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 5.0,
-          "description": "The percent of a Dataset's items uncovered past which its Uncovered Items finding warns, under `naive` coverage only; `null` judges nothing.",
-          "title": "Warning"
-        }
-      },
-      "title": "UncoveredRateLimits",
       "type": "object"
     },
     "ViewConfig": {

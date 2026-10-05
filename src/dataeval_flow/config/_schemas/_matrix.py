@@ -64,9 +64,7 @@ class MatrixRange(BaseModel):
 def _dotted_keys(grid: dict[str, Any]) -> dict[str, Any]:
     for key in grid:
         if not _KEY.match(key):
-            raise ValueError(
-                f"`{key}` is not a matrix key: a key is dotted names, such as `health_thresholds.ood.warning`"
-            )
+            raise ValueError(f"`{key}` is not a matrix key: a key is dotted names, such as `checks.ood.warning`")
     return grid
 
 

@@ -519,7 +519,7 @@ class TestSectionViewModel:
     def test_drift_monitoring_loads_its_fields(self) -> None:
         vm = SectionViewModel("workflows")
         names = [descriptor.name for descriptor in vm.load_fields("drift-monitoring")]
-        assert names == ["ontology", "detectors", "classwise", "health_thresholds"]
+        assert names == ["ontology", "detectors", "classwise", "checks"]
 
     def test_get_variant_descriptors(self, plugins) -> None:
         register_union(plugins)

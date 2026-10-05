@@ -49,13 +49,12 @@
         "duplicate_cluster_sensitivity": 0.5,
         "duplicate_cluster_algorithm": "hdbscan",
         "duplicate_n_clusters": 4,
-        "health_thresholds": {
-          "exact_duplicates": 0.0,
-          "near_duplicates": 5.0,
-          "image_outliers": 5.0,
-          "target_outliers": 10.0,
-          "classwise_outliers": 12.0,
-          "class_label_imbalance": 5.0
+        "checks": {
+          "image-duplicates": {"exact": 0.0, "near": 5.0},
+          "image-outliers": {"warning": 5.0},
+          "target-outliers": {"warning": 10.0},
+          "classwise-outliers": {"warning": 12.0},
+          "class-imbalance": {"warning": 5.0}
         }
       },
       "extractor": {

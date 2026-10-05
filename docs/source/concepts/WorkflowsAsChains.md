@@ -176,7 +176,7 @@ pair, and it leaves one record saying so.
 
 A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning`, `data-prioritization`,
 `metadata-triage`, `drift-monitoring`, `ood-detection`, `data-splitting`, `label-space` and `data-coverage` are presets.
-Data-cleaning's evaluators find outliers and duplicates, its checks judge them against `health_thresholds`, and its
+Data-cleaning's evaluators find outliers and duplicates, its checks judge them against `checks`, and its
 `clean` step removes what they flagged. The [Check and Combine Catalog](../reference/checks.md#data-cleaning-is-this-chain)
 lists the chain. The other workflow types will follow.
 Until then, each runs as one step that makes its result, and its findings stay in that step.

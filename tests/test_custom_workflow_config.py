@@ -11,7 +11,7 @@ from dataeval_flow import PipelineConfig, load_config, run
 from dataeval_flow.config.extractors import FlattenExtractorConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import CustomWorkflowConfig, InputSlot, StepEntry
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningHealthThresholds
+from dataeval_flow.workflows.data_cleaning import DataCleaningChecks, DataCleaningConfig
 from tests.chain_toys import chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages
 
@@ -194,12 +194,12 @@ def test_save_writes_each_definition_into_its_section_with_the_settings_it_was_g
 
 
 def test_each_saved_definition_loads_back_as_it_was(tmp_path: Path) -> None:
-    # `image_outliers: null` judges nothing, where the default judges: a setting given as `None` must survive.
+    # `warning: null` judges nothing, where the default judges: a setting given as `None` must survive.
     cleaning = DataCleaningConfig(
         name="basic",
         outlier_method="zscore",
         outlier_flags=["pixel"],
-        health_thresholds=DataCleaningHealthThresholds(image_outliers=None),
+        checks=DataCleaningChecks.model_validate({"image-outliers": {"warning": None}}),
     )
     path = tmp_path / "my_clean.yaml"
     CustomWorkflowConfig.model_validate(_CLEAN).save(

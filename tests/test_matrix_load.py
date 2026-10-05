@@ -58,9 +58,9 @@ def test_each_run_is_a_validated_pipeline_holding_only_its_task() -> None:
 
 
 def test_a_path_into_a_nested_setting_left_at_its_default_sets_it() -> None:
-    config = _cleaning({"health_thresholds.image_outliers": [1.0, 5.0]})
+    config = _cleaning({"checks.image-outliers.warning": [1.0, 5.0]})
     runs = _runs(config)
-    assert [run.pipeline.workflows[0].health_thresholds.image_outliers for run in runs] == [1.0, 5.0]
+    assert [run.pipeline.workflows[0].checks.image_outliers.warning for run in runs] == [1.0, 5.0]
 
 
 def test_an_untouched_entry_passes_through_as_the_same_instance() -> None:
@@ -223,8 +223,8 @@ def test_a_sibling_task_is_not_checked_against_the_matrix_s_overrides() -> None:
         ({"outlier_threshold": [-1.0]}, "run 1 (outlier_threshold=-1.0)"),
         ({"outlier_threshold": [3, 3.0]}, "runs 1 and 2"),
         ({"outlier_threshold.x": [1.0]}, "is unset, so `outlier_threshold.x` has nothing to set"),
-        ([{"health_thresholds": [{}], "health_thresholds.near_duplicates": [1.0]}], "sets part of"),
-        ([{"health_thresholds": [None], "health_thresholds.near_duplicates": [1.0]}], "sets part of"),
+        ([{"checks": [{}], "checks.image-duplicates.near": [1.0]}], "sets part of"),
+        ([{"checks": [None], "checks.image-duplicates.near": [1.0]}], "sets part of"),
         ({"sources": [None]}, "`sources` value null is not a source name or a list of them"),
         ({"sources": [5]}, "`sources` value 5 is not a source name or a list of them"),
         ({"extractor": [["flat"]]}, "`extractor` value [flat] is not an extractor name or null"),
@@ -334,7 +334,7 @@ def test_a_detector_s_own_extractor_is_read_by_the_run() -> None:
 
 
 def test_the_matrix_as_written_is_never_written_into() -> None:
-    written = [{"health_thresholds": [{"near_duplicates": 2.0}]}, {"health_thresholds.near_duplicates": [1.0]}]
+    written = [{"checks": [{"image-duplicates": {"near": 2.0}}]}, {"checks.image-duplicates.near": [1.0]}]
     config = _cleaning(copy.deepcopy(written))
-    assert [run.pipeline.workflows[0].health_thresholds.near_duplicates for run in _runs(config)] == [2.0, 1.0]
+    assert [run.pipeline.workflows[0].checks.image_duplicates.near for run in _runs(config)] == [2.0, 1.0]
     assert config.tasks[0].matrix == written

@@ -154,11 +154,11 @@ Labels that fail are reported in the ontology's structure.
 - Structure, by `ontology-structure`: the ontology's size, depth and naming. It warns on a label several concepts
   share.
 
-Two of the checks have thresholds, set under `health_thresholds` and keyed by check type. `null` turns a threshold
+Two of the checks have thresholds, set under `checks` and keyed by check type. `null` turns a threshold
 off. The values below are the defaults:
 
 ```yaml
-    health_thresholds:
+    checks:
       leaf-coverage: {coverage: 0.9, empty_branches: 0}
       label-conformance: {warning: 0}
 ```
@@ -185,4 +185,4 @@ a label space, that record's digest is used instead.
 - [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html) — the
   authoritative treatment of ontologies and the reconciliation, alignment, and validation operations over them
 - {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field on `LabelSpaceConfig` and
-  `LabelSpaceThresholds`
+  `LabelSpaceChecks`

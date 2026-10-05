@@ -15,14 +15,14 @@ from dataeval_flow.workflows.data_cleaning._config import DataCleaningConfig
 
 
 class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
-    """Finds outliers and duplicates in one dataset, judges them against ``health_thresholds``, and removes them.
+    """Finds outliers and duplicates in one dataset, judges them against ``checks``, and removes them.
 
     The settings expand to this chain, run on the task's one source, ``data``:
 
     - ``outliers`` (the ``outliers`` evaluator, per box on detection data), ``labels`` (``label-health``),
       ``by-class`` (``outliers-by-class``) and ``dupes`` (``duplicates``);
     - the checks ``image-outliers``, ``target-outliers``, ``classwise``, ``duplicates`` and ``imbalance``, each
-      judged against its ``health_thresholds`` entry;
+      judged against its ``checks`` entry;
     - ``clean`` (``remove``): the dataset without each flagged image and box, and without each duplicate but the
       first of its group.
 
@@ -38,7 +38,7 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
     @classmethod
     def chain(cls, config: DataCleaningConfig) -> PresetChain:
         """The evaluators these settings configure, the checks their thresholds judge by, and the removal."""
-        limits = config.health_thresholds
+        limits = config.checks
         method: Any = (
             config.outlier_method
             if config.outlier_threshold is None
@@ -75,33 +75,32 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
                 "name": "image-outliers",
                 "check": "image-outliers",
                 "input": "outliers",
-                "warning": limits.image_outliers,
+                **limits.image_outliers.model_dump(),
             },
             {
                 "name": "target-outliers",
                 "check": "target-outliers",
                 "input": "outliers",
                 "labels": "labels",
-                "warning": limits.target_outliers,
+                **limits.target_outliers.model_dump(),
             },
             {
                 "name": "classwise",
                 "check": "classwise-outliers",
                 "input": "by-class",
-                "warning": limits.classwise_outliers,
+                **limits.classwise_outliers.model_dump(),
             },
             {
                 "name": "duplicates",
                 "check": "image-duplicates",
                 "input": "dupes",
-                "exact": limits.exact_duplicates,
-                "near": limits.near_duplicates,
+                **limits.image_duplicates.model_dump(),
             },
             {
                 "name": "imbalance",
                 "check": "class-imbalance",
                 "input": "labels",
-                "warning": limits.class_label_imbalance,
+                **limits.class_imbalance.model_dump(),
             },
             {
                 "name": "clean",

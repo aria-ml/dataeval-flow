@@ -123,11 +123,11 @@ tasks:
     sources: train
     matrix:
       outlier_threshold: {from: 2.5, to: 4.5, step: 0.5}
-      health_thresholds.image_outliers: [3.0, 10.0]
+      checks.image-outliers.warning: [3.0, 10.0]
 ```
 
-That is 5 × 2 = 10 runs: run 1 is `outlier_threshold=2.5, health_thresholds.image_outliers=3.0`, run 2 is
-`outlier_threshold=2.5, health_thresholds.image_outliers=10.0`, and so on. Each run's label, in the table, the logs
+That is 5 × 2 = 10 runs: run 1 is `outlier_threshold=2.5, checks.image-outliers.warning=3.0`, run 2 is
+`outlier_threshold=2.5, checks.image-outliers.warning=10.0`, and so on. Each run's label, in the table, the logs
 and the JSON, names its grid's keys and values in the order written.
 
 **Several grids**, a list of them, run in turn, each grid's runs together, numbered from 1 across the matrix. Write
@@ -156,8 +156,8 @@ The load refuses:
 - **Duplicate runs**, two runs that set the same settings to the same values once validated, whatever the order of
   their keys. On a float setting, `outlier_threshold: [3, 3.0]` is a duplicate:
   `runs 1 and 2 (outlier_threshold=3.0) set the same settings; drop one`. So is one combination two grids both reach.
-- **Two keys in one grid where one sets part of the other**, such as `health_thresholds` and
-  `health_thresholds.image_outliers`, since which one wins would be a guess. In separate grids they are fine.
+- **Two keys in one grid where one sets part of the other**, such as `checks` and
+  `checks.image-outliers.warning`, since which one wins would be a guess. In separate grids they are fine.
 - An empty matrix, a grid with no keys, and a key with an empty list.
 
 ## 3. Name the setting a key varies
@@ -174,8 +174,8 @@ A key is a dotted path, read as the first of these forms that matches:
 | `steps.<step>.<setting>` | A setting of a transform, combine or check step in the custom workflow the task runs |
 | anything else | A path into the entry the task runs |
 
-A path walks fields by name: `health_thresholds.image_outliers` sets one field of `data-cleaning`'s
-`health_thresholds`. The sections below give an example of each other form.
+A path walks fields by name: `checks.image-outliers.warning` sets one field of `data-cleaning`'s
+`checks`. The sections below give an example of each other form.
 
 ### List items by name
 

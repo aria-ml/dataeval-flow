@@ -25,7 +25,7 @@ from tests.triage_toys import AltitudeDataset, LatitudeDataset, MixedWeightDatas
 def test_parameters_default_to_verifying():
     params = MetadataTriageConfig()
     assert params.verify is True
-    assert params.max_examples == 20
+    assert params.checks.metadata_issues.max_examples == 20
     assert params.default_bins == 10
     assert params.min_missing_fraction == 0.2
 

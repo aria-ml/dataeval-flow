@@ -306,7 +306,7 @@ The [Check and Combine Catalog](../reference/checks.md) lists every check and it
 ## 6. Run data-cleaning as a step
 
 A workflow type that is a preset, such as `data-cleaning`, runs as a step with its whole chain: its evaluators, the
-checks that judge them against its `health_thresholds`, and a `clean` step that removes each flagged image and box,
+checks that judge them against its `checks`, and a `clean` step that removes each flagged image and box,
 and each duplicate but the first. Name the entry with `workflow:`, and read the cleaned Dataset as `cleaning.clean`:
 
 ```yaml

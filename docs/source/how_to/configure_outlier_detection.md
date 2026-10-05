@@ -101,22 +101,21 @@ groups to expect.
 
 ## Decide when a finding becomes a warning
 
-Detection and *severity* are separate concerns. `health_thresholds` sets the rate at which each finding is elevated
+Detection and *severity* are separate concerns. `checks` sets the rate at which each finding is elevated
 from `info` to `warning` in the report's health line — it does not change what is detected.
 
 ```yaml
-    health_thresholds:
-      exact_duplicates: 0.0         # any byte-identical image warns
-      near_duplicates: 5.0          # % of images in near-duplicate groups
-      image_outliers: 5.0           # % of images flagged
-      target_outliers: 10.0         # % of labels/annotations flagged
-      classwise_outliers: 12.0      # % flagged within any single class
-      class_label_imbalance: 5.0    # max:min class count ratio
+    checks:
+      image-duplicates: {exact: 0.0, near: 5.0}  # % of images in exact- and near-duplicate groups
+      image-outliers: {warning: 5.0}             # % of images flagged
+      target-outliers: {warning: 10.0}           # % of labels/annotations flagged
+      classwise-outliers: {warning: 12.0}        # % flagged within any single class
+      class-imbalance: {warning: 5.0}            # max:min class count ratio
 ```
 
 Rough guidance: tighten toward 1–2% for curated benchmarks and safety-critical datasets; loosen toward 10–15% for
 large web-scraped or naturally diverse collections. For a class hierarchy with a long tail, raise
-`class_label_imbalance` to 10–20 to avoid a warning that only restates the domain.
+`class-imbalance` to 10–20 to avoid a warning that only restates the domain.
 
 ## Verify the effect
 
@@ -141,4 +140,4 @@ inspection.
 - [DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html) — the
   authoritative treatment of the detection methods themselves
 - {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field and default on
-  `DataCleaningConfig` and `DataCleaningHealthThresholds`
+  `DataCleaningConfig` and `DataCleaningChecks`

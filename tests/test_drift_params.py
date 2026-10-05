@@ -65,7 +65,7 @@ def test_defaults() -> None:
     config = _config(detectors=[{"type": "drift-mmd"}])
     assert config.type == "drift-monitoring"
     assert config.classwise == {}
-    assert config.health_thresholds.drift == DriftThresholds()
+    assert config.checks.drift == DriftThresholds()
 
 
 def test_a_dump_keeps_each_detector_s_own_settings_and_validates_back() -> None:
@@ -79,10 +79,10 @@ def test_a_dump_keeps_each_detector_s_own_settings_and_validates_back() -> None:
     assert DriftMonitoringConfig.model_validate(dumped) == config
 
 
-def test_health_thresholds_hold_the_drift_check_s_fields() -> None:
+def test_checks_hold_the_drift_check_s_fields() -> None:
     drift = {"warn_on_drift": False, "chunk_percent": None, "consecutive_chunks": 2}
-    config = _config(detectors=[{"type": "drift-mmd"}], health_thresholds={"drift": drift})
-    assert config.health_thresholds.drift.model_dump() == drift
+    config = _config(detectors=[{"type": "drift-mmd"}], checks={"drift": drift})
+    assert config.checks.drift.model_dump() == drift
 
 
 @pytest.mark.parametrize(
@@ -100,7 +100,7 @@ def test_health_thresholds_hold_the_drift_check_s_fields() -> None:
         ({"detectors": [{"type": "drift-mmd"}], "classwise": {"ks": "class"}}, "`ks`"),
         ({"detectors": [{"type": "drift-mmd"}], "classwise": ["drift-mmd"]}, "maps each detector to its `by:`"),
         ({"detectors": [{"type": "drift-mmd"}], "update_strategy": {"type": "last_seen", "n": 5}}, "update_strategy"),
-        ({"detectors": [{"type": "drift-mmd"}], "health_thresholds": {"any_drift_is_warning": True}}, "any_drift"),
+        ({"detectors": [{"type": "drift-mmd"}], "checks": {"any_drift_is_warning": True}}, "any_drift"),
     ],
 )
 def test_load_refuses(settings: dict[str, Any], message: str) -> None:

@@ -123,28 +123,34 @@ def _configuration(result: ChainResult) -> list[str]:
 
 
 def test_the_report_keeps_a_threshold_the_user_set_to_null_and_drops_unset_defaults() -> None:
-    shown = _configuration(_task(ToyImages(count=12), health_thresholds={"image_outliers": None}))
-    assert "image_outliers: None" in shown
+    shown = _configuration(_task(ToyImages(count=12), checks={"image-outliers": {"warning": None}}))
+    assert "image-outliers: {warning: None}" in shown
     assert "stats: None" not in shown
     assert "metadata: None" not in shown
-    assert not [line for line in shown if line.endswith(": None") and line != "image_outliers: None"]
+    assert not [line for line in shown if "None" in line and line != "image-outliers: {warning: None}"]
 
 
 def test_the_report_keeps_every_threshold_the_user_nulled() -> None:
     nulls = {
-        "near_duplicates": None,
-        "image_outliers": None,
-        "target_outliers": None,
-        "classwise_outliers": None,
-        "class_label_imbalance": None,
+        "image-duplicates": {"near": None},
+        "image-outliers": {"warning": None},
+        "target-outliers": {"warning": None},
+        "classwise-outliers": {"warning": None},
+        "class-imbalance": {"warning": None},
     }
-    shown = _configuration(_task(ToyImages(count=12), health_thresholds=nulls))
-    assert "health_thresholds:" in shown
-    assert sorted(line for line in shown if line.endswith(": None")) == sorted(f"{key}: None" for key in nulls)
+    shown = _configuration(_task(ToyImages(count=12), checks=nulls))
+    assert "checks:" in shown
+    assert sorted(line for line in shown if "None" in line) == [
+        "class-imbalance: {warning: None}",
+        "classwise-outliers: {warning: None}",
+        "image-duplicates: {exact: 0.0, near: None}",
+        "image-outliers: {warning: None}",
+        "target-outliers: {warning: None}",
+    ]
 
 
 def test_a_null_threshold_judges_nothing() -> None:
-    result = _task(ToyImages(count=12), health_thresholds={"image_outliers": None})
+    result = _task(ToyImages(count=12), checks={"image-outliers": {"warning": None}})
     assert _verdicts(result)[0] == ("info", "Image Outliers", "1 images (8.3%)", "image-outliers")
 
 
@@ -246,13 +252,12 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
         duplicate_n_clusters=5,
         metadata="policy",
         stats="measured",
-        health_thresholds={  # type: ignore[arg-type]
-            "exact_duplicates": 1.0,
-            "near_duplicates": 9.0,
-            "image_outliers": 6.0,
-            "target_outliers": 7.0,
-            "classwise_outliers": 8.0,
-            "class_label_imbalance": None,
+        checks={  # type: ignore[arg-type]
+            "image-duplicates": {"exact": 1.0, "near": 9.0},
+            "image-outliers": {"warning": 6.0},
+            "target-outliers": {"warning": 7.0},
+            "classwise-outliers": {"warning": 8.0},
+            "class-imbalance": {"warning": None},
         },
     )
     chain = DataCleaningWorkflow.chain(config)

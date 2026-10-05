@@ -94,7 +94,7 @@ from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
 
 triage_workflow = MetadataTriageConfig(
     name="triage",
-    max_examples=6,  # distinct values shown per column in the report
+    checks={"metadata-issues": {"max_examples": 6}},  # distinct values shown per column in the report
 )
 
 task = TaskConfig(

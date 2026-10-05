@@ -242,10 +242,9 @@ workflows:
     outlier_threshold: 3.5         # optional custom threshold
     duplicate_cluster_sensitivity: 0.5
     duplicate_cluster_algorithm: hdbscan
-    health_thresholds:
-      exact_duplicates: 0.0
-      near_duplicates: 5.0
-      image_outliers: 5.0
+    checks:
+      image-duplicates: {exact: 0.0, near: 5.0}
+      image-outliers: {warning: 5.0}
 ```
 ````
 ````{tab-item} data-analysis
@@ -326,7 +325,7 @@ workflows:
     type: data-coverage
     coverage: {method: adaptive}     # adaptive | naive; embeds only when the task names an extractor
     gaps: {mi_threshold: 0.1, min_representation: 5}   # null leaves out the gap analysis
-    health_thresholds:
+    checks:
       class-imbalance: {warning: 5.0}
       factor-coverage-gaps: {warning: 3}
 ```
@@ -341,7 +340,7 @@ workflows:
   - name: vocab_check
     type: label-space
     ontology: config/taxonomy.ttl    # an ontologies: entry, an RDF file, or an inline hierarchy
-    health_thresholds:
+    checks:
       leaf-coverage: {coverage: 0.9, empty_branches: 0}
       label-conformance: {warning: 0}
 ```
@@ -356,7 +355,8 @@ workflows:
   - name: triage
     type: metadata-triage
     metadata: standard             # the policy under triage
-    max_examples: 20
+    checks:
+      metadata-issues: {max_examples: 20}
     verify: true                   # re-read the metadata under the suggestions
 ```
 ````

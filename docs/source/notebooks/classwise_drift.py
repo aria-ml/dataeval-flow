@@ -271,7 +271,7 @@ from dataeval_flow.config import (
 from dataeval_flow.config.extractors import TorchExtractorConfig
 from dataeval_flow.evaluators.shift import ChunkedDriftConfig, DriftKNeighborsConfig
 from dataeval_flow.steps.checks import DriftThresholds
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig, DriftMonitoringThresholds
+from dataeval_flow.workflows.drift_monitoring import DriftMonitoringChecks, DriftMonitoringConfig
 
 # --- Datasets (in-memory via DatasetProtocolConfig) ---
 ref_config = DatasetProtocolConfig(
@@ -324,7 +324,7 @@ drift_workflow_config = DriftMonitoringConfig(
     detectors=[
         DriftKNeighborsConfig(k=10, chunking=ChunkedDriftConfig(chunk_count=5, threshold=("zscore", 1.5))),
     ],
-    health_thresholds=DriftMonitoringThresholds(drift=DriftThresholds(chunk_percent=15.0, consecutive_chunks=2)),
+    checks=DriftMonitoringChecks(drift=DriftThresholds(chunk_percent=15.0, consecutive_chunks=2)),
 )
 
 # --- Phase 1: Overall drift with chunking (no classwise) ---
@@ -402,7 +402,7 @@ classwise_config = PipelineConfig(
                 DriftUnivariateConfig(method="cvm"),
             ],
             classwise={"drift-mmd": "class", "drift-univariate": "class"},
-            health_thresholds=DriftMonitoringThresholds(drift=DriftThresholds(warn_on_drift=True)),
+            checks=DriftMonitoringChecks(drift=DriftThresholds(warn_on_drift=True)),
         ),
     ],
     tasks=[classwise_task],
@@ -572,7 +572,7 @@ print(grouped_result.report())
 #   triggering classwise diagnostics only when warnings appear.
 # - **Alternative backbones**: Evaluate larger pretrained models or ONNX extractors via
 #   [Use an ONNX model for embeddings](onnx_embeddings).
-# - **Health thresholds**: Tune `health_thresholds` to control warning triggers.
+# - **Health thresholds**: Tune `checks` to control warning triggers.
 # - **More recipes**: [Monitor drift with steps](../how_to/monitor_drift.md) merges test sources, compares
 #   one group of classes against another, and drifts on detection crops.
 

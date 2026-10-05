@@ -97,9 +97,9 @@ def test_a_whole_dump_of_a_kfold_entry_reloads() -> None:
 
 def test_thresholds_are_keyed_by_check_type() -> None:
     entry = DataSplittingConfig.model_validate(
-        {"health_thresholds": {"class-imbalance": {"warning": 3}, "uncovered-items": {"warning": 1}}}
+        {"checks": {"class-imbalance": {"warning": 3}, "uncovered-items": {"warning": 1}}}
     )
-    dumped = entry.model_dump(mode="json")["health_thresholds"]
+    dumped = entry.model_dump(mode="json")["checks"]
     assert (dumped["class-imbalance"]["warning"], dumped["uncovered-items"]["warning"]) == (3, 1)
 
 

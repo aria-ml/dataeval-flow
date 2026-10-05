@@ -112,7 +112,15 @@ from dataeval_flow.config import (
     ViewOperation,
 )
 from dataeval_flow.config.extractors import BoVWExtractorConfig
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningHealthThresholds
+from dataeval_flow.workflows.data_cleaning import (
+    ClasswiseOutliersSettings,
+    DataCleaningChecks,
+    DataCleaningClassImbalanceSettings,
+    DataCleaningConfig,
+    ImageDuplicatesSettings,
+    ImageOutliersSettings,
+    TargetOutliersSettings,
+)
 
 workflow = DataCleaningConfig(
     name="skysealand_cleaning",
@@ -125,13 +133,23 @@ workflow = DataCleaningConfig(
     duplicate_cluster_sensitivity=0.5,  # Duplicate detection: hash-based plus cluster-based.
     duplicate_cluster_algorithm="hdbscan",
     duplicate_n_clusters=4,
-    health_thresholds=DataCleaningHealthThresholds(
-        exact_duplicates=0.0,  # No exact duplicates allowed (default)
-        near_duplicates=5.0,  # Up to 5% near duplicates before warning (default)
-        image_outliers=5.0,  # Relaxed from 3% default for four collection sites and varied sensors
-        target_outliers=10.0,  # Relaxed from 3% default for annotation variance in object detection
-        classwise_outliers=12.0,  # Relaxed from 3% default for diverse class appearances
-        class_label_imbalance=5.0,  # Default; the 300-frame sample sits at 2.4:1, well inside it
+    checks=DataCleaningChecks(
+        image_duplicates=ImageDuplicatesSettings(
+            exact=0.0,  # No exact duplicates allowed (default)
+            near=5.0,  # Up to 5% near duplicates before warning (default)
+        ),
+        image_outliers=ImageOutliersSettings(
+            warning=5.0  # Relaxed from 3% default for four collection sites and varied sensors
+        ),
+        target_outliers=TargetOutliersSettings(
+            warning=10.0  # Relaxed from 3% default for annotation variance in object detection
+        ),
+        classwise_outliers=ClasswiseOutliersSettings(
+            warning=12.0  # Relaxed from 3% default for diverse class appearances
+        ),
+        class_imbalance=DataCleaningClassImbalanceSettings(
+            warning=5.0  # Default; the 300-frame sample sits at 2.4:1, well inside it
+        ),
     ),
 )
 
@@ -186,7 +204,7 @@ print(result.report())
 # ### Findings and steps
 #
 # `data-cleaning` is a preset: its settings expand to a chain of steps. Evaluators find the outliers and duplicates
-# and count the labels, checks judge what they found against `health_thresholds`, and `clean` removes what was
+# and count the labels, checks judge what they found against `checks`, and `clean` removes what was
 # flagged. The report above gives each finding a section, with the evaluators it judged below it, then a section
 # for each step no finding showed, such as `clean`, and a table of every step. `run_task()` returns a `ChainResult`
 # holding each step by name, in run order:
@@ -211,17 +229,16 @@ for finding in result.findings:
 # - **info** (`[..]`): Finding is within the allowable threshold.
 # - **warning** (`[!!]`): Finding exceeds the threshold and requires review.
 #
-# You can configure health thresholds using `DataCleaningHealthThresholds` on
-# `health_thresholds`. The default values are:
+# You can configure when findings warn with `checks`, keyed by check type. The default values are:
 #
 # | Metric | Default | When to adjust |
 # |---|---|---|
-# | `exact_duplicates` | 0% | Raise above 0 only if your pipeline intentionally repeats images |
-# | `near_duplicates` | 5% | Lower to 1–2% for curated benchmarks; raise to 10–15% for web-scraped data |
-# | `image_outliers` | 3% | Lower to 1% for safety-critical data; raise to 5–10% for visually diverse collections |
-# | `target_outliers` | 3% | Lower to 1% for annotation audits; raise to 5–10% for dense object detection |
-# | `classwise_outliers` | 3% | Lower to 1% for label-quality audits; raise to 5–10% for diverse classes |
-# | `class_label_imbalance` | 5:1 | Lower to 3:1 for binary; raise to 10–20:1 for large hierarchies (25+ classes) |
+# | `image-duplicates.exact` | 0% | Raise above 0 only if your pipeline intentionally repeats images |
+# | `image-duplicates.near` | 5% | Lower to 1–2% for curated benchmarks; raise to 10–15% for web-scraped data |
+# | `image-outliers.warning` | 3% | Lower to 1% for safety-critical data; raise to 5–10% for visually diverse collections |
+# | `target-outliers.warning` | 3% | Lower to 1% for annotation audits; raise to 5–10% for dense object detection |
+# | `classwise-outliers.warning` | 3% | Lower to 1% for label-quality audits; raise to 5–10% for diverse classes |
+# | `class-imbalance.warning` | 5:1 | Lower to 3:1 for binary; raise to 10–20:1 for large hierarchies (25+ classes) |
 #
 # In this tutorial, thresholds are relaxed because SkySeaLand includes four distinct
 # capture sites with differing sensors, altitudes, and lighting conditions.
@@ -229,13 +246,17 @@ for finding in result.findings:
 # To apply stricter thresholds, specify tighter tolerances:
 #
 # ```python
-# from dataeval_flow.workflows.data_cleaning import DataCleaningHealthThresholds
+# from dataeval_flow.workflows.data_cleaning import (
+#     DataCleaningChecks,
+#     DataCleaningClassImbalanceSettings,
+#     ImageDuplicatesSettings,
+#     ImageOutliersSettings,
+# )
 #
-# strict = DataCleaningHealthThresholds(
-#     exact_duplicates=0.0,
-#     near_duplicates=2.0,
-#     image_outliers=1.0,
-#     class_label_imbalance=3.0,
+# strict = DataCleaningChecks(
+#     image_duplicates=ImageDuplicatesSettings(exact=0.0, near=2.0),
+#     image_outliers=ImageOutliersSettings(warning=1.0),
+#     class_imbalance=DataCleaningClassImbalanceSettings(warning=3.0),
 # )
 # ```
 

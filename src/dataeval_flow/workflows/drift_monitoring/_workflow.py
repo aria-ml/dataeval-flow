@@ -36,7 +36,7 @@ class DriftMonitoringWorkflow(Preset, Workflow[DriftMonitoringConfig, ChainResul
     @classmethod
     def chain(cls, config: DriftMonitoringConfig) -> PresetChain:
         """Each detector and its check, then each classwise run and its check, in detector order."""
-        limits = config.health_thresholds.drift.model_dump()
+        limits = config.checks.drift.model_dump()
         evaluators: list[Any] = []
         steps: list[dict[str, Any]] = []
         by_class: list[dict[str, Any]] = []

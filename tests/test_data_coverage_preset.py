@@ -103,25 +103,21 @@ def test_a_dumped_config_reloads() -> None:
 )
 def test_explicitly_crossed_bands_are_refused_where_they_were_written(limits: dict[str, Any], message: str) -> None:
     with pytest.raises(ValidationError, match=re.escape(message)) as caught:
-        DataCoverageConfig.model_validate({"name": "w", "health_thresholds": limits})
-    assert caught.value.errors()[0]["loc"][0] == "health_thresholds"
+        DataCoverageConfig.model_validate({"name": "w", "checks": limits})
+    assert caught.value.errors()[0]["loc"][0] == "checks"
 
 
 def test_a_ratio_under_the_fixed_band_moves_the_band_as_legacy_did() -> None:
-    config = DataCoverageConfig.model_validate(
-        {"name": "w", "health_thresholds": {"class-imbalance": {"warning": 1.5}}}
-    )
-    assert config.health_thresholds.class_imbalance.info == 1.5
-    result = _run({"health_thresholds": {"class-imbalance": {"warning": 1.5}}}, CoverageDetections())
+    config = DataCoverageConfig.model_validate({"name": "w", "checks": {"class-imbalance": {"warning": 1.5}}})
+    assert config.checks.class_imbalance.info == 1.5
+    result = _run({"checks": {"class-imbalance": {"warning": 1.5}}}, CoverageDetections())
     assert result.success, result.errors
     assert next(f.severity for f in result.findings if f.title == "Class Imbalance") == "warning"
 
 
 def test_a_warning_over_the_fixed_band_moves_the_band_as_legacy_did() -> None:
-    config = DataCoverageConfig.model_validate(
-        {"name": "w", "health_thresholds": {"dimensional-completeness": {"warning": 0.9}}}
-    )
-    assert config.health_thresholds.completeness_score.info == 0.9
+    config = DataCoverageConfig.model_validate({"name": "w", "checks": {"dimensional-completeness": {"warning": 0.9}}})
+    assert config.checks.dimensional_completeness.info == 0.9
     assert DataCoverageConfig.model_validate(config.model_dump()) == config
     assert DataCoverageConfig.model_validate(config.model_dump(by_alias=False)) == config
 
@@ -136,7 +132,7 @@ def test_a_matrix_over_a_warning_that_crosses_the_fixed_band_runs() -> None:
                 "workflow": "w",
                 "sources": ["src"],
                 "extractor": "flat",
-                "matrix": {"health_thresholds.dimensional-completeness.warning": [0.5, 0.9]},
+                "matrix": {"checks.dimensional-completeness.warning": [0.5, 0.9]},
             }
         ],
         datasets={"src": CoverageImages()},
@@ -208,7 +204,7 @@ def test_a_matrix_varies_a_hyphenated_threshold() -> None:
                 "workflow": "w",
                 "sources": ["src"],
                 "extractor": "flat",
-                "matrix": {"health_thresholds.class-coverage.dispersion": [0.5, 1.5]},
+                "matrix": {"checks.class-coverage.dispersion": [0.5, 1.5]},
             }
         ],
         datasets={"src": CoverageImages()},

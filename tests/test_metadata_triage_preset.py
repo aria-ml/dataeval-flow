@@ -31,7 +31,11 @@ def _fresh_cache():
 
 def test_the_settings_expand_to_triage_and_its_check() -> None:
     config = MetadataTriageConfig(
-        metadata="weights", verify=False, default_bins=4, min_missing_fraction=0.5, max_examples=3
+        metadata="weights",
+        verify=False,
+        default_bins=4,
+        min_missing_fraction=0.5,
+        checks={"metadata-issues": {"max_examples": 3}},  # type: ignore[arg-type]
     )
     chain = MetadataTriageWorkflow.chain(config)
     (triage,) = chain.evaluators

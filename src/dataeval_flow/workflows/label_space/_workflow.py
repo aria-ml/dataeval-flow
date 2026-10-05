@@ -45,7 +45,7 @@ class LabelSpaceWorkflow(Preset, Workflow[LabelSpaceConfig, ChainResult]):
     @classmethod
     def chain(cls, config: LabelSpaceConfig) -> PresetChain:
         """The four evaluators, each followed by its check."""
-        limits = config.health_thresholds
+        limits = config.checks
         evaluators: list[Any] = [
             RepresentationConfig(name="representation", ontology=config.ontology, expected=config.expected),
             LabelReconciliationConfig(name="reconciliation", ontology=config.ontology),

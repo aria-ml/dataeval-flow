@@ -6,6 +6,7 @@ from collections import Counter
 from typing import Any, get_args
 
 import pytest
+from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from dataeval_flow.evaluators._registry import EVALUATORS
@@ -121,3 +122,28 @@ def test_a_check_names_its_bounds_by_what_they_bound(cls: type) -> None:
         assert "warning" in settings, "`info` comes with `warning`"
     if len(bounds) == 1:
         assert bounds == ["warning"], f"one bound is called `warning`, not `{bounds[0]}`"
+
+
+_PRESETS = [cls for cls in WORKFLOWS.list(plugins=False) if cls.name not in _LEGACY]
+
+
+def _models(annotation: Any) -> list[type[BaseModel]]:
+    """The pydantic models a field's annotation can hold: `X`, `X | None`, `X | Literal[False]`."""
+    kinds = get_args(annotation) or (annotation,)
+    return [kind for kind in kinds if isinstance(kind, type) and issubclass(kind, BaseModel)]
+
+
+@pytest.mark.parametrize("cls", _PRESETS, ids=_id)
+def test_a_presets_checks_are_keyed_by_check_type_in_each_checks_own_words(cls: type) -> None:
+    fields = cls.config_type.model_fields
+    assert "health_thresholds" not in fields, "a preset's check settings sit under `checks:`"
+    if "checks" not in fields:
+        return
+    (model,) = _models(fields["checks"].annotation)
+    for name, field in model.model_fields.items():
+        key = field.alias or name
+        assert key in CHECKS.names(), f"`checks.{key}` is no check type"
+        check = CHECKS.get(key)
+        for block in _models(field.annotation):
+            stray = set(block.model_fields) - set(_settings(check))
+            assert not stray, f"`checks.{key}` holds {sorted(stray)}, which `{key}` does not take"

@@ -4,7 +4,7 @@ __all__ = [
     "CoverageSettings",
     "CropSettings",
     "DataCoverageConfig",
-    "DataCoverageThresholds",
+    "DataCoverageChecks",
     "DataCoverageWorkflow",
     "GapSettings",
 ]
@@ -12,8 +12,8 @@ __all__ = [
 from dataeval_flow.workflows.data_coverage._config import (
     CoverageSettings,
     CropSettings,
+    DataCoverageChecks,
     DataCoverageConfig,
-    DataCoverageThresholds,
     GapSettings,
 )
 from dataeval_flow.workflows.data_coverage._workflow import DataCoverageWorkflow

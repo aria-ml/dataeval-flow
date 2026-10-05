@@ -43,6 +43,11 @@ class MetadataTriageWorkflow(Preset, Workflow[MetadataTriageConfig, ChainResult]
         )
         steps = [
             {"name": "triage", "evaluator": "triage", "input": "data"},
-            {"name": "issues", "check": "metadata-issues", "input": "triage", "max_examples": config.max_examples},
+            {
+                "name": "issues",
+                "check": "metadata-issues",
+                "input": "triage",
+                **config.checks.metadata_issues.model_dump(),
+            },
         ]
         return PresetChain(steps=steps, evaluators=[triage])

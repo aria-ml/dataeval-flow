@@ -55,7 +55,7 @@ audit. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 A check's thresholds are written beside it, in the step entry, like a transform's settings. Each is a percentage or a
 ratio, and a finding warns where the measured value passes it. A value equal to a bound does not warn: the bound is the
 last value that does not. `null` switches a threshold off: the finding is still made, as `info`. The defaults are
-`data-cleaning`'s `health_thresholds`.
+`data-cleaning`'s `checks`.
 A check with a criterion that has no threshold, such as an unmet share, an ambiguous name or an empty class, keeps
 judging it, so its finding can still be `ok` or `warning` when its thresholds are `null`.
 
@@ -528,7 +528,7 @@ workflows:
 
 Its other settings go to the evaluators: `outlier_threshold`, `outlier_cluster_threshold`,
 `outlier_cluster_algorithm` and `outlier_n_clusters` to `outliers`, the `duplicate_*` settings to `dupes`, `metadata`
-to `labels`, and `stats` to both `outliers` and `dupes`. Each `health_thresholds` entry is the threshold of the check
+to `labels`, and `stats` to both `outliers` and `dupes`. Each `checks` entry is the threshold of the check
 that judges it. `clean` removes each image and box with at least one outlier flag, and each exact or near duplicate
 but the first of its group.
 
@@ -602,7 +602,7 @@ workflows:
 ```
 
 - `metadata:`, `verify`, `default_bins` and `min_missing_fraction` are `triage`'s settings, and `max_examples` is
-  `issues`'.
+  `issues`', set under `checks.metadata-issues`.
 - Its findings are `issues`': one per kind of issue, then the suggested policy and what verification recovered.
 - The chain makes no Dataset, so it declares no output.
 - Its result's `metadata_binning` records the encoding `triage` read, which `dataeval-flow encoding` writes out.

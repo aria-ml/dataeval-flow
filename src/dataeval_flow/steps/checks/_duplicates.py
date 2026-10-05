@@ -25,7 +25,7 @@ class ImageDuplicatesConfig(CheckConfig):
         le=100.0,
         description=(
             "Most images, as a percentage of the Dataset, that may sit in exact-duplicate groups before the finding "
-            "warns; `null` judges nothing. data-cleaning's `health_thresholds.exact_duplicates`."
+            "warns; `null` judges nothing."
         ),
     )
     near: float | None = Field(
@@ -34,7 +34,7 @@ class ImageDuplicatesConfig(CheckConfig):
         le=100.0,
         description=(
             "Most images, as a percentage of the Dataset, that may sit in near-duplicate groups before the finding "
-            "warns; `null` judges nothing. data-cleaning's `health_thresholds.near_duplicates`."
+            "warns; `null` judges nothing."
         ),
     )
 

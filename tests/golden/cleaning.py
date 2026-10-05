@@ -20,12 +20,11 @@ _BASE: dict[str, Any] = {
     "outlier_flags": ["pixel", "visual"],
 }
 _LENIENT = {
-    "exact_duplicates": 50.0,
-    "near_duplicates": 50.0,
-    "image_outliers": 50.0,
-    "target_outliers": 50.0,
-    "classwise_outliers": 50.0,
-    "class_label_imbalance": 20.0,
+    "image-duplicates": {"exact": 50.0, "near": 50.0},
+    "image-outliers": {"warning": 50.0},
+    "target-outliers": {"warning": 50.0},
+    "classwise-outliers": {"warning": 50.0},
+    "class-imbalance": {"warning": 20.0},
 }
 
 
@@ -59,7 +58,7 @@ CASES: dict[str, Callable[[], list[Finding]]] = {
     "unlabelled": lambda: findings(ToyImages(count=24, labeled=False)),
     "detection": lambda: findings(detections()),
     "no_duplicates": lambda: findings(ToyImages(count=6)),
-    "lenient_thresholds": lambda: findings(ToyImages(count=24), health_thresholds=_LENIENT),
+    "lenient_thresholds": lambda: findings(ToyImages(count=24), checks=_LENIENT),
     "cluster_mode": lambda: findings(
         ToyImages(count=40), extractor=True, outlier_cluster_threshold=2.0, duplicate_cluster_sensitivity=1.0
     ),

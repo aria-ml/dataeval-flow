@@ -72,9 +72,7 @@ def test_it_runs_on_detection_data_counting_box_labels() -> None:
 
 
 def test_thresholds_are_keyed_by_check_type_and_reach_the_checks() -> None:
-    result = _run(
-        {"ontology": _ONTOLOGY, "health_thresholds": {"leaf-coverage": {"coverage": None, "empty_branches": None}}}
-    )
+    result = _run({"ontology": _ONTOLOGY, "checks": {"leaf-coverage": {"coverage": None, "empty_branches": None}}})
     leaf = next(finding for finding in result.findings if finding.title == "Leaf Coverage")
     assert leaf.severity == "info"  # `c` has no examples, but neither criterion judges
 
@@ -87,7 +85,7 @@ def test_a_matrix_varies_a_hyphenated_threshold() -> None:
                 "name": "w",
                 "type": "label-space",
                 "ontology": _ONTOLOGY,
-                "health_thresholds": {"leaf-coverage": {"empty_branches": None}},
+                "checks": {"leaf-coverage": {"empty_branches": None}},
             }
         ],
         tasks=[
@@ -95,7 +93,7 @@ def test_a_matrix_varies_a_hyphenated_threshold() -> None:
                 "name": "t",
                 "workflow": "w",
                 "sources": ["src"],
-                "matrix": {"health_thresholds.leaf-coverage.coverage": [0.1, 0.9]},
+                "matrix": {"checks.leaf-coverage.coverage": [0.1, 0.9]},
             }
         ],
         datasets={"src": ToyImages(count=20)},

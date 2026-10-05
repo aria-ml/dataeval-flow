@@ -1,7 +1,7 @@
 """The ``label-space`` preset's config: the ontology, the minimum shares and label pattern, and when a finding warns
 (coverage spec §3.1)."""
 
-__all__ = ["LabelConformanceLimits", "LabelSpaceConfig", "LabelSpaceThresholds", "LeafCoverageLimits"]
+__all__ = ["LabelConformanceSettings", "LabelSpaceConfig", "LabelSpaceChecks", "LeafCoverageSettings"]
 
 from typing import Annotated, Any, ClassVar
 
@@ -12,7 +12,7 @@ from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
 
 
-class LeafCoverageLimits(BaseModel):
+class LeafCoverageSettings(BaseModel):
     """The `leaf-coverage` check's fields, with legacy data-coverage's defaults."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -32,7 +32,7 @@ class LeafCoverageLimits(BaseModel):
     )
 
 
-class LabelConformanceLimits(BaseModel):
+class LabelConformanceSettings(BaseModel):
     """The `label-conformance` check's field, with legacy data-coverage's default."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -44,16 +44,18 @@ class LabelConformanceLimits(BaseModel):
     )
 
 
-class LabelSpaceThresholds(BaseModel):
+class LabelSpaceChecks(BaseModel):
     """When label-space's findings warn: each check's fields, keyed by check type."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
-    leaf_coverage: LeafCoverageLimits = Field(
-        default_factory=LeafCoverageLimits, alias="leaf-coverage", description="The `leaf-coverage` check's thresholds."
+    leaf_coverage: LeafCoverageSettings = Field(
+        default_factory=LeafCoverageSettings,
+        alias="leaf-coverage",
+        description="The `leaf-coverage` check's thresholds.",
     )
-    label_conformance: LabelConformanceLimits = Field(
-        default_factory=LabelConformanceLimits,
+    label_conformance: LabelConformanceSettings = Field(
+        default_factory=LabelConformanceSettings,
         alias="label-conformance",
         description="The `label-conformance` check's threshold.",
     )
@@ -91,8 +93,8 @@ class LabelSpaceConfig(WorkflowConfig[ChainResult]):
     label_pattern: str | None = Field(
         default=None, description="A regex every ontology label should match, as `ontology-validation` reads it."
     )
-    health_thresholds: LabelSpaceThresholds = Field(
-        default_factory=LabelSpaceThresholds, description="When findings warn, keyed by check type."
+    checks: LabelSpaceChecks = Field(
+        default_factory=LabelSpaceChecks, description="When findings warn, keyed by check type."
     )
 
     @model_validator(mode="before")

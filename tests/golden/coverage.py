@@ -106,7 +106,7 @@ CASES: dict[str, Case] = {
     "strict": Case(
         lambda: CoverageImages(),
         {
-            "health_thresholds": {
+            "checks": {
                 "class_imbalance_ratio": 2.0,
                 "gap_count": 1,
                 "completeness_score": 0.9,
@@ -114,7 +114,7 @@ CASES: dict[str, Case] = {
             }
         },
         {
-            "health_thresholds": {
+            "checks": {
                 "class-imbalance": {"warning": 2.0},
                 "factor-coverage-gaps": {"warning": 1},
                 "dimensional-completeness": {"warning": 0.9, "info": 0.9},

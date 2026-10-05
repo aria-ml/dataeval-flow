@@ -1,6 +1,6 @@
 """The ``ood-detection`` preset's config: its detectors, its metadata insights, and when a finding warns."""
 
-__all__ = ["FactorDeviationSettings", "OODDetectionConfig", "OODDetectionThresholds", "evaluator_entry"]
+__all__ = ["FactorDeviationSettings", "OODDetectionConfig", "OODDetectionChecks", "evaluator_entry"]
 
 from collections.abc import Mapping
 from typing import Annotated, Any, ClassVar, Self
@@ -70,7 +70,7 @@ OODDetector = Annotated[
 ]
 
 
-class OODDetectionThresholds(BaseModel):
+class OODDetectionChecks(BaseModel):
     """When ood-detection's findings warn: each check's fields, keyed by check type."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
@@ -114,7 +114,7 @@ class OODDetectionConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
             detectors:
               - {type: ood-kneighbors, k: 10}
               - {type: ood-domain-classifier, n_folds: 5}
-            health_thresholds:
+            checks:
               ood: {warning: 10.0, info: 1.0}
     """
 
@@ -140,8 +140,8 @@ class OODDetectionConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
     factor_deviation: FactorDeviationSettings = Field(
         default_factory=FactorDeviationSettings, description="The `factor-deviation` step's settings."
     )
-    health_thresholds: OODDetectionThresholds = Field(
-        default_factory=OODDetectionThresholds, description="When findings warn, keyed by check type."
+    checks: OODDetectionChecks = Field(
+        default_factory=OODDetectionChecks, description="When findings warn, keyed by check type."
     )
 
     @model_validator(mode="after")

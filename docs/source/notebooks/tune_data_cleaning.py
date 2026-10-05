@@ -197,7 +197,7 @@ print(result.report(detailed=False, width=160))
 # images from 2.5 to 3.5, then by 16 from 3.5 to 4.5: it changes less the higher the
 # threshold. The class with the largest share of outliers changes with it: 2S19 MSTA
 # (25.0%) at 2.5, and Tornado at 3.5 (20.4%) and 4.5 (16.3%). Even at 4.5, 9.6% of the
-# sample is flagged, over the 3% at which `image_outliers` warns by default, and 23 of the
+# sample is flagged, over the 3% at which `image-outliers` warns by default, and 23 of the
 # 24 classes are over the classwise threshold at every setting.
 #
 # **`duplicate_cluster_sensitivity` changes nothing on this sample.** Runs 1, 2 and 3
@@ -250,7 +250,7 @@ print(run.result.steps["dupes"].output.data())
 #   third of what it fell from 2.5 to 3.5, so a value from 3.5 to 4.5 depends less on the
 #   exact choice than one below 3.5. Even 4.5 flags more than the default 3% warning, so
 #   look at the flagged images, as {doc}`Clean a dataset <data_cleaning>` does, before
-#   raising `health_thresholds.image_outliers` for a collection this varied.
+#   raising `checks.image-outliers.warning` for a collection this varied.
 # - **`duplicate_cluster_sensitivity` does not matter here**: 0.5, 2.0 and 3.0 give the
 #   same groups. Keep any of them, or leave it and `duplicate_cluster_algorithm` unset to
 #   skip the cluster pass, which found no group the hashes missed.

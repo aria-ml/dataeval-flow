@@ -43,7 +43,7 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
     @classmethod
     def chain(cls, config: DataCoverageConfig) -> PresetChain:
         """The crops' steps, then the source's."""
-        limits = config.health_thresholds
+        limits = config.checks
         evaluators: list[Any] = [
             CoverageConfig(name="coverage", **config.coverage.model_dump()),
             CompletenessConfig(name="completeness"),
@@ -76,7 +76,7 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
                     "name": "uncovered",
                     "check": "uncovered-items",
                     "input": "coverage",
-                    **limits.uncovered_rate.model_dump(),
+                    **limits.uncovered_items.model_dump(),
                 }
             )
         if config.completeness:
@@ -86,7 +86,7 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
                     "name": "completeness-check",
                     "check": "dimensional-completeness",
                     "input": "completeness",
-                    **limits.completeness_score.model_dump(),
+                    **limits.dimensional_completeness.model_dump(),
                 },
             ]
         steps += [
@@ -116,7 +116,7 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
                     "name": "gaps-check",
                     "check": "factor-coverage-gaps",
                     "input": "gaps",
-                    **limits.coverage_gaps.model_dump(),
+                    **limits.factor_coverage_gaps.model_dump(),
                 },
             ]
         steps += [

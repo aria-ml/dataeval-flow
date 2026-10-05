@@ -925,11 +925,11 @@ class TestWorkflowConfig:
         """MetadataTriageConfig stores name, type, and flat params."""
         from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
 
-        wc = MetadataTriageConfig(name="triage", metadata="standard", max_examples=5)
+        wc = MetadataTriageConfig(name="triage", metadata="standard", checks={"metadata-issues": {"max_examples": 5}})  # type: ignore[arg-type]
         assert wc.name == "triage"
         assert wc.type == "metadata-triage"
         assert wc.verify is True
-        assert wc.max_examples == 5
+        assert wc.checks.metadata_issues.max_examples == 5
 
 
 class TestResolveWorkflow:

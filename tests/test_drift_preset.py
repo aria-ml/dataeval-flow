@@ -48,11 +48,11 @@ def test_a_chunked_classwise_detector_runs_an_unchunked_copy():
     assert [step["subject"] for step in steps if step.get("check")] == ["Drift (Univariate) · ks"] * 2
 
 
-def test_health_thresholds_reach_every_check():
+def test_checks_reach_every_check():
     steps, _ = _chain(
         detectors=[{"type": "drift-mmd"}],
         classwise={"drift-mmd": "class"},
-        health_thresholds={"drift": {"chunk_percent": 25.0}},
+        checks={"drift": {"chunk_percent": 25.0}},
     )
     assert all(step["chunk_percent"] == 25.0 for step in steps if step.get("check") == "drift")
 

@@ -19,7 +19,7 @@ workflows:
       - {type: drift-univariate, method: ks, p_val: 0.01}
       - {name: mmd_chunked, type: drift-mmd, chunking: {chunk_count: 10, threshold: [zscore, 2.5]}}
       - {type: drift-kneighbors, k: 5}
-    health_thresholds:
+    checks:
       drift: {warn_on_drift: true, chunk_percent: 10.0, consecutive_chunks: 3}
 
 tasks:

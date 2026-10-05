@@ -51,9 +51,9 @@ class DataSplittingWorkflow(Preset, Workflow[DataSplittingConfig, ChainResult]):
     @classmethod
     def chain(cls, config: DataSplittingConfig) -> PresetChain:
         """The whole set's steps, the split, and each part's."""
-        limits = config.health_thresholds
+        limits = config.checks
         naive = config.coverage.method == "naive"
-        rate = limits.uncovered_rate.warning
+        rate = limits.uncovered_items.warning
         evaluators: list[Any] = [
             LabelHealthConfig(name="labels", metadata=config.metadata),
             BalanceConfig(name="balance", metadata=config.metadata),

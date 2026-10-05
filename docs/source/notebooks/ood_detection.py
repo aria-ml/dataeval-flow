@@ -301,7 +301,7 @@ config = PipelineConfig(
                     {"type": "ood-kneighbors", "k": 10, "distance_metric": "cosine", "threshold_perc": 99.0},
                     {"type": "ood-domain-classifier", "n_folds": 3, "n_repeats": 3, "threshold_perc": 99.0},
                 ],
-                "health_thresholds": {
+                "checks": {
                     "ood": {"warning": 5.0, "info": 1.0},  # warn when 5% of a source's images are OOD
                     "ood-agreement": {"warning": 5.0, "info": 1.0},
                 },

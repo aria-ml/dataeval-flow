@@ -20,22 +20,22 @@ from dataeval_flow.config._schemas._preprocessor import PreprocessingStep
 from dataeval_flow.config._schemas._view import ViewOperation
 from dataeval_flow.workflows.data_analysis._config import DataAnalysisHealthThresholds
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-from dataeval_flow.workflows.data_cleaning._config import DataCleaningHealthThresholds
+from dataeval_flow.workflows.data_cleaning._config import DataCleaningChecks
 from dataeval_flow.workflows.data_coverage._config import (
-    ClassCoverageLimits,
-    CompletenessScoreLimits,
-    CoverageGapsLimits,
+    ClassCoverageSettings,
     CoverageSettings,
     CropSettings,
-    DataCoverageClassImbalanceLimits,
+    DataCoverageChecks,
+    DataCoverageClassImbalanceSettings,
     DataCoverageConfig,
-    DataCoverageThresholds,
-    DataCoverageUncoveredRateLimits,
+    DataCoverageUncoveredItemsSettings,
+    DimensionalCompletenessSettings,
+    FactorCoverageGapsSettings,
     GapSettings,
 )
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringThresholds
+from dataeval_flow.workflows.drift_monitoring import DriftMonitoringChecks
 from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
-from dataeval_flow.workflows.ood_detection import OODDetectionThresholds
+from dataeval_flow.workflows.ood_detection import OODDetectionChecks
 from tests.chain_toys import chain_pipeline
 
 pytestmark = pytest.mark.required
@@ -83,18 +83,18 @@ _NESTED = [
     pytest.param(DataCoverageConfig, {}, id="workflow"),
     pytest.param(MetadataTriageConfig, {}, id="another-workflow"),
     pytest.param(DataAnalysisHealthThresholds, {}, id="analysis-thresholds"),
-    pytest.param(DataCleaningHealthThresholds, {}, id="cleaning-thresholds"),
-    pytest.param(DataCoverageThresholds, {}, id="coverage-thresholds"),
-    pytest.param(DataCoverageClassImbalanceLimits, {}, id="coverage-class-imbalance"),
-    pytest.param(CoverageGapsLimits, {}, id="factor-coverage-gaps"),
-    pytest.param(ClassCoverageLimits, {}, id="coverage-class-coverage"),
-    pytest.param(DataCoverageUncoveredRateLimits, {}, id="coverage-uncovered-rate"),
-    pytest.param(CompletenessScoreLimits, {}, id="coverage-completeness-score"),
+    pytest.param(DataCleaningChecks, {}, id="cleaning-thresholds"),
+    pytest.param(DataCoverageChecks, {}, id="coverage-thresholds"),
+    pytest.param(DataCoverageClassImbalanceSettings, {}, id="coverage-class-imbalance"),
+    pytest.param(FactorCoverageGapsSettings, {}, id="factor-coverage-gaps"),
+    pytest.param(ClassCoverageSettings, {}, id="coverage-class-coverage"),
+    pytest.param(DataCoverageUncoveredItemsSettings, {}, id="coverage-uncovered-rate"),
+    pytest.param(DimensionalCompletenessSettings, {}, id="coverage-completeness-score"),
     pytest.param(CoverageSettings, {}, id="coverage-settings"),
     pytest.param(CropSettings, {}, id="coverage-crops"),
     pytest.param(GapSettings, {}, id="coverage-gap-settings"),
-    pytest.param(DriftMonitoringThresholds, {}, id="drift-thresholds"),
-    pytest.param(OODDetectionThresholds, {}, id="ood-thresholds"),
+    pytest.param(DriftMonitoringChecks, {}, id="drift-thresholds"),
+    pytest.param(OODDetectionChecks, {}, id="ood-thresholds"),
 ]
 
 

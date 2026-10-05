@@ -1,6 +1,6 @@
 """The ``data-splitting`` preset's config: the split, its rebalancing, its coverage, and when a finding warns."""
 
-__all__ = ["DataSplittingConfig", "DataSplittingThresholds", "SplittingCoverage"]
+__all__ = ["DataSplittingConfig", "DataSplittingChecks", "SplittingCoverage"]
 
 from typing import ClassVar, Literal, Self
 
@@ -47,7 +47,7 @@ class SplittingCoverage(BaseModel):
     )
 
 
-class ClassImbalanceLimits(BaseModel):
+class DataSplittingClassImbalanceSettings(BaseModel):
     """The `class-imbalance` check's field, with legacy data-splitting's default."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -62,7 +62,7 @@ class ClassImbalanceLimits(BaseModel):
     )
 
 
-class UncoveredRateLimits(BaseModel):
+class DataSplittingUncoveredItemsSettings(BaseModel):
     """The `uncovered-items` check's field, with legacy data-splitting's default."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -78,21 +78,21 @@ class UncoveredRateLimits(BaseModel):
     )
 
 
-class DataSplittingThresholds(BaseModel):
+class DataSplittingChecks(BaseModel):
     """When data-splitting's findings warn: each check's fields, keyed by check type."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
-    class_imbalance: ClassImbalanceLimits = Field(
-        default_factory=ClassImbalanceLimits,
+    class_imbalance: DataSplittingClassImbalanceSettings = Field(
+        default_factory=DataSplittingClassImbalanceSettings,
         alias="class-imbalance",
         description="The `class-imbalance` check's thresholds, on the whole set.",
     )
     stratification: StratificationThresholds = Field(
         default_factory=StratificationThresholds, description="The `stratification` check's thresholds, on each fold."
     )
-    uncovered_rate: UncoveredRateLimits = Field(
-        default_factory=UncoveredRateLimits,
+    uncovered_items: DataSplittingUncoveredItemsSettings = Field(
+        default_factory=DataSplittingUncoveredItemsSettings,
         alias="uncovered-items",
         description="The `uncovered-items` check's thresholds, on the whole set and each part, under `naive` coverage.",
     )
@@ -158,8 +158,8 @@ class DataSplittingConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
             "The `coverage` steps' settings, run on the whole set and each part when the task names an extractor."
         ),
     )
-    health_thresholds: DataSplittingThresholds = Field(
-        default_factory=DataSplittingThresholds, description="When findings warn, keyed by check type."
+    checks: DataSplittingChecks = Field(
+        default_factory=DataSplittingChecks, description="When findings warn, keyed by check type."
     )
 
     @model_validator(mode="after")

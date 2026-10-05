@@ -29,7 +29,7 @@ def _fresh_cache() -> Any:
 
 def _results() -> dict[str, Any]:
     config = chain_pipeline(
-        workflows=[{**_CLEANING, "health_thresholds": {"image_outliers": 0.0}}],
+        workflows=[{**_CLEANING, "checks": {"image-outliers": {"warning": 0.0}}}],
         tasks=[{"name": "t", "workflow": "cleaning", "sources": "src", "matrix": {"outlier_threshold": [1.0, 3.0]}}],
     )
     return run_tasks(config)
@@ -51,7 +51,7 @@ def test_the_runner_writes_a_matrix_and_gates_on_its_warnings(tmp_path: Path, mo
     from dataeval_flow import _runner
 
     config = chain_pipeline(
-        workflows=[{**_CLEANING, "health_thresholds": {"image_outliers": 0.0}}],
+        workflows=[{**_CLEANING, "checks": {"image-outliers": {"warning": 0.0}}}],
         tasks=[{"name": "t", "workflow": "cleaning", "sources": "src", "matrix": {"outlier_threshold": [1.0, 3.0]}}],
         extra={"result": {"formats": ["json", "text"], "fail_on": "warning"}},
     )

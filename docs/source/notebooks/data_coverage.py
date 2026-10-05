@@ -153,7 +153,7 @@ plt.show()
 # binned factors to detect whether particular vehicle classes were imaged under
 # limited operational conditions.
 #
-# `health_thresholds` is keyed by the type of the check it sets: `class-imbalance` judges
+# `checks` is keyed by the type of the check it sets: `class-imbalance` judges
 # the label distribution, and `factor-coverage-gaps` the gap analysis.
 
 # %%
@@ -189,7 +189,7 @@ metadata_only_workflow = DataCoverageConfig(
     metadata="vehicle_factors",
     gaps={"min_representation": 5},  # Flag class-factor-value combos with < 5 samples
     diversity="simpson",
-    health_thresholds={
+    checks={
         "class-imbalance": {"warning": 3.0},  # Catch moderate class imbalance
         "factor-coverage-gaps": {"warning": 2},  # Warn if >= 2 gaps found
     },
@@ -469,7 +469,7 @@ full_workflow = DataCoverageConfig(
     },
     gaps={"min_representation": 5},
     diversity="simpson",
-    health_thresholds={
+    checks={
         "dimensional-completeness": {"warning": 0.5},  # Warn if completeness < 0.5
         "class-imbalance": {"warning": 3.0},
         "factor-coverage-gaps": {"warning": 2},
@@ -566,7 +566,7 @@ print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}"
 # ## Step 4: Tune health thresholds
 #
 # Health thresholds control when findings escalate from `info` to
-# `warning`. Each preset keys its `health_thresholds` by check type. The right
+# `warning`. Each preset keys its `checks` by check type. The right
 # thresholds depend on your domain:
 #
 # | Preset | Check | Field | Default | Safety-critical | Web-scraped data |
@@ -588,12 +588,12 @@ print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}"
 #
 # `uncovered-items` judges only `naive` coverage, since adaptive coverage flags its
 # `percent` of the items by construction. The label-space thresholds go on the
-# `label-space` entry, as `LabelSpaceConfig(..., health_thresholds={"leaf-coverage": {"coverage": 0.95}})`.
+# `label-space` entry, as `LabelSpaceConfig(..., checks={"leaf-coverage": {"coverage": 0.95}})`.
 
 # %%
-from dataeval_flow.workflows.data_coverage import DataCoverageThresholds
+from dataeval_flow.workflows.data_coverage import DataCoverageChecks
 
-strict_thresholds = DataCoverageThresholds.model_validate(
+strict_thresholds = DataCoverageChecks.model_validate(
     {
         "dimensional-completeness": {"warning": 0.6},
         "class-imbalance": {"warning": 2.0},
@@ -603,7 +603,7 @@ strict_thresholds = DataCoverageThresholds.model_validate(
 )
 
 strict_workflow = full_workflow.model_copy(
-    update={"name": "coverage-strict", "health_thresholds": strict_thresholds},
+    update={"name": "coverage-strict", "checks": strict_thresholds},
 )
 
 task_strict = TaskConfig(
