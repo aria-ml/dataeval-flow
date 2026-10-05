@@ -117,7 +117,7 @@ def test_the_detailed_outline_is_verdict_record_questions_next_steps_then_steps(
         BulletList(
             items=[
                 "Image Duplicates (image-duplicates): Remove them.",
-                "Name an extractor. Not assessed: Dimensional Completeness.",
+                "Name an extractor. Not assessed: Dimensional Completeness (dimensional-completeness).",
             ]
         )
     ]

@@ -14,7 +14,7 @@ from dataeval_flow import dataset_digest, run_tasks
 from dataeval_flow._blocks import Fields, Table
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._graph import GraphError
-from dataeval_flow._chain._verdict import Acceptance, Verdict, next_step_lines
+from dataeval_flow._chain._verdict import Acceptance, Verdict, moot_checks, next_step_lines
 from dataeval_flow.config import PipelineConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.steps._registry import get_check
@@ -75,14 +75,19 @@ def _detections(count: int, dataset_id: str) -> ToyDetections:
 def test_a_one_split_audit_is_ready_with_caveats() -> None:
     result = _audit({"train": ToyImages()}, extractor=True)
     verdict = _verdict(result)
-    splits = AuditWorkflow.chain(AuditConfig.model_validate({"name": "w", **_OUTLIERS})).groups[-1]
+    groups = AuditWorkflow.chain(AuditConfig.model_validate({"name": "w", **_OUTLIERS})).groups
+    clean, labels, splits = groups[0], groups[1], groups[-1]
     assert splits.heading == "Are the splits fit to evaluate on?"
     assert sorted((item.check, item.reason) for item in verdict.not_assessed if item.check in splits.checks) == sorted(
         (check, NO_EVALUATION_SPLIT) for check in splits.checks
     )
+    # A per-split check over the evaluation splits judges nothing, but the same check over train judges train.
+    assert not [item for item in verdict.not_assessed if item.check in (*clean.checks, *labels.checks)]
+    assert _section(_top(result), clean.heading).brief == "2 warnings"
     over_evals = [record for name, record in result.steps.items() if record.kind == "check" and name.endswith("-evals")]
     assert over_evals
     assert {record.not_assessed for record in over_evals} == {NO_EVALUATION_SPLIT}
+    assert moot_checks(result.steps) == {record.name for record in over_evals}
     assert verdict.blocking == []
     assert verdict.level == "ready-with-caveats"
     assert [line for line in _next_steps(result) if line.startswith("Give an evaluation split")]
@@ -98,7 +103,14 @@ def test_an_audit_with_no_extractor_names_the_unassessed_checks() -> None:
     assert sorted(reasons) == sorted(embedded)
     assert all(reason.endswith("was skipped: requires an extractor") for reason in reasons.values())
     (line,) = [line for line in _next_steps(result) if line.startswith("Name an extractor")]
-    titles = ", ".join(get_check(check).title for check in embedded)
+    steps = {
+        "eval-coverage": "eval-coverage[test]",
+        "distribution-shift": "distribution-shift[test]",
+        "class-coverage": "class-coverage",
+        "uncovered-items": "uncovered-items",
+        "dimensional-completeness": "dimensional-completeness",
+    }
+    titles = ", ".join(f"{get_check(check).title} ({step})" for check, step in steps.items())
     assert line == f"Name an extractor to assess these checks. Not assessed: {titles}."
 
 
@@ -110,10 +122,8 @@ def test_an_audit_over_data_with_no_factors_still_gives_a_verdict() -> None:
     assert {"factor-coverage-gaps", "shortcut-risk"} <= unassessed
     shortcut = _section(_top(result), "Could the model learn a shortcut?")
     assert shortcut.brief == "not assessed: no factors found in provided metadata"
-    assert (
-        "Name a metadata policy, or add metadata factors, to assess these checks. Not assessed: Shortcut Risk."
-        in _next_steps(result)
-    )
+    advice = "Name a metadata policy, or add metadata factors, to assess these checks."
+    assert f"{advice} Not assessed: Shortcut Risk (shortcut-risk)." in _next_steps(result)
 
 
 def test_two_splits_sharing_an_image_are_not_ready() -> None:

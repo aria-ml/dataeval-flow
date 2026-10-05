@@ -13,7 +13,15 @@ from pydantic import Field
 from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._graph import GraphError
-from dataeval_flow._chain._verdict import Acceptance, Unassessed, Verdict, VerdictItem, judge, next_step_lines
+from dataeval_flow._chain._verdict import (
+    Acceptance,
+    Unassessed,
+    Verdict,
+    VerdictItem,
+    judge,
+    moot_checks,
+    next_step_lines,
+)
 from dataeval_flow.evaluators.quality import DuplicatesEvaluator
 from dataeval_flow.steps import ChainResult, Finding, StepResult
 from dataeval_flow.steps._workflow import InputSlot
@@ -75,7 +83,7 @@ def test_an_unassessed_check_is_listed_with_its_reason_and_its_next_step(plugins
     ]
     assert "requires an extractor" in result.verdict.not_assessed[0].reason
     assert next_step_lines(result.verdict, result.preset_chain.next_steps) == [
-        "Name an extractor. Not assessed: Dimensional Completeness."
+        "Name an extractor. Not assessed: Dimensional Completeness (dimensional-completeness)."
     ]
 
 
@@ -210,8 +218,79 @@ def test_next_steps_put_blocking_types_first_give_their_advice_and_quote_an_unma
     assert next_step_lines(verdict, plan) == [
         "Image Duplicates (dupes-train): Remove them.",
         "Class Imbalance (class-imbalance)",
-        "Not assessed (Leakage): `pairs` failed: boom.",
+        "Not assessed: Leakage (leakage): `pairs` failed: boom.",
     ]
+
+
+def test_a_not_assessed_line_names_each_check_with_its_steps() -> None:
+    steps = {
+        "eval-coverage": _record("eval-coverage", "eval-coverage", not_assessed="no evaluation split given"),
+        "leakage": _record("leakage", "leakage", not_assessed="no evaluation split given"),
+        "imbalance": _record(
+            "imbalance",
+            "class-imbalance",
+            elements={
+                "val": _record("imbalance", "class-imbalance", not_assessed="no evaluation split given"),
+                "test": _record("imbalance", "class-imbalance", not_assessed="no evaluation split given"),
+            },
+        ),
+    }
+    plan = NextSteps(by_reason={"no evaluation split": "Give one."})
+    assert next_step_lines(judge(steps, blocking=[], accepted={}), plan) == [
+        (
+            "Give one. Not assessed: Eval Coverage (eval-coverage), Leakage (leakage), "
+            "Class Imbalance (imbalance[val], imbalance[test])."
+        )
+    ]
+
+
+def test_a_check_run_left_empty_beside_an_assessed_run_of_its_type_is_moot() -> None:
+    empty = "no evaluation split given"
+    steps = {
+        "outliers-train": _record("outliers-train", "image-outliers", _warning("outliers-train", "Image Outliers")),
+        "outliers-evals": _record("outliers-evals", "image-outliers", not_assessed=empty),
+        "imbalance-train": _record("imbalance-train", "class-imbalance"),
+        "imbalance-evals": _record(
+            "imbalance-evals", "class-imbalance", elements={"val": _record("x", "class-imbalance", not_assessed=empty)}
+        ),
+        "leakage": _record("leakage", "leakage", not_assessed=empty),
+        "count": _record("count", "dupes-count", kind="evaluator", not_assessed=empty),
+    }
+    assert moot_checks(steps) == {"outliers-evals"}
+    verdict = judge(steps, blocking=[], accepted={})
+    assert [(u.check, u.step) for u in verdict.not_assessed] == [
+        ("class-imbalance", "imbalance-evals[val]"),
+        ("leakage", "leakage"),
+    ]
+    assert verdict.line() == "Ready with caveats: 1 warning, 2 not assessed"
+
+
+def test_a_check_not_assessed_for_a_failed_producer_is_kept_beside_an_assessed_run_of_its_type() -> None:
+    reason = "`outliers-train` failed"
+    steps = {
+        "image-outliers-train": _record("image-outliers-train", "image-outliers", not_assessed=reason),
+        "image-outliers-evals": _record(
+            "image-outliers-evals", "image-outliers", elements={"test": _record("x", "image-outliers")}
+        ),
+    }
+    assert moot_checks(steps) == set()
+    verdict = judge(steps, blocking=[], accepted={})
+    assert [(u.check, u.step, u.reason) for u in verdict.not_assessed] == [
+        ("image-outliers", "image-outliers-train", reason)
+    ]
+
+
+def test_a_check_run_that_did_not_complete_is_not_assessed_for_its_reason_or_errors() -> None:
+    skipped = _record("optional", "image-outliers", errors=["RuntimeError: boom"], reason="failed: RuntimeError: boom")
+    skipped.status = "skipped"
+    failed = _record("required", "leakage", errors=["ValueError: no"])
+    failed.status = "failed"
+    verdict = judge({"optional": skipped, "required": failed}, blocking=[], accepted={})
+    assert [(u.step, u.reason) for u in verdict.not_assessed] == [
+        ("optional", "failed: RuntimeError: boom"),
+        ("required", "ValueError: no"),
+    ]
+    assert verdict.level == "ready-with-caveats"
 
 
 def test_a_not_ready_line_names_each_blocking_warning_and_its_brief_if_any() -> None:

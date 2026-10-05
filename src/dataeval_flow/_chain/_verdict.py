@@ -8,6 +8,7 @@ __all__ = [
     "Verdict",
     "VerdictItem",
     "judge",
+    "moot_checks",
     "next_step_lines",
     "reason_class",
 ]
@@ -81,19 +82,23 @@ class Verdict(BaseModel):
 
 def judge(steps: "Mapping[str, StepResult]", *, blocking: Sequence[str], accepted: Mapping[str, str]) -> Verdict:
     """The verdict over `steps`' check records: an unaccepted warning of a `blocking` type makes it not ready; any
-    other unaccepted warning, an acceptance that fired, or a check not assessed makes it ready with caveats."""
+    other unaccepted warning, an acceptance that fired, or a check not assessed makes it ready with caveats. A check
+    run that did not complete is not assessed, for its skip reason or its errors; :func:`moot_checks` are left out."""
     blocked: list[VerdictItem] = []
     warnings: list[VerdictItem] = []
     warned: set[str] = set()
     unassessed: list[Unassessed] = []
+    moot = moot_checks(steps)
     for record in steps.values():
-        if record.kind != "check":
+        if record.kind != "check" or record.name in moot:
             continue
         runs = record.elements.items() if record.elements is not None else [(None, record)]
         for key, run in runs:
-            if run.not_assessed is not None:
+            # A check run that did not complete, such as an optional check that failed, judged nothing either.
+            reason = run.not_assessed if run.status == "ok" else run.reason or "; ".join(run.errors)
+            if reason is not None:
                 step = record.name if key is None else f"{record.name}[{key}]"
-                unassessed.append(Unassessed(check=record.type, step=step, reason=run.not_assessed))
+                unassessed.append(Unassessed(check=record.type, step=step, reason=reason))
             for finding in (run.output or []) if run.status == "ok" else []:
                 if finding.severity != "warning":
                     continue
@@ -117,9 +122,34 @@ def judge(steps: "Mapping[str, StepResult]", *, blocking: Sequence[str], accepte
     return Verdict(level=level, blocking=blocked, warnings=warnings, accepted=acceptances, not_assessed=unassessed)
 
 
+def moot_checks(steps: "Mapping[str, StepResult]") -> set[str]:
+    """The check steps among `steps` that ran once, judged nothing, and whose check type another run assessed: a check
+    over a list holding no element, such as the evaluation splits of a one-split task, beside the same check over train
+    (audit spec §6.3). Its reason must be one an empty list carried, which only a non-check record's `not_assessed`
+    holds. The verdict and a preset's report leave them out. An element left unassessed is kept, as is every run of a
+    check type that no run assessed, and a run not assessed for another reason, such as a failed producer."""
+    checks = [record for record in steps.values() if record.kind == "check"]
+    assessed = {
+        record.type
+        for record in checks
+        for run in (record.elements.values() if record.elements is not None else [record])
+        if run.status == "ok" and run.not_assessed is None
+    }
+    empty = {r.not_assessed for r in steps.values() if r.kind != "check" and r.not_assessed is not None}
+    return {
+        record.name
+        for record in checks
+        if record.elements is None
+        and record.not_assessed is not None
+        and record.not_assessed in empty
+        and record.type in assessed
+    }
+
+
 def next_step_lines(verdict: Verdict, plan: "NextSteps") -> list[str]:
     """One line per check type with unaccepted warnings, the blocking types before the others, then one per class of
-    reason a check was not assessed, each with `plan`'s advice where it has some."""
+    reason a check was not assessed, each with `plan`'s advice where it has some. Each line names its checks by title,
+    with the steps, or elements, behind each: "Leakage (leakage)", "Not assessed: Eval Coverage (eval-coverage)"."""
     from dataeval_flow.steps._registry import get_check
 
     lines: list[str] = []
@@ -130,15 +160,16 @@ def next_step_lines(verdict: Verdict, plan: "NextSteps") -> list[str]:
         steps = ", ".join(dict.fromkeys(item.step for item in items))
         advice = plan.by_check.get(check)
         lines.append(f"{items[0].title} ({steps})" + (f": {advice}" if advice else ""))
-    classes: dict[str, list[str]] = {}
+    classes: dict[str, dict[str, list[str]]] = {}
     for unassessed in verdict.not_assessed:
-        classes.setdefault(reason_class(unassessed.reason, plan), []).append(get_check(unassessed.check).title)
+        titles = classes.setdefault(reason_class(unassessed.reason, plan), {})
+        titles.setdefault(get_check(unassessed.check).title, []).append(unassessed.step)
     for reason, titles in classes.items():
-        named = ", ".join(dict.fromkeys(titles))
+        named = ", ".join(f"{title} ({', '.join(dict.fromkeys(steps))})" for title, steps in titles.items())
         if reason in plan.by_reason:
             lines.append(f"{plan.by_reason[reason]} Not assessed: {named}.")
         else:
-            lines.append(f"Not assessed ({named}): {reason.rstrip('.')}.")
+            lines.append(f"Not assessed: {named}: {reason.rstrip('.')}.")
     return lines
 
 

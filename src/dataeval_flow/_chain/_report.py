@@ -121,7 +121,8 @@ def _declared_blocks(result: "ChainResult", plan: "PresetChain", *, detailed: bo
     findings beside their evidence and then its evidence steps; next steps; the findings of checks no question names;
     the other steps, less those the record or a question shows; then the Steps table. Short (not *detailed*), the
     verdict, the record, a Questions section with a line per question and its status, and the compact Steps table.
-    A question none of whose checks is in the chain is left out, as it judged nothing.
+    A question none of whose checks is in the chain is left out, as it judged nothing, and so are the findings of
+    :func:`~dataeval_flow._chain._verdict.moot_checks`, which the verdict leaves out too.
     """
     verdict = result.verdict
     records = list(result.steps.values())
@@ -135,19 +136,21 @@ def _declared_blocks(result: "ChainResult", plan: "PresetChain", *, detailed: bo
         questions: list[Block] = [Section(title="Questions", blocks=[Fields(items=lines)])] if lines else []
         return [*head, *record, *questions, *steps]
     evidence = Evidence(result, detailed=detailed)
+    moot = _verdict.moot_checks(result.steps)
+    judged = [record for record in records if record.name not in moot]
     sections = [
         Section(
             title=group.heading,
             brief=status,
             blocks=[
-                *_findings((record for record in records if record.type in group.checks), evidence),
+                *_findings((record for record in judged if record.type in group.checks), evidence),
                 *_shown_under(group.heading, [record for record in records if record.type in group.evidence], evidence),
             ],
         )
         for group, status in statuses
     ]
     named = {check for group in groups for check in group.checks}
-    loose = _findings((record for record in records if record.type not in named), evidence)
+    loose = _findings((record for record in judged if record.type not in named), evidence)
     shown = {*(plan.record.steps if plan.record is not None else ()), *(t for g in groups for t in g.evidence)}
     others = _others((record for record in records if record.type not in shown), evidence)
     advice = _verdict.next_step_lines(verdict, plan.next_steps) if verdict is not None else []
@@ -178,9 +181,15 @@ def question_status(steps: Mapping[str, "StepResult"], group: "ReportGroup", pla
     one: "ok" where every run was assessed and none warned; "not assessed: <reason>" where every run went unassessed
     for one class of reason, as `plan` classes reasons, the class's first letter lower case; else how many warnings
     and how many runs not assessed, as "1 warning, 1 not assessed". An accepted warning counts here: it still warns,
-    and the verdict records the acceptance.
+    and the verdict records the acceptance. The runs of :func:`~dataeval_flow._chain._verdict.moot_checks` are left
+    out, as the verdict leaves them out.
     """
-    checks = {name: record for name, record in steps.items() if record.kind == "check" and record.type in group.checks}
+    moot = _verdict.moot_checks(steps)
+    checks = {
+        name: record
+        for name, record in steps.items()
+        if record.kind == "check" and record.type in group.checks and name not in moot
+    }
     tally = _verdict.judge(checks, blocking=(), accepted={})
     warnings, missed = len(tally.warnings), tally.not_assessed
     runs = sum(1 if record.elements is None else len(record.elements) for record in checks.values())
@@ -219,7 +228,7 @@ def _verdict_section(verdict: "_verdict.Verdict") -> list[Block]:
 
 def _record_section(result: "ChainResult", plan: "PresetChain") -> Section:
     """`plan`'s record of what the chain read: a table with a column per source, then the run, and the criteria the
-    verdict applied."""
+    verdict applied: the settings of each check type the chain ran, the blocking types and the acceptances."""
     record = plan.record
     assert record is not None  # noqa: S101 - the caller draws a record only where the plan declares one
     meta = result.metadata
@@ -233,7 +242,8 @@ def _record_section(result: "ChainResult", plan: "PresetChain") -> Section:
         ("Timestamp", meta.timestamp.isoformat() if meta.timestamp else None),
     ]
     checks: dict[str, Any] = (meta.resolved_config.get("workflow") or {}).get("checks") or {}
-    criteria: list[tuple[str, Scalar]] = [(check, _settings(settings)) for check, settings in checks.items()]
+    ran = {step.type for step in result.steps.values() if step.kind == "check"}
+    criteria: list[tuple[str, Scalar]] = [(check, _settings(v)) for check, v in checks.items() if check in ran]
     if plan.blocking is not None:
         criteria.append(("Blocking", ", ".join(plan.blocking) or "none"))
     if plan.accepted:

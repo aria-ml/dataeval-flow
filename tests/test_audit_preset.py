@@ -16,7 +16,7 @@ from dataeval_flow._chain._report import _record_section
 from dataeval_flow.config import PipelineConfig
 from dataeval_flow.config._loader import load_config
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.steps._result import ChainMetadata, ChainOutput
+from dataeval_flow.steps._result import ChainMetadata, ChainOutput, StepResult
 from dataeval_flow.workflows._registry import get_workflow, list_workflows
 from dataeval_flow.workflows.audit import AuditConfig, AuditWorkflow
 from dataeval_flow.workflows.audit._config import CHECKS_MOVED, MOVED
@@ -267,11 +267,17 @@ def test_blocking_and_accepted_round_trip_through_the_builder(tmp_path: Path, su
     assert (audit.blocking, audit.accepted) == (["leakage"], {"class-imbalance": "Rare class by design."})
 
 
-def test_the_record_prints_each_checks_thresholds_as_its_criteria() -> None:
+def test_the_record_prints_the_thresholds_of_each_check_in_the_chain_as_its_criteria() -> None:
     config = _config({"accepted": {"class-imbalance": "Rare class by design."}})
+    chain = AuditWorkflow.chain(config)
+    steps = {
+        entry["name"]: StepResult(name=entry["name"], kind="check", type=entry["check"], inputs=[], status="ok")
+        for entry in chain.steps
+        if isinstance(entry, dict) and "check" in entry
+    }
     metadata = ChainMetadata(workflow="w", resolved_config={"workflow": config.model_dump(mode="json")})
-    result = ChainResult(type="audit", success=True, metadata=metadata, output=ChainOutput({}), steps={})
-    record = _record_section(result, AuditWorkflow.chain(config))
+    result = ChainResult(type="audit", success=True, metadata=metadata, output=ChainOutput(steps), steps=steps)
+    record = _record_section(result, chain)
     (criteria,) = [block for block in record.blocks if isinstance(block, Section) and block.title == "Criteria"]
     (fields,) = criteria.blocks
     assert isinstance(fields, Fields)
@@ -282,3 +288,6 @@ def test_the_record_prints_each_checks_thresholds_as_its_criteria() -> None:
     assert lines["distribution-shift"] == "warning 0.5, info 0.2"
     assert lines["Blocking"] == "leakage, untrained-classes"
     assert lines["Accepted"] == "class-imbalance: Rare class by design."
+    # with no ontology and adaptive coverage, the chain runs neither check, so their settings applied to nothing
+    assert "label-conformance" not in lines
+    assert "uncovered-items" not in lines
