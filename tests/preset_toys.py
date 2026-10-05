@@ -8,11 +8,12 @@ from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin
 from dataeval_flow.evaluators.bias import FactorSummaryConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, FactorTriageConfig, LabelHealthConfig
+from dataeval_flow.evaluators.scope import CompletenessConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows import Workflow, WorkflowConfig
-from dataeval_flow.workflows._preset import Preset, PresetChain
+from dataeval_flow.workflows._preset import NextSteps, Preset, PresetChain, ReportGroup
 
 
 class ToyPresetConfig(WorkflowConfig[ChainResult]):
@@ -231,6 +232,70 @@ class ToyReferencePreset(Preset, Workflow[ToyReferencePresetConfig, ChainResult]
 
 
 _PRESETS["toy-reference-preset"] = "tests.preset_toys:ToyReferencePreset"
+
+
+class ToyVerdictPresetConfig(WorkflowConfig[ChainResult]):
+    """Duplicates judged against `exact`, and the embeddings' completeness, with a verdict over both."""
+
+    type: str = Field(default="toy-verdict-preset", description="The workflow type this entry configures.")
+    inputs: ClassVar[InputSpec] = InputSpec(
+        required=frozenset({InputKind.STATS}), optional=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.ONE
+    )
+    exact: float | None = Field(
+        default=0.0, description="The share of images in exact-duplicate groups that warns; `None` judges nothing."
+    )
+    blocking: list[str] = Field(
+        default_factory=lambda: ["image-duplicates"], description="The check types whose warning blocks."
+    )
+    accepted: dict[str, str] = Field(
+        default_factory=dict, description="Why each check type's warning is accepted, by check type."
+    )
+
+
+class ToyVerdictPreset(Preset, Workflow[ToyVerdictPresetConfig, ChainResult]):
+    """Two checks under two headings, with a verdict and next steps: `completeness` is skipped with no extractor."""
+
+    name: ClassVar[str] = "toy-verdict-preset"
+    description: ClassVar[str] = "Judges duplicates and completeness, and gives a verdict."
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
+
+    @classmethod
+    def chain(cls, config: ToyVerdictPresetConfig) -> PresetChain:
+        """Duplicates against `exact`, and completeness judging nothing, so it gives an `info` finding."""
+        return PresetChain(
+            steps=[
+                {"name": "dupes", "evaluator": "dupes", "input": "data"},
+                {
+                    "name": "image-duplicates",
+                    "check": "image-duplicates",
+                    "input": "dupes",
+                    "exact": config.exact,
+                    "near": None,
+                },
+                {"name": "completeness", "evaluator": "completeness", "input": "data", "optional": True},
+                {
+                    "name": "dimensional-completeness",
+                    "check": "dimensional-completeness",
+                    "input": "completeness",
+                    "warning": None,
+                    "info": None,
+                },
+            ],
+            evaluators=[DuplicatesConfig(name="dupes"), CompletenessConfig(name="completeness")],
+            groups=(
+                ReportGroup("Clean", ("image-duplicates",)),
+                ReportGroup("Covered", ("dimensional-completeness",)),
+            ),
+            blocking=config.blocking,
+            accepted=config.accepted,
+            next_steps=NextSteps(
+                by_check={"image-duplicates": "Remove them."},
+                by_reason={"requires an extractor": "Name an extractor."},
+            ),
+        )
+
+
+_PRESETS["toy-verdict-preset"] = "tests.preset_toys:ToyVerdictPreset"
 
 
 def register_presets(plugins: dict[str, list[tuple[str, str]]]) -> None:

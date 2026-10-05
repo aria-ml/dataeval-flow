@@ -17,7 +17,9 @@ from dataeval_flow.workflows._result import WorkflowResult
 
 if TYPE_CHECKING:
     from dataeval_flow._chain._run import ChainRun
+    from dataeval_flow._chain._verdict import Verdict
     from dataeval_flow._result import Result
+    from dataeval_flow.workflows._preset import PresetChain
 
 StepStatus = Literal["ok", "failed", "skipped"]
 
@@ -153,6 +155,10 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         )
         self.steps: dict[str, StepResult] = dict(steps or {})
         self._preset = False  # whether a preset entry's chain ran, which the banner names; a custom workflow has none
+        self.preset_chain: PresetChain | None = None
+        """What the preset entry expanded to, with the report's groups, record and next steps; ``None`` otherwise."""
+        self.verdict: Verdict | None = None
+        """Whether the data is ready, for a preset chain that declares `blocking` and ran; ``None`` otherwise."""
 
     @classmethod
     def from_run(cls, name: str, run: "ChainRun", *, type_id: str | None = None, preset: bool = False) -> "ChainResult":
@@ -175,6 +181,14 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         )
         result._preset = preset
         return result
+
+    def attach_preset(self, chain: "PresetChain") -> None:
+        """Keep `chain`, the preset entry's expansion, and judge the verdict it declares, if the task succeeded."""
+        from dataeval_flow._chain._verdict import judge
+
+        self.preset_chain = chain
+        if chain.blocking is not None and self.success:
+            self.verdict = judge(self.steps, blocking=chain.blocking, accepted=chain.accepted)
 
     @property
     def failed_steps(self) -> list[str]:
@@ -221,6 +235,8 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
             "steps": {name: record.to_dict() for name, record in self.steps.items()},
             "findings": [finding.model_dump(mode="json") for finding in self.check_findings],
         }
+        if self.verdict is not None:
+            payload["verdict"] = self.verdict.model_dump(mode="json")
         if self.errors:
             payload["errors"] = list(self.errors)
         if self.assets:
