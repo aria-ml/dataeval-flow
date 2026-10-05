@@ -23,6 +23,7 @@ __all__ = [
     "SummaryItem",
     "Table",
     "Tree",
+    "Verdict",
 ]
 
 import math
@@ -300,8 +301,25 @@ class Summary(_Block):
     )
 
 
+class Verdict(_Block):
+    """Whether the data a report judged is ready: its level, as a word and as the line that gives its reasons.
+
+    It stands in for a summary's health verdict, which it would contradict: a report with a verdict has no summary.
+    """
+
+    type: Literal["verdict"] = Field(default="verdict", description=_TYPE)
+    level: Literal["not-ready", "ready-with-caveats", "ready"] = Field(description="How ready the data is.")
+    label: str = Field(description='The level as a report writes it, such as "Ready with caveats".')
+    line: str = Field(description='The label and its reasons, such as "Ready with caveats: 2 warnings".')
+
+    @property
+    def severity(self) -> Severity:
+        """The marker the level is drawn with: a warning where the data is not ready, ok where it is ready."""
+        return "warning" if self.level == "not-ready" else "ok" if self.level == "ready" else "info"
+
+
 Block = Annotated[
-    Section | Paragraph | BulletList | Fields | Table | Proportion | Distribution | Code | Tree | Summary,
+    Section | Paragraph | BulletList | Fields | Table | Proportion | Distribution | Code | Tree | Summary | Verdict,
     Field(discriminator="type"),
 ]
 

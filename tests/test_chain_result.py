@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from dataeval_flow import run_task
+from dataeval_flow import run_task, run_tasks
 from dataeval_flow._blocks import Section, Table
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._report import lineage_line
@@ -17,6 +17,7 @@ from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesEvaluat
 from dataeval_flow.steps import ChainResult
 from tests.chain_toys import chain_pipeline, register_toys, run_toy_chain
 from tests.evaluator_toys import ToyImages
+from tests.preset_toys import register_presets
 
 pytestmark = pytest.mark.usefixtures("toys")
 
@@ -213,6 +214,23 @@ def test_markdown_shows_the_errors_of_a_chain_refused_before_any_step_ran() -> N
     assert "**Health:** failed" in summary
     assert f"```\n{_REFUSAL}\n```" in summary
     assert "**Failed steps:**" not in summary
+
+
+def test_the_ci_markdown_summary_gives_the_verdict_in_place_of_the_health_line(toys) -> None:
+    register_presets(toys)
+    entries = [
+        {"name": "blocked", "type": "toy-verdict-preset"},
+        {"name": "caveated", "type": "toy-verdict-preset", "exact": 50.0},
+        {"name": "plain", "type": "toy-preset"},
+    ]
+    tasks = [{"name": entry["name"], "workflow": entry["name"], "sources": ["src"]} for entry in entries]
+    results = run_tasks(chain_pipeline(workflows=entries, tasks=tasks))
+    blocked, caveated, plain = (markdown_summary({name: results[name]}) for name in ("blocked", "caveated", "plain"))
+    assert "## blocked\n\n**Verdict:** Not ready: Image Duplicates (2 exact (16.7%), 0 near (0.0%))\n" in blocked
+    assert "## caveated\n\n**Verdict:** Ready with caveats: 1 not assessed\n" in caveated
+    assert "**Health:**" not in blocked + caveated  # "passed" would contradict the caveats
+    assert "**Health:** 1 warning" in plain
+    assert "**Verdict:**" not in plain
 
 
 def test_the_runner_prints_and_writes_a_failed_chain(caplog) -> None:

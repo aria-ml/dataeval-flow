@@ -7,7 +7,12 @@ from dataeval import Metadata
 from dataeval_flow import run
 from dataeval_flow._blocks import Fields
 from dataeval_flow.evaluators import EvaluatorInputs
-from dataeval_flow.evaluators.quality import LabelHealthConfig, LabelHealthEvaluator, LabelHealthOutput
+from dataeval_flow.evaluators.quality import (
+    LabelHealthConfig,
+    LabelHealthEvaluator,
+    LabelHealthOutput,
+    LabelHealthResult,
+)
 from tests.chain_toys import ToyDetections
 from tests.evaluator_toys import ToyImages, output_json
 
@@ -40,6 +45,23 @@ def test_counts_a_detection_dataset_s_boxes_and_the_images_that_have_none() -> N
         "empty_image_indices": [1],
         "label_source": "protocol",
     }
+
+
+def test_its_record_rows_count_items_labels_empty_images_and_classes() -> None:
+    classified = run(LabelHealthConfig(), ToyImages(count=6))
+    assert isinstance(classified, LabelHealthResult)
+    assert classified.record_rows() == [("Items", "6"), ("Labels", "6"), ("Empty images", "0"), ("Classes", "2: a, b")]
+    detected = run(LabelHealthConfig(), ToyDetections([[0, 1], [], [1], [0]], {0: "car", 1: "van", 2: "bus"}))
+    assert isinstance(detected, LabelHealthResult)
+    assert detected.record_rows() == [
+        ("Items", "4"),
+        ("Labels", "4"),
+        ("Empty images", "1"),
+        ("Classes", "3: car, van, bus"),
+    ]
+    unlabelled = run(LabelHealthConfig(), ToyImages(count=6, labeled=False))
+    assert isinstance(unlabelled, LabelHealthResult)
+    assert unlabelled.record_rows()[:3] == [("Items", "6"), ("Labels", "0"), ("Empty images", "6")]
 
 
 def test_a_dataset_without_labels_counts_none_and_still_declares_its_classes() -> None:

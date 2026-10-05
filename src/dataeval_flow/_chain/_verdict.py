@@ -1,6 +1,16 @@
 """A preset chain's verdict over the checks it names, and the next steps it gives (audit spec §6, §9.5, §21)."""
 
-__all__ = ["LABELS", "Acceptance", "Level", "Unassessed", "Verdict", "VerdictItem", "judge", "next_step_lines"]
+__all__ = [
+    "LABELS",
+    "Acceptance",
+    "Level",
+    "Unassessed",
+    "Verdict",
+    "VerdictItem",
+    "judge",
+    "next_step_lines",
+    "reason_class",
+]
 
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Literal
@@ -122,8 +132,7 @@ def next_step_lines(verdict: Verdict, plan: "NextSteps") -> list[str]:
         lines.append(f"{items[0].title} ({steps})" + (f": {advice}" if advice else ""))
     classes: dict[str, list[str]] = {}
     for unassessed in verdict.not_assessed:
-        reason = next((fragment for fragment in plan.by_reason if fragment in unassessed.reason), unassessed.reason)
-        classes.setdefault(reason, []).append(get_check(unassessed.check).title)
+        classes.setdefault(reason_class(unassessed.reason, plan), []).append(get_check(unassessed.check).title)
     for reason, titles in classes.items():
         named = ", ".join(dict.fromkeys(titles))
         if reason in plan.by_reason:
@@ -131,3 +140,8 @@ def next_step_lines(verdict: Verdict, plan: "NextSteps") -> list[str]:
         else:
             lines.append(f"Not assessed ({named}): {reason.rstrip('.')}.")
     return lines
+
+
+def reason_class(reason: str, plan: "NextSteps") -> str:
+    """The class of reason `reason` is: the first of `plan`'s reason fragments it holds, or `reason` itself."""
+    return next((fragment for fragment in plan.by_reason if fragment in reason), reason)

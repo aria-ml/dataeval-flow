@@ -7,13 +7,18 @@ from pydantic import Field
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin
 from dataeval_flow.evaluators.bias import FactorSummaryConfig
-from dataeval_flow.evaluators.quality import DuplicatesConfig, FactorTriageConfig, LabelHealthConfig
+from dataeval_flow.evaluators.quality import (
+    ContentDigestConfig,
+    DuplicatesConfig,
+    FactorTriageConfig,
+    LabelHealthConfig,
+)
 from dataeval_flow.evaluators.scope import CompletenessConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows import Workflow, WorkflowConfig
-from dataeval_flow.workflows._preset import NextSteps, Preset, PresetChain, ReportGroup
+from dataeval_flow.workflows._preset import NextSteps, Preset, PresetChain, Record, ReportGroup
 
 
 class ToyPresetConfig(WorkflowConfig[ChainResult]):
@@ -253,7 +258,8 @@ class ToyVerdictPresetConfig(WorkflowConfig[ChainResult]):
 
 
 class ToyVerdictPreset(Preset, Workflow[ToyVerdictPresetConfig, ChainResult]):
-    """Two checks under two headings, with a verdict and next steps: `completeness` is skipped with no extractor."""
+    """Two checks under two headings, with a verdict and next steps: `completeness` is skipped with no extractor. A
+    record of what was run holds the source's digests."""
 
     name: ClassVar[str] = "toy-verdict-preset"
     description: ClassVar[str] = "Judges duplicates and completeness, and gives a verdict."
@@ -280,12 +286,18 @@ class ToyVerdictPreset(Preset, Workflow[ToyVerdictPresetConfig, ChainResult]):
                     "warning": None,
                     "info": None,
                 },
+                {"name": "content-digest", "evaluator": "content-digest", "input": "data"},
             ],
-            evaluators=[DuplicatesConfig(name="dupes"), CompletenessConfig(name="completeness")],
+            evaluators=[
+                DuplicatesConfig(name="dupes"),
+                CompletenessConfig(name="completeness"),
+                ContentDigestConfig(name="content-digest"),
+            ],
             groups=(
                 ReportGroup("Clean", ("image-duplicates",)),
                 ReportGroup("Covered", ("dimensional-completeness",)),
             ),
+            record=Record("What was run", ("content-digest",)),
             blocking=config.blocking,
             accepted=config.accepted,
             next_steps=NextSteps(
@@ -296,6 +308,43 @@ class ToyVerdictPreset(Preset, Workflow[ToyVerdictPresetConfig, ChainResult]):
 
 
 _PRESETS["toy-verdict-preset"] = "tests.preset_toys:ToyVerdictPreset"
+
+
+class ToyVerdictSplitsPresetConfig(WorkflowConfig[ChainResult]):
+    """Each split's duplicates, judged under one heading, and each split's digests in the record."""
+
+    type: str = Field(default="toy-verdict-splits-preset", description="The workflow type this entry configures.")
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.STATS}), sources=SourceCount.TWO_OR_MORE)
+
+
+class ToyVerdictSplitsPreset(Preset, Workflow[ToyVerdictSplitsPresetConfig, ChainResult]):
+    """`train` and a list `evals`: a step over each, and one run once per element of `evals`."""
+
+    name: ClassVar[str] = "toy-verdict-splits-preset"
+    description: ClassVar[str] = "Judges each split's duplicates and records each split's digests."
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("train", InputSlot.model_validate({"name": "evals", "list": True}))
+
+    @classmethod
+    def chain(cls, config: Any) -> PresetChain:  # noqa: ARG003
+        """Digests and duplicates of train and of each evaluation split, each split's judged against `exact: 0`."""
+        judge = {"check": "image-duplicates", "exact": 0.0, "near": None}
+        return PresetChain(
+            steps=[
+                {"name": "content-digest-train", "evaluator": "content-digest", "input": "train"},
+                {"name": "content-digest-evals", "evaluator": "content-digest", "input": "evals"},
+                {"name": "dupes-train", "evaluator": "dupes", "input": "train"},
+                {"name": "dupes-evals", "evaluator": "dupes", "input": "evals"},
+                {"name": "image-duplicates-train", "input": "dupes-train", **judge},
+                {"name": "image-duplicates-evals", "input": "dupes-evals", **judge},
+            ],
+            evaluators=[ContentDigestConfig(name="content-digest"), DuplicatesConfig(name="dupes")],
+            groups=(ReportGroup("Clean", ("image-duplicates",)),),
+            record=Record("What was run", ("content-digest",)),
+            blocking=(),
+        )
+
+
+_PRESETS["toy-verdict-splits-preset"] = "tests.preset_toys:ToyVerdictSplitsPreset"
 
 
 def register_presets(plugins: dict[str, list[tuple[str, str]]]) -> None:
