@@ -91,7 +91,7 @@ class DriftUnivariateEvaluator(Evaluator[DriftUnivariateConfig, DriftOutput[Any]
 
     name: ClassVar[str] = "drift-univariate"
     title: ClassVar[str] = "Drift (Univariate)"
-    description: ClassVar[str] = "Per-dimension statistical tests for drift (DataEval DriftUnivariate)"
+    description: ClassVar[str] = "Per-dimension statistical tests for drift (DataEval DriftUnivariate)."
     dataeval_class: ClassVar[type] = DriftUnivariate
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
 
@@ -105,7 +105,7 @@ class DriftMMDEvaluator(Evaluator[DriftMMDConfig, DriftOutput[Any]]):
 
     name: ClassVar[str] = "drift-mmd"
     title: ClassVar[str] = "Drift (MMD)"
-    description: ClassVar[str] = "Maximum mean discrepancy between reference and test (DataEval DriftMMD)"
+    description: ClassVar[str] = "Maximum mean discrepancy between reference and test (DataEval DriftMMD)."
     dataeval_class: ClassVar[type] = DriftMMD
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
 
@@ -120,7 +120,7 @@ class DriftKNeighborsEvaluator(Evaluator[DriftKNeighborsConfig, DriftOutput[Any]
     name: ClassVar[str] = "drift-kneighbors"
     title: ClassVar[str] = "Drift (K-Neighbors)"
     description: ClassVar[str] = (
-        "Nearest-neighbor distances to the reference, tested for drift (DataEval DriftKNeighbors)"
+        "Nearest-neighbor distances to the reference, tested for drift (DataEval DriftKNeighbors)."
     )
     dataeval_class: ClassVar[type] = DriftKNeighbors
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
@@ -137,7 +137,7 @@ class DriftWassersteinEvaluator(Evaluator[DriftWassersteinConfig, DriftOutput[An
     name: ClassVar[str] = "drift-wasserstein"
     title: ClassVar[str] = "Drift (Wasserstein)"
     description: ClassVar[str] = (
-        "Per-dimension Wasserstein distance against a validation baseline (DataEval DriftWasserstein)"
+        "Per-dimension Wasserstein distance against a validation baseline (DataEval DriftWasserstein)."
     )
     dataeval_class: ClassVar[type] = DriftWasserstein
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
@@ -153,7 +153,7 @@ class DriftDomainClassifierEvaluator(Evaluator[DriftDomainClassifierConfig, Drif
 
     name: ClassVar[str] = "drift-domain-classifier"
     title: ClassVar[str] = "Drift (Domain Classifier)"
-    description: ClassVar[str] = "A classifier's ability to tell reference from test (DataEval DriftDomainClassifier)"
+    description: ClassVar[str] = "A classifier's ability to tell reference from test (DataEval DriftDomainClassifier)."
     dataeval_class: ClassVar[type] = DriftDomainClassifier
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
 
@@ -179,7 +179,7 @@ class OODKNeighborsEvaluator(Evaluator[OODKNeighborsConfig, OODOutput]):
 
     name: ClassVar[str] = "ood-kneighbors"
     title: ClassVar[str] = "OOD (K-Neighbors)"
-    description: ClassVar[str] = "Test items far from their nearest reference neighbors (DataEval OODKNeighbors)"
+    description: ClassVar[str] = "Test items far from their nearest reference neighbors (DataEval OODKNeighbors)."
     dataeval_class: ClassVar[type] = OODKNeighbors
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
 
@@ -194,7 +194,9 @@ class OODDomainClassifierEvaluator(Evaluator[OODDomainClassifierConfig, OODOutpu
 
     name: ClassVar[str] = "ood-domain-classifier"
     title: ClassVar[str] = "OOD (Domain Classifier)"
-    description: ClassVar[str] = "Test items a classifier tells apart from the reference (DataEval OODDomainClassifier)"
+    description: ClassVar[str] = (
+        "Test items a classifier tells apart from the reference (DataEval OODDomainClassifier)."
+    )
     dataeval_class: ClassVar[type] = OODDomainClassifier
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _PREDICT
 
@@ -208,7 +210,7 @@ class DivergenceEvaluator(Evaluator[DivergenceConfig, DivergenceOutput]):
 
     name: ClassVar[str] = "divergence"
     title: ClassVar[str] = "Divergence"
-    description: ClassVar[str] = "How far apart two sources' embeddings sit (DataEval divergence_mst, divergence_fnn)"
+    description: ClassVar[str] = "How far apart two sources' embeddings sit (DataEval divergence_mst, divergence_fnn)."
     dataeval_class: ClassVar[Any] = divergence_mst
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.EMBEDDINGS: "__call__"}
     reads_factors: ClassVar[bool] = False

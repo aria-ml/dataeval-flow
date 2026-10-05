@@ -36,7 +36,7 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
     title: ClassVar[str] = "Data Coverage"
     description: ClassVar[str] = (
         "Judges how a Dataset's embeddings cover their space, its class balance and metadata gaps, and what to acquire "
-        "per class; detections are cropped first"
+        "per class; detections are cropped first."
     )
     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
 

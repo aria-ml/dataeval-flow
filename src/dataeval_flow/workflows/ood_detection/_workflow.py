@@ -31,7 +31,7 @@ class OODDetectionWorkflow(Preset, Workflow[OODDetectionConfig, ChainResult]):
     title: ClassVar[str] = "OOD Detection"
     description: ClassVar[str] = (
         "Flags each test source's images unlike the reference, by each detector and by their agreement, with the "
-        "metadata behind them"
+        "metadata behind them."
     )
     slots: ClassVar[tuple[str | InputSlot, ...]] = (
         "reference",

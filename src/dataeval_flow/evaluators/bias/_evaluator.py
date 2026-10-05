@@ -49,7 +49,7 @@ class BalanceEvaluator(Evaluator[BalanceConfig, BalanceOutput]):
 
     name: ClassVar[str] = "balance"
     title: ClassVar[str] = "Balance"
-    description: ClassVar[str] = "Mutual information between metadata factors and class labels (DataEval Balance)"
+    description: ClassVar[str] = "Mutual information between metadata factors and class labels (DataEval Balance)."
     dataeval_class: ClassVar[type] = Balance
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _EVALUATE
 
@@ -65,7 +65,7 @@ class DiversityEvaluator(Evaluator[DiversityConfig, DiversityOutput]):
 
     name: ClassVar[str] = "diversity"
     title: ClassVar[str] = "Diversity"
-    description: ClassVar[str] = "How evenly metadata factor values are spread (DataEval Diversity)"
+    description: ClassVar[str] = "How evenly metadata factor values are spread (DataEval Diversity)."
     dataeval_class: ClassVar[type] = Diversity
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _EVALUATE
 
@@ -81,7 +81,7 @@ class ParityEvaluator(Evaluator[ParityConfig, ParityOutput]):
 
     name: ClassVar[str] = "parity"
     title: ClassVar[str] = "Parity"
-    description: ClassVar[str] = "Association between metadata factors and class labels (DataEval Parity)"
+    description: ClassVar[str] = "Association between metadata factors and class labels (DataEval Parity)."
     dataeval_class: ClassVar[type] = Parity
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _EVALUATE
 
@@ -97,7 +97,7 @@ class FactorSummaryEvaluator(Evaluator[FactorSummaryConfig, FactorSummaryOutput]
 
     name: ClassVar[str] = "factor-summary"
     title: ClassVar[str] = "Factor Summary"
-    description: ClassVar[str] = "Each metadata factor's type, binning, nulls, and range or top values"
+    description: ClassVar[str] = "Each metadata factor's type, binning, nulls, and range or top values."
     dataeval_class: ClassVar[Any] = Metadata
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.METADATA: "rows_at"}
 

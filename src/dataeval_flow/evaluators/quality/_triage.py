@@ -43,7 +43,7 @@ class FactorTriageEvaluator(Evaluator[FactorTriageConfig, FactorTriageOutput]):
 
     name: ClassVar[str] = "factor-triage"
     title: ClassVar[str] = "Factor Triage"
-    description: ClassVar[str] = "What a Dataset's metadata failed to read, and a policy that repairs it"
+    description: ClassVar[str] = "What a Dataset's metadata failed to read, and a policy that repairs it."
     dataeval_class: ClassVar[Any] = Metadata
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = {InputKind.METADATA: "repair"}
 

@@ -43,7 +43,7 @@ class DataSplittingWorkflow(Preset, Workflow[DataSplittingConfig, ChainResult]):
     title: ClassVar[str] = "Data Splitting"
     description: ClassVar[str] = (
         "Splits a Dataset into train, val and test, or k folds, and judges its balance, stratification and coverage; "
-        "with `folds` of 2 or more, `train` and `val` are lists keyed by fold"
+        "with `folds` of 2 or more, `train` and `val` are lists keyed by fold."
     )
     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
     outputs: ClassVar[tuple[Port, ...]] = tuple(Port(part, DataType.DATASET) for part in _PARTS)

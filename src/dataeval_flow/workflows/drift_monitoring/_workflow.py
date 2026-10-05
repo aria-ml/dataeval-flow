@@ -26,7 +26,7 @@ class DriftMonitoringWorkflow(Preset, Workflow[DriftMonitoringConfig, ChainResul
 
     name: ClassVar[str] = "drift-monitoring"
     title: ClassVar[str] = "Drift Monitoring"
-    description: ClassVar[str] = "Tests each incoming source for drift from a reference, whole, by chunk and by class"
+    description: ClassVar[str] = "Tests each incoming source for drift from a reference, whole, by chunk and by class."
     slots: ClassVar[tuple[str | InputSlot, ...]] = (
         "reference",
         InputSlot.model_validate({"name": "tests", "list": True}),
