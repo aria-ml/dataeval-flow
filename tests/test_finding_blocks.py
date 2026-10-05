@@ -7,7 +7,7 @@ from dataeval_flow._tables import TableLimits, group_cells, limited_tables, tabl
 from dataeval_flow.evaluators.bias._report import ranked_table
 from dataeval_flow.evaluators.quality._report import groups_table
 from dataeval_flow.evaluators.scope._report import uncovered_blocks
-from dataeval_flow.workflows import Finding
+from dataeval_flow.steps import Finding
 from dataeval_flow.workflows._tables import unlabelled_blocks
 from tests.finding_blocks import bullets, codes, column, fields, paragraphs, rendered, sections, tables, walk
 

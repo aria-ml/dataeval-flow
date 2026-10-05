@@ -190,7 +190,8 @@ class TestTheRun:
         import dataeval_flow._orchestrator as orchestrator
         from dataeval_flow import run_tasks
         from dataeval_flow.config import ResultConfig, TaskConfig
-        from dataeval_flow.workflows import Finding, WorkflowReport
+        from dataeval_flow.steps import Finding
+        from dataeval_flow.workflows import WorkflowReport
         from tests.evaluator_toys import toy_pipeline
         from tests.workflow_toys import ToyCountConfig, ToyCountMetadata, ToyCountOutput, ToyCountRaw, ToyCountResult
 

@@ -6,7 +6,6 @@ workflow subclasses and what every workflow run hands back.
 """
 
 from dataeval_flow.workflows._base import (
-    Finding,
     Workflow,
     WorkflowConfig,
     WorkflowOutput,
@@ -19,7 +18,6 @@ from dataeval_flow.workflows._result import WorkflowResult
 
 __all__ = [
     "DatasetContext",
-    "Finding",
     "ResolvedOntology",
     "Workflow",
     "WorkflowConfig",

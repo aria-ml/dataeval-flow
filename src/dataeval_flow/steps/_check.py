@@ -67,7 +67,7 @@ class Check(InlineStep, ABC, Generic[CheckConfigT]):
     >>> from typing import Any, ClassVar
     >>> from dataeval.quality import DuplicatesOutput
     >>> from dataeval_flow.steps import Check, CheckConfig, CheckContext, DataType, Port
-    >>> from dataeval_flow.workflows import Finding
+    >>> from dataeval_flow.steps import Finding
     >>> class GroupsConfig(CheckConfig):
     ...     input: str
     ...     most: float | None = 0.0

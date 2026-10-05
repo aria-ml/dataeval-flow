@@ -11,7 +11,7 @@ from dataeval_flow._result import Result, ResultKind, ResultMetadata, TMetadata
 from dataeval_flow.workflows._base import Finding, WorkflowOutput
 
 if TYPE_CHECKING:
-    import dataeval_flow.workflows
+    import dataeval_flow.steps
 
 TOutput = TypeVar("TOutput", bound="WorkflowOutput[Any, Any]")
 
@@ -93,7 +93,7 @@ class WorkflowResult(Result[TMetadata, TOutput]):
             cls.metadata_type = arguments[0]
 
     @property
-    def findings(self) -> "list[dataeval_flow.workflows.Finding]":  # its public path, for the API pages
+    def findings(self) -> "list[dataeval_flow.steps.Finding]":  # its public path, for the API pages
         """The report's findings, or an empty list where the run failed."""
         if not self.success:
             return []

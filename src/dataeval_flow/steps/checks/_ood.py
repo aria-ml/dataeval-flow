@@ -24,7 +24,7 @@ from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps.checks._drift import evaluator_heading
 from dataeval_flow.steps.combines._ood import OODUnionOutput
-from dataeval_flow.workflows import Finding
+from dataeval_flow.workflows._base import Finding
 
 Severity = Literal["ok", "info", "warning"]
 

@@ -23,7 +23,8 @@ from dataeval_flow.config.extractors import (
     TorchExtractorConfig,
     UncertaintyExtractorConfig,
 )
-from dataeval_flow.workflows import Finding, WorkflowConfig, WorkflowRawOutput, WorkflowReport
+from dataeval_flow.steps import Finding
+from dataeval_flow.workflows import WorkflowConfig, WorkflowRawOutput, WorkflowReport
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
 pytestmark = pytest.mark.required

@@ -9,7 +9,7 @@ from typing import Any
 
 from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache
-from dataeval_flow.workflows import Finding
+from dataeval_flow.steps import Finding
 from tests.chain_toys import ToyDetections, chain_pipeline
 from tests.evaluator_toys import ToyImages
 

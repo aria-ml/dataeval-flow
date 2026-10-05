@@ -228,3 +228,11 @@ def test_a_presets_steps_are_named_for_their_types(cls: type) -> None:
         assert name == type_id or name.startswith(f"{type_id}-"), (
             f"step `{name}` is not `{type_id}` or `{type_id}-<role>`"
         )
+
+
+def test_finding_is_exported_beside_check_and_only_there() -> None:
+    import dataeval_flow.steps as steps
+    import dataeval_flow.workflows as workflows
+
+    assert "Finding" in steps.__all__
+    assert "Finding" not in workflows.__all__

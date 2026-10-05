@@ -206,7 +206,7 @@ class Finding(BaseModel):
 
     Examples
     --------
-    >>> from dataeval_flow.workflows import Finding
+    >>> from dataeval_flow.steps import Finding
     >>> finding = Finding(title="train items", severity="warning", brief="3 items", description="Fewer than 10.")
     >>> finding.brief
     '3 items'
@@ -285,7 +285,8 @@ class WorkflowReport(BaseModel):
     Examples
     --------
     >>> from pydantic import Field
-    >>> from dataeval_flow.workflows import Finding, WorkflowReport
+    >>> from dataeval_flow.steps import Finding
+    >>> from dataeval_flow.workflows import WorkflowReport
     >>> class CountReport(WorkflowReport):
     ...     smallest: str | None = Field(default=None, description="The source holding the fewest items.")
     >>> finding = Finding(severity="warning", title="train items", brief="3 items")

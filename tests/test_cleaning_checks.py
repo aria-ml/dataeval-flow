@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.evaluators.quality import LabelHealthOutput
-from dataeval_flow.steps import ChainResult, CheckContext
+from dataeval_flow.steps import ChainResult, CheckContext, Finding
 from dataeval_flow.steps.checks import (
     ClassImbalanceCheck,
     ClassImbalanceConfig,
@@ -27,7 +27,6 @@ from dataeval_flow.steps.checks import (
     TargetOutliersConfig,
 )
 from dataeval_flow.steps.combines import OutliersByClassOutput, OutliersByClassRow
-from dataeval_flow.workflows import Finding
 from tests.chain_toys import ToyDetections, chain_pipeline
 from tests.evaluator_toys import ToyImages
 

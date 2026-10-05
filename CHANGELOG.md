@@ -200,6 +200,7 @@
 
 ### Changed
 
+- `Finding` is exported from `dataeval_flow.steps`, beside `Check`; `dataeval_flow.workflows` no longer exports it
 - A check warns only past its bound, never at it: `ood`, `ood-agreement` and `eval-coverage` (which warned and
   informed at their bounds), `drift`'s `chunk_percent` and `consecutive_chunks`, and `factor-coverage-gaps`. The
   last two now default to 2 (were 3), so three drifted chunks in a row, or three gaps, still warn

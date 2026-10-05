@@ -10,7 +10,7 @@ from typing import TypeVar
 from dataeval_flow._blocks import Block, BulletList, Code, Fields, Paragraph, Section, Table
 from dataeval_flow._blocks._models import Cell, Scalar
 from dataeval_flow._blocks._text import DEFAULT_WIDTH, Frame, render_text
-from dataeval_flow.workflows import Finding
+from dataeval_flow.steps import Finding
 from dataeval_flow.workflows._result import finding_section
 
 _B = TypeVar("_B")

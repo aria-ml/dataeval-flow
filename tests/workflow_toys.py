@@ -15,8 +15,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from dataeval_flow import ResultMetadata
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.steps import Finding
 from dataeval_flow.workflows import (
-    Finding,
     Workflow,
     WorkflowConfig,
     WorkflowContext,

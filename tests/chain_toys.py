@@ -21,13 +21,13 @@ from dataeval_flow.steps import (
     CombineConfig,
     CombineContext,
     DataType,
+    Finding,
     Port,
     StepSkipped,
     Transform,
     TransformConfig,
     TransformContext,
 )
-from dataeval_flow.workflows import Finding
 from tests.evaluator_toys import FLAT, ToyImages
 
 

@@ -43,7 +43,7 @@ def _evaluator(*, success: bool = True) -> EvaluatorResult[object]:
 
 def test_the_short_page_gives_the_verdict_the_full_page_gives():
     """The short form has no finding cards, so its badge comes from the summary's lines."""
-    from dataeval_flow.workflows import Finding
+    from dataeval_flow.steps import Finding
 
     result = _workflow()
     assert result.output is not None
@@ -55,7 +55,7 @@ def test_the_short_page_gives_the_verdict_the_full_page_gives():
 def test_the_page_shows_the_thumbnails_its_result_carries():
     """One run's results share one page, and each shows the thumbnails its own result captured."""
     from dataeval_flow._blocks import Asset, Column, ItemRef, Table
-    from dataeval_flow.workflows import Finding
+    from dataeval_flow.steps import Finding
 
     ref = ItemRef(source="train", index=4)
     result = _workflow()
@@ -71,7 +71,7 @@ def test_the_page_shows_the_thumbnails_its_result_carries():
 
 def test_the_page_titles_a_report_s_own_sections_as_it_titles_its_findings():
     """Summary, Configuration, Output and Failed, in title case; the text report capitalizes every section alike."""
-    from dataeval_flow.workflows import Finding
+    from dataeval_flow.steps import Finding
 
     result = _workflow()
     result.output.report.findings = [Finding(title="Duplicates", severity="warning", brief="3 groups")]
@@ -86,7 +86,7 @@ def test_the_page_titles_a_report_s_own_sections_as_it_titles_its_findings():
 def test_a_page_of_several_results_shows_each_its_own_thumbnails():
     """Each task draws its own random view, so one source's index may be two images: each report shows its own."""
     from dataeval_flow._blocks import Asset, Column, ItemRef, Table
-    from dataeval_flow.workflows import Finding
+    from dataeval_flow.steps import Finding
 
     ref = ItemRef(source="train", index=4)
     results = []

@@ -10,7 +10,7 @@ from dataeval_flow._cache import DatasetCache
 from dataeval_flow._ci_reports import markdown_summary
 from dataeval_flow._matrix._result import MatrixRun
 from dataeval_flow._matrix._table import comparison_table
-from dataeval_flow.workflows import Finding
+from dataeval_flow.steps import Finding
 from tests.chain_toys import chain_pipeline
 
 _CLEANING = {

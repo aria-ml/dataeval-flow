@@ -273,7 +273,7 @@ def test_a_check_over_skipped_groups_is_not_assessed_by_group(plugins):
 def test_a_check_with_by_returning_one_finding_per_class_fails_its_step(plugins):
     from unittest.mock import patch
 
-    from dataeval_flow.workflows import Finding
+    from dataeval_flow.steps import Finding
     from tests.chain_toys import Drifted
 
     register_toys(plugins)
@@ -293,8 +293,8 @@ def test_nothing_assessed_is_not_assessed():
 
 
 def test_groups_roll_up_by_group():
+    from dataeval_flow.steps import Finding
     from dataeval_flow.steps._by import ByConfig, roll_up
-    from dataeval_flow.workflows import Finding
 
     by = ByConfig.model_validate({"class": {"groups": {"pets": ["cat"]}}})
     ok = Finding(severity="ok", title="Drifted")

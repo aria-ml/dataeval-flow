@@ -18,8 +18,8 @@ from dataeval_flow.evaluators import (
     EvaluatorInputs,
     EvaluatorResult,
 )
+from dataeval_flow.steps import Finding
 from dataeval_flow.workflows import (
-    Finding,
     Workflow,
     WorkflowConfig,
     WorkflowContext,

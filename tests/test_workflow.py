@@ -13,9 +13,9 @@ from dataeval_flow._blocks import Fields, Paragraph, Section
 from dataeval_flow._blocks._text import Frame, render_text
 from dataeval_flow._result import _envelope_items
 from dataeval_flow.config import ViewOperation
+from dataeval_flow.steps import Finding
 from dataeval_flow.workflows import (
     DatasetContext,
-    Finding,
     WorkflowOutput,
     WorkflowRawOutput,
     WorkflowReport,
