@@ -3,6 +3,7 @@
 Task-oriented guides for specific goals with DataEval Flow. Each takes one problem and walks through the solution.
 New to DataEval Flow? Start with the {doc}`Quickstart <../home/quickstart>` and the
 {doc}`Tutorials <../tutorials/index>`. These guides assume you have run a workflow before.
+If you know your question but not the step, see {doc}`Find the Right Step <../reference/index>`.
 
 The guides are grouped by the part of a pipeline they address.
 

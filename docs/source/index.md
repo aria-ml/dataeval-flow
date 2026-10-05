@@ -127,6 +127,7 @@ Overview <concepts/index>
 :caption: Reference
 :hidden:
 
+Find the Right Step <reference/index>
 Container Reference <reference/containers>
 JATIC Maturity <reference/maturity>
 Evaluator Catalog <reference/evaluators>

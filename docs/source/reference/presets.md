@@ -10,7 +10,7 @@ chain tables show the chain the settings named above each table build; other set
 
 Outlier and duplicate detection for image datasets, and the dataset without them.
 
-- **Answers:** Is the data clean?
+- **Answers:** [Is the data clean?](index.md#is-the-data-clean)
 - **Reads:** `data`, the task's one source.
 - **Makes:** `clean`, the Dataset without its flagged outliers and duplicates.
 
@@ -83,7 +83,7 @@ tasks:
 
 Judges a Dataset's labels against a declared ontology: leaf coverage, conformance, alignment and structure.
 
-- **Answers:** Do the labels match an ontology?
+- **Answers:** [Do the labels match an ontology?](index.md#do-the-labels-match-an-ontology)
 - **Reads:** `data`, the task's one source.
 - **Makes:** no Dataset; its findings are its result.
 
@@ -140,7 +140,7 @@ tasks:
 Judges how a Dataset's embeddings cover their space, its class balance and metadata gaps, and what to acquire per class;
 detections are cropped first.
 
-- **Answers:** Does the data cover what the model must handle?
+- **Answers:** [Does the data cover what the model must handle?](index.md#does-the-data-cover-what-the-model-must-handle)
 - **Reads:** `data`, the task's one source.
 - **Makes:** no Dataset; its findings are its result.
 
@@ -213,7 +213,7 @@ tasks:
 Splits a Dataset into train, val and test, or k folds, and judges its balance, stratification and coverage; with `folds`
 of 2 or more, `train` and `val` are lists keyed by fold.
 
-- **Answers:** Are the splits fit to evaluate on?
+- **Answers:** [Are the splits fit to evaluate on?](index.md#are-the-splits-fit-to-evaluate-on)
 - **Reads:** `data`, the task's one source.
 - **Makes:** `train`, `val` and `test`.
 
@@ -288,7 +288,7 @@ tasks:
 
 Tests each incoming source for drift from a reference, whole, by chunk and by class.
 
-- **Answers:** Has new data drifted?
+- **Answers:** [Has new data drifted?](index.md#has-new-data-drifted)
 - **Reads:** `reference`, then `tests`: the first source is the reference, and each later source is tested against it.
 - **Makes:** no Dataset; its findings are its result.
 
@@ -343,7 +343,7 @@ tasks:
 Flags each test source's images unlike the reference, by each detector and by their agreement, with the metadata behind
 them.
 
-- **Answers:** Which items are out of distribution?
+- **Answers:** [Which items are out of distribution?](index.md#which-items-are-out-of-distribution)
 - **Reads:** `reference`, then `tests`: the first source is the reference, and each later source is scored against it.
 - **Makes:** no Dataset; its findings are its result.
 
@@ -407,7 +407,7 @@ tasks:
 
 Ranks each pool against a reference for labeling, after optional cleaning, and keeps the top.
 
-- **Answers:** Which items should be labeled next?
+- **Answers:** [Which items should be labeled next?](index.md#which-items-should-be-labeled-next)
 - **Reads:** `reference`, then `pools`: the first source is the reference and the rest are the pools.
 - **Makes:** `selected`, each pool's top-ranked items.
 
@@ -466,7 +466,7 @@ tasks:
 
 Reports unreadable and unpinned metadata factors, with suggested corrections.
 
-- **Answers:** Is the metadata readable?
+- **Answers:** [Is the metadata readable?](index.md#is-the-metadata-readable)
 - **Reads:** `data`, the task's one source.
 - **Makes:** no Dataset; its findings are its result.
 

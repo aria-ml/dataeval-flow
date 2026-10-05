@@ -210,3 +210,26 @@ def test_every_class_a_page_names_imports(page: str) -> None:
         except (ImportError, AttributeError):
             missing.append(path)
     assert not missing, f"{page} names classes nothing imports: {missing}"
+
+
+def _questions() -> set[str]:
+    return set(re.findall(r"^## (.+)$", _page("index.md"), re.M))
+
+
+@pytest.mark.parametrize("name", sorted({entry.type for entry in _CATALOG} | {cls.name for cls in _PRESETS}))
+def test_every_step_and_preset_is_in_the_question_index(name: str) -> None:
+    assert f"`{name}`" in _page("index.md"), f"reference/index.md does not name `{name}`"
+
+
+@pytest.mark.parametrize("page", ["evaluators.md", "combines.md", "checks.md"])
+def test_a_catalog_groups_its_entries_under_the_indexs_questions(page: str) -> None:
+    questions, text = _questions(), _page(page)
+    for heading in re.finditer(r"^### `([a-z0-9-]+)`$", text, re.M):
+        group = re.findall(r"^## (.+)$", text[: heading.start()], re.M)[-1]
+        assert group in questions, f"{page}: `{heading[1]}` sits under {group!r}, which reference/index.md does not ask"
+
+
+@pytest.mark.parametrize("cls", _PRESETS, ids=lambda cls: cls.name)
+def test_a_preset_links_the_question_it_answers(cls: type) -> None:
+    answers = _bullet(_preset_section(cls), "Answers")
+    assert re.search(r"\]\(index\.md#[a-z0-9-]+\)", answers), f"`{cls.name}`'s Answers links no question"
