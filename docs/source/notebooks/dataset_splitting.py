@@ -107,8 +107,8 @@ print(f"Reading from {data_path}")
 # items, so it runs only when the task names one; this tutorial leaves it out.
 
 # %%
-from dataeval_flow import PipelineConfig, run_task
-from dataeval_flow.config import HuggingFaceDatasetConfig, SourceConfig, TaskConfig
+from dataeval_flow import run_task
+from dataeval_flow.config import HuggingFaceDatasetConfig, PipelineConfig, SourceConfig, TaskConfig
 from dataeval_flow.workflows.data_splitting import DataSplittingConfig
 
 workflow = DataSplittingConfig(
@@ -140,7 +140,7 @@ config = PipelineConfig(
 # ## Step 2: Run the splitting workflow
 
 # %%
-result = run_task(task, config, cache_dir=Path("./cache"))
+result = run_task(config, task, cache_dir=Path("./cache"))
 
 # %% tags=["remove_cell"]
 if not result.success:

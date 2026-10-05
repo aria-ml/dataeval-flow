@@ -14,8 +14,8 @@ import numpy as np
 import pytest
 from dataeval.config import use_seed
 
-from dataeval_flow import PipelineConfig, run_task, run_tasks
-from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, TaskConfig
+from dataeval_flow import run_task, run_tasks
+from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig, TaskConfig
 from dataeval_flow.config.extractors import BoVWExtractorConfig
 from dataeval_flow.evaluators.shift import DriftMMDConfig
 from dataeval_flow.steps import ChainResult
@@ -65,7 +65,7 @@ def _drift_between(reference, incoming, tmp_path) -> ChainResult:
         workflows=[DriftMonitoringConfig(name="w", detectors=[DriftMMDConfig()])],
         tasks=[task],
     )
-    result = run_task(task, config, cache_dir=tmp_path)
+    result = run_task(config, task, cache_dir=tmp_path)
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
     return result

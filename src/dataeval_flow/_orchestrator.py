@@ -419,7 +419,6 @@ def _run_single_task(
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
     *,
-    report_images: bool = True,
     output_dir: Path | None = None,
 ) -> "Result[Any, Any]":
     """Run a single resolved task against a pipeline config.
@@ -441,9 +440,7 @@ def _run_single_task(
     if task.matrix is not None:
         from dataeval_flow._matrix._run import run_matrix
 
-        return run_matrix(
-            task, config, data_dir=data_dir, cache_dir=cache_dir, report_images=report_images, output_dir=output_dir
-        )
+        return run_matrix(task, config, data_dir=data_dir, cache_dir=cache_dir, output_dir=output_dir)
 
     _logger.info("Task '%s': starting (%s)", task.name, _target_of(task))
 
@@ -470,7 +467,6 @@ def _run_single_task(
         resolved_sources,
         data_dir=data_dir,
         cache_dir=cache_dir,
-        report_images=report_images,
         output_dir=output_dir,
     )
 
@@ -484,7 +480,6 @@ def _run_resolved(
     *,
     data_dir: Path | None,
     cache_dir: Path | None,
-    report_images: bool,
     output_dir: Path | None,
     run: int | None = None,
 ) -> "Result[Any, Any]":
@@ -525,7 +520,6 @@ def _run_resolved(
             data_dir=data_dir,
             cache_dir=cache_dir,
             output_dir=output_dir,
-            report_images=report_images,
             limits=limits,
             run=run,
         )
@@ -571,7 +565,6 @@ def _run_resolved(
             data_dir=data_dir,
             cache_dir=cache_dir,
             output_dir=output_dir,
-            report_images=report_images,
             limits=limits,
             evaluators=evaluators,
             entry=instance,
@@ -601,7 +594,7 @@ def _run_resolved(
     _ensure_result_datasets(result, drawn)
 
     # 9. Thumbnails of the items the report names, read while the run's datasets are at hand.
-    if report_images and result.success:
+    if config.result.max_images and result.success:
         _capture_assets(result, drawn, _unless_all(config.result.max_images))
 
     # 10. Populate metadata envelope
@@ -815,7 +808,6 @@ def _run_custom_task(
     data_dir: Path | None,
     cache_dir: Path | None,
     output_dir: Path | None,
-    report_images: bool,
     limits: "TableLimits",
     evaluators: "Sequence[EvaluatorConfig[Any]]" = (),
     entry: "WorkflowConfig[Any] | None" = None,
@@ -894,7 +886,7 @@ def _run_custom_task(
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
     # The draw of each source's view its steps read: a fresh one would differ where the view shuffles unseeded.
     result.sources = {node.source: node.value for node in _datasets(inputs.values()) if node.source is not None}
-    if report_images:
+    if config.result.max_images:
         _capture_chain_assets(result, chain, _unless_all(config.result.max_images))
     _populate_result_metadata(
         result, resolved_sources, extractor_cfg, elapsed, described, config, data_dir=data_dir, ontology=ontology
@@ -1364,7 +1356,6 @@ def run_tasks(
     *,
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
-    report_images: bool = True,
     output_dir: Path | None = None,
 ) -> "dict[str, Result[Any, Any]]":
     """Run tasks from a pipeline configuration.
@@ -1387,9 +1378,6 @@ def run_tasks(
         Root directory for resolving relative paths in configs.
     cache_dir : Path | None, keyword-only
         Directory for disk-backed computation cache.
-    report_images : bool, keyword-only
-        Whether each result keeps thumbnails of the items its report names, for the HTML report. ``False``
-        reads no item and keeps none.
     output_dir : Path | None, keyword-only
         Where export steps write, under ``<output_dir>/datasets/``. ``None`` writes nothing, and export steps are
         skipped with a reason.
@@ -1421,40 +1409,33 @@ def run_tasks(
     for task in to_run:
         _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))
         results[task.name] = _run_single_task(
-            task, config, data_dir=data_dir, cache_dir=cache_dir, report_images=report_images, output_dir=output_dir
+            task, config, data_dir=data_dir, cache_dir=cache_dir, output_dir=output_dir
         )
     return results
 
 
 def run_task(
-    task: "TaskConfig",
     config: "PipelineConfig",
+    task: "str | TaskConfig",
     *,
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
-    report_images: bool = True,
     output_dir: Path | None = None,
 ) -> "Result[Any, Any]":
-    """Run a single task.
-
-    Unlike :func:`~dataeval_flow.run_tasks`, this function accepts the task config object
-    directly rather than looking it up by name.
+    """Run a single task, returning its result rather than :func:`~dataeval_flow.run_tasks`' mapping.
 
     Parameters
     ----------
-    task : TaskConfig
-        The task configuration to execute.
     config : PipelineConfig
         Pipeline configuration supplying datasets, sources, extractors,
-        workflow, and evaluator definitions.  The task does **not** need to
-        appear in ``config.tasks``.
+        workflow, and evaluator definitions.
+    task : str | TaskConfig
+        A task in ``config.tasks`` by name, enabled or not, or a task config to run against `config`,
+        which need not appear in ``config.tasks``.
     data_dir : Path | None, keyword-only
         Root directory for resolving relative paths in configs.
     cache_dir : Path | None, keyword-only
         Directory for disk-backed computation cache.
-    report_images : bool, keyword-only
-        Whether the result keeps thumbnails of the items its report names, for the HTML report. ``False``
-        reads no item and keeps none.
     output_dir : Path | None, keyword-only
         Where export steps write, under ``<output_dir>/datasets/``. ``None`` writes nothing, and export steps are
         skipped with a reason.
@@ -1468,7 +1449,7 @@ def run_task(
         :class:`~dataeval_flow.steps.ChainResult`, holding every step's outcome whether or not one failed.
         A task with a `matrix:` returns a :class:`~dataeval_flow.MatrixResult`.
     """
+    if isinstance(task, str):
+        task = _resolve_by_name(config.tasks, task, "task")
     _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))
-    return _run_single_task(
-        task, config, data_dir=data_dir, cache_dir=cache_dir, report_images=report_images, output_dir=output_dir
-    )
+    return _run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir, output_dir=output_dir)

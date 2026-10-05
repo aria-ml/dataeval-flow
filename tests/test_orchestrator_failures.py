@@ -23,7 +23,7 @@ def test_an_exception_becomes_a_failed_result_of_the_workflows_class() -> None:
     config = toy_pipeline(workflows=[_CLEAN])
     task = TaskConfig(name="t", workflow="clean", sources="src")
     with patch.object(ToyCountWorkflow, "run", side_effect=RuntimeError("boom")):
-        result = run_task(task, config)
+        result = run_task(config, task)
     assert isinstance(result, ToyCountResult)
     assert not result.success
     assert result.errors == ["RuntimeError: boom"]
@@ -35,7 +35,7 @@ def test_an_evaluator_exception_becomes_a_failed_result_naming_the_evaluator() -
     config = toy_pipeline(evaluators=[DuplicatesConfig(name="dupes")])
     task = TaskConfig(name="t", workflow="dupes", sources="src", kind="evaluator")
     with patch.object(DuplicatesEvaluator, "run", side_effect=RuntimeError("boom")):
-        result = run_task(task, config)
+        result = run_task(config, task)
     assert isinstance(result, DuplicatesResult)
     assert not result.success
     assert result.metadata.evaluator == "duplicates"
@@ -59,7 +59,7 @@ def test_a_task_refused_by_its_inputs_carries_the_envelope(entry: Any, kind: str
         sources=("a", "b"),
     )
     task = TaskConfig(name="t", workflow="clean", kind=kind, sources=["a", "b"])  # type: ignore[arg-type]
-    result = run_task(task, config)
+    result = run_task(config, task)
     assert not result.success
     assert "runs " + kind in result.errors[0]
     assert result.metadata.tool_version == dataeval_flow.__version__

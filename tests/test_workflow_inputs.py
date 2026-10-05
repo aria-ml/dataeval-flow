@@ -5,7 +5,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow import InputKind, PipelineConfig, SourceCount
+from dataeval_flow import InputKind, SourceCount
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.workflows import list_workflows
 
 SPECS = {

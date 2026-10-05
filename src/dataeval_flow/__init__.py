@@ -21,8 +21,8 @@ Or run one workflow or evaluator on a dataset already in memory, typed to its re
 
 Or build a pipeline programmatically::
 
-    from dataeval_flow import PipelineConfig, run_tasks
-    from dataeval_flow.config import HuggingFaceDatasetConfig, SourceConfig, TaskConfig
+    from dataeval_flow import run_tasks
+    from dataeval_flow.config import HuggingFaceDatasetConfig, PipelineConfig, SourceConfig, TaskConfig
     from dataeval_flow.config.extractors import FlattenExtractorConfig
     from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
@@ -45,7 +45,6 @@ from dataeval_flow._orchestrator import run_task, run_tasks, set_device
 from dataeval_flow._result import Result, ResultMetadata
 from dataeval_flow._run import run
 from dataeval_flow.config._loader import load_config
-from dataeval_flow.config._models import PipelineConfig
 
 __all__ = [
     "load_config",
@@ -55,7 +54,6 @@ __all__ = [
     "run_task",
     "run_tasks",
     "set_device",
-    "PipelineConfig",
     "DatasetDigest",
     "Result",
     "MatrixResult",

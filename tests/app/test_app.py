@@ -837,7 +837,8 @@ class TestExecuteTaskWorker:
             patch("dataeval_flow._orchestrator._run_single_task", return_value=MagicMock()) as run_one,
         ):
             app._execute_task_worker("t1", config)
-        assert run_one.call_args.kwargs["report_images"] is expected
+        assert run_one.called
+        assert (config.result.max_images == 0) is not expected
 
     def test_execute_task_worker_success(self) -> None:
         app = FlowApp()

@@ -157,8 +157,8 @@ plt.show()
 # the label distribution, and `factor-coverage-gaps` the gap analysis.
 
 # %%
-from dataeval_flow import PipelineConfig, run_task
-from dataeval_flow.config import DatasetProtocolConfig, MetadataPolicyConfig, SourceConfig, TaskConfig
+from dataeval_flow import run_task
+from dataeval_flow.config import DatasetProtocolConfig, MetadataPolicyConfig, PipelineConfig, SourceConfig, TaskConfig
 from dataeval_flow.workflows.data_coverage import DataCoverageConfig
 
 vehicle_factors = MetadataPolicyConfig(
@@ -217,7 +217,7 @@ config_metadata = PipelineConfig(
 )
 
 # %%
-result_metadata = run_task(task_metadata, config_metadata, cache_dir=Path("./cache"))
+result_metadata = run_task(config_metadata, task_metadata, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # ### Coverage report (metadata only)
@@ -336,7 +336,7 @@ config_vocab = PipelineConfig(
     tasks=[task_vocab],
 )
 
-result_vocab = run_task(task_vocab, config_vocab, cache_dir=Path("./cache"))
+result_vocab = run_task(config_vocab, task_vocab, cache_dir=Path("./cache"))
 print(result_vocab.report())
 
 # %% [markdown]
@@ -500,7 +500,7 @@ config_full = PipelineConfig(
 )
 
 # %%
-result_full = run_task(task_full, config_full, cache_dir=Path("./cache"))
+result_full = run_task(config_full, task_full, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # ### Full coverage report
@@ -627,7 +627,7 @@ config_strict = PipelineConfig(
     tasks=[task_strict],
 )
 
-result_strict = run_task(task_strict, config_strict, cache_dir=Path("./cache"))
+result_strict = run_task(config_strict, task_strict, cache_dir=Path("./cache"))
 print(result_strict.report(detailed=False))
 
 # %% [markdown]

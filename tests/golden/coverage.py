@@ -10,8 +10,8 @@ from typing import Any
 
 import numpy as np
 
-from dataeval_flow import PipelineConfig
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow.config import PipelineConfig
 from tests.chain_toys import chain_pipeline
 
 _ANIMALS = {0: "cat", 1: "dog", 2: "bird", 3: "owl"}

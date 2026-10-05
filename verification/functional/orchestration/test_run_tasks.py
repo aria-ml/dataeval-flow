@@ -13,7 +13,7 @@ from dataeval_flow.workflows import Workflow, WorkflowResult, get_workflow, list
 pytestmark = pytest.mark.required
 
 if TYPE_CHECKING:
-    from dataeval_flow import PipelineConfig
+    from dataeval_flow.config import PipelineConfig
 
 
 @pytest.mark.test_case("6-1")

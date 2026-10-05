@@ -6,7 +6,7 @@ import pytest
 import yaml
 from yaml.parser import ParserError
 
-from dataeval_flow import PipelineConfig
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.config._merge import _deep_merge, merge_config_folder
 from dataeval_flow.config._paths import relativize_to_data_dir, validate_config_path
 

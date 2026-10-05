@@ -139,7 +139,7 @@ def test_a_transform_step_naming_an_extractor_fails_the_load() -> None:
 
 
 def test_the_schema_offers_extractor_only_on_the_steps_that_embed() -> None:
-    from dataeval_flow import PipelineConfig
+    from dataeval_flow.config import PipelineConfig
 
     steps = {name: branch for name, branch in PipelineConfig.model_json_schema()["$defs"].items() if "Step" in name}
     offered = sorted(name for name, branch in steps.items() if "extractor" in branch.get("properties", {}))

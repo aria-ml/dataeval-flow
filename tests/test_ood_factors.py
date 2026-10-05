@@ -190,7 +190,7 @@ def _chain(datasets: dict[str, Any], *, ood_input: str = "tests", **deviation: A
     config = chain_pipeline(
         workflows=[workflow], evaluators=[knn], datasets=datasets, extractor=True, extra={"seed": 0}
     )
-    result = run_task(TaskConfig(name="t", workflow="w", sources=list(datasets), extractor="flat"), config)
+    result = run_task(config, TaskConfig(name="t", workflow="w", sources=list(datasets), extractor="flat"))
     assert isinstance(result, ChainResult)
     return result
 

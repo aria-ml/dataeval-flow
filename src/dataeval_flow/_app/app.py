@@ -147,11 +147,12 @@ CSS = """
 # ---------------------------------------------------------------------------
 
 
-def _report_images() -> bool:
-    """Whether a run keeps its report's thumbnails: ``$DATAEVAL_REPORT_IMAGES``, else on, as the CLI reads it."""
+def _apply_report_images(config: Any) -> None:
+    """Keep no report thumbnails when ``$DATAEVAL_REPORT_IMAGES`` is off, as the CLI reads it."""
     from dataeval_flow._env import env_bool
 
-    return env_bool("DATAEVAL_REPORT_IMAGES") is not False
+    if env_bool("DATAEVAL_REPORT_IMAGES") is False:
+        config.result.max_images = 0
 
 
 class LoadingScreen(ModalScreen[None]):
@@ -541,11 +542,11 @@ class FlowApp(ConfigPaneMixin, TaskPaneMixin, ResultPaneMixin, App):
         """Worker thread: run a single task and update state."""
         from dataeval_flow._orchestrator import _run_single_task
 
+        _apply_report_images(config)
+
         try:
             task_cfg = next(t for t in config.tasks if t.name == task_name)
-            result = _run_single_task(
-                task_cfg, config, data_dir=self._data_dir, cache_dir=self._cache_dir, report_images=_report_images()
-            )
+            result = _run_single_task(task_cfg, config, data_dir=self._data_dir, cache_dir=self._cache_dir)
 
             def _on_done() -> None:
                 self._vm.mark_task_completed(task_name, result)
@@ -571,6 +572,8 @@ class FlowApp(ConfigPaneMixin, TaskPaneMixin, ResultPaneMixin, App):
         """Worker thread: run multiple tasks sequentially."""
         from dataeval_flow._orchestrator import _run_single_task
 
+        _apply_report_images(config)
+
         for task_name in task_names:
 
             def _mark_running(name: str = task_name) -> None:
@@ -581,9 +584,7 @@ class FlowApp(ConfigPaneMixin, TaskPaneMixin, ResultPaneMixin, App):
 
             try:
                 task_cfg = next(t for t in config.tasks if t.name == task_name)
-                result = _run_single_task(
-                    task_cfg, config, data_dir=self._data_dir, cache_dir=self._cache_dir, report_images=_report_images()
-                )
+                result = _run_single_task(task_cfg, config, data_dir=self._data_dir, cache_dir=self._cache_dir)
 
                 def _on_done(name: str = task_name, res: Any = result) -> None:
                     self._vm.mark_task_completed(name, res)

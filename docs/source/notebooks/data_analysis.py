@@ -111,10 +111,11 @@ print("\n".join(f"{name}: {path}" for name, path in split_paths.items()))
 # %%
 from dataeval.config import set_max_processes
 
-from dataeval_flow import PipelineConfig, run_task
+from dataeval_flow import run_task
 from dataeval_flow.config import (
     CocoDatasetConfig,
     MetadataPolicyConfig,
+    PipelineConfig,
     SourceConfig,
     TaskConfig,
     ViewConfig,
@@ -188,7 +189,7 @@ print(f"  Sources:    {task.sources}")
 # ## Step 2: Run the data analysis workflow
 
 # %%
-result = run_task(task, config, cache_dir=Path("./cache"))
+result = run_task(config, task, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # %% [markdown]

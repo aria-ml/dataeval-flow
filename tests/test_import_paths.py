@@ -109,12 +109,14 @@ def test_deprecated_selection_aliases_are_gone() -> None:
         assert not hasattr(config, name)
 
 
-def test_the_pipeline_config_and_its_loader_come_from_the_top_level() -> None:
-    """One import path per name: `dataeval_flow` exports them, and `dataeval_flow.config` does not."""
-    for name in ("PipelineConfig", "load_config"):
-        assert name in dataeval_flow.__all__
-        assert name not in config.__all__
-        assert not hasattr(config, name)
+def test_the_pipeline_config_comes_from_config_and_its_loader_from_the_top_level() -> None:
+    """One import path per name: `PipelineConfig` beside its sections' types, `load_config` beside `run_tasks`."""
+    assert "PipelineConfig" in config.__all__
+    assert "PipelineConfig" not in dataeval_flow.__all__
+    assert not hasattr(dataeval_flow, "PipelineConfig")
+    assert "load_config" in dataeval_flow.__all__
+    assert "load_config" not in config.__all__
+    assert not hasattr(config, "load_config")
 
 
 def test_the_folder_loader_and_the_schema_export_are_gone() -> None:

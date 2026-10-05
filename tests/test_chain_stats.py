@@ -12,10 +12,10 @@ import pytest
 from dataeval.flags import ImageStats
 
 import dataeval_flow._cache as cache_module
-from dataeval_flow import PipelineConfig, run_tasks
+from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache, active_cache, selection_repr
 from dataeval_flow._stats import ResolvedStatsPolicy
-from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, TaskConfig
+from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig, TaskConfig
 from dataeval_flow.evaluators._producers import ProducerContext, produce_stats
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
 from dataeval_flow.steps import ChainResult

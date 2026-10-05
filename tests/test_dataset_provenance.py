@@ -9,11 +9,11 @@ import yaml
 from PIL import Image
 from pydantic import ValidationError
 
-from dataeval_flow import PipelineConfig, run_tasks
+from dataeval_flow import run_tasks
 from dataeval_flow._app._model._state import ConfigState
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._dataset import _config_key
-from dataeval_flow.config import HuggingFaceDatasetConfig, ImageFolderDatasetConfig
+from dataeval_flow.config import HuggingFaceDatasetConfig, ImageFolderDatasetConfig, PipelineConfig
 
 _FACTS = {"owner": "Perception team", "license": "CC-BY-4.0", "frames": 1200, "public": False}
 

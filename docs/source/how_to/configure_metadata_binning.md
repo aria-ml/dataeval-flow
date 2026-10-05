@@ -363,7 +363,7 @@ diversity, so it is a candidate for `metadata_exclude`. The envelope is unaffect
 From Python:
 
 ```python
-result = run_task(task, config)
+result = run_task(config, task)
 
 binning = result.metadata.metadata_binning
 for name, info in binning["factors"].items():

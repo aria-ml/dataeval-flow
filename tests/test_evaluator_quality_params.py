@@ -5,7 +5,8 @@ from dataeval.flags import ImageStats
 from dataeval.quality import Duplicates, Outliers
 from pydantic import ValidationError
 
-from dataeval_flow import InputKind, PipelineConfig
+from dataeval_flow import InputKind
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
 
 

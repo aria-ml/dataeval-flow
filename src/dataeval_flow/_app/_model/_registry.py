@@ -1,6 +1,6 @@
 """Variant registry, section constants, cross-reference overlays, and field descriptor helpers.
 
-Auto-built by introspecting :class:`~dataeval_flow.PipelineConfig`, with the workflow,
+Auto-built by introspecting :class:`~dataeval_flow.config.PipelineConfig`, with the workflow,
 evaluator and extractor variants read from their registries, so that new schema variants (e.g. a
 plugin workflow type) are picked up automatically.
 """

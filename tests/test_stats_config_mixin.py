@@ -3,9 +3,8 @@
 import pytest
 from pydantic import BaseModel
 
-from dataeval_flow import PipelineConfig
 from dataeval_flow._orchestrator import _resolve_stats_policy
-from dataeval_flow.config import StatsConfigMixin, StatsPolicyConfig
+from dataeval_flow.config import PipelineConfig, StatsConfigMixin, StatsPolicyConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
 from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
 

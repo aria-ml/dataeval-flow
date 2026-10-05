@@ -11,8 +11,8 @@ from dataeval.quality import DuplicatesOutput
 from dataeval.shift import DriftOutput
 from pydantic import BaseModel
 
-from dataeval_flow import PipelineConfig, SourceCount
-from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, TaskConfig
+from dataeval_flow import SourceCount
+from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig, TaskConfig
 from dataeval_flow.steps import (
     Check,
     CheckConfig,

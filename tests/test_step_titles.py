@@ -241,7 +241,7 @@ def test_a_preset_that_fails_in_a_run_keeps_its_entry_in_the_envelope() -> None:
 
 def test_a_preset_task_refused_before_it_runs_keeps_its_entry_in_the_envelope() -> None:
     config = chain_pipeline(workflows=[_CLEAN], datasets={"a": ToyImages(), "b": ToyImages()})
-    result = run_task(TaskConfig(name="t", workflow="clean", sources=["a", "b"]), config)
+    result = run_task(config, TaskConfig(name="t", workflow="clean", sources=["a", "b"]))
     assert not result.success
     assert _banner(result.report()) == ["DATA CLEANING"]
     assert _first_line(result.report()) == "Workflow: clean (data-cleaning)"

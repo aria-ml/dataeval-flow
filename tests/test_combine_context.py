@@ -61,7 +61,7 @@ def _run(stats: str | None = None) -> ChainResult:
         datasets={"src": ToyImages(count=6)},
         extra={"stats": [policy]},
     )
-    result = run_task(TaskConfig(name="t", workflow="w", sources="src"), config, report_images=True)
+    result = run_task(config, TaskConfig(name="t", workflow="w", sources="src"))
     assert isinstance(result, ChainResult)
     return result
 

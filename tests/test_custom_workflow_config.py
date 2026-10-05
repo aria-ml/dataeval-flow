@@ -7,7 +7,8 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from dataeval_flow import PipelineConfig, load_config, run
+from dataeval_flow import load_config, run
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.config.extractors import FlattenExtractorConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import CustomWorkflowConfig, InputSlot, StepEntry

@@ -83,7 +83,7 @@ def test_under_a_seed_a_run_reads_the_draw_a_lone_task_reads() -> None:
     matrix = _matrix(_config({"outliers.outlier_threshold": [3.0]}, seed=7, shuffled=True))
     DatasetCache.clear_instances()
     lone_config = _config({"outliers.outlier_threshold": [3.0]}, seed=7, shuffled=True)
-    lone = run_task(TaskConfig(name="t", workflow="cleaning", sources="src"), lone_config)
+    lone = run_task(lone_config, TaskConfig(name="t", workflow="cleaning", sources="src"))
     assert order(_drawn(matrix.runs[0].result)) == order(_drawn(lone))
 
 
@@ -98,7 +98,7 @@ def test_a_run_s_findings_equal_its_settings_run_as_a_lone_task() -> None:
         seed=1,
         entry={**_CLEANING, "outliers": {**_CLEANING["outliers"], "outlier_threshold": 2.0}},
     )
-    lone = run_task(TaskConfig(name="t", workflow="cleaning", sources="src"), lone_config)
+    lone = run_task(lone_config, TaskConfig(name="t", workflow="cleaning", sources="src"))
     assert seen(matrix.runs[0].result) == seen(lone)
 
 
@@ -108,7 +108,7 @@ def test_statistics_are_computed_once_across_a_threshold_matrix(monkeypatch: pyt
     calls: list[int] = []
     real = cache._do_compute_stats
     monkeypatch.setattr(cache, "_do_compute_stats", lambda *a, **k: calls.append(1) or real(*a, **k))
-    run_task(TaskConfig(name="t", workflow="cleaning", sources="src"), _config({"outliers.outlier_threshold": [3.0]}))
+    run_task(_config({"outliers.outlier_threshold": [3.0]}), TaskConfig(name="t", workflow="cleaning", sources="src"))
     lone = len(calls)
     assert lone >= 1, "spy on the function that computes statistics: this one was never called"
     DatasetCache.clear_instances()
@@ -313,7 +313,7 @@ def test_run_task_runs_a_matrix_task_the_config_does_not_hold() -> None:
             "matrix": {"outliers.outlier_threshold": [2.0, 4.0]},
         }
     )
-    result = run_task(task, config)
+    result = run_task(config, task)
     assert isinstance(result, MatrixResult)
     assert len(result.runs) == 2
 
@@ -324,7 +324,7 @@ def test_run_task_with_a_matrix_task_naming_no_entry_says_which() -> None:
         {"name": "other", "workflow": "missing", "sources": "src", "matrix": {"outliers.outlier_threshold": [2.0, 4.0]}}
     )
     with pytest.raises(ValueError, match="Unknown workflow: 'missing'"):
-        run_task(task, config)
+        run_task(config, task)
 
 
 def test_a_matrix_result_records_library_versions() -> None:

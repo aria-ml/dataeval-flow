@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow import PipelineConfig, load_config
-from dataeval_flow.config import TaskConfig
+from dataeval_flow import load_config
+from dataeval_flow.config import PipelineConfig, TaskConfig
 
 
 def _config(tasks: list[Any]) -> dict[str, Any]:

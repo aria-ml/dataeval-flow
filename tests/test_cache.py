@@ -2605,7 +2605,6 @@ class TestAViewEditIsNotServedFromTheOldCache:
         import numpy as np
         from dataeval.flags import ImageStats
 
-        from dataeval_flow import PipelineConfig
         from dataeval_flow._cache import (
             DatasetCache,
             active_cache,
@@ -2614,7 +2613,7 @@ class TestAViewEditIsNotServedFromTheOldCache:
         )
         from dataeval_flow._sources import resolve_source
         from dataeval_flow._stats import ResolvedStatsPolicy
-        from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, ViewConfig, ViewOperation
+        from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig, ViewConfig, ViewOperation
 
         config = PipelineConfig(
             datasets=[DatasetProtocolConfig(name="toy", dataset=dataset)],

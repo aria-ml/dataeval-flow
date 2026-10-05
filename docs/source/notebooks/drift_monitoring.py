@@ -162,9 +162,9 @@ plt.show()
 # uniform keypoint extraction density.
 
 # %%
-from dataeval_flow import PipelineConfig
 from dataeval_flow.config import (
     CocoDatasetConfig,
+    PipelineConfig,
     PreprocessingStep,
     PreprocessorConfig,
     SourceConfig,
@@ -276,7 +276,7 @@ config = PipelineConfig(
 # ## Step 2: Run the drift monitoring workflow
 
 # %%
-result = run_task(drift_task, config, cache_dir=Path("./cache"))
+result = run_task(config, drift_task, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # ## Results Exploration: Drift report
@@ -386,7 +386,7 @@ control_config = PipelineConfig(
     tasks=[control_task],
 )
 
-control_result = run_task(control_task, control_config, cache_dir=Path("./cache"))
+control_result = run_task(control_config, control_task, cache_dir=Path("./cache"))
 print(control_result.report())
 
 # %% [markdown]

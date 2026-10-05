@@ -9,7 +9,8 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from dataeval_flow import PipelineConfig, load_config
+from dataeval_flow import load_config
+from dataeval_flow.config import PipelineConfig
 
 pytestmark = pytest.mark.required
 

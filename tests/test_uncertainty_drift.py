@@ -59,8 +59,8 @@ def test_an_evaluator_task_reads_it_too(tmp_path, monkeypatch):
         evaluators=[DriftUnivariateConfig(name="ks")], datasets=datasets, extra={"extractors": [uncertainty]}
     )
     result = run_task(
-        TaskConfig(name="t", workflow="ks", kind="evaluator", sources=["reference", "cam1"], extractor="unc"),
         config,
+        TaskConfig(name="t", workflow="ks", kind="evaluator", sources=["reference", "cam1"], extractor="unc"),
         data_dir=tmp_path,
     )
     assert result.success

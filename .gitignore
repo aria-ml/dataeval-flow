@@ -74,3 +74,6 @@ docs/source/notebooks/**/
 # one build of one variant, and a stale copy in the tree would be baked into an
 # image it does not describe.
 docker/security/
+
+# Local planning notes (brainstorming specs and implementation plans), kept out of the repo.
+docs/superpowers/

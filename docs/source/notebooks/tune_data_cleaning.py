@@ -106,9 +106,10 @@ print(f"Reading from {data_path}")
 # entry's own values for these two settings, if it set any, would be replaced in each run.
 
 # %%
-from dataeval_flow import PipelineConfig, run_task
+from dataeval_flow import run_task
 from dataeval_flow.config import (
     HuggingFaceDatasetConfig,
+    PipelineConfig,
     SourceConfig,
     TaskConfig,
     ViewConfig,
@@ -169,7 +170,7 @@ config = PipelineConfig(
 # clusters once for all nine.
 
 # %%
-result = run_task(task, config, cache_dir=Path("./cache"))
+result = run_task(config, task, cache_dir=Path("./cache"))
 print(type(result).__name__, len(result.runs), "runs")
 
 # %% [markdown]

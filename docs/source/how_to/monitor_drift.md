@@ -44,7 +44,7 @@ The report groups each source's findings under the source's name. From Python, t
 each step holds one element per test source:
 
 ```python
-result = run_task(task, config)
+result = run_task(config, task)
 
 output = result.steps["drift-kneighbors"].elements["cam1"].output  # DataEval's DriftOutput
 print(output.drifted, output.distance, output.threshold)

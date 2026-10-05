@@ -29,7 +29,7 @@ def _finding(
         step["by"] = judge["by"] = by
     workflow = {"name": "w", "inputs": ["reference", {"name": "tests", "list": True}], "steps": [step, judge]}
     config = chain_pipeline(workflows=[workflow], evaluators=[knn], datasets=datasets, extractor=True)
-    result = run_task(TaskConfig(name="t", workflow="w", sources=["reference", "cam1"], extractor="flat"), config)
+    result = run_task(config, TaskConfig(name="t", workflow="w", sources=["reference", "cam1"], extractor="flat"))
     assert isinstance(result, ChainResult)
     elements = result.steps["judge"].elements
     assert elements is not None

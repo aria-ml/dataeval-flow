@@ -34,7 +34,7 @@ def _task(evaluator: Any, *, sources: Sequence[str] = ("src",), dataset: Any = N
     config = toy_pipeline(evaluators=[evaluator], tasks=[task], sources=sources, dataset=dataset, extractor=extractor)
     if result:
         config = config.model_copy(update={"result": config.result.model_copy(update=result)})
-    outcome = run_task(task, config)
+    outcome = run_task(config, task)
     assert outcome.success, outcome.errors
     return outcome
 

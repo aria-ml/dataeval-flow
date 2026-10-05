@@ -10,10 +10,11 @@ from typing import Any, ClassVar
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow import PipelineConfig, run, run_tasks
+from dataeval_flow import run, run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._graph import ChainGraph, build_graph
 from dataeval_flow._chain._preflight import _slots_reached
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.steps import ChainResult, CustomWorkflowConfig, list_steps
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._workflow import InputSlot

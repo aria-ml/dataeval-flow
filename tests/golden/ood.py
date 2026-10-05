@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from dataeval_flow import PipelineConfig
+from dataeval_flow.config import PipelineConfig
 from tests.evaluator_toys import toy_pipeline
 from tests.ood_toys import FactorImages
 

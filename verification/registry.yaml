@@ -209,9 +209,9 @@ test_cases:
       - Package imports without errors on the current Python version
       - Version string is set and valid (not "unknown")
       - All public symbols listed in __all__ are importable
-      - The top-level __all__ is exactly the front door (load_config, load_dataset, run, run_task,
-        run_tasks, set_device, PipelineConfig, Result, ResultMetadata, InputSpec, InputKind, SourceCount,
-        __version__)
+      - The top-level __all__ is exactly the front door (load_config, load_dataset, dataset_digest, run,
+        run_task, run_tasks, set_device, DatasetDigest, Result, MatrixResult, MatrixRun, ResultMetadata,
+        InputSpec, InputKind, SourceCount, __version__)
       - py.typed marker is present
 
   "1-2":

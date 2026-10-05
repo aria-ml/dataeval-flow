@@ -733,9 +733,8 @@ class TestADeclaredRepairReachesTheRun:
 
     @staticmethod
     def _policy(*corrections):
-        from dataeval_flow import PipelineConfig
         from dataeval_flow._policy import resolve_policy
-        from dataeval_flow.config import MetadataConfigMixin
+        from dataeval_flow.config import MetadataConfigMixin, PipelineConfig
 
         config = PipelineConfig.model_validate({"metadata": [{"name": "standard", "corrections": list(corrections)}]})
         return resolve_policy(MetadataConfigMixin(metadata="standard"), config)
@@ -844,9 +843,8 @@ class _DetectionDataset:
 class TestADeclaredRollUpReachesTheRun:
     @staticmethod
     def _policy(*aggs):
-        from dataeval_flow import PipelineConfig
         from dataeval_flow._policy import resolve_policy
-        from dataeval_flow.config import MetadataConfigMixin
+        from dataeval_flow.config import MetadataConfigMixin, PipelineConfig
 
         config = PipelineConfig.model_validate({"metadata": [{"name": "standard", "aggregations": list(aggs)}]})
         return resolve_policy(MetadataConfigMixin(metadata="standard"), config)

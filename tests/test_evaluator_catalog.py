@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow import PipelineConfig
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.evaluators import get_evaluator
 from dataeval_flow.evaluators._registry import _BUILTINS
 from tests.evaluator_toys import _EXTRA_CONFIG, toy_run, toy_task_run

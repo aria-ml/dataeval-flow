@@ -41,7 +41,7 @@ From Python:
 ```python
 from pathlib import Path
 
-result = run_task(task, config, cache_dir=Path("./cache"))
+result = run_task(config, task, cache_dir=Path("./cache"))
 ```
 
 ## What gets cached

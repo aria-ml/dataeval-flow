@@ -163,7 +163,7 @@ def test_a_detector_reading_uncertainty_by_cosine_distance_is_refused_at_load(tm
 def _run(datasets: dict[str, Any], **settings: Any) -> ChainResult:
     preset = {"name": "ood", "type": "ood-detection", "detectors": [_KNN], **settings}
     config = chain_pipeline(workflows=[preset], datasets=datasets, extractor=True)
-    result = run_task(TaskConfig(name="t", workflow="ood", sources=list(datasets), extractor="flat"), config)
+    result = run_task(config, TaskConfig(name="t", workflow="ood", sources=list(datasets), extractor="flat"))
     assert isinstance(result, ChainResult)
     return result
 

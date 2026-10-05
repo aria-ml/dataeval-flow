@@ -35,9 +35,10 @@
 # %% tags=["remove_output"]
 from torchvision.datasets import FashionMNIST
 
-from dataeval_flow import PipelineConfig, run_tasks
+from dataeval_flow import run_tasks
 from dataeval_flow.config import (
     DatasetProtocolConfig,
+    PipelineConfig,
     SourceConfig,
     TaskConfig,
     ViewConfig,

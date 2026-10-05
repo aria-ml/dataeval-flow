@@ -1,17 +1,19 @@
-"""Config layer — everything a pipeline file describes besides its workflows and evaluators.
+"""Config layer — the pipeline config, and everything a pipeline file describes besides its workflows and evaluators.
 
-The plain sections' types are imported from here::
+The pipeline config and its plain sections' types are imported from here::
 
-    from dataeval_flow.config import SourceConfig, TaskConfig, ...
+    from dataeval_flow.config import PipelineConfig, SourceConfig, TaskConfig, ...
 
 A section whose entries are plugins has a subpackage of its own: ``dataeval_flow.config.extractors`` for
 ``extractors:``, and ``dataeval_flow.config.image_transforms`` for what a preprocessor's ``step:`` names.
 
-``PipelineConfig`` and ``load_config`` are imported from ``dataeval_flow``; a workflow's or evaluator's config from
-its type's package under ``dataeval_flow.workflows`` or ``dataeval_flow.evaluators``.
+``load_config`` is imported from ``dataeval_flow``; a workflow's or evaluator's config from its type's package under
+``dataeval_flow.workflows`` or ``dataeval_flow.evaluators``.
 """
 
 __all__ = [
+    # The pipeline
+    "PipelineConfig",
     # Dataset configs
     "CocoDatasetConfig",
     "DatasetConfig",
@@ -55,7 +57,7 @@ __all__ = [
     "ViewOperation",
 ]
 
-from dataeval_flow.config._models import LoggingConfig, ResultConfig, SourceConfig
+from dataeval_flow.config._models import LoggingConfig, PipelineConfig, ResultConfig, SourceConfig
 from dataeval_flow.config._schemas import (
     AggregatorConfig,
     CocoDatasetConfig,

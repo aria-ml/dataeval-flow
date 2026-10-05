@@ -14,7 +14,6 @@ PUBLIC_API = [
     "run_task",
     "run_tasks",
     "set_device",
-    "PipelineConfig",
     "DatasetDigest",
     "Result",
     "MatrixResult",

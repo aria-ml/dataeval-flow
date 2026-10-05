@@ -305,9 +305,9 @@ print(f"Model saved to {model_path}")
 # - **Pruning**: Outlier and duplicate detection to filter invalid samples before ranking.
 
 # %%
-from dataeval_flow import PipelineConfig
 from dataeval_flow.config import (
     DatasetProtocolConfig,
+    PipelineConfig,
     PreprocessorConfig,
     SourceConfig,
     TaskConfig,
@@ -393,7 +393,7 @@ config = PipelineConfig(
 # %%
 from dataeval_flow import run_task
 
-result = run_task(task, config, cache_dir=Path("./cache"))
+result = run_task(config, task, cache_dir=Path("./cache"))
 
 # %% tags=["remove_cell"]
 if not result.success:
@@ -579,7 +579,7 @@ except ImportError:
 
 # %%
 top_100 = config.model_copy(update={"workflows": [workflow.model_copy(update={"n": 100})]})
-batch = run_task(task, top_100, cache_dir=Path("./cache")).steps["selected"].elements["test_src"].output
+batch = run_task(top_100, task, cache_dir=Path("./cache")).steps["selected"].elements["test_src"].output
 print(f"Selected for labeling: {len(batch)} frames, the first {len(batch)} of the ranking")
 
 # %% [markdown]

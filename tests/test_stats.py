@@ -173,7 +173,7 @@ class TestNarrowedTo:
 @pytest.mark.required
 class TestResolveStatsPolicy:
     def _config(self, **policy):
-        from dataeval_flow import PipelineConfig
+        from dataeval_flow.config import PipelineConfig
 
         base = {"name": "p", "measure": [{"bands": None, "families": ["visual", "hash"]}]}
         return PipelineConfig(stats=[{**base, **policy}])  # type: ignore[arg-type]

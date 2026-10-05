@@ -181,9 +181,8 @@ class TestSelectingAcrossTasks:
 class TestWriteEncodingCommand:
     def test_writes_a_descriptor_a_policy_can_read_back(self, tmp_path: Path):
         """The loop closes inside flow: run, extract, commit, reference."""
-        from dataeval_flow import PipelineConfig
         from dataeval_flow._policy import resolve_policy
-        from dataeval_flow.config import MetadataConfigMixin
+        from dataeval_flow.config import MetadataConfigMixin, PipelineConfig
 
         md = _metadata(continuous_factor_bins={"temp_c": [-np.inf, 0.0, 10.0, np.inf]})
         result = _result_file(tmp_path, coverage_check=describe_binning(md))
@@ -267,9 +266,8 @@ class TestACacheHitReadsTheValuesTheSameWay:
 
         # Through the policy, which is what a run actually hands to each path — the load
         # kwargs are not the construction ones, and that difference is the point here.
-        from dataeval_flow import PipelineConfig
         from dataeval_flow._policy import resolve_policy
-        from dataeval_flow.config import MetadataConfigMixin
+        from dataeval_flow.config import MetadataConfigMixin, PipelineConfig
 
         config = PipelineConfig.model_validate({"metadata": [{"name": "std", "encoding": "enc.json"}]})
         policy = resolve_policy(MetadataConfigMixin(metadata="std"), config, tmp_path)
@@ -295,9 +293,8 @@ class TestACacheHitReadsTheValuesTheSameWay:
     def test_the_descriptor_is_withheld_from_load_when_it_carries_a_repair(self, tmp_path: Path):
         """DataEval refuses a corrections-carrying descriptor on `load`, because the archive
         already holds that reading. The archive's own record is the one to use."""
-        from dataeval_flow import PipelineConfig
         from dataeval_flow._policy import resolve_policy
-        from dataeval_flow.config import MetadataConfigMixin
+        from dataeval_flow.config import MetadataConfigMixin, PipelineConfig
 
         seed = _decorated()
         seed = seed.repair([ParseValue("count", drop=[","])])
@@ -311,9 +308,8 @@ class TestACacheHitReadsTheValuesTheSameWay:
 
     def test_a_descriptor_with_no_repair_still_reaches_load(self, tmp_path: Path):
         """Only the ambiguous case is withheld; pinning a cut on the way back in is unaffected."""
-        from dataeval_flow import PipelineConfig
         from dataeval_flow._policy import resolve_policy
-        from dataeval_flow.config import MetadataConfigMixin
+        from dataeval_flow.config import MetadataConfigMixin, PipelineConfig
 
         _decorated().export_encoding(tmp_path / "plain.json")
         config = PipelineConfig.model_validate({"metadata": [{"name": "std", "encoding": "plain.json"}]})

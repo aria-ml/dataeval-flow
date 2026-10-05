@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from dataeval_flow import PipelineConfig
+    from dataeval_flow.config import PipelineConfig
 
 
 @pytest.mark.test_case("9-1")

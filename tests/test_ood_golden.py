@@ -37,8 +37,9 @@ from typing import Any
 
 import pytest
 
-from dataeval_flow import PipelineConfig, run_tasks
+from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.steps import ChainResult
 from tests.golden._renames import step as renamed
 from tests.golden._renames import title

@@ -7,8 +7,8 @@ pipelines on whatever `data-prioritization` names today (spec §10.9).
 from collections.abc import Callable
 from typing import Any
 
-from dataeval_flow import PipelineConfig
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow.config import PipelineConfig
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 

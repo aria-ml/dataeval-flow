@@ -11,9 +11,8 @@ from datamaite import (
     Taxonomy,
 )
 
-from dataeval_flow import PipelineConfig
 from dataeval_flow._sources import MergeConfigError, flatten_source, resolve_source
-from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, ViewConfig, ViewOperation
+from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig, ViewConfig, ViewOperation
 
 
 def _pool(*sources: SourceConfig) -> list[SourceConfig]:

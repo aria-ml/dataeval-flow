@@ -161,7 +161,7 @@ def run_uncertainty(
         extra={"extractors": [uncertainty, *extractors], **(extra or {})},
     )
     task = TaskConfig.model_validate(task_dict)
-    result = run_task(task, config, data_dir=tmp_path, cache_dir=tmp_path / "cache" if cache else None)
+    result = run_task(config, task, data_dir=tmp_path, cache_dir=tmp_path / "cache" if cache else None)
     assert isinstance(result, ChainResult)
     return result
 

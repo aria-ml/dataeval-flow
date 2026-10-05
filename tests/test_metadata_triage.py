@@ -205,7 +205,7 @@ def test_the_workflow_config_parses():
 
 
 def test_a_pipeline_config_accepts_a_triage_workflow():
-    from dataeval_flow import PipelineConfig
+    from dataeval_flow.config import PipelineConfig
 
     PipelineConfig.model_validate(
         {

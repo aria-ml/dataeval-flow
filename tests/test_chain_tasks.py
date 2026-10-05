@@ -8,11 +8,11 @@ from typing import Any, ClassVar
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow import PipelineConfig, load_config, run, run_task, run_tasks
+from dataeval_flow import load_config, run, run_task, run_tasks
 from dataeval_flow._app._model._state import ConfigState
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._result import LabelSpaceRecord
-from dataeval_flow.config import ImageFolderDatasetConfig, SourceConfig, TaskConfig
+from dataeval_flow.config import ImageFolderDatasetConfig, PipelineConfig, SourceConfig, TaskConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import (
     ChainResult,
@@ -103,7 +103,7 @@ def test_run_binds_a_mapping_to_a_workflows_inputs_in_order() -> None:
 def test_a_task_run_directly_that_binds_too_few_sources_fails_as_a_chain() -> None:
     two = {**_WORKFLOW, "name": "two", "inputs": ["a", "b"]}
     config = chain_pipeline(workflows=[two], evaluators=[DuplicatesConfig(name="dupes")])
-    result = run_task(TaskConfig(name="t", workflow="two", sources=["src"]), config)
+    result = run_task(config, TaskConfig(name="t", workflow="two", sources=["src"]))
     assert isinstance(result, ChainResult)
     assert not result.success
     assert "takes one source for 'a' and one source for 'b', but the task names 1" in result.errors[0]
@@ -149,7 +149,7 @@ def test_a_task_whose_sources_bind_each_list_key_runs() -> None:
 @pytest.mark.usefixtures("toys")
 def test_a_task_run_directly_whose_sources_leave_a_list_key_unbound_fails_as_a_chain() -> None:
     config = chain_pipeline(workflows=[_per_source("tests[nope]")], datasets=_THREE)
-    result = run_task(TaskConfig(name="t", workflow="per", sources=["src", "a", "b"]), config)
+    result = run_task(config, TaskConfig(name="t", workflow="per", sources=["src", "a", "b"]))
     assert isinstance(result, ChainResult)
     assert not result.success
     assert result.errors == [
@@ -257,7 +257,7 @@ def test_a_one_step_task_makes_its_evaluator_once() -> None:
     task = TaskConfig(name="t", workflow="dupes", kind="evaluator", sources="src")
     config = chain_pipeline(evaluators=[DuplicatesConfig(name="dupes")], tasks=[task.model_dump()])
     with patch.object(_orchestrator, "_implementation", wraps=_orchestrator._implementation) as made:
-        result = run_task(task, config)
+        result = run_task(config, task)
     assert result.success
     assert made.call_count == 1
 
@@ -304,7 +304,7 @@ def test_a_one_step_task_hands_its_runner_the_contexts_it_resolved_and_records_n
         patch.object(_orchestrator, "_run_target", side_effect=executing),
         patch.object(engine, "run_chain", side_effect=chaining),
     ):
-        result = run_task(task, config)
+        result = run_task(config, task)
     assert result.success, result.errors
     ((contexts, _),) = resolved
     (context,) = handed
@@ -324,7 +324,7 @@ def test_a_one_step_task_whose_step_fails_before_its_evaluator_runs_returns_a_fa
     task = TaskConfig(name="t", workflow="dupes", kind="evaluator", sources="src")
     config = chain_pipeline(evaluators=[DuplicatesConfig(name="dupes")], tasks=[task.model_dump()])
     with patch.object(_orchestrator, "_run_target", side_effect=RuntimeError("no context")):
-        result = run_task(task, config)
+        result = run_task(config, task)
     assert isinstance(result, DuplicatesResult)
     assert (result.success, result.type, result.errors) == (False, "duplicates", ["RuntimeError: no context"])
 

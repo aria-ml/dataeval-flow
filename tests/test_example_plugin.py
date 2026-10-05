@@ -6,8 +6,8 @@ from typing import Any
 import pytest
 import yaml
 
-from dataeval_flow import PipelineConfig, run, run_tasks
-from dataeval_flow.config import PreprocessingStep, PreprocessorConfig, TaskConfig
+from dataeval_flow import run, run_tasks
+from dataeval_flow.config import PipelineConfig, PreprocessingStep, PreprocessorConfig, TaskConfig
 from dataeval_flow.config.extractors import list_extractors
 from dataeval_flow.config.image_transforms import list_image_transforms
 from dataeval_flow.evaluators import list_evaluators

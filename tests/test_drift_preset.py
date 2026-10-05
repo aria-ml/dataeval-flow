@@ -66,7 +66,7 @@ def _preset_run(datasets: dict[str, Any], **settings: Any) -> ChainResult:
         **settings,
     }
     config = chain_pipeline(workflows=[entry], datasets=datasets, extractor=True)
-    result = run_task(TaskConfig(name="t", workflow="drift", sources=list(datasets), extractor="flat"), config)
+    result = run_task(config, TaskConfig(name="t", workflow="drift", sources=list(datasets), extractor="flat"))
     assert isinstance(result, ChainResult)
     return result
 
@@ -134,7 +134,7 @@ def test_the_crop_recipe_runs_the_preset_on_detections():
     task = TaskConfig(name="t", workflow="object_drift", sources=["reference", "cam1"], extractor="flat")
     # The binning record reads the crops' metadata, where DataEval bins the `source_id` DetectionCrops adds to each.
     with pytest.warns(UserWarning, match="`source_id` was binned automatically"):
-        result = run_task(task, config)
+        result = run_task(config, task)
     assert isinstance(result, ChainResult)
     (finding,) = (result.steps["drift/drift-kneighbors-by-class-check"].elements or {})["cam1"].output
     assert finding.title == "Drift (K-Neighbors) by class"

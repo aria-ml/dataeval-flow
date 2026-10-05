@@ -11,8 +11,15 @@ from dataeval.config import use_batch_size
 from dataeval.extractors import FlattenExtractor
 from pydantic import ValidationError
 
-from dataeval_flow import PipelineConfig, load_config, run, run_tasks
-from dataeval_flow.config import SourceConfig, StatsMeasureConfig, StatsPolicyConfig, TaskConfig, ViewConfig
+from dataeval_flow import load_config, run, run_tasks
+from dataeval_flow.config import (
+    PipelineConfig,
+    SourceConfig,
+    StatsMeasureConfig,
+    StatsPolicyConfig,
+    TaskConfig,
+    ViewConfig,
+)
 from dataeval_flow.config.extractors import FlattenExtractorConfig, list_extractors
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesResult, OutliersConfig, OutliersResult
 from dataeval_flow.evaluators.shift import DriftMMDConfig

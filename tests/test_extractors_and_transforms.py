@@ -10,9 +10,8 @@ import yaml
 from pydantic import ValidationError
 from torchvision.transforms import v2
 
-from dataeval_flow import PipelineConfig
 from dataeval_flow._preprocessing import build_preprocessing
-from dataeval_flow.config import PreprocessingStep
+from dataeval_flow.config import PipelineConfig, PreprocessingStep
 from dataeval_flow.config.extractors import (
     BoVWExtractorConfig,
     Extractor,

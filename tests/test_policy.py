@@ -13,9 +13,8 @@ from typing import Any
 
 import pytest
 
-from dataeval_flow import PipelineConfig
 from dataeval_flow._policy import ResolvedPolicy, policy_for, policy_key, resolve_policy
-from dataeval_flow.config import MetadataConfigMixin
+from dataeval_flow.config import MetadataConfigMixin, PipelineConfig
 from dataeval_flow.config._schemas._mixins import _LegacyMetadataMixin
 
 

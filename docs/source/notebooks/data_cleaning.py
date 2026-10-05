@@ -103,9 +103,10 @@ data_path = Path("./data/skysealand_datamaite_base")
 # :::
 
 # %%
-from dataeval_flow import PipelineConfig, run_task
+from dataeval_flow import run_task
 from dataeval_flow.config import (
     CocoDatasetConfig,
+    PipelineConfig,
     SourceConfig,
     TaskConfig,
     ViewConfig,
@@ -194,7 +195,7 @@ config = PipelineConfig(
 # ## Step 2: Run the data cleaning workflow
 
 # %%
-result = run_task(task, config, cache_dir=Path("./cache"))
+result = run_task(config, task, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # ### Cleaning report

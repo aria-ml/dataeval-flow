@@ -3,7 +3,7 @@
 Private ``_*.py`` modules define the concrete schema classes.  This
 ``__init__`` re-exports them and defines the discriminated-union type
 alias ``DatasetConfig`` consumed by
-:class:`~dataeval_flow.PipelineConfig`. Workflow, evaluator and
+:class:`~dataeval_flow.config.PipelineConfig`. Workflow, evaluator and
 extractor configs are not listed here: ``PipelineConfig`` validates each
 entry with the config class its registered type names.
 """

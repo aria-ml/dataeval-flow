@@ -14,7 +14,7 @@ from dataeval_flow import run_tasks
 pytestmark = pytest.mark.required
 
 if TYPE_CHECKING:
-    from dataeval_flow import PipelineConfig
+    from dataeval_flow.config import PipelineConfig
 
 
 @pytest.mark.test_case("14-1")

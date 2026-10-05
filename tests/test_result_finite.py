@@ -32,7 +32,7 @@ def test_a_result_s_json_holds_no_nan(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_a_chain_s_json_holds_no_nan(monkeypatch: pytest.MonkeyPatch) -> None:
     workflow = {"name": "w", "inputs": ["a"], "steps": [{"name": "d", "evaluator": "dupes", "input": "a"}]}
     config = chain_pipeline(workflows=[workflow], evaluators=[DuplicatesConfig(name="dupes")])
-    result = run_task(TaskConfig(name="t", workflow="w", sources="src"), config)
+    result = run_task(config, TaskConfig(name="t", workflow="w", sources="src"))
     assert isinstance(result, ChainResult)
     monkeypatch.setattr(StepResult, "to_dict", lambda self: {"x": float("nan")})  # noqa: ARG005
     payload = result.to_dict()

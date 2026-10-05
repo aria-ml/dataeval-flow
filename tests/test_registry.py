@@ -13,7 +13,7 @@ import yaml
 from pydantic import ValidationError
 
 import dataeval_flow._registry as registry_module
-from dataeval_flow import PipelineConfig
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.evaluators import list_evaluators
 from dataeval_flow.workflows import Workflow, WorkflowConfig, WorkflowContext, get_workflow, list_workflows
 from tests.example_plugin import BrightnessConfig, CountConfig, CountResult, CountWorkflow

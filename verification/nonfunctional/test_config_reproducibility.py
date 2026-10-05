@@ -14,8 +14,8 @@ from typing import Any
 
 import pytest
 
-from dataeval_flow import PipelineConfig, run_tasks
-from dataeval_flow.config import ImageFolderDatasetConfig, SourceConfig, TaskConfig
+from dataeval_flow import run_tasks
+from dataeval_flow.config import ImageFolderDatasetConfig, PipelineConfig, SourceConfig, TaskConfig
 from dataeval_flow.workflows.data_splitting import DataSplittingConfig
 from verification.fixtures import write_image_folder
 

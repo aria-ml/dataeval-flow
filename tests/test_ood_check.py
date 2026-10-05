@@ -120,7 +120,7 @@ def test_a_chain_judges_a_brightened_source_and_shows_the_detector_s_section() -
         datasets={"reference": ToyImages(40), "cam1": ToyImages(40, seed=1, bright=True)},
         extractor=True,
     )
-    result = run_task(TaskConfig(name="t", workflow="w", sources=["reference", "cam1"], extractor="flat"), config)
+    result = run_task(config, TaskConfig(name="t", workflow="w", sources=["reference", "cam1"], extractor="flat"))
     assert isinstance(result, ChainResult)
     (finding,) = result.findings
     assert (finding.severity, finding.title) == ("warning", "OOD (K-Neighbors) · knn")

@@ -250,6 +250,7 @@ def run(
 
     resolved_data = get_data_dir(data_dir)
     config = _resolve_config(config_arg, resolved_data)
+    config.result.max_images = config.result.max_images if report_images else 0
 
     if config.logging:
         configure_log_levels(config.logging.app_level, config.logging.lib_level)
@@ -263,9 +264,7 @@ def run(
 
     # Keyed by the executed tasks' names, so a disabled task cannot misalign a result
     # with the task that produced it.
-    results = run_tasks(
-        config, tasks, data_dir=resolved_data, cache_dir=cache_dir, report_images=report_images, output_dir=output_dir
-    )
+    results = run_tasks(config, tasks, data_dir=resolved_data, cache_dir=cache_dir, output_dir=output_dir)
 
     width = config.result.width if report_width is None else report_width
     collected = _collect_results(results, verbosity=verbosity, report_width=width)

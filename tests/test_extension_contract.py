@@ -243,7 +243,7 @@ def test_an_output_whose_envelope_cannot_be_recorded_becomes_a_failed_result(
     plugins["dataeval_flow.evaluators"] = [("x.metaless", f"{__name__}:_Metaless")]
     config = toy_pipeline(evaluators=[_MetalessConfig(name="m")])
     task = TaskConfig(name="t", workflow="m", kind="evaluator", sources="src")
-    for result in (run_task(task, config), run(_MetalessConfig(), ToyImages())):
+    for result in (run_task(config, task), run(_MetalessConfig(), ToyImages())):
         assert isinstance(result, _MetalessResult)
         assert not result.success
         assert result.errors == ["AttributeError: '_MetalessOutput' object has no attribute 'meta'"]

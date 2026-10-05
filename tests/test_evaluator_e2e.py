@@ -27,7 +27,7 @@ class TestRunTask:
     def test_an_evaluator_task_runs_end_to_end(self):
         task = _dupes_task()
         config = toy_pipeline(evaluators=[DuplicatesConfig(name="dupes")], tasks=[task])
-        result = run_task(task, config)
+        result = run_task(config, task)
         assert isinstance(result, EvaluatorResult)
         assert result.success, result.errors
         assert exact_groups(output_json(result)["rows"]) == {(0, 5)}
@@ -43,7 +43,7 @@ class TestRunTask:
     def test_two_sources_read_as_one_duplicate_search(self):
         task = _dupes_task(["a", "b"])
         config = toy_pipeline(evaluators=[DuplicatesConfig(name="dupes")], tasks=[task], sources=("a", "b"))
-        result = run_task(task, config)
+        result = run_task(config, task)
         assert result.success, result.errors
         assert result.sources is not None
         assert set(result.sources) == {"a", "b"}
@@ -57,8 +57,8 @@ class TestRunTask:
             tasks=[dupes_task, outliers_task],
             dataset=ToyImages(count=0),
         )
-        dupes_result = run_task(dupes_task, config)
-        outliers_result = run_task(outliers_task, config)
+        dupes_result = run_task(config, dupes_task)
+        outliers_result = run_task(config, outliers_task)
 
         assert dupes_result.success, dupes_result.errors
         assert outliers_result.success, outliers_result.errors
@@ -77,7 +77,7 @@ class TestRunTask:
             evaluators=[DuplicatesConfig(name="dupes", cluster_sensitivity=1.0)],
             sources=("a", "b"),
         )
-        result = run_task(task, config)
+        result = run_task(config, task)
         assert not result.success
         assert re.search(r"Task 'dupes_task2' runs evaluator 'dupes' \(duplicates\), which", result.errors[0])
 
@@ -87,7 +87,7 @@ class TestRunTask:
         `ChainResult`."""
         task = TaskConfig(name="clean_task2", workflow="clean", sources=["a", "b"])
         config = toy_pipeline(workflows=[_CLEAN], sources=("a", "b"))
-        result = run_task(task, config)
+        result = run_task(config, task)
         assert isinstance(result, ChainResult)
         assert not result.success
         assert re.search(
@@ -110,8 +110,8 @@ class TestAlongsideWorkflows:
         tasks = [TaskConfig(name="clean_task", workflow="clean", sources="src"), _dupes_task()]
         config = toy_pipeline(evaluators=[DuplicatesConfig(name="dupes")], workflows=[_CLEAN], tasks=tasks)
         with patch.object(cache_module, "_do_compute_stats", wraps=cache_module._do_compute_stats) as compute:
-            run_task(tasks[0], config, cache_dir=tmp_path)
+            run_task(config, tasks[0], cache_dir=tmp_path)
             computed_by_cleaning = compute.call_count
-            run_task(tasks[1], config, cache_dir=tmp_path)
+            run_task(config, tasks[1], cache_dir=tmp_path)
         assert computed_by_cleaning >= 1
         assert compute.call_count == computed_by_cleaning

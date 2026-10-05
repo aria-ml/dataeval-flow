@@ -37,7 +37,7 @@ def _run(
         extractor=True,
     )
     result = run_task(
-        TaskConfig(name="t", workflow="per_class", sources=["reference", "cam1"], extractor="flat"), config
+        config, TaskConfig(name="t", workflow="per_class", sources=["reference", "cam1"], extractor="flat")
     )
     assert isinstance(result, ChainResult)
     return result

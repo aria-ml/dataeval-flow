@@ -14,12 +14,13 @@ from dataeval.data import View
 from pydantic import ValidationError
 
 import dataeval_flow._cache as cache_module
-from dataeval_flow import PipelineConfig, run, run_task, run_tasks
+from dataeval_flow import run, run_task, run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._chain._graph import GraphError
 from dataeval_flow.config import (
     DatasetProtocolConfig,
     OntologyConfig,
+    PipelineConfig,
     SourceConfig,
     TaskConfig,
     ViewConfig,
@@ -171,7 +172,7 @@ def test_a_data_cleaning_task_reads_its_source_through_its_view() -> None:
         ],
     )
     source = config.sources[0].model_copy(update={"view": "shuffled"})  # type: ignore[index]
-    result = run_task(task, config.model_copy(update={"views": [view], "sources": [source]}))
+    result = run_task(config.model_copy(update={"views": [view], "sources": [source]}), task)
     assert isinstance(result, ChainResult)
     assert result.metadata.lineage[0].items == 16
     assert ("info", "Class Imbalance", "2 classes, 16 items, imbalance 1.0:1", "class-imbalance") in _verdicts(result)

@@ -128,10 +128,11 @@ print(f"Classes:     {train_ds.metadata['index2label']}")
 # ```
 
 # %% tags=["remove_output"]
-from dataeval_flow import PipelineConfig, run_task
+from dataeval_flow import run_task
 from dataeval_flow.config import (
     CocoDatasetConfig,
     MetadataPolicyConfig,
+    PipelineConfig,
     SourceConfig,
     TaskConfig,
     ViewConfig,
@@ -156,7 +157,7 @@ triage_config = PipelineConfig(
     tasks=[TaskConfig(name="triage_train", workflow="triage", sources="train_src")],
 )
 
-triage_result = run_task(triage_config.tasks[0], triage_config, data_dir=Path("."), cache_dir=Path("./cache"))
+triage_result = run_task(triage_config, "triage_train", data_dir=Path("."), cache_dir=Path("./cache"))
 
 # %%
 triage = triage_result.steps["factor-triage"].output.data()

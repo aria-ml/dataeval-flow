@@ -6,8 +6,9 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow import MatrixResult, PipelineConfig, run_tasks
+from dataeval_flow import MatrixResult, run_tasks
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows.data_coverage import DataCoverageConfig, DataCoverageWorkflow
 from dataeval_flow.workflows.data_coverage._config import _MOVED, _THRESHOLDS_MOVED

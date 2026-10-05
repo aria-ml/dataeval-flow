@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 import pytest
 
-from dataeval_flow import PipelineConfig
 from dataeval_flow._runner import _resolve_config
+from dataeval_flow.config import PipelineConfig
 
 pytestmark = pytest.mark.required
 
@@ -189,7 +189,7 @@ class TestReportImages:
         config = _write_config(tmp_path)
         with patch.object(orch, "_run_single_task", return_value=_fake_result()) as run_one:
             run(config, None, data_dir=tmp_path, report_images=report_images)
-        assert {call.kwargs["report_images"] for call in run_one.call_args_list} == {report_images}
+        assert {call.args[1].result.max_images != 0 for call in run_one.call_args_list} == {report_images}
 
 
 class TestOutputDir:

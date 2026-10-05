@@ -51,10 +51,11 @@ from pathlib import Path
 
 from maite_datasets.object_detection import MILCO
 
-from dataeval_flow import PipelineConfig, run_tasks, set_device
+from dataeval_flow import run_tasks, set_device
 from dataeval_flow.config import (
     CocoDatasetConfig,
     MetadataPolicyConfig,
+    PipelineConfig,
     PreprocessingStep,
     PreprocessorConfig,
     SourceConfig,

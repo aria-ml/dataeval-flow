@@ -11,7 +11,6 @@ from typing import Any
 import pytest
 from dataeval.flags import ImageStats
 
-from dataeval_flow import PipelineConfig
 from dataeval_flow._metadata import resolve_families
 from dataeval_flow._stats import (
     OUTLIER_FLAG_MAP,
@@ -19,7 +18,7 @@ from dataeval_flow._stats import (
     check_consumers,
     resolve_stats_policy,
 )
-from dataeval_flow.config import StatsPolicyConfig
+from dataeval_flow.config import PipelineConfig, StatsPolicyConfig
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
 _EXAMPLE_PATH = Path(__file__).resolve().parents[1] / "config" / "params.example.yaml"

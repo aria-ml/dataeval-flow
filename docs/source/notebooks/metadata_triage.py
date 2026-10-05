@@ -88,8 +88,15 @@ print(f"{len(seadrone)} images")
 # You should use a shuffled sample of 200 frames to represent multiple capture sequences across flights.
 
 # %%
-from dataeval_flow import PipelineConfig, run_task
-from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, TaskConfig, ViewConfig, ViewOperation
+from dataeval_flow import run_task
+from dataeval_flow.config import (
+    DatasetProtocolConfig,
+    PipelineConfig,
+    SourceConfig,
+    TaskConfig,
+    ViewConfig,
+    ViewOperation,
+)
 from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
 
 triage_workflow = MetadataTriageConfig(
@@ -125,7 +132,7 @@ config = PipelineConfig(
 # You can run the task using `run_task()`, then print the execution status and generated report.
 
 # %%
-result = run_task(task, config)
+result = run_task(config, task)
 print(f"success={result.success}  health={result.health['status']}")
 
 # %%
@@ -302,7 +309,7 @@ corrected = config.model_copy(
         "workflows": [triage_workflow.model_copy(update={"metadata": "seadrone"})],
     }
 )
-result2 = run_task(task, corrected)
+result2 = run_task(corrected, task)
 print(f"success={result2.success}  health={result2.health['status']}")
 
 # %%

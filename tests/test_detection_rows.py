@@ -81,7 +81,7 @@ def test_run_refuses_it_for_a_non_drift_evaluator():
         evaluators=[PrioritizationConfig(name="rank")], datasets=_DATA, extra={"extractors": [_UNC]}
     )
     result = run_task(
-        TaskConfig(name="t", workflow="rank", kind="evaluator", sources=["reference", "cam1"], extractor="unc"), config
+        config, TaskConfig(name="t", workflow="rank", kind="evaluator", sources=["reference", "cam1"], extractor="unc")
     )
     assert not result.success
     assert "only drift and OOD evaluators read it" in result.errors[0]

@@ -5,13 +5,14 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow import PipelineConfig, load_config
+from dataeval_flow import load_config
 from dataeval_flow._blocks import Paragraph
 from dataeval_flow.config import (
     CocoDatasetConfig,
     DemoDatasetConfig,
     HuggingFaceDatasetConfig,
     ImageFolderDatasetConfig,
+    PipelineConfig,
     ResultConfig,
     SourceConfig,
     YoloDatasetConfig,
@@ -1222,7 +1223,7 @@ class TestOntologyConfig:
             OntologyConfig(name="vehicles", source="/etc/passwd")
 
     def test_pipeline_holds_a_named_pool(self) -> None:
-        from dataeval_flow import PipelineConfig
+        from dataeval_flow.config import PipelineConfig
 
         config = PipelineConfig(ontologies=[{"name": "vehicles", "source": "config/onto.jsonld"}])  # type: ignore[arg-type]
         assert config.ontologies is not None
@@ -1230,7 +1231,7 @@ class TestOntologyConfig:
 
     def test_duplicate_names_are_refused(self) -> None:
         # PipelineConfig already enforces unique names across every pool.
-        from dataeval_flow import PipelineConfig
+        from dataeval_flow.config import PipelineConfig
 
         with pytest.raises(ValidationError):
             PipelineConfig(
@@ -1270,8 +1271,7 @@ class TestExportConfig:
         assert declared <= {f.value for f in available_output_formats()}
 
     def test_pipeline_holds_the_pool(self):
-        from dataeval_flow import PipelineConfig
-        from dataeval_flow.config import ExportConfig
+        from dataeval_flow.config import ExportConfig, PipelineConfig
 
         config = PipelineConfig(exports=[ExportConfig(name="dataset", source="merged")])
         assert config.exports is not None
@@ -1466,7 +1466,7 @@ class TestStatsPoolWiring:
     """The pool is referenced by name, like `metadata:` and `ontologies:`."""
 
     def test_pipeline_holds_a_stats_pool(self):
-        from dataeval_flow import PipelineConfig
+        from dataeval_flow.config import PipelineConfig
 
         cfg = PipelineConfig(
             stats=[{"name": "p", "measure": [{"bands": None, "families": ["visual"]}]}]  # type: ignore[arg-type]

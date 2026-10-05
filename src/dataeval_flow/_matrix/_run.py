@@ -71,7 +71,6 @@ def run_matrix(
     *,
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
-    report_images: bool = True,
     output_dir: Path | None = None,
 ) -> "MatrixResult":
     """Run every run of `task`'s matrix and return them as one result.
@@ -134,7 +133,6 @@ def run_matrix(
                     resolved,
                     data_dir=data_dir,
                     cache_dir=cache_dir,
-                    report_images=report_images,
                     output_dir=output_dir,
                     run=plan.number,
                 )

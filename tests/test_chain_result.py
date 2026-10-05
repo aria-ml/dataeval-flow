@@ -176,7 +176,7 @@ _REFUSAL = "Task 't' runs workflow 'two', which takes one source for 'a' and one
 def _refused() -> ChainResult:
     """A chain refused before any step ran: its task binds one source to a workflow of two inputs."""
     two = {"name": "two", "inputs": ["a", "b"], "steps": [{"name": "k", "transform": "toy-keep", "input": "a"}]}
-    result = run_task(TaskConfig(name="t", workflow="two", sources=["src"]), chain_pipeline(workflows=[two]))
+    result = run_task(chain_pipeline(workflows=[two]), TaskConfig(name="t", workflow="two", sources=["src"]))
     assert isinstance(result, ChainResult)
     return result
 
@@ -261,7 +261,7 @@ def test_a_chain_carries_a_thumbnail_of_each_item_its_steps_name_read_from_the_d
         datasets={"src": ToyImages(count=24)},
     )
     task = TaskConfig(name="t", workflow="w", sources="src")
-    result = run_task(task, config, report_images=True)
+    result = run_task(config, task)
     assert isinstance(result, ChainResult)
     # The step is spliced, and `cleaned/dupes`' section names items 0 and 5: ToyImages' item 5 copies item 0.
     # `cleaned/outliers` flags none of these ten images on pixel statistics, so no other item is pictured. Each is
@@ -275,6 +275,7 @@ def test_a_chain_carries_a_thumbnail_of_each_item_its_steps_name_read_from_the_d
         ("few", 0),
         ("few", 5),
     ]
-    without = run_task(task, config, report_images=False)
+    config.result.max_images = 0
+    without = run_task(config, task)
     assert without.assets == []
     assert "assets" not in cast("dict[str, Any]", without.to_dict())

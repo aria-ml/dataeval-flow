@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from dataeval_flow import PipelineConfig, run_tasks
-from dataeval_flow.config import TaskConfig
+from dataeval_flow import run_tasks
+from dataeval_flow.config import PipelineConfig, TaskConfig
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
 pytestmark = pytest.mark.required

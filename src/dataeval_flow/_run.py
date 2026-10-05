@@ -126,9 +126,9 @@ def run(
             extractor=FlattenExtractorConfig(batch_size=64),
         )
     """
-    from dataeval_flow._orchestrator import run_task
+    from dataeval_flow._orchestrator import _run_single_task
     from dataeval_flow.config._definitions import definition_pools
-    from dataeval_flow.config._models import PipelineConfig, SourceConfig
+    from dataeval_flow.config._models import PipelineConfig, ResultConfig, SourceConfig
     from dataeval_flow.config._schemas._dataset import DatasetProtocolConfig
     from dataeval_flow.config._schemas._task import TaskConfig
     from dataeval_flow.config.extractors._base import ExtractorConfig, _InstanceExtractorConfig
@@ -171,8 +171,9 @@ def run(
         ontologies=pools.get("ontologies"),
         preprocessors=pools.get("preprocessors"),
         views=pools.get("views"),
+        result=ResultConfig() if report_images else ResultConfig(max_images=0),
     )
     return cast(
         "R | ChainResult",
-        run_task(task, pipeline, cache_dir=cache_dir, report_images=report_images, output_dir=output_dir),
+        _run_single_task(task, pipeline, cache_dir=cache_dir, output_dir=output_dir),
     )

@@ -140,7 +140,7 @@ def test_a_chain_combines_two_detectors_and_pictures_the_agreed_images() -> None
         {"name": "agreement", "combine": "ood-union", "input": ["knn", "knn3"]},
         {"name": "agreement-check", "check": "ood-agreement", "input": "agreement"},
     )
-    result = run_task(TaskConfig(name="t", workflow="w", sources=sources, extractor="flat"), config, report_images=True)
+    result = run_task(config, TaskConfig(name="t", workflow="w", sources=sources, extractor="flat"))
     assert isinstance(result, ChainResult)
     union = (result.steps["agreement"].elements or {})["cam1"].output
     assert isinstance(union, OODUnionOutput)

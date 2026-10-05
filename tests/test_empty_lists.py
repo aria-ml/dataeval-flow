@@ -7,9 +7,9 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from dataeval_flow import PipelineConfig
 from dataeval_flow._app._model._state import ConfigState
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import ChainResult, CustomWorkflowConfig, InputSlot
 from tests.chain_toys import chain_pipeline, register_toys, run_chain_task

@@ -3,7 +3,6 @@ dataeval_flow:InputKind
 dataeval_flow:InputSpec
 dataeval_flow:MatrixResult
 dataeval_flow:MatrixRun
-dataeval_flow:PipelineConfig
 dataeval_flow:Result
 dataeval_flow:ResultMetadata
 dataeval_flow:SourceCount
@@ -30,6 +29,7 @@ dataeval_flow.config:OntologyConceptConfig
 dataeval_flow.config:OntologyConfig
 dataeval_flow.config:ParseDateTimeCorrectionConfig
 dataeval_flow.config:ParseValueCorrectionConfig
+dataeval_flow.config:PipelineConfig
 dataeval_flow.config:PreprocessingStep
 dataeval_flow.config:PreprocessorConfig
 dataeval_flow.config:ReductionOptionsConfig

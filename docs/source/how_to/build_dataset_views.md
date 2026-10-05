@@ -141,8 +141,7 @@ still accepted. A range that expands past 1,000,000 elements is rejected. Load t
 ## Build a view in Python
 
 ```python
-from dataeval_flow import PipelineConfig
-from dataeval_flow.config import SourceConfig, ViewConfig, ViewOperation
+from dataeval_flow.config import PipelineConfig, SourceConfig, ViewConfig, ViewOperation
 
 view = ViewConfig(
     name="sample500",

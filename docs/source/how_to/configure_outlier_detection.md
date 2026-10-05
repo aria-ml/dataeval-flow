@@ -124,7 +124,7 @@ large web-scraped or naturally diverse collections. For a class hierarchy with a
 Every run reports the flag rate alongside the health line. Change one parameter and re-read the report:
 
 ```python
-result = run_task(task, config)
+result = run_task(config, task)
 print(result.report())
 ```
 

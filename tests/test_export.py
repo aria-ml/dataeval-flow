@@ -18,7 +18,6 @@ from datamaite import (
     Taxonomy,
 )
 
-from dataeval_flow import PipelineConfig
 from dataeval_flow import _export as export_module
 from dataeval_flow._export import build_od_dataset, export_provenance, write_export, write_exports
 from dataeval_flow._sources import label_space_records, resolve_source
@@ -27,6 +26,7 @@ from dataeval_flow.config import (
     ExportConfig,
     OntologyConceptConfig,
     OntologyConfig,
+    PipelineConfig,
     SourceConfig,
     ViewConfig,
     ViewOperation,

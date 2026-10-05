@@ -60,7 +60,7 @@ def approximately(expected: Any) -> Any:
 def _duplicates() -> dict[str, Any]:
     task = TaskConfig(name="t", workflow="dupes", kind="evaluator", sources="src")
     config = toy_pipeline(evaluators=[DuplicatesConfig(name="dupes")], tasks=[task])
-    return run_task(task, config, report_images=True).to_dict()
+    return run_task(config, task).to_dict()
 
 
 CASES: dict[str, Callable[[], dict[str, Any]]] = {

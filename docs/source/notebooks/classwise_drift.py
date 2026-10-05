@@ -258,9 +258,10 @@ if not model_path.exists():
 print(f"Extractor model: {model_path}")
 
 # %%
-from dataeval_flow import PipelineConfig, run_task, set_device
+from dataeval_flow import run_task, set_device
 from dataeval_flow.config import (
     DatasetProtocolConfig,
+    PipelineConfig,
     PreprocessingStep,
     PreprocessorConfig,
     SourceConfig,
@@ -351,7 +352,7 @@ overall_config = PipelineConfig(
 # ## Step 2: Run overall drift detection
 
 # %%
-overall_result = run_task(overall_task, overall_config, cache_dir=Path("./cache"))
+overall_result = run_task(overall_config, overall_task, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # ### Review the overall report
@@ -412,7 +413,7 @@ classwise_config = PipelineConfig(
 # ## Step 4: Run classwise drift detection
 
 # %%
-classwise_result = run_task(classwise_task, classwise_config, cache_dir=Path("./cache"))
+classwise_result = run_task(classwise_config, classwise_task, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # ### Review the classwise report
@@ -541,7 +542,7 @@ grouped_config = PipelineConfig(
     tasks=[grouped_task],
 )
 
-grouped_result = run_task(grouped_task, grouped_config, cache_dir=Path("./cache"))
+grouped_result = run_task(grouped_config, grouped_task, cache_dir=Path("./cache"))
 print(grouped_result.report())
 
 # %% [markdown]

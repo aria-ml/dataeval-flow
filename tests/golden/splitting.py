@@ -9,8 +9,8 @@ from typing import Any
 
 import numpy as np
 
-from dataeval_flow import PipelineConfig
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow.config import PipelineConfig
 from tests.chain_toys import chain_pipeline
 
 SEED = 0

@@ -21,7 +21,7 @@ import pytest
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from dataeval_flow import PipelineConfig
+    from dataeval_flow.config import PipelineConfig
 
 VERIFICATION_DIR = Path(__file__).parent
 OUTPUT_DIR = VERIFICATION_DIR.parent / "output"
@@ -220,8 +220,7 @@ def synthetic_pipeline_config(tmp_path: Path) -> tuple[object, Path]:
     the actual pydantic schemas (``datasets``/``sources``/``workflows``/``tasks``
     as lists of named items).
     """
-    from dataeval_flow import PipelineConfig
-    from dataeval_flow.config import ImageFolderDatasetConfig, SourceConfig, TaskConfig
+    from dataeval_flow.config import ImageFolderDatasetConfig, PipelineConfig, SourceConfig, TaskConfig
     from dataeval_flow.config.extractors import FlattenExtractorConfig
     from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
     from verification.fixtures import write_image_folder
@@ -276,8 +275,7 @@ def image_folder_pipeline_builder(
     """
     from collections.abc import Iterable, Sequence
 
-    from dataeval_flow import PipelineConfig
-    from dataeval_flow.config import ImageFolderDatasetConfig, SourceConfig, TaskConfig
+    from dataeval_flow.config import ImageFolderDatasetConfig, PipelineConfig, SourceConfig, TaskConfig
     from dataeval_flow.config.extractors import FlattenExtractorConfig
     from verification.fixtures import write_image_folder
 

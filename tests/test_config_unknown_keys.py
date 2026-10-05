@@ -6,7 +6,8 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from dataeval_flow import PipelineConfig, load_config
+from dataeval_flow import load_config
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.config._merge import merge_config_folder
 from dataeval_flow.config._models import LoggingConfig, ResultConfig, SourceConfig
 from dataeval_flow.config._schemas import (

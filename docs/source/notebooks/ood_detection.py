@@ -206,9 +206,9 @@ plt.show()
 import torch
 import torchvision
 
-from dataeval_flow import PipelineConfig
 from dataeval_flow.config import (
     DatasetProtocolConfig,
+    PipelineConfig,
     PreprocessingStep,
     PreprocessorConfig,
     SourceConfig,
@@ -315,7 +315,7 @@ config = PipelineConfig(
 # ## Step 2: Run the OOD detection workflow
 
 # %%
-result = run_task(task, config, cache_dir=Path("./cache"))
+result = run_task(config, task, cache_dir=Path("./cache"))
 
 # %% [markdown]
 # ## Results Exploration: OOD report
@@ -537,7 +537,7 @@ noisy_config = config.model_copy(
     }
 )
 
-noisy_result = run_task(noisy_task, noisy_config, cache_dir=Path("./cache"))
+noisy_result = run_task(noisy_config, noisy_task, cache_dir=Path("./cache"))
 
 # %%
 noisy_truth = [noisy_dataset.corrupted(i) for i in range(len(noisy_dataset))]

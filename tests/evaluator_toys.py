@@ -11,8 +11,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
-from dataeval_flow import PipelineConfig
-from dataeval_flow.config import DatasetProtocolConfig, SourceConfig
+from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig
 from dataeval_flow.config.extractors import FlattenExtractorConfig
 
 if TYPE_CHECKING:

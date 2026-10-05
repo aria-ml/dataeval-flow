@@ -11,8 +11,8 @@ import pytest
 import torch
 from dataeval.config import set_seed
 
-from dataeval_flow import PipelineConfig, Result, run_task
-from dataeval_flow.config import TaskConfig
+from dataeval_flow import Result, run_task
+from dataeval_flow.config import PipelineConfig, TaskConfig
 from dataeval_flow.evaluators.bias import BalanceConfig, DiversityConfig
 from dataeval_flow.workflows.data_analysis import DataAnalysisConfig, DataAnalysisResult
 from tests.evaluator_toys import ToyFactors, output_json, toy_pipeline
@@ -22,7 +22,7 @@ def _run(config: PipelineConfig, task: TaskConfig) -> "Result[Any, Any]":
     """`task`'s result, with DataEval and torch seeded first."""
     set_seed(0)
     torch.manual_seed(0)
-    result = run_task(task, config)
+    result = run_task(config, task)
     assert result.success, result.errors
     return result
 

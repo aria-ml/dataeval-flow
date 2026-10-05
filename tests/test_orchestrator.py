@@ -788,7 +788,7 @@ class TestSelectTasks:
         """Results are keyed by task name, so a second run could only overwrite the first."""
         executed: list[str] = []
 
-        def _fake(task, cfg, data_dir=None, cache_dir=None, report_images=True, output_dir=None):  # noqa: ARG001
+        def _fake(task, cfg, data_dir=None, cache_dir=None, output_dir=None):  # noqa: ARG001
             executed.append(task.name)
             return MagicMock(success=True)
 
@@ -803,7 +803,7 @@ class TestSelectTasks:
         config = self._config()
         executed: list[str] = []
 
-        def _fake(task, cfg, data_dir=None, cache_dir=None, report_images=True, output_dir=None):  # noqa: ARG001
+        def _fake(task, cfg, data_dir=None, cache_dir=None, output_dir=None):  # noqa: ARG001
             executed.append(task.name)
             return MagicMock(success=True)
 
@@ -975,7 +975,7 @@ class TestRunTaskWrapper:
         mock_wf.run.return_value = _stub_result()
 
         with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
-            result = run_task(task, config)
+            result = run_task(config, task)
 
         assert result.success
         mock_wf.run.assert_called_once()
@@ -1005,9 +1005,34 @@ class TestRunTaskWrapper:
             patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf),
             caplog.at_level(logging.INFO, logger="dataeval_flow._orchestrator"),
         ):
-            run_task(task, config)
+            run_task(config, task)
 
         assert any("my_task" in r.message for r in caplog.records)
+
+    @patch("dataeval_flow._dataset.load_dataset")
+    def test_run_task_by_name(self, mock_load_ds):
+        task = TaskConfig(name="my_task", workflow="clean", sources="src", enabled=False)
+
+        config = MagicMock()
+
+        config.result = ResultConfig()
+        config.datasets = [HuggingFaceDatasetConfig(name="ds", path="./ds", split="train", task="image_classification")]
+        config.sources = [SourceConfig(name="src", dataset="ds")]
+        config.extractors = None
+        config.preprocessors = None
+        config.selections = None
+        config.workflows = [_CLEAN_INSTANCE]
+        config.tasks = [task]
+
+        mock_load_ds.return_value = MagicMock()
+        mock_wf = MagicMock()
+        mock_wf.config_type = BaseModel
+        mock_wf.run.return_value = _stub_result()
+
+        with patch("dataeval_flow._orchestrator._implementation", return_value=mock_wf):
+            assert run_task(config, "my_task").success
+        with pytest.raises(ValueError, match="nope"):
+            run_task(config, "nope")
 
 
 # ---------------------------------------------------------------------------
@@ -2198,8 +2223,8 @@ class TestResolveStatsPolicy:
             _channel_groups_for(self._contexts({"rgb": (0, 1, 2)}, {"rgb": (0, 1)}))
 
     def test_none_for_a_workflow_that_computes_no_statistics(self):
-        from dataeval_flow import PipelineConfig
         from dataeval_flow._orchestrator import _resolve_stats_policy
+        from dataeval_flow.config import PipelineConfig
         from dataeval_flow.workflows.data_coverage import DataCoverageConfig
 
         instance = DataCoverageConfig(name="c", type="data-coverage")

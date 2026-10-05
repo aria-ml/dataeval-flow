@@ -14,11 +14,11 @@ import numpy as np
 import pytest
 from dataeval.config import use_batch_size, use_seed
 
-from dataeval_flow import PipelineConfig, run_task, run_tasks
+from dataeval_flow import run_task, run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._embeddings import shared_extractor_scope
 from dataeval_flow._orchestrator import _run_single_task
-from dataeval_flow.config import DatasetProtocolConfig, SourceConfig, TaskConfig
+from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig, TaskConfig
 from dataeval_flow.config.extractors import Extractor, ExtractorConfig, FlattenExtractorConfig
 from dataeval_flow.evaluators.shift import DriftMMDConfig
 from dataeval_flow.workflows import DatasetContext, WorkflowContext
@@ -110,7 +110,7 @@ def _pipeline() -> tuple[TaskConfig, PipelineConfig]:
 
 
 def _via_run_task(task: TaskConfig, config: PipelineConfig) -> Any:
-    return run_task(task, config)
+    return run_task(config, task)
 
 
 def _via_run_tasks(task: TaskConfig, config: PipelineConfig) -> Any:

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from dataeval_flow import PipelineConfig
+from dataeval_flow.config import PipelineConfig
 from tests.drift_toys import BoxImages, ClassImages
 from tests.evaluator_toys import ToyImages, toy_pipeline
 

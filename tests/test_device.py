@@ -7,8 +7,9 @@ import pytest
 import torch
 from dataeval.config import get_device
 
-from dataeval_flow import PipelineConfig, set_device
+from dataeval_flow import set_device
 from dataeval_flow._orchestrator import _apply_device
+from dataeval_flow.config import PipelineConfig
 from dataeval_flow.config.extractors import TorchExtractorConfig
 
 
@@ -73,5 +74,5 @@ def test_each_result_records_its_device():
     from tests.evaluator_toys import toy_pipeline
 
     pipeline = toy_pipeline(evaluators=[DuplicatesConfig(name="dupes")])
-    result = run_task(TaskConfig(name="t", workflow="dupes", kind="evaluator", sources="src"), pipeline)
+    result = run_task(pipeline, TaskConfig(name="t", workflow="dupes", kind="evaluator", sources="src"))
     assert result.metadata.device == "cpu"

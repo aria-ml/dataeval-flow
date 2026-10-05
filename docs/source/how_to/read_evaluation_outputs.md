@@ -19,7 +19,7 @@ Every tutorial ends by reading its results, so this guide applies throughout. It
 `report()` renders the findings for a run:
 
 ```python
-result = run_task(task, config)
+result = run_task(config, task)
 print(result.report())  # findings plus per-finding detail
 print(result.report(detailed=False))  # the short form, which the console prints without -v
 ```
@@ -245,8 +245,8 @@ every item the report names. The
 limit is shared evenly between the findings that name items, and a finding's share between its tables, rows in
 order; a finding that needs fewer passes its spare to the rest. So with 200 and four such findings, each gets 50.
 A box's thumbnail is cropped from its image with a margin around it. `--no-report-images`,
-`DATAEVAL_REPORT_IMAGES=0`, or `report_images=False` on `run()`, `run_task()` and `run_tasks()` turn them off, and
-then the run reads no item for them. Only images have thumbnails for now; any other kind of item is named.
+`DATAEVAL_REPORT_IMAGES=0` and `report_images=False` on `run()` set it to `0`, and then the run reads no item for
+them. Only images have thumbnails for now; any other kind of item is named.
 
 It loads nothing, neither font nor URL. One inline script adds the sorting, the filter boxes and the expand-all
 buttons. With scripts blocked, as some mail viewers and locked-down browsers block them, the page reads the same
@@ -539,7 +539,7 @@ The report is a rendering; the numbers behind it live on the result object. For 
 such as `data-analysis`, `result.output.raw` holds the typed, workflow-specific outputs:
 
 ```python
-result = run_task(task, config)  # a data-analysis task
+result = run_task(config, task)  # a data-analysis task
 
 train = result.output.raw.splits["train"]
 outliers = train.image_quality.outliers  # one row per flagged image and metric, with its value
@@ -555,7 +555,7 @@ A chain's result, a `data-cleaning` result among them, is a {py:class}`~dataeval
 check's is its findings, and a transform's is the Dataset it made, a DataEval `View`:
 
 ```python
-result = run_task(task, config)  # a data-cleaning task
+result = run_task(config, task)  # a data-cleaning task
 
 outliers = result.steps["outliers"].output  # DataEval's Outliers output
 flags = outliers.data()  # one row per flag: its item, its box if any, the metric, its value and the limit crossed
@@ -566,7 +566,7 @@ cleaned = result.steps["clean"].output  # without each flagged image and box, an
 A `data-coverage` result reads the same way:
 
 ```python
-result = run_task(task, config)  # a data-coverage task with an extractor
+result = run_task(config, task)  # a data-coverage task with an extractor
 
 coverage = result.steps["coverage"].output  # DataEval's Coverage output: a row per class, and uncovered_indices
 gaps = result.steps["factor-gaps"].output.gaps  # each under-represented class-factor-value combination

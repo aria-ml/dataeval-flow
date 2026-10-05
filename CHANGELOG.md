@@ -92,7 +92,8 @@
 - `flags` table columns, each cell a list of measurements against their population, and a table's row `preview`
 - The HTML report shows a card per finding, warnings open, with sortable and filterable tables and dark mode
 - Reports carry a thumbnail of each item their findings name, in `Result.assets`; the HTML report shows them
-- `--no-report-images`, `DATAEVAL_REPORT_IMAGES=0` or `report_images=False` turn a run's thumbnails off
+- `--no-report-images`, `DATAEVAL_REPORT_IMAGES=0` or `report_images=False` on `run()` turn a run's thumbnails off, as
+  `result: max_images: 0` does
 - `image` table columns, each cell an item reference or a group of them
 - Data analysis, coverage, prioritization, splitting and metadata triage picture the items their findings name
 - `uncovered_classes` in `coverage`'s `extras`: each uncovered item's class. Its report section, "Uncovered items",
@@ -265,8 +266,10 @@
 - Extractor configs are imported from `dataeval_flow.config.extractors`; `ToRGB` from
   `dataeval_flow.config.image_transforms`
 - `run_tasks` returns results keyed by task name; `load_config` reads a file or a folder
-- `run_task` and `run_tasks` take `data_dir` and `cache_dir` by keyword only; a task named twice runs once
-- `PipelineConfig` and `load_config` are imported from `dataeval_flow` only, not `dataeval_flow.config`
+- `run_task` and `run_tasks` take `data_dir` and `cache_dir` by keyword only; a task named twice runs once.
+  `run_task` takes the config first, then a task config or a task's name, as `run_tasks` does
+- `PipelineConfig` is imported from `dataeval_flow.config`, beside the types of its sections, not the top level;
+  `load_config` from `dataeval_flow` only
 - `WorkflowResult`, `list_workflows` and `get_workflow` are imported from `dataeval_flow.workflows`, not the top level
 - Dataset, source, view, preprocessor and task configs are imported from `dataeval_flow.config`, not the top level
 - `run_task` is imported from `dataeval_flow`; the `maite.tasks` entry point is `dataeval_flow:run_tasks`

@@ -71,8 +71,7 @@ def test_exporting_a_derived_dataset_encodes_its_pixels(tmp_path: Path) -> None:
 
 
 def test_the_provenance_of_a_derived_dataset_names_each_root_sources_dataset_view_and_remap(tmp_path: Path) -> None:
-    from dataeval_flow import PipelineConfig
-    from dataeval_flow.config import DatasetProtocolConfig, SourceConfig
+    from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig
 
     relabel = {"type": "Relabel", "params": {"class_remap": {"car": "vehicle"}, "target": ["vehicle", "person"]}}
     workflow = {
@@ -123,7 +122,7 @@ def test_the_provenance_of_a_derived_dataset_names_each_root_sources_dataset_vie
 
 
 def test_the_provenance_records_a_merged_roots_own_relabel(tmp_path: Path) -> None:
-    from dataeval_flow import PipelineConfig
+    from dataeval_flow.config import PipelineConfig
     from tests.test_sources import _merge_config
 
     pools = _merge_config()
@@ -160,8 +159,7 @@ def test_the_provenance_records_a_merged_roots_own_relabel(tmp_path: Path) -> No
 
 
 def test_the_provenance_records_the_root_relabel_then_each_conform_on_the_way_and_only_those(tmp_path: Path) -> None:
-    from dataeval_flow import PipelineConfig
-    from dataeval_flow.config import DatasetProtocolConfig, SourceConfig
+    from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceConfig
 
     relabel = {"type": "Relabel", "params": {"class_remap": {"car": "vehicle"}, "target": ["vehicle", "person"]}}
     steps = [

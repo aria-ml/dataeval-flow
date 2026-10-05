@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 import yaml
 
-from dataeval_flow import PipelineConfig
+from dataeval_flow.config import PipelineConfig
 
 _DOCS = Path(__file__).resolve().parents[1] / "docs" / "source"
 _YAML_BLOCK = re.compile(r"```yaml\n(.*?)```", re.S)
