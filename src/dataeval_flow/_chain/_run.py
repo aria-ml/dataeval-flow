@@ -206,7 +206,7 @@ def _run_step(
         if spec.kind == "check":
             record, outputs = _unassessed(spec, inputs_text, _gap_text(address, missing, steps), None)
             return record, _by_address(spec, outputs), []
-        reason = f"needs `{address}`, which {missing.reason}"
+        reason = _needs(address, missing, steps)
         return _skipped(spec, inputs_text, reason), _by_address(spec, _missing_outputs(spec, "was skipped")), []
     empty = _empty_port(spec, bound, steps)
     if empty is not None:
@@ -272,13 +272,25 @@ def _empty_list(address: Address, value: NodeList, steps: Mapping[str, StepResul
 
 def _gap_text(address: Address, missing: Missing, steps: Mapping[str, StepResult]) -> str:
     """What a check could not assess: "`count` failed: ValueError: ...", with the cause its producer recorded."""
+    cause = _cause(address, steps)
+    return f"`{address}` {missing.reason}" + (f": {cause}" if cause else "")
+
+
+def _needs(address: Address, missing: Missing, steps: Mapping[str, StepResult]) -> str:
+    """Why a step that reads `address` was skipped: "needs `count`, which failed: ValueError: ...", with the cause its
+    producer recorded."""
+    cause = _cause(address, steps)
+    return f"needs `{address}`, which {missing.reason}" + (f": {cause}" if cause else "")
+
+
+def _cause(address: Address, steps: Mapping[str, StepResult]) -> str | None:
+    """Why the step, or element of one, that makes `address` made nothing: its errors, or its skip reason."""
     record = steps.get(address.name)
     if record is not None and address.key is not None and record.elements is not None:
         record = record.elements.get(address.key)
-    cause = None
-    if record is not None:
-        cause = "; ".join(record.errors) if record.status == "failed" else record.reason
-    return f"`{address}` {missing.reason}" + (f": {cause}" if cause else "")
+    if record is None:
+        return None
+    return "; ".join(record.errors) if record.status == "failed" else record.reason
 
 
 def _check_title(spec: StepSpec) -> str:
@@ -387,7 +399,7 @@ def _broadcast(
         if gap is not None and spec.kind == "check":
             elements[key], outputs = _unassessed(spec, element_inputs, _element_gap(gap, steps), key)
         elif gap is not None:
-            elements[key] = _skipped(spec, element_inputs, _element_reason(gap))
+            elements[key] = _skipped(spec, element_inputs, _element_reason(gap, steps))
             outputs = _missing_outputs(spec, "was skipped")
         else:
             elements[key], outputs, records = _attempt(
@@ -456,12 +468,13 @@ def _element_inputs(spec: StepSpec, bound: Mapping[str, list[_Value]], key: str)
     return inputs
 
 
-def _element_reason(gap: tuple[Address, Missing | None]) -> str:
-    """Why an element of a step cannot run: its list has no such element, or holds nothing there."""
+def _element_reason(gap: tuple[Address, Missing | None], steps: Mapping[str, StepResult]) -> str:
+    """Why an element of a step cannot run: its list has no such element, or holds nothing there, with the cause its
+    producer recorded for that element."""
     address, missing = gap
     if missing is None:
         return f"`{address.base}` has no element `{address.key}`"
-    return f"needs `{address}`, which {missing.reason}"
+    return _needs(address, missing, steps)
 
 
 def _element_gap(gap: tuple[Address, Missing | None], steps: Mapping[str, StepResult]) -> str:

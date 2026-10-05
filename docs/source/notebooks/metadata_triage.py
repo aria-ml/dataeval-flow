@@ -24,11 +24,11 @@
 # dataset metadata before computing coverage, drift, or bias metrics.
 #
 # **Workflow role**: You should run triage before downstream evaluation workflows.
-# Downstream workflows such as {doc}`Analyze dataset quality across splits <data_analysis>`,
-# {doc}`Assess dataset coverage <data_coverage>`, and [Split a dataset](dataset_splitting)
-# silently drop unparseable metadata columns, mixed-type fields, or high-cardinality
-# values without raising errors. Triage surfaces these issues so you can configure
-# remediations.
+# Downstream workflows such as {doc}`Assess dataset coverage <data_coverage>` and
+# [Split a dataset](dataset_splitting) silently drop unparseable metadata columns, mixed-type
+# fields, or high-cardinality values without raising errors.
+# {doc}`Audit a set of splits before training <audit>` flags such columns, and triage gives a
+# policy that repairs those it can. Triage surfaces these issues so you can configure remediations.
 
 # %% [markdown]
 # ## What you will do
@@ -402,7 +402,7 @@ print(f"JSON output: {len(json_str)} characters")
 # %% [markdown]
 # ## Next steps
 #
-# - {doc}`Analyze dataset quality across splits <data_analysis>`: Evaluate factors across dataset splits.
+# - {doc}`Audit a set of splits before training <audit>`: Judge factors, labels and leakage across dataset splits.
 # - {doc}`Assess dataset coverage <data_coverage>`: Measure representation across factor combinations.
 # - [Run a full evaluation pipeline end to end](end_to_end): Execute complete evaluation pipelines.
 

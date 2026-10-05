@@ -1,0 +1,656 @@
+{
+ "detection": {
+  "cross": {
+   "train_vs_test": {
+    "divergence": null,
+    "exact_groups": [],
+    "near_groups": []
+   }
+  },
+  "splits": {
+   "test": {
+    "class_distribution": {
+     "a": 12,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 2,
+    "near_duplicates_count": 0,
+    "outlier_count": 0,
+    "outlier_rate": 0.0
+   },
+   "train": {
+    "class_distribution": {
+     "a": 12,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 2,
+    "near_duplicates_count": 0,
+    "outlier_count": 0,
+    "outlier_rate": 0.0
+   }
+  },
+  "train_factors": {
+   "site": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "east": 4,
+     "north": 4,
+     "south": 4
+    },
+    "type": "categorical",
+    "unique_values": 3
+   }
+  }
+ },
+ "duplicates": {
+  "cross": {
+   "train_vs_test": {
+    "divergence": null,
+    "exact_groups": [
+     {
+      "test": [
+       0,
+       5
+      ],
+      "train": [
+       0,
+       5
+      ]
+     },
+     {
+      "test": [
+       1
+      ],
+      "train": [
+       1
+      ]
+     },
+     {
+      "test": [
+       2
+      ],
+      "train": [
+       2
+      ]
+     },
+     {
+      "test": [
+       3
+      ],
+      "train": [
+       3
+      ]
+     },
+     {
+      "test": [
+       4
+      ],
+      "train": [
+       4
+      ]
+     }
+    ],
+    "near_groups": [
+     {
+      "test": [
+       3
+      ],
+      "train": [
+       3,
+       9
+      ]
+     }
+    ]
+   }
+  },
+  "splits": {
+   "test": {
+    "class_distribution": {
+     "a": 6,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 4,
+    "near_duplicates_count": 0,
+    "outlier_count": 0,
+    "outlier_rate": 0.0
+   },
+   "train": {
+    "class_distribution": {
+     "a": 6,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 2,
+    "near_duplicates_count": 2,
+    "outlier_count": 1,
+    "outlier_rate": 0.08333333333333333
+   }
+  }
+ },
+ "extractor": {
+  "cross": {
+   "train_vs_test": {
+    "divergence": 0.08333333333333337,
+    "exact_groups": [
+     {
+      "test": [
+       7
+      ],
+      "train": [
+       7
+      ]
+     }
+    ],
+    "near_groups": []
+   }
+  },
+  "splits": {
+   "test": {
+    "class_distribution": {
+     "a": 6,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 2,
+    "near_duplicates_count": 0,
+    "outlier_count": 1,
+    "outlier_rate": 0.08333333333333333
+   },
+   "train": {
+    "class_distribution": {
+     "a": 6,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 2,
+    "near_duplicates_count": 0,
+    "outlier_count": 1,
+    "outlier_rate": 0.08333333333333333
+   }
+  }
+ },
+ "factors": {
+  "cross": {
+   "train_vs_test": {
+    "divergence": null,
+    "exact_groups": [
+     {
+      "test": [
+       0
+      ],
+      "train": [
+       0
+      ]
+     },
+     {
+      "test": [
+       1
+      ],
+      "train": [
+       1
+      ]
+     },
+     {
+      "test": [
+       2
+      ],
+      "train": [
+       2
+      ]
+     },
+     {
+      "test": [
+       3
+      ],
+      "train": [
+       3
+      ]
+     },
+     {
+      "test": [
+       4
+      ],
+      "train": [
+       4
+      ]
+     },
+     {
+      "test": [
+       5
+      ],
+      "train": [
+       5
+      ]
+     },
+     {
+      "test": [
+       6
+      ],
+      "train": [
+       6
+      ]
+     },
+     {
+      "test": [
+       7
+      ],
+      "train": [
+       7
+      ]
+     },
+     {
+      "test": [
+       8
+      ],
+      "train": [
+       8
+      ]
+     },
+     {
+      "test": [
+       9
+      ],
+      "train": [
+       9
+      ]
+     },
+     {
+      "test": [
+       10
+      ],
+      "train": [
+       10
+      ]
+     },
+     {
+      "test": [
+       11
+      ],
+      "train": [
+       11
+      ]
+     },
+     {
+      "test": [
+       12
+      ],
+      "train": [
+       12
+      ]
+     },
+     {
+      "test": [
+       13
+      ],
+      "train": [
+       13
+      ]
+     },
+     {
+      "test": [
+       14
+      ],
+      "train": [
+       14
+      ]
+     },
+     {
+      "test": [
+       15
+      ],
+      "train": [
+       15
+      ]
+     },
+     {
+      "test": [
+       16
+      ],
+      "train": [
+       16
+      ]
+     },
+     {
+      "test": [
+       17
+      ],
+      "train": [
+       17
+      ]
+     },
+     {
+      "test": [
+       18
+      ],
+      "train": [
+       18
+      ]
+     },
+     {
+      "test": [
+       19
+      ],
+      "train": [
+       19
+      ]
+     },
+     {
+      "test": [
+       20
+      ],
+      "train": [
+       20
+      ]
+     },
+     {
+      "test": [
+       21
+      ],
+      "train": [
+       21
+      ]
+     },
+     {
+      "test": [
+       22
+      ],
+      "train": [
+       22
+      ]
+     },
+     {
+      "test": [
+       23
+      ],
+      "train": [
+       23
+      ]
+     },
+     {
+      "test": [
+       24
+      ],
+      "train": [
+       24
+      ]
+     },
+     {
+      "test": [
+       25
+      ],
+      "train": [
+       25
+      ]
+     },
+     {
+      "test": [
+       26
+      ],
+      "train": [
+       26
+      ]
+     },
+     {
+      "test": [
+       27
+      ],
+      "train": [
+       27
+      ]
+     },
+     {
+      "test": [
+       28
+      ],
+      "train": [
+       28
+      ]
+     },
+     {
+      "test": [
+       29
+      ],
+      "train": [
+       29
+      ]
+     }
+    ],
+    "near_groups": []
+   }
+  },
+  "splits": {
+   "test": {
+    "class_distribution": {
+     "bird": 10,
+     "cat": 10,
+     "dog": 10
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 0,
+    "near_duplicates_count": 0,
+    "outlier_count": 0,
+    "outlier_rate": 0.0
+   },
+   "train": {
+    "class_distribution": {
+     "bird": 20,
+     "cat": 20,
+     "dog": 20
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 0,
+    "near_duplicates_count": 0,
+    "outlier_count": 1,
+    "outlier_rate": 0.016666666666666666
+   }
+  },
+  "train_factors": {
+   "angle": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "0": 9,
+     "1": 9,
+     "2": 9,
+     "3": 9,
+     "4": 8,
+     "5": 8,
+     "6": 8
+    },
+    "type": "discrete",
+    "unique_values": 7
+   },
+   "site": {
+    "is_binned": false,
+    "level": "unit",
+    "null_count": 0,
+    "top_values": {
+     "east": 20,
+     "north": 20,
+     "south": 20
+    },
+    "type": "categorical",
+    "unique_values": 3
+   }
+  }
+ },
+ "one": {
+  "cross": {},
+  "splits": {
+   "train": {
+    "class_distribution": {
+     "a": 6,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 2,
+    "near_duplicates_count": 0,
+    "outlier_count": 1,
+    "outlier_rate": 0.08333333333333333
+   }
+  }
+ },
+ "one_class": {
+  "cross": {
+   "train_vs_test": {
+    "divergence": null,
+    "exact_groups": [],
+    "near_groups": []
+   }
+  },
+  "splits": {
+   "test": {
+    "class_distribution": {
+     "a": 4,
+     "b": 4,
+     "c": 4
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 0,
+    "near_duplicates_count": 0,
+    "outlier_count": 0,
+    "outlier_rate": 0.0
+   },
+   "train": {
+    "class_distribution": {
+     "a": 6,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 0,
+    "near_duplicates_count": 0,
+    "outlier_count": 0,
+    "outlier_rate": 0.0
+   }
+  }
+ },
+ "three": {
+  "cross": {
+   "train_vs_test": {
+    "divergence": null,
+    "exact_groups": [
+     {
+      "test": [
+       7
+      ],
+      "train": [
+       7
+      ]
+     }
+    ],
+    "near_groups": []
+   },
+   "train_vs_val": {
+    "divergence": null,
+    "exact_groups": [
+     {
+      "train": [
+       7
+      ],
+      "val": [
+       7
+      ]
+     }
+    ],
+    "near_groups": []
+   },
+   "val_vs_test": {
+    "divergence": null,
+    "exact_groups": [
+     {
+      "test": [
+       7
+      ],
+      "val": [
+       7
+      ]
+     }
+    ],
+    "near_groups": []
+   }
+  },
+  "splits": {
+   "test": {
+    "class_distribution": {
+     "a": 6,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 2,
+    "near_duplicates_count": 0,
+    "outlier_count": 1,
+    "outlier_rate": 0.08333333333333333
+   },
+   "train": {
+    "class_distribution": {
+     "a": 6,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 2,
+    "near_duplicates_count": 0,
+    "outlier_count": 1,
+    "outlier_rate": 0.08333333333333333
+   },
+   "val": {
+    "class_distribution": {
+     "a": 6,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 2,
+    "near_duplicates_count": 0,
+    "outlier_count": 1,
+    "outlier_rate": 0.08333333333333333
+   }
+  }
+ },
+ "two": {
+  "cross": {
+   "train_vs_test": {
+    "divergence": null,
+    "exact_groups": [
+     {
+      "test": [
+       7
+      ],
+      "train": [
+       7
+      ]
+     }
+    ],
+    "near_groups": []
+   }
+  },
+  "splits": {
+   "test": {
+    "class_distribution": {
+     "a": 6,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 2,
+    "near_duplicates_count": 0,
+    "outlier_count": 1,
+    "outlier_rate": 0.08333333333333333
+   },
+   "train": {
+    "class_distribution": {
+     "a": 6,
+     "b": 6
+    },
+    "empty_images": 0,
+    "exact_duplicates_count": 2,
+    "near_duplicates_count": 0,
+    "outlier_count": 1,
+    "outlier_rate": 0.08333333333333333
+   }
+  }
+ }
+}

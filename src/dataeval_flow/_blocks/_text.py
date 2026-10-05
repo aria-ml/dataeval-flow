@@ -35,6 +35,7 @@ from dataeval_flow._blocks._models import (
     SummaryItem,
     Table,
     Tree,
+    Verdict,
 )
 from dataeval_flow._blocks._table import draw_table, shared_widths
 
@@ -231,6 +232,11 @@ def _summary(block: Summary, frame: Frame) -> list[str]:
     return [*lines, *([""] if lines else []), *_wrap(health, frame.indent, frame.indent, frame.width)]
 
 
+def _verdict(block: Verdict, frame: Frame) -> list[str]:
+    """``Verdict: <line>`` and its marker: ``[!!]`` not ready, ``[..]`` ready with caveats, ``[ok]`` ready."""
+    return _wrap(f"Verdict: {block.line}{_MARKERS[block.severity]}", frame.indent, frame.indent, frame.width)
+
+
 def _proportion(block: Proportion, frame: Frame) -> list[str]:
     line = ratio_line(block.parts)
     return [frame.indent + line] if line else []
@@ -271,4 +277,5 @@ DRAW: dict[str, Callable[[Any, Frame], list[str]]] = {
     "code": _code,
     "tree": _tree,
     "summary": _summary,
+    "verdict": _verdict,
 }

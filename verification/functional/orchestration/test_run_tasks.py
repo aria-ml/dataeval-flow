@@ -22,7 +22,7 @@ class TestOrchestration:
         wfs = list_workflows()
         names = {w.name for w in wfs}
         assert names == {
-            "data-analysis",
+            "audit",
             "data-cleaning",
             "data-coverage",
             "drift-monitoring",

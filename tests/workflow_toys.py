@@ -5,6 +5,7 @@ orchestrator or the envelope keeps the inputs it was written against while runni
 through the `plugins` fixture with :func:`register_count` before building any pipeline that names it.
 
 A second, `test.union`, holds a discriminated-union list for the TUI's forms, served with :func:`register_union`.
+A third, `test.splits`, takes `test.count`'s settings over one or more sources, served with :func:`register_splits`.
 """
 
 from collections.abc import Sequence
@@ -79,6 +80,30 @@ class ToyCountWorkflow(Workflow[ToyCountConfig, ToyCountResult]):
 def register_count(plugins: dict[str, list[tuple[str, str]]]) -> None:
     """Serve `test.count` through the `plugins` fixture, before the first registry lookup."""
     plugins.setdefault("dataeval_flow.workflows", []).append(("test.count", "tests.workflow_toys:ToyCountWorkflow"))
+
+
+class ToySplitsConfig(ToyCountConfig):
+    """The settings of one `test.splits` entry: `test.count`'s, over one or more sources."""
+
+    type: str = Field(default="test.splits", description="The workflow type this entry configures: `test.splits`.")
+    inputs: ClassVar[InputSpec] = InputSpec(
+        required=frozenset({InputKind.STATS, InputKind.METADATA}), sources=SourceCount.ONE_OR_MORE
+    )
+
+
+class ToySplitsWorkflow(Workflow[ToySplitsConfig, ToyCountResult]):
+    """Stands in for a workflow that is not a chain and reads several sources; its tests never run it."""
+
+    name: ClassVar[str] = "test.splits"
+    description: ClassVar[str] = "Reads one or more sources."
+
+    def run(self, config: ToySplitsConfig, context: WorkflowContext) -> ToyCountResult:
+        raise NotImplementedError("test.splits exists for tests of what a step reads; it never runs")
+
+
+def register_splits(plugins: dict[str, list[tuple[str, str]]]) -> None:
+    """Serve `test.splits` through the `plugins` fixture, before the first registry lookup."""
+    plugins.setdefault("dataeval_flow.workflows", []).append(("test.splits", "tests.workflow_toys:ToySplitsWorkflow"))
 
 
 class _Near(BaseModel):

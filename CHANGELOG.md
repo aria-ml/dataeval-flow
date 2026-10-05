@@ -4,6 +4,12 @@
 
 ### Added
 
+- The `audit` preset: one chain over train and each evaluation split before training. Its report gives a verdict
+  ("Not ready", "Ready with caveats" or "Ready"), a record of what was audited, with each split's items, classes,
+  metadata factors and digests and the criteria applied, the findings under five questions, and next steps for each
+  warning and each check not assessed. `blocking:` names the check types whose warning makes it not ready, and
+  `accepted:` gives a reason a check type's warning is accepted. The result's `verdict`, `ChainResult.verdict` and
+  `verdict` in its JSON, holds the level, the unaccepted warnings, each acceptance and each check not assessed
 - A Find the Right Step index leading from a question to the preset and steps that answer it; preset, combine and
   naming-conventions reference pages; and evaluator and check catalogs grouped by question, each entry giving its
   ports, settings, the checks that judge it, the presets that run it and an example
@@ -61,8 +67,8 @@
 - Workflow `ontology:` resolves pool names first, falling back to file paths for backward compatibility
 - `merge:` on sources to concatenate multiple inputs into one dataset, unified via `Relabel` views
 - Top-level `exports:` key exporting sources to COCO, YOLO, Hugging Face, or VisDrone format with `provenance.json`
-- `ontology:` support across all workflows but `data-coverage`, attaching the vocabulary audit digest to results
-- `label_space` on result envelopes, recording conformed vocabulary and matching audit digest
+- `ontology:` support across all workflows but `data-coverage`, attaching the label-space digest to results
+- `label_space` on result envelopes, recording conformed vocabulary and matching label-space digest
 - `channel_groups:` on datasets, measuring band groups separately as `<group>_<statistic>` columns
 - Top-level `stats:` key defining policies for measured statistics, background inclusion, and outlier/factor views
 - `format: demo` dataset loader resolving tutorial datasets from a fixed table without arbitrary imports
@@ -95,7 +101,7 @@
 - `--no-report-images`, `DATAEVAL_REPORT_IMAGES=0` or `report_images=False` on `run()` turn a run's thumbnails off, as
   `result: max_images: 0` does
 - `image` table columns, each cell an item reference or a group of them
-- Data analysis, coverage, prioritization, splitting and metadata triage picture the items their findings name
+- Coverage, prioritization, splitting and metadata triage picture the items their findings name
 - `uncovered_classes` in `coverage`'s `extras`: each uncovered item's class. Its report section, "Uncovered items",
   gives each item's class and distance
 - A pipeline's `result: max_images:` sets how many thumbnails each result embeds (200), shared evenly between findings
@@ -231,12 +237,11 @@
   list form is refused
 - An `unbinned` finding says a declared bin count fixes how many bins there are, not their edges; the recommended
   policy pins the edges
-- `MetadataConfigMixin` holds only `metadata:`, the policy name, as `StatsConfigMixin` holds only `stats:`; the
-  older `metadata_*` fields stay on the workflows that took them
+- `MetadataConfigMixin` holds only `metadata:`, the policy name, as `StatsConfigMixin` holds only `stats:`; no
+  workflow takes the older `metadata_*` fields
 - The text report is 80 columns wide by default (was 90), and wraps long prose, labels and values to fit
 - A run that fails only on health warnings exits `3` (was `1`), so CI can tell a data-quality gate from a crash or a
   mistyped flag, which exits `2`
-- Data analysis lists each split's unlabelled images in a table naming up to eight, where it wrote a sentence
 - `PipelineConfig.tasks` and `run_tasks` now carry evaluator tasks and results as well as workflow ones
 - `run_task` returns a `Result`, a workflow's or an evaluator's; `isinstance` narrows it to the type's `<X>Result`
 - A failed workflow's report shows `FAILED` and its errors, as a failed evaluator's does
@@ -277,7 +282,6 @@
 - A failed result's `to_dict()` is `{kind, metadata, errors}`; a failed workflow's `health.status` is `failed`
 - `Finding` drops `report_type` and `data`, and rejects unknown fields; `brief` and typed report `blocks` hold the evidence
 - Data cleaning lists each flagged image and box with every metric that flagged it, then each metric's limits
-- Data analysis keeps its flagged values in `image_quality.outliers` and lists every flagged image by split
 - The HTML report draws a bar chart's thresholds across its bars, labelled on a scale, instead of in a caption
 - The TUI draws each finding's evidence natively: data tables as tables, the rest as text at the window's width
 - Data cleaning lists its duplicate groups with their items, largest first, and duplicate boxes on their own
@@ -513,6 +517,37 @@
   `operations:`, deprecated since v0.2.0
 - `parameter-sweep`, with `ParameterSweepConfig`, `ParameterSweepResult` and `ParameterSweepWorkflow`: write a
   data-cleaning entry and a `matrix:` on its task (see Sweep settings with a matrix)
+- `data-analysis`, with `DataAnalysisConfig`, `DataAnalysisHealthThresholds`, `DataAnalysisResult` and
+  `DataAnalysisWorkflow`: write an `audit` entry. A `type: data-analysis` entry fails to load, naming `audit` and
+  where each of its settings went, and an `audit` entry refuses each of them by name:
+  - `outlier_method` and `outlier_threshold` are `outliers.outlier_threshold`: the method, or `[method, threshold]`
+  - `outlier_flags` is `outliers.flags`, `diversity_method` is `diversity.method`, and `divergence_method` is
+    `divergence.method`. `diversity_method: null` (skip diversity) has no replacement: audit always runs diversity
+  - `balance` is refused: balance always runs, and is skipped on metadata with no factors
+  - `include_image_stats` is the metadata policy's `intrinsic_factors`
+  - `value_range` is refused: set it on the dataset
+  - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source`
+    are refused: name a policy under `metadata:`
+  - `health_thresholds` is `checks:`. Its `image_outliers` is `checks.image-outliers.warning`, `exact_duplicates`
+    and `near_duplicates` are `checks.image-duplicates.exact` and `.near`, `class_label_imbalance` is
+    `checks.class-imbalance.warning`, and `distribution_shift` is `checks.distribution-shift.warning`
+  - `DataAnalysisResult`'s raw fields are the steps of an audit's `result.steps`: each split's `image_quality`,
+    `redundancy` and `label_health` are its `outliers`, `duplicates` and `label-health` steps (`outliers-train`, and
+    `outliers-evals` by split); train's `bias` is `factor-summary`, `balance` and `diversity`; and `cross_split`'s
+    duplicate leakage, label comparisons and divergence are `duplicates-cross` and `duplicates-pairs`,
+    `class-sufficiency`, `untrained-classes` and `stratification`, and `divergence`
+  - Its findings' titles: Image Quality is Image Outliers, Redundancy is Image Duplicates, Label Balance is Class
+    Imbalance, Bias is Shortcut Risk, with diversity as evidence, Label Overlap is Untrained Classes and Class
+    Sufficiency, and Label Parity is Stratification. Leakage and Distribution Shift keep their titles
+  - Gone with it: the chi-square label parity, divergence between evaluation splits, bias judged per split, the
+    warning on low diversity, and Label Balance's warning on unlabelled images
+- The settings only `data-analysis` still took, which no workflow takes now:
+  - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source`:
+    name a policy under `metadata:`, which takes `auto_bin_method`, `exclude`, `continuous_factor_bins` and
+    `factor_source`
+  - `value_range` on a workflow entry: set `value_range` on the dataset
+  - `include_image_stats`: set the metadata policy's `intrinsic_factors`
+  - `attach_binning` and the outlier report's `limits_sentence` and `warn_if_unrecorded`, with no caller
 - The `torch` and `uncertainty` extractors' `device`, and drift-monitoring MMD's; Flow chooses the device for every tool
 - Poetry packaging support; install with uv, pip, or conda instead
 - Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`
@@ -538,7 +573,7 @@
 - `mode`, from every workflow config and from every result's metadata; a config that still writes it fails to load,
   naming it
 - Data-prioritization's `per_source_clean_indices` and `per_source_prioritized_indices`
-- The "Preparatory Mode" findings that data-analysis and data-cleaning made
+- The "Preparatory Mode" findings that data-cleaning made
 - `MetadataTriageResult`, with its metadata's `blocking` and `verified`; a metadata-triage result is a `ChainResult`
 - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source` on
   `metadata-triage`, which refuses them: declare the binning in a `metadata:` policy

@@ -4,7 +4,7 @@ Each recipe below answers one question with one evaluator. They assume the pipel
 and the sources these recipes name — `train`, `test`, `validation`, `operational`, `labeled`, `unlabeled` — and,
 where a recipe embeds, the extractor `bovw_ext` from [Run a single evaluator](run_a_single_evaluator.md). The
 [Evaluator Catalog](../reference/evaluators.md) lists every parameter each evaluator takes. An evaluator reports
-DataEval's answer to its question; it renders no health verdict.
+DataEval's answer to its question; it renders no health status.
 
 ## Look for shortcuts in your metadata
 

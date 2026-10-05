@@ -12,6 +12,7 @@ from dataeval_flow._matrix._result import MatrixRun
 from dataeval_flow._matrix._table import comparison_table
 from dataeval_flow.steps import Finding
 from tests.chain_toys import chain_pipeline
+from tests.workflow_toys import register_count
 
 _CLEANING = {
     "name": "cleaning",
@@ -120,22 +121,21 @@ def test_the_health_line_counts_one_run_and_one_warning_in_the_singular() -> Non
     assert "Health: ok — 1 run, no warnings" in clean.report(detailed=False)
 
 
-def test_a_legacy_workflow_s_findings_fill_the_table() -> None:
-    from tests.evaluator_toys import ToyFactors
-
-    # data-analysis still runs its own code, not a chain; its class-imbalance threshold is judged without an extractor.
-    matrix = {"health_thresholds.class_label_imbalance": [2.0, 5.0]}
+def test_a_workflow_that_is_not_a_chain_fills_the_table_with_its_findings(
+    plugins: dict[str, list[tuple[str, str]]],
+) -> None:
+    # test.count runs its own code, not a chain: its findings come from the result, not from steps.
+    register_count(plugins)
     config = chain_pipeline(
-        workflows=[
-            {"name": "analysis", "type": "data-analysis", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
-        ],
-        tasks=[{"name": "t", "workflow": "analysis", "sources": "src", "matrix": matrix}],
-        datasets={"src": ToyFactors(count=40)},
+        workflows=[{"name": "count", "type": "test.count"}],
+        tasks=[{"name": "t", "workflow": "count", "sources": "src", "matrix": {"minimum": [0, 100]}}],
     )
     result = run_tasks(config)["t"]
     assert isinstance(result, MatrixResult)
     assert result.success, result.errors
-    assert len(comparison_table(result).columns) > 3  # #, the threshold and Health, then its findings
+    table = comparison_table(result)
+    assert [column.header for column in table.columns] == ["#", "minimum", "Health", "Items"]
+    assert [row["health"] for row in table.rows] == ["[ok]", "[!!]"]
 
 
 def test_an_evaluator_matrix_has_no_finding_columns() -> None:

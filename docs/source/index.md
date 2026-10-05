@@ -24,7 +24,7 @@ DataEval Flow is a composable, containerized workflow engine for DataEval. It
 modularizes DataEval's analytic capabilities into steps that users chain into
 workflows of their own, and containerizes them so the same pipeline runs
 identically anywhere. Data
-cleaning, dataset analysis, coverage assessment, drift monitoring, OOD
+cleaning, audit, coverage assessment, drift monitoring, OOD
 detection, splitting, and prioritization pipelines ship as
 presets built from those steps, behind a single declarative configuration format
 and both headless and interactive CLIs. A matrix on any task runs it once per
@@ -59,7 +59,7 @@ reproducible orchestration layer with native MAITE interoperability.
 | T&E task | Workflow type | What it produces |
 | --- | --- | --- |
 | Find and flag dataset quality issues | [`data-cleaning`](reference/presets.md#data-cleaning) | Outliers and duplicates, removed; class imbalance and unlabelled images |
-| Profile dataset quality across splits | `data-analysis`, the one workflow type that is not a preset; see its [tutorial](notebooks/data_analysis.py) | Statistical summaries and quality metrics |
+| Audit a set of splits before training | [`audit`](reference/presets.md#audit) | A verdict, a record of what was audited, and findings under five questions |
 | Check labels against a declared ontology | [`label-space`](reference/presets.md#label-space) | Leaf coverage, conformance, alignment and structure findings |
 | Find gaps in dataset coverage before training | [`data-coverage`](reference/presets.md#data-coverage) | Class and metadata gaps, embedding blind spots, what to acquire per class |
 | Build stratified or grouped train/val/test splits | [`data-splitting`](reference/presets.md#data-splitting) | Train, val and test splits, stratified or grouped, or k folds, with their balance and coverage judged |

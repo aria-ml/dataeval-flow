@@ -126,7 +126,7 @@ def _group_blocks(a: str, b: str, groups: Sequence[_Group]) -> list[Block]:
 
 
 class LeakageCheck(Check[LeakageConfig]):
-    """``leakage``: legacy data-analysis's Leakage finding, over `duplicates` Outputs and `factor-leakage` Outputs.
+    """``leakage``: items or groups shared across splits, over `duplicates` Outputs and `factor-leakage` Outputs.
 
     Not assessed when no `duplicates` list holds an element: no pair of splits, so nothing to judge. `factors` may be
     empty, so group values that never ran leave the duplicates judged.

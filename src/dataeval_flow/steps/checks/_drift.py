@@ -139,7 +139,7 @@ class DistributionShiftConfig(CheckConfig):
 
 
 class DistributionShiftCheck(Check[DistributionShiftConfig]):
-    """``distribution-shift``: legacy data-analysis's Distribution Shift finding, judging one `divergence` Output."""
+    """``distribution-shift``: whether two sources' embeddings sit too far apart, judging one `divergence` Output."""
 
     name: ClassVar[str] = "distribution-shift"
     description: ClassVar[str] = "Warns when two sources' embeddings sit too far apart."
@@ -147,7 +147,7 @@ class DistributionShiftCheck(Check[DistributionShiftConfig]):
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(DivergenceOutput,)),)
 
     def run(self, config: DistributionShiftConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
-        """The divergence, banded high, moderate or low, as legacy banded it."""
+        """The divergence, banded high, moderate or low."""
         data = inputs["input"].value.data()
         value, method = float(data["divergence"]), data["method"]
         if config.warning is None and config.info is None:

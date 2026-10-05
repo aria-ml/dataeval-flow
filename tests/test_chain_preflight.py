@@ -14,6 +14,7 @@ from dataeval_flow.evaluators.bias import BalanceConfig
 from dataeval_flow.workflows._context import DatasetContext
 from tests.chain_toys import ToyDetections, chain_pipeline, register_toys
 from tests.evaluator_toys import ToyFactors, ToyImages
+from tests.workflow_toys import ToySplitsConfig, register_splits
 
 
 @pytest.fixture
@@ -151,12 +152,12 @@ def test_a_one_step_graph_resolves_its_policy_exactly_as_a_task_does() -> None:
     assert context.ontology is None
 
 
-def _analysis_step(ranges: tuple[tuple[float, float], tuple[float, float]]):
+def _splits_step(plugins: dict[str, list[tuple[str, str]]], ranges: tuple[tuple[float, float], tuple[float, float]]):
     """A graph whose one step reads two slots, the pipeline it came from, and each slot's context over `ranges`."""
     from dataeval_flow.config import StatsMeasureConfig, StatsPolicyConfig
-    from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
 
-    analysis = DataAnalysisConfig(name="analysis", outlier_method="zscore", outlier_flags=["pixel"], stats="bands")
+    register_splits(plugins)
+    splits = ToySplitsConfig(name="splits", stats="bands")
     measure = [
         StatsMeasureConfig(bands=None, families=["visual"]),
         StatsMeasureConfig(bands="rgb", families=["visual"]),
@@ -165,10 +166,10 @@ def _analysis_step(ranges: tuple[tuple[float, float], tuple[float, float]]):
     workflow = {
         "name": "w",
         "inputs": ["a", "b"],
-        "steps": [{"name": "an", "workflow": "analysis", "input": ["a", "b"]}],
+        "steps": [{"name": "an", "workflow": "splits", "input": ["a", "b"]}],
     }
     config = chain_pipeline(
-        workflows=[workflow, analysis],
+        workflows=[workflow, splits],
         datasets={"one": ToyImages(), "two": ToyImages(seed=1)},
         extra={"stats": [StatsPolicyConfig(name="bands", measure=measure)]},
     )
@@ -184,8 +185,10 @@ def _analysis_step(ranges: tuple[tuple[float, float], tuple[float, float]]):
     return graph, config, contexts
 
 
-def test_a_step_reading_two_sources_takes_their_value_range_and_both_their_band_groups() -> None:
-    graph, config, contexts = _analysis_step(((0.0, 255.0), (0.0, 255.0)))
+def test_a_step_reading_two_sources_takes_their_value_range_and_both_their_band_groups(
+    plugins: dict[str, list[tuple[str, str]]],
+) -> None:
+    graph, config, contexts = _splits_step(plugins, ((0.0, 255.0), (0.0, 255.0)))
     (context,) = step_contexts(graph, config, None, contexts).values()
     assert context.metadata_policy is not None
     assert context.stats_policy is not None
@@ -194,10 +197,12 @@ def test_a_step_reading_two_sources_takes_their_value_range_and_both_their_band_
     assert context.metadata_policy.stats == context.stats_policy
 
 
-def test_a_step_reading_two_sources_of_different_value_ranges_is_refused() -> None:
-    graph, config, contexts = _analysis_step(((0.0, 1.0), (0.0, 255.0)))
+def test_a_step_reading_two_sources_of_different_value_ranges_is_refused(
+    plugins: dict[str, list[tuple[str, str]]],
+) -> None:
+    graph, config, contexts = _splits_step(plugins, ((0.0, 1.0), (0.0, 255.0)))
     message = (
-        "Workflow 'analysis' reads datasets declaring different `value_range`s ((0.0, 1.0) and (0.0, 255.0)). "
+        "Workflow 'splits' reads datasets declaring different `value_range`s ((0.0, 1.0) and (0.0, 255.0)). "
         "Statistics measured on different pixel scales are not comparable, so there is no right answer to pick — give "
         "the datasets one range, or run them as separate tasks."
     )

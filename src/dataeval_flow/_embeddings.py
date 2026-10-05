@@ -266,8 +266,8 @@ def build_embeddings(
     -----
     A caller that caches a stateful extractor's embeddings must claim a fitter first and pass
     `selection`, as ``get_or_compute_embeddings`` does, or its cache key cannot name the fit.
-    ``data_analysis`` calls this directly, claiming none: it caches nothing by extractor, and a
-    shared extractor fits on the first data it embeds.
+    Called with no `selection`, it claims no fitter: a shared extractor fits on the first data it
+    embeds.
     """
 
     extractor = build_extractor(extractor_config, transforms)

@@ -95,7 +95,7 @@ def _select(records: dict[str, Any], task: str | None) -> Any:
     if not records:
         raise ValueError(
             "This result records no encodings. Only a result that built metadata records one: a custom "
-            "workflow or preset whose steps read metadata, or data-analysis, data-coverage or ood-detection.",
+            "workflow or preset whose steps read metadata.",
         )
     if task is not None:
         if task not in records:
@@ -115,7 +115,7 @@ def _select(records: dict[str, Any], task: str | None) -> Any:
     if not differing:
         raise ValueError(
             "This result records no encodings. Only a result that built metadata records one: a custom "
-            "workflow or preset whose steps read metadata, or data-analysis, data-coverage or ood-detection.",
+            "workflow or preset whose steps read metadata.",
         )
     raise ValueError(
         f"Tasks {differing} were encoded differently, so no one descriptor describes "

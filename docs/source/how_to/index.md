@@ -117,6 +117,7 @@ run_a_matrix
 run_a_single_evaluator
 evaluator_recipes
 read_evaluation_outputs
+gate_training_on_an_audit
 ../notebooks/view_html_reports
 export_a_dataset
 reuse_results_with_cache
@@ -128,12 +129,14 @@ containerized_workflows
 :header-rows: 0
 
 - - {doc}`Run a single evaluator <run_a_single_evaluator>`
-  - Run one DataEval evaluator, such as finding duplicates, and read its output with no health verdict.
+  - Run one DataEval evaluator, such as finding duplicates, and read its output with no health status.
 - - {doc}`Evaluator recipes <evaluator_recipes>`
   - One worked example per question, each answered by evaluators: bias, representation, coverage, prioritization,
     drift and out-of-distribution.
 - - {doc}`Read evaluation outputs <read_evaluation_outputs>`
   - Interpret the report and its severities, export the result envelope, and reach the raw numbers behind a finding.
+- - {doc}`Gate training on an audit <gate_training_on_an_audit>`
+  - Read an audit's verdict in a training job, and refuse data whose content digest doesn't match the record.
 - - {doc}`View a report as HTML <../notebooks/view_html_reports>`
   - Render a result as one self-contained page with cards, sortable and filterable tables, and each flag's
     measurements on hover.

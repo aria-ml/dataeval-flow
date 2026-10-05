@@ -1,6 +1,6 @@
 """Presets: workflow types whose settings expand to a chain of steps, which Flow runs as a custom workflow's."""
 
-__all__ = ["Preset", "PresetChain", "expand_preset", "preset_of"]
+__all__ = ["NextSteps", "Preset", "PresetChain", "Record", "ReportGroup", "expand_preset", "preset_of"]
 
 from abc import abstractmethod
 from collections.abc import Mapping, Sequence
@@ -12,9 +12,38 @@ from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepEntry
 
 if TYPE_CHECKING:
+    from dataeval_flow._chain._nodes import Node, NodeList
     from dataeval_flow.evaluators._base import EvaluatorConfig
     from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._context import WorkflowContext
+
+
+@dataclass(frozen=True)
+class ReportGroup:
+    """A heading of a chain's report, with the check types whose findings it holds and the evaluate step types shown
+    under it as evidence."""
+
+    heading: str
+    checks: tuple[str, ...]
+    evidence: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class Record:
+    """A section that records what a chain read: one column per bound source, with rows from the run's metadata and
+    from the results of the step types named in `steps`."""
+
+    title: str
+    steps: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class NextSteps:
+    """What to do about each warning, by check type, and about each check left unassessed, by a fragment of its
+    reason. Reasons match in order; a reason no fragment matches is quoted as it stands."""
+
+    by_check: Mapping[str, str] = field(default_factory=dict)
+    by_reason: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -38,6 +67,17 @@ class PresetChain:
     reference: str | None = None
     """The slot whose Dataset every other Dataset's metadata is encoded like (audit spec §9.3); a metadata policy's
     `reference_split` names a source in its place. ``None`` encodes each Dataset on its own draw."""
+    groups: Sequence[ReportGroup] = ()
+    """The report's headings, in order, each with the check types it holds (audit spec §9.4)."""
+    record: Record | None = None
+    """The report's section recording what the chain read; ``None`` draws none."""
+    blocking: Sequence[str] | None = None
+    """The check types whose unaccepted warning makes the chain not ready (audit spec §6); ``None`` gives no verdict."""
+    accepted: Mapping[str, str] = field(default_factory=dict)
+    """Why each check type's warning is accepted, by check type: an accepted warning neither blocks nor counts as an
+    unaccepted warning in the verdict, but an acceptance whose check warned leaves the verdict ready with caveats."""
+    next_steps: NextSteps = field(default_factory=NextSteps)
+    """What the report says to do about each warning and each check left unassessed."""
 
 
 class Preset:
@@ -92,6 +132,11 @@ class Preset:
     @abstractmethod
     def chain(cls, config: Any) -> PresetChain:
         """The steps `config`'s settings expand to, and the evaluator entries they name."""
+
+    @classmethod
+    def preflight(cls, config: Any, inputs: "Mapping[str, Node | NodeList]") -> None:
+        """Refuse `config`'s run over `inputs`, the Datasets bound to its slots, by raising ``GraphError``, before any
+        step runs. The default refuses nothing."""
 
     @classmethod
     def output_ports(cls) -> tuple[Port, ...]:

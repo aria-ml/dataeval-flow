@@ -7,7 +7,7 @@ also conforms a dataset to a shared vocabulary, which lets two datasets be merge
 ## Used in these tutorials
 
 - {doc}`Clean a dataset <../notebooks/data_cleaning>`
-- {doc}`Analyze dataset quality across splits <../notebooks/data_analysis>`
+- {doc}`Audit a set of splits before training <../notebooks/audit>`
 - {doc}`Run a full evaluation pipeline end to end <../notebooks/end_to_end>`
 
 ## Define a view and reference it

@@ -16,6 +16,7 @@ __all__ = ["DRAW", "Draw", "HtmlContext", "html_page", "render_html"]
 import math
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 
 from dataeval_flow._blocks._draw import fmt_num, format_value
 from dataeval_flow._blocks._html_base import Draw, HtmlContext, badge, escape, inline, num, pct, series_class
@@ -34,6 +35,7 @@ from dataeval_flow._blocks._models import (
     Section,
     Summary,
     Tree,
+    Verdict,
 )
 from dataeval_flow._blocks._text import DEFAULT_WIDTH
 
@@ -99,12 +101,14 @@ def _is_finding(block: Block) -> bool:
 
 def _is_group(block: Block) -> bool:
     """Whether *block*, directly under a report, groups findings: a section with no verdict of its own that holds
-    nothing but sections carrying one, such as a chain's findings for one split."""
+    nothing but sections, findings or groups of them among them. A chain's findings for one split are one; so is a
+    question holding its findings, its splits' and the evidence shown after them."""
     return (
         isinstance(block, Section)
         and block.severity is None
         and bool(block.blocks)
-        and all(isinstance(child, Section) and child.severity is not None for child in block.blocks)
+        and all(isinstance(child, Section) for child in block.blocks)
+        and any(_is_finding(child) or _is_group(child) for child in block.blocks)
     )
 
 
@@ -214,11 +218,16 @@ def _card(block: Section, heading: str, body: str, anchor: str | None) -> str:
     return f'<details class="card {block.severity}"{card}{opened}><summary>{heading}</summary>{body}</details>'
 
 
-def _group_cards(group: Section, ctx: HtmlContext) -> str:
-    """A group's findings, each a card like a top-level finding, its ``id`` after the group's."""
+def _group_cards(group: Section, ctx: HtmlContext, level: int = 3) -> str:
+    """A group's findings, each a card like a top-level finding, its ``id`` after the group's; a group within it, such
+    as a question's findings for one split, under its heading, its cards' ids after its own; any other section, such
+    as evidence shown after the findings, as a section."""
     taken: set[str] = set()
     parts: list[str] = []
     for child in (block for block in group.blocks if isinstance(block, Section)):
+        if not (_is_finding(child) or _is_group(child)):
+            parts.append(ctx.render([child]))
+            continue
         name = f"{ctx.anchor}-{_slug(child.title)}" if ctx.anchor else _slug(child.title)
         anchor, number = name, 1
         while anchor in taken:
@@ -226,14 +235,35 @@ def _group_cards(group: Section, ctx: HtmlContext) -> str:
             anchor = f"{name}-{number}"
         taken.add(anchor)
         brief = f' <span class="brief">{escape(child.brief)}</span>' if child.brief else ""
-        heading = f"<h3>{_heading(child.title)}{brief} {badge(child.severity or 'info')}</h3>"
+        if not _is_finding(child):
+            cards = _group_cards(child, replace(ctx, anchor=anchor), level + 1)
+            heading = f"<h{level}>{_heading(child.title)}{brief}</h{level}>"
+            parts.append(f'<section class="section" id="{escape(anchor)}">{heading}\n{cards}</section>')
+            continue
+        heading = f"<h{level}>{_heading(child.title)}{brief} {badge(child.severity or 'info')}</h{level}>"
         inner = ctx.render(child.blocks)
         parts.append(_card(child, heading, f"\n{inner}" if inner else "", anchor))
-    return "\n".join(parts)
+    return "\n".join(part for part in parts if part)
+
+
+def _verdict_badge(block: Verdict) -> str:
+    """A verdict's label as a badge, then its reasons."""
+    reasons = block.line.removeprefix(block.label).removeprefix(": ")
+    brief = f' <span class="brief">{escape(reasons)}</span>' if reasons else ""
+    return f'<span class="badge {block.severity}">{escape(block.label)}</span>{brief}'
+
+
+def _verdict(block: Verdict, ctx: HtmlContext) -> str:
+    """Nothing directly under a report, whose header shows it; anywhere else, its badge and its reasons."""
+    return "" if ctx.depth == 1 else f"<p>{_verdict_badge(block)}</p>"
 
 
 def _health(report: Section) -> str:
-    """The report's verdict as a badge: the warnings its summary counted, or passed; none for a report without one."""
+    """The report's verdict as a badge: its Verdict's label and reasons, where it has one; else the warnings its summary
+    counted, or passed; none for a report with neither."""
+    verdict = next((block for block in report.blocks if isinstance(block, Verdict)), None)
+    if verdict is not None:
+        return _verdict_badge(verdict)
     summary = next(
         (
             child
@@ -390,4 +420,5 @@ DRAW: dict[str, Draw] = {
     "code": _code,
     "tree": _tree,
     "summary": _summary,
+    "verdict": _verdict,
 }

@@ -153,5 +153,8 @@ def test_a_duplicates_list_that_holds_nothing_leaves_the_check_not_assessed(plug
             _JUDGE,
         ]
     )
-    reason = "`dupes` holds no element; `dupes[s1_vs_s2]` was skipped: needs `boom[s1]`, which was skipped"
+    reason = (
+        "`dupes` holds no element; `dupes[s1_vs_s2]` was skipped: needs `boom[s1]`, which was skipped: failed: "
+        "RuntimeError: boom on cams[s1]"
+    )
     assert result.steps["judge"].not_assessed == reason

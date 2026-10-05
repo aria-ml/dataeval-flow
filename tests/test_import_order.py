@@ -7,7 +7,7 @@ import sys
 import pytest
 
 WORKFLOW_PACKAGES = [
-    "data_analysis",
+    "audit",
     "data_cleaning",
     "data_coverage",
     "data_prioritization",

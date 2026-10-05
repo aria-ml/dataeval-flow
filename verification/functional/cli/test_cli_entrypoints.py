@@ -77,4 +77,4 @@ class TestCLIEntrypoints:
         )
         assert result.returncode == 0, result.stderr
         entries = json.loads(result.stdout)
-        assert {"data-cleaning", "data-analysis"} <= {e["name"] for e in entries}
+        assert {"data-cleaning", "audit"} <= {e["name"] for e in entries}

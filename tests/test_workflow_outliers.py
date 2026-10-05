@@ -1,6 +1,5 @@
 """Outlier evidence as report blocks: a row per flagged item with its flags, and a row per metric with its limits."""
 
-import logging
 import math
 from collections.abc import Mapping
 from typing import Any
@@ -14,9 +13,7 @@ from dataeval_flow.evaluators.quality._report import (
     OutlierIssueRecord,
     flag_of,
     flagged_table,
-    limits_sentence,
     limits_table,
-    warn_if_unrecorded,
 )
 
 pytestmark = pytest.mark.required
@@ -92,20 +89,6 @@ class TestFlags:
 
 # An issue from a DataEval that predates the context columns: its item, metric and value alone.
 _OLD = {"item_index": 3, "metric_name": "brightness", "metric_value": 0.9}
-
-
-class TestUnrecordedLimits:
-    def test_one_warning_covers_every_issue_without_its_limits(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="dataeval_flow.evaluators.quality._report"):
-            warn_if_unrecorded([_OLD, {**_OLD, "item_index": 4}, _issue(0, "a")])
-        (record,) = caplog.records
-        assert record.getMessage().startswith("2 outlier flag(s) came without the limits they crossed")
-        assert "Upgrade DataEval" in record.getMessage()
-
-    def test_issues_with_their_limits_warn_nothing(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="dataeval_flow.evaluators.quality._report"):
-            warn_if_unrecorded([_issue(0, "a")])
-        assert not caplog.records
 
 
 class TestFlaggedTable:
@@ -193,25 +176,3 @@ class TestLimitsTable:
     def test_metrics_run_from_the_most_flagged(self):
         issues = [_issue(0, "zeta"), _issue(1, "zeta"), _issue(2, "alpha")]
         assert [row["metric"] for row in limits_table(issues, key=_item).rows] == ["zeta", "alpha"]
-
-
-class TestLimitsSentence:
-    @pytest.mark.parametrize(
-        ("method", "threshold", "expected"),
-        [
-            ("zscore", None, "Limits: the mean ± 3 standard deviations (z-score)."),
-            ("zscore", 2.5, "Limits: the mean ± 2.5 standard deviations (z-score)."),
-            ("modzscore", None, "Limits: a modified z-score of 3.5, measured from the median by the MAD."),
-            ("iqr", 2.0, "Limits: 2 × the IQR beyond the quartiles."),
-            (
-                "adaptive",
-                None,
-                "Limits: 3.5 × the MAD on each side of the median, widened where a tail is heavy (adaptive).",
-            ),
-        ],
-    )
-    def test_each_method_names_its_limits(self, method, threshold, expected):
-        assert limits_sentence(method, threshold) == expected
-
-    def test_an_unknown_method_names_none(self):
-        assert limits_sentence(None, None) is None

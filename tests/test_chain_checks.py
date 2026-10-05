@@ -88,7 +88,10 @@ def test_a_check_whose_input_an_optional_failure_left_empty_is_not_assessed_and_
         "not assessed",
         "judge",
     )
-    assert finding.description == "Not assessed: `count` was skipped: needs `dupes`, which was skipped."
+    assert finding.description == (
+        "Not assessed: `count` was skipped: needs `dupes`, which was skipped: needs `boom`, which was skipped: "
+        "failed: RuntimeError: boom on a."
+    )
     assert result.steps["judge"].status == "ok"
     assert result.health == {"status": "ok", "warnings": 0, "findings": 1, "failed_steps": []}
 
@@ -134,7 +137,10 @@ def test_one_element_whose_input_failed_leaves_the_others_judged() -> None:
     first, second = result.findings
     assert (first.step, first.severity, first.brief) == ("judge[s1]", "warning", "1 groups")
     assert (second.step, second.severity, second.brief) == ("judge[s2]", "info", "not assessed")
-    assert second.description == "Not assessed: `count[s2]` was skipped: needs `dupes[s2]`, which was skipped."
+    assert second.description == (
+        "Not assessed: `count[s2]` was skipped: needs `dupes[s2]`, which was skipped: needs `boom[s2]`, which "
+        "failed: RuntimeError: boom on cams[s2]."
+    )
     assert result.steps["judge"].status == "ok"
 
 
@@ -228,7 +234,8 @@ def test_a_whole_list_check_whose_list_holds_nothing_is_not_assessed_and_the_tas
     (finding,) = result.findings
     assert (finding.severity, finding.brief, finding.step) == ("info", "not assessed", "worst")
     assert finding.description == (
-        "Not assessed: `count` holds no element; `count[s1]` was skipped: needs `dupes[s1]`, which was skipped."
+        "Not assessed: `count` holds no element; `count[s1]` was skipped: needs `dupes[s1]`, which was skipped: "
+        "needs `boom[s1]`, which was skipped: failed: RuntimeError: boom on cams[s1]."
     )
     assert result.steps["worst"].status == "ok"
     assert result.health == {"status": "ok", "warnings": 0, "findings": 1, "failed_steps": []}

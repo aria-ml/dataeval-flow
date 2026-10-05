@@ -38,10 +38,8 @@ if TYPE_CHECKING:
     from dataeval import Metadata
 
     from dataeval_flow._policy import ResolvedPolicy
-    from dataeval_flow._result import ResultMetadata
 
 __all__ = [
-    "attach_binning",
     "describe_binning",
     "describe_under",
     "descriptor_from_record",
@@ -487,9 +485,8 @@ def describe_binning(
 def describe_under(metadata: "Metadata", policy: "ResolvedPolicy | None") -> dict[str, Any]:
     """`metadata`'s binning record under `policy`, as a result's envelope records it; DataEval's defaults for ``None``.
 
-    Reads the resolved policy, not a workflow's ``metadata_*`` fields: naming a policy leaves those fields empty, and a
-    run under a named policy would otherwise record ``excluded: []`` and DataEval's default factor source. Raises what
-    describing raises; :func:`attach_binning` is what never does.
+    Reads the resolved policy, so a run under a named policy records that policy's exclusions and factor source. Raises
+    what describing raises.
     """
     from dataeval.flags import ImageStats
 
@@ -533,38 +530,6 @@ def describe_under(metadata: "Metadata", policy: "ResolvedPolicy | None") -> dic
         declared_bins=declared,
         injected=sorted(injected),
     )
-
-
-def attach_binning(
-    result_metadata: "ResultMetadata",
-    metadata: "Metadata | Mapping[str, Metadata]",
-    policy: "ResolvedPolicy",
-) -> None:
-    """Record binning decisions on a workflow's metadata envelope, each described by :func:`describe_under`.
-
-    Accepts either a single ``Metadata`` or a mapping of split name to one, so a
-    multi-split workflow records each split separately — splits are binned
-    independently, and two splits of the same dataset can land on different
-    edges.
-
-    Also stamps :attr:`ResultMetadata.encoding_digest`, which makes two archived
-    results comparable: without it a bias score that moved between runs cannot be
-    attributed to the override or to the data.  For a multi-split workflow it is
-    set only where every split agrees; the per-split digests say which differed.
-
-    Never raises: an upstream column rename costs the record, not the run.
-    """
-    try:
-        if isinstance(metadata, Mapping):
-            per_split = {name: describe_under(md, policy) for name, md in metadata.items()}
-            result_metadata.metadata_binning = {"per_split": per_split}
-            result_metadata.encoding_digest = _common_digest(per_split.values())
-        else:
-            record = describe_under(metadata, policy)
-            result_metadata.metadata_binning = record
-            result_metadata.encoding_digest = record.get("encoding_digest")
-    except Exception:
-        _logger.warning("Binning record unavailable", exc_info=True)
 
 
 def _common_digest(records: "Iterable[Mapping[str, Any]]") -> str | None:

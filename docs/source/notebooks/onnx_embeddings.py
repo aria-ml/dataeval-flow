@@ -39,7 +39,7 @@
 # You can reference this guide to configure higher-fidelity embeddings in:
 #
 # - {doc}`Clean a dataset <data_cleaning>`
-# - {doc}`Analyze dataset quality across splits <data_analysis>`
+# - {doc}`Audit a set of splits before training <audit>`
 # - {doc}`Assess dataset coverage <data_coverage>`
 # - {doc}`Monitor incoming data for drift <drift_monitoring>`
 # - {doc}`Detect out-of-distribution samples <ood_detection>`

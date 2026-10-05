@@ -176,18 +176,19 @@ pair, and it leaves one record saying so.
 
 ## Workflow types as presets
 
-A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning`, `data-prioritization`,
-`metadata-triage`, `drift-monitoring`, `ood-detection`, `data-splitting`, `label-space` and `data-coverage` are presets.
-Data-cleaning's evaluators find outliers and duplicates, its checks judge them against `checks`, and its
-`clean` step removes what they flagged. The [Preset Catalog](../reference/presets.md#data-cleaning)
-lists the chain. `data-analysis` is the one built-in workflow type that is not a preset: it runs as one step that makes
-its result, and its findings stay in that step, as does a plugin workflow type that is not a preset.
+A workflow type can be a **preset**: its settings expand to a chain of steps. Every built-in workflow type is a preset:
+`audit`, `data-cleaning`, `data-prioritization`, `metadata-triage`, `drift-monitoring`, `ood-detection`,
+`data-splitting`, `label-space` and `data-coverage`. Data-cleaning's evaluators find outliers and duplicates, its checks
+judge them against `checks`, and its `clean` step removes what they flagged. The
+[Preset Catalog](../reference/presets.md#data-cleaning) lists the chain. A plugin workflow type that is not a preset
+runs as one step that makes its result, and its findings stay in that step.
 
 Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of
 its chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the
 `basic_clean` entry above, its steps run in your chain as `cleaning/outliers`, `cleaning/duplicates` and so on. The step's
 `optional:` holds for each of them, and its `extractor:` for each that reads embeddings. Its checks' findings are your
-chain's, listed at the top of the JSON, each naming its step, such as `cleaning/image-outliers`.
+chain's, listed at the top of the JSON, each naming its step, such as `cleaning/image-outliers`. Only a task's result
+carries a preset's verdict, record and questions, so run `audit` as a task: as a step it gives none of them.
 
 Only a preset's declared outputs can be addressed, and always by name: `cleaning.clean` reads the cleaned Dataset,
 while `cleaning` alone, `cleaning.duplicates` and `cleaning/duplicates` are refused. Handed a list, a preset runs its whole
@@ -214,8 +215,10 @@ task's `extractor:`, or from a step's own `extractor:`, which overrides the task
 ## Failures
 
 A step ends `ok`, `failed` or `skipped`. A failed step skips every step that reads it, directly or through other
-steps, and the reason names what failed: "needs `clean`, which failed". Steps that do not depend on it still run. In a
-list, each element has its own status, and a failed element skips only the elements that read it.
+steps, and the reason names what failed and why: "needs `clean`, which failed: ValueError: …". A step that reads a
+skipped step carries that step's reason on: "needs `merged`, which was skipped: needs `clean`, which failed: …". Steps
+that do not depend on it still run. In a list, each element has its own status, and a failed element skips only the
+elements that read it.
 
 `optional: true` records a step's failure as a skip that carries the error, and the task does not fail because of it.
 The steps that read it are still skipped.
@@ -255,11 +258,12 @@ A step that read `split.train` reads
 `` `split.train` ← `clean` ← `merged` ← `street_conformed` ← `street` (street_2024) ``. A step run once per element
 of a list reads the list, walked back through its elements to the source of each: `` `cameras` (cam1, cam2) ``.
 
-The digest is what lets two results be compared. Two results that give a Dataset the same digest read the same data:
-the same sources, through the same steps and settings, to the same content. The content is what a step resolved from
-the data: the plan `remove` applied, the indices `select`, `split` and `kfold` chose, and the remap `conform` applied.
-So two `remove` steps whose different plan arguments remove the same items give the same digest, and removing one
-detection changes the digest though the number of items stays the same.
+The digest tells runs apart cheaply. It is computed from each source's cache key and from what each step resolved
+from the data: the plan `remove` applied, the indices `select`, `split` and `kfold` chose, and the remap `conform`
+applied. So two `remove` steps whose different plan arguments remove the same items give the same digest, and removing
+one detection changes the digest though the number of items stays the same. A source's cache key samples only some of
+its items, so the same digest doesn't prove the same content. The `content-digest` evaluator reads every item, and its
+digest does; see [Provenance](Provenance.md#pinning-the-data-a-result-read).
 
 An `export` step writes into the dataset's `provenance.json` each source the Dataset descends from, with the dataset and
 view it read; the lineage of the Dataset it wrote; and a `label_space` list shaped as a top-level export's. The list

@@ -46,7 +46,8 @@ built-in evaluation workflows, published to PyPI through v0.1.2. See
 
 - [x] Workflow orchestration framework — registry, task runner, pipeline configuration
 - [x] Data cleaning workflow (outlier + duplicate detection)
-- [x] Data analysis workflow (statistical summaries)
+- [x] Data analysis workflow (statistical summaries); replaced by `audit`, which judges train and its evaluation
+  splits before training and gives a verdict
 - [x] Dataset splitting workflow (stratified and random strategies)
 - [x] Drift detection workflow (classwise drift)
 - [x] Out-of-distribution (OOD) detection workflow
@@ -134,7 +135,7 @@ code per format.
 - [ ] **Standalone ontology workflow** — the `data-coverage` workflow already
       consumes an ontology (inline hierarchy or RDF artifact) for label-space gap
       analysis; this promotes the remaining `dataeval` taxonomy surface
-      (class-mapping audits, cross-dataset label alignment) to a workflow of its own.
+      (class-mapping reviews, cross-dataset label alignment) to a workflow of its own.
 - [ ] **`databridge` integration** — depend on the new `databridge`
       package for on-disk format interop (HuggingFace ↔ COCO ↔ YOLO ↔
       MAITE). Replaces the per-format adapter code currently in
@@ -162,11 +163,11 @@ code per format.
 
 ### Existing — supported and maintained
 
-The seven shipped workflows continue to receive bug fixes and minor enhancements
+The nine shipped workflows continue to receive bug fixes and minor enhancements
 throughout the v0.x line, and a task matrix runs any of them across a grid of settings:
 
-- Data Cleaning, Data Analysis, Data Coverage, Dataset Splitting, Drift Detection
-  (including classwise), OOD Detection, Prioritization
+- Data Cleaning, Audit, Data Coverage, Dataset Splitting, Drift Detection
+  (including classwise), OOD Detection, Prioritization, Label Space, Metadata Triage
 
 ### Planned additions — TBD
 

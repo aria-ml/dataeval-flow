@@ -206,7 +206,7 @@ class ResultMetadata(BaseModel):
         description=(
             "One entry per source whose view conformed its labels, in the order the sources are read. A merge "
             "applies a different `class_remap` per operand against one shared target, so a single entry would "
-            "have to union the mappings and would hash to a value no audit produced. Empty for a run that "
+            "have to union the mappings and would hash to a value no run produced. Empty for a run that "
             "conformed nothing."
         ),
     )

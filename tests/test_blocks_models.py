@@ -24,6 +24,7 @@ from dataeval_flow._blocks import (
     SummaryItem,
     Table,
     Tree,
+    Verdict,
 )
 from dataeval_flow._blocks._flags import flags_in
 
@@ -57,6 +58,7 @@ EVERY_BLOCK: list[Block] = [
     Code(text="metadata:\n  - name: standard\n", language="yaml"),
     Tree(value={"tasks": [{"name": "a", "sources": ["s1", "s2"]}], "seed": None}),
     Summary(items=[SummaryItem(label="Duplicates", value="3 groups", severity="warning")], warnings=1),
+    Verdict(level="ready-with-caveats", label="Ready with caveats", line="Ready with caveats: 1 not assessed"),
     Table(
         columns=[Column(key="item", header="Item"), Column(key="flags", header="Flagged by", kind="flags")],
         rows=[

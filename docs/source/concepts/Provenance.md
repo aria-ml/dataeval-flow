@@ -36,7 +36,7 @@ interpret the findings, including:
 - the **dataset identifier(s)** evaluated, and where relevant the label source,
 - the **label space** the labels were read under, recorded as a digest when a dataset
   was conformed to a reference vocabulary. The same digest appears on the alignment
-  audit, so a result can be matched to the audit that produced its vocabulary,
+  result, so a result can be matched to the label-space run that produced its vocabulary,
 - the **model**, **preprocessor**, and **selection** identifiers that defined the
   representation,
 - human-readable **source descriptions**,
@@ -91,13 +91,13 @@ over the three.
 
 There is one record per operand: a merge applies a different remapping per
 operand against one shared target. A single record would have to union those
-mappings, and a union hashes to a value no audit ever produced.
+mappings, and a union hashes to a value no run ever produced.
 
 Any workflow can declare an ontology, not only `label-space`; `data-coverage`
-alone refuses one. That is the join. A `label-space` audit computes the digest
+alone refuses one. That is the join. A `label-space` run computes the digest
 from its own alignment; any other workflow computes the same digest from the
 `Relabel` parameters in its source's view. Declare the same ontology on both and
-the downstream result's digest equals the digest of the audit that justified its
+the downstream result's digest equals the digest of the label-space run that justified its
 vocabulary, so matching the two is a comparison of one value. An exported dataset
 carries the same digest in its provenance sidecar, which extends the join to the
 dataset itself.
@@ -137,7 +137,8 @@ can't hide from it.
 call it on the data it is about to train on and refuse to start when the content digest
 differs from the one a run recorded. Images are hashed as decoded pixels, which a
 different decoder can change slightly, so compare digests made with the same
-`library_versions`.
+`library_versions`. [Gate training on an audit](../how_to/gate_training_on_an_audit.md)
+shows the check, and the data a recorded digest matches.
 
 ## Provenance enables interoperability
 
@@ -189,7 +190,7 @@ re-run (reproducibility).
 
 ### Tutorials
 
-- [Analyzing a dataset](../notebooks/data_analysis.py) — reading a multi-finding
-  report and inspecting its result envelope
+- [Auditing a set of splits](../notebooks/audit.py) — the record of what was audited, and
+  recomputing a split's content digest
 - [Cleaning a dataset](../notebooks/data_cleaning.py) — exporting a machine-readable
   result alongside the text report

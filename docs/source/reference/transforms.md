@@ -92,7 +92,7 @@ load a tracking dataset.
 | `params` | a mapping of the wrapper's keyword arguments | `{}` | For `DetectionCrops`: `region`, `padding`, `min_size`, `square` and `fill` |
 | `other_kinds` | `refuse` or `pass` | `refuse` | A Dataset the wrapper does not take: refused before the run, or passed on unchanged, keeping its kind and its source's cached embeddings |
 
-- **Used in:** [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
 
 ```yaml
 workflows:

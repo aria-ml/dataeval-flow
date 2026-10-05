@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from dataeval_flow.steps._result import ChainResult, StepResult
     from dataeval_flow.workflows._base import Workflow, WorkflowConfig
     from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology, WorkflowContext
+    from dataeval_flow.workflows._preset import Preset, PresetChain
 
 
 @runtime_checkable
@@ -554,7 +555,9 @@ def _run_resolved(
 
     # A preset's settings expand to a chain of steps, which runs as a custom workflow's, under the preset's type id.
     if isinstance(runner, Preset) and isinstance(instance, WorkflowConfig):
-        chain, evaluators = expand_preset(instance, type(runner))
+        preset = type(runner)
+        preset_chain = preset.chain(instance)
+        chain, evaluators = expand_preset(instance, preset)
         return _run_custom_task(
             task,
             chain,
@@ -568,7 +571,8 @@ def _run_resolved(
             limits=limits,
             evaluators=evaluators,
             entry=instance,
-            reference=type(runner).chain(instance).reference,
+            preset=preset,
+            preset_chain=preset_chain,
             run=run,
         )
 
@@ -811,15 +815,18 @@ def _run_custom_task(
     limits: "TableLimits",
     evaluators: "Sequence[EvaluatorConfig[Any]]" = (),
     entry: "WorkflowConfig[Any] | None" = None,
-    reference: str | None = None,
+    preset: "type[Preset] | None" = None,
+    preset_chain: "PresetChain | None" = None,
     run: int | None = None,
 ) -> "ChainResult":
     """Run a custom workflow's chain for `task`. Config errors raise; step failures become the result's.
 
     `entry` is the preset entry `workflow` was expanded from: the result carries its type id, and the envelope records
     its settings rather than the chain's, and each conformed source's label space under its ontology. `evaluators`
-    are the entries the preset's steps name. `reference` is the slot or source the preset's other Datasets are encoded
-    like, whose metadata policies are derived before any step runs.
+    are the entries the preset's steps name. `preset` is the entry's preset, whose preflight may refuse the run before
+    any step runs, and `preset_chain` what the entry expanded to: its `reference` is the slot or source the preset's
+    other Datasets are encoded like, whose metadata policies are derived before any step runs, and the result keeps it
+    and the verdict it declares.
     """
     from dataeval_flow._chain._graph import binding_problems, build_graph
     from dataeval_flow._chain._preflight import check_kinds, step_contexts
@@ -860,6 +867,8 @@ def _run_custom_task(
         slot_contexts[slot.name] = [dataset_contexts[name] for name in bound]
     contexts = step_contexts(graph, config, data_dir, slot_contexts)
     check_kinds(graph, inputs)
+    if preset is not None:
+        preset.preflight(entry, inputs)
     # Each step naming its own extractor embeds with it; every other step, with the task's.
     named = {spec.extractor for spec in graph.steps if spec.extractor}
     extractors = {None: setup} | {name: _extractor_setup(name, config, data_dir) for name in named}
@@ -876,11 +885,13 @@ def _run_custom_task(
     _logger.debug("Task '%s': executing", task.name)
     start = time.monotonic()
     with capture_diagnostics() as diagnostics, shared_extractor_scope(), limited_tables(limits):
-        chain = _run_on_reference(graph, inputs, run_settings, reference)
+        chain = _run_on_reference(graph, inputs, run_settings, preset_chain.reference if preset_chain else None)
     if isinstance(chain, str):
         return refuse([chain], diagnostics)
     elapsed = time.monotonic() - start
     result = ChainResult.from_run(workflow.name, chain, type_id=type_id, preset=entry is not None)
+    if preset_chain is not None:
+        result.attach_preset(preset_chain)
     if diagnostics:
         result.metadata.diagnostics = list(diagnostics)
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)

@@ -7,7 +7,7 @@ DataEval Flow is a composable, containerized workflow engine for DataEval. It
 modularizes DataEval's analytic capabilities into steps that users chain into
 workflows of their own, and containerizes them so the same pipeline runs
 identically anywhere. Data
-cleaning, dataset analysis, coverage assessment, drift monitoring, OOD
+cleaning, audit, coverage assessment, drift monitoring, OOD
 detection, splitting, and prioritization pipelines ship as
 presets built from those steps, behind a single declarative configuration format
 and both headless and interactive CLIs. A matrix on any task runs it once per
@@ -41,7 +41,7 @@ evaluators — outlier and duplicate detection, coverage and gap analysis, drift
 and OOD monitoring, dataset splitting, prioritization, and statistical analysis —
 are the same algorithms DataEval exposes, wrapped in a reproducible
 orchestration layer. Each DataEval evaluator can also run on its own, as an
-*evaluator*: it reports what DataEval determined, with no health verdict — for
+*evaluator*: it reports what DataEval determined, with no health status — for
 example, duplicate detection without the rest of data cleaning.
 
 <!-- end needs -->

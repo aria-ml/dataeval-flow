@@ -6,22 +6,10 @@ from pydantic import BaseModel
 from dataeval_flow._orchestrator import _resolve_stats_policy
 from dataeval_flow.config import PipelineConfig, StatsConfigMixin, StatsPolicyConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
-from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
 
 
 def test_the_mixin_carries_no_deprecated_field():
     assert set(StatsConfigMixin.model_fields) == {"stats"}
-
-
-@pytest.mark.parametrize(
-    "config_type",
-    [
-        DataAnalysisConfig,
-    ],
-)
-def test_the_workflows_that_took_value_range_still_do(config_type: type[BaseModel]):
-    assert issubclass(config_type, StatsConfigMixin)
-    assert "value_range" in config_type.model_fields
 
 
 @pytest.mark.parametrize("config_type", [DuplicatesConfig, OutliersConfig])

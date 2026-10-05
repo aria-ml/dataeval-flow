@@ -74,7 +74,7 @@ def _bin_names(info: Mapping[str, Any], declared: int) -> dict[int, str]:
 def _how_encoded(encoding: Mapping[str, Any]) -> str:
     """Who chose this encoding, and how it was placed.
 
-    ``provenance`` is the field a reviewer audits: a descriptor still carrying ``derived``
+    ``provenance`` is the field a reviewer checks: a descriptor still carrying ``derived``
     entries is one nobody has finished reviewing.
     """
     how = _PROVENANCE.get(encoding.get("provenance", ""), str(encoding.get("provenance")))
@@ -305,7 +305,7 @@ def _record_blocks(record: Mapping[str, Any], *, detailed: bool) -> list[Block]:
     blocks.extend(_dropped(record.get("dropped") or {}))
     factors = record.get("factors") or {}
     if detailed and factors:
-        # The table is what the section is read for; the breakdown is what it is audited
+        # The table is what the section is read for; the breakdown is what it is checked
         # from.  Keeping both leaves the bin edges on the page for anyone who asked for
         # them, without every reader paying a dozen lines a factor to learn a cut is fine.
         details = [_factor_detail(name, info) for name, info in factors.items()]

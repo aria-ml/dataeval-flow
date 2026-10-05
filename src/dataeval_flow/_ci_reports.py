@@ -100,7 +100,8 @@ def _count(element: ET.Element, *suites: ET.Element) -> None:
 
 
 def markdown_summary(results: Mapping[str, "Result[Any, Any]"]) -> str:
-    """Each task's findings as a table of severity, finding and result, and each failed task's errors."""
+    """Each task's health, or a preset chain's verdict in its place, its findings as a table of severity, finding and
+    result, and each failed task's errors."""
     from dataeval_flow._matrix._result import MatrixResult
     from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._result import WorkflowResult
@@ -141,7 +142,9 @@ def markdown_summary(results: Mapping[str, "Result[Any, Any]"]) -> str:
                 if not warnings
                 else f"{warnings} warning{'s' if warnings != 1 else ''}"
             )
-            lines += [f"## {_inline(task)}", "", f"**Health:** {health}", ""]
+            # A preset's verdict stands in for the health line, which "passed" would contradict where it has caveats.
+            judged = f"**Verdict:** {_inline(result.verdict.line())}" if result.verdict else f"**Health:** {health}"
+            lines += [f"## {_inline(task)}", "", judged, ""]
             if result.failed_steps:
                 lines += [f"**Failed steps:** {', '.join(_inline(step) for step in result.failed_steps)}", ""]
             elif not result.success:  # refused before any step ran

@@ -373,7 +373,7 @@ and every run that finished are still printed and written.
 
 **An evaluator's task has no finding columns.** An evaluator measures, and judges nothing, so its table lists the runs,
 their values and whether each ran (`[ok]` or `failed`), its health line says the runs ran, and each run's report shows
-its output. To compare runs by a verdict, vary a workflow that judges:
+its output. To compare runs by their findings, vary a workflow that judges:
 
 - a preset's settings, such as `detectors.knn.k` on an `ood-detection` task, whose checks judge each detector;
 - or a custom workflow that runs the evaluator and a check on it, varying `evaluators.knn.k` as in section 3.

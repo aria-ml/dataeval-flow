@@ -49,7 +49,7 @@ workflows:
       outlier_threshold: modzscore
 ```
 
-Reference a policy by name from any workflow that computes image statistics — `data-cleaning`, `data-analysis`,
+Reference a policy by name from any workflow that computes image statistics — `data-cleaning`, `audit`,
 `ood-detection`, and `data-prioritization` all take a `stats:` name; `data-coverage` reads no statistics and refuses
 one. Two workflows naming the same policy measure the same things, so their results are comparable.
 
@@ -97,12 +97,11 @@ consumer lists. `outliers_from` and `factors_from` both default to `[~]`. Droppi
 `measure` — to measure only `rgb` and `ir`, say — leaves both lists pointing at a view that measures nothing.
 Narrow them to the groups you actually measure, or keep a `{bands: ~, ...}` entry naming what they need.
 
-`data-analysis` is the sharpest version of this rule. It always runs duplicate detection over the whole image,
-whatever `stats:` policy is named. There is no field to turn it off and no view list to narrow it. A policy
-used by `data-analysis` must give `~` the full `hash` family, on top of whatever
-`outliers_from` and `factors_from` need there. The `multispectral` policy above does, which is what
-`data-analysis`'s unconditional duplicate detection needs regardless of its `outlier_flags` — those still have to
-name families `~` measures, exactly as they do for `data-cleaning`.
+`audit` is the sharpest version of this rule. It always runs duplicate detection over the whole image, within each
+split and across them, whatever `stats:` policy is named. It has no setting to turn it off and no view list to narrow
+it. A policy used by `audit` must give `~` the `hash` family, on top of whatever `outliers_from` and `factors_from`
+need there. The `multispectral` policy above does. An audit's `outliers.flags` must still name families `~` measures,
+exactly as `data-cleaning`'s must.
 
 ## The view namespace
 

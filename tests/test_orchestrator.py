@@ -27,7 +27,7 @@ from dataeval_flow.config import (
 )
 from dataeval_flow.config.extractors import OnnxExtractorConfig
 from dataeval_flow.workflows import WorkflowResult
-from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
+from dataeval_flow.workflows.audit import AuditConfig
 from tests.workflow_toys import (
     ToyCountConfig,
     ToyCountMetadata,
@@ -50,8 +50,10 @@ _CLEAN_INSTANCE = ToyCountConfig(name="clean")
 
 # test.count only ever reads its first source, so it declares `SourceCount.ONE`. These
 # orchestrator-mechanics tests exercise multi-source resolution independent of any one
-# workflow's semantics; data-analysis's `SourceCount.ONE_OR_MORE` accepts what they pass.
-_MULTI_SOURCE_INSTANCE = DataAnalysisConfig(name="clean", outlier_method="zscore", outlier_flags=["dimension", "pixel"])
+# workflow's semantics; audit's `SourceCount.ONE_OR_MORE` accepts what they pass.
+_MULTI_SOURCE_INSTANCE = AuditConfig.model_validate(
+    {"name": "clean", "outliers": {"flags": ["dimension", "pixel"], "outlier_threshold": "zscore"}}
+)
 
 
 def _stub_result(metadata: ResultMetadata | None = None, result_type: type[WorkflowResult] = WorkflowResult) -> Any:
@@ -1648,9 +1650,13 @@ class TestOntologyReachesTheContext:
 
         ds = ImageFolderDatasetConfig(name="images", path="data/images")
         source = SourceConfig(name="src", dataset="images")
-        task = TaskConfig(name="t", workflow="analysis", sources="src")
-        analysis_instance = DataAnalysisConfig(
-            name="analysis", outlier_method="zscore", outlier_flags=["dimension"], ontology="animals"
+        task = TaskConfig(name="t", workflow="audit", sources="src")
+        audit_instance = AuditConfig.model_validate(
+            {
+                "name": "audit",
+                "outliers": {"flags": ["dimension"], "outlier_threshold": "zscore"},
+                "ontology": "animals",
+            }
         )
 
         config = MagicMock()
@@ -1661,7 +1667,7 @@ class TestOntologyReachesTheContext:
         config.extractors = None
         config.preprocessors = None
         config.selections = None
-        config.workflows = [analysis_instance]
+        config.workflows = [audit_instance]
         config.ontologies = [
             OntologyConfig(
                 name="animals",
@@ -2027,10 +2033,8 @@ class TestAuditToRunJoin:
 
     def test_any_workflow_can_declare_an_ontology(self):
         """Not only data-coverage. A conformed run of any type must be able to join."""
-        from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
-
-        instance = DataAnalysisConfig(
-            name="a", outlier_method="zscore", outlier_flags=["dimension"], ontology="vehicles"
+        instance = AuditConfig.model_validate(
+            {"name": "a", "outliers": {"flags": ["dimension"], "outlier_threshold": "zscore"}, "ontology": "vehicles"}
         )
         assert instance.ontology == "vehicles"
 

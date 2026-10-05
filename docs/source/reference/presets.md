@@ -15,9 +15,178 @@ every preset that takes it:
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space the preset's labels are read under: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children, read as an inline hierarchy. It is recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` requires it and judges labels against it. `data-coverage` refuses it as the config loads, so a data-coverage run on a conformed source records no label space of its own; judge its labels with a `label-space` entry on the same source. |
-| `stats` | a stats policy name, or `null` | `null` | The name of a policy under the top-level `stats:` key, which the preset's image statistics are measured under. Declare one to measure named band groups or the image background; leave it unset to measure the whole image. `data-cleaning` and `data-prioritization` pass it to their `outliers` and `duplicates` steps, and outlier detection reads the policy's `outliers_from` views. `ood-detection` passes it to `factor-predictors` and `factor-deviation`, which read the statistics beside the metadata factors. |
+| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space the preset's labels are read under: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children, read as an inline hierarchy. It is recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` requires it and judges labels against it, and `audit` judges each split's labels against it with `label-conformance`. `data-coverage` refuses it as the config loads, so a data-coverage run on a conformed source records no label space of its own; judge its labels with a `label-space` entry on the same source. |
+| `stats` | a stats policy name, or `null` | `null` | The name of a policy under the top-level `stats:` key, which the preset's image statistics are measured under. Declare one to measure named band groups or the image background; leave it unset to measure the whole image. `audit`, `data-cleaning` and `data-prioritization` pass it to their `outliers` and `duplicates` steps, and outlier detection reads the policy's `outliers_from` views. `ood-detection` passes it to `factor-predictors` and `factor-deviation`, which read the statistics beside the metadata factors. |
 | `metadata` | a metadata policy name, or `null` | `null` | The name of a policy under the top-level `metadata:` key, which the preset's metadata factors are read under. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave it unset for DataEval's defaults. The preset passes it to every step of its chain that reads metadata. |
+
+## `audit`
+
+Audits one or more splits before training: a verdict, a record of what was audited, and findings under five questions.
+
+- **Answers:** [Is the data clean?](index.md#is-the-data-clean),
+  [Are the labels sound?](index.md#are-the-labels-sound),
+  [Does the data cover what the model must handle?](index.md#does-the-data-cover-what-the-model-must-handle),
+  [Could the model learn a shortcut?](index.md#could-the-model-learn-a-shortcut) and
+  [Are the splits fit to evaluate on?](index.md#are-the-splits-fit-to-evaluate-on)
+- **Reads:** `train`, then `evals`: the first source is train, and each later source is an evaluation split. `evals`
+  may be empty.
+- **Makes:** no Dataset; its verdict and findings are its result.
+
+The verdict is one of three levels, worst first:
+
+| Verdict | `level` | When |
+| --- | --- | --- |
+| Not ready | `not-ready` | A check that `blocking` names warned, and `accepted` doesn't name it. |
+| Ready with caveats | `ready-with-caveats` | Any other check warned and isn't accepted, an accepted check warned, or a check was not assessed. |
+| Ready | `ready` | No check warned, and every check was assessed. |
+
+A blocking check that could not run is a caveat, not a block. An acceptance covers its check type on every split, on
+this run and later ones; the accepted finding keeps its severity and its evidence, and health still counts it. A
+`blocking` entry or an `accepted` key that names a check the chain does not run is refused as the config loads:
+`label-conformance` without `ontology`, `uncovered-items` unless `coverage: {method: naive}`, and
+`factor-coverage-gaps` with `factor-gaps: false`.
+
+The result's `verdict`, `result.verdict` in Python and `verdict` in the JSON, holds:
+
+- `level`: `not-ready`, `ready-with-caveats` or `ready`;
+- `blocking` and `warnings`: each unaccepted warning, of a blocking check and of any other, as
+  `{check, step, title, brief}`;
+- `accepted`: each acceptance, as `{check, reason, state}`, where `state` is `warned`, `did-not-warn` or
+  `not-assessed`;
+- `not_assessed`: each check, or element of one, that judged nothing, as `{check, step, reason}`.
+
+A task that fails has no verdict: `result.verdict` is `None`, and the JSON has no `verdict`. Run as a step of a custom
+workflow, audit gives no verdict, record or questions, so run it as a task.
+
+**Chain**, from `outliers: {flags: [pixel], outlier_threshold: zscore}`, `ontology: {animal: {cat: null}}`,
+`factor-leakage: {factors: [site]}` and `coverage: {method: naive}`, with an extractor for `ood-kneighbors`,
+`divergence`, `coverage` and `completeness`. A step reading `evals` runs once per evaluation split, one reading `train`
+and `evals` runs once per evaluation split with train, and one reading "each pair" runs once per pair of evaluation
+splits. `crops` crops detection data and passes other Datasets through:
+
+| Step | Kind | Type | Reads |
+| --- | --- | --- | --- |
+| `label-health-train` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `train` |
+| `label-health-evals` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `evals` |
+| `class-imbalance-train` | check | [`class-imbalance`](checks.md#class-imbalance) | `input`: `label-health-train` |
+| `class-imbalance-evals` | check | [`class-imbalance`](checks.md#class-imbalance) | `input`: `label-health-evals` |
+| `outliers-train` | evaluator | [`outliers`](evaluators.md#outliers) | `input`: `train` |
+| `outliers-evals` | evaluator | [`outliers`](evaluators.md#outliers) | `input`: `evals` |
+| `image-outliers-train` | check | [`image-outliers`](checks.md#image-outliers) | `input`: `outliers-train` |
+| `image-outliers-evals` | check | [`image-outliers`](checks.md#image-outliers) | `input`: `outliers-evals` |
+| `duplicates-train` | evaluator | [`duplicates`](evaluators.md#duplicates) | `input`: `train` |
+| `duplicates-evals` | evaluator | [`duplicates`](evaluators.md#duplicates) | `input`: `evals` |
+| `image-duplicates-train` | check | [`image-duplicates`](checks.md#image-duplicates) | `input`: `duplicates-train` |
+| `image-duplicates-evals` | check | [`image-duplicates`](checks.md#image-duplicates) | `input`: `duplicates-evals` |
+| `factor-triage-train` | evaluator | [`factor-triage`](evaluators.md#factor-triage) | `input`: `train` |
+| `factor-triage-evals` | evaluator | [`factor-triage`](evaluators.md#factor-triage) | `input`: `evals` |
+| `metadata-issues-train` | check | [`metadata-issues`](checks.md#metadata-issues) | `input`: `factor-triage-train` |
+| `metadata-issues-evals` | check | [`metadata-issues`](checks.md#metadata-issues) | `input`: `factor-triage-evals` |
+| `content-digest-train` | evaluator | [`content-digest`](evaluators.md#content-digest) | `input`: `train` |
+| `content-digest-evals` | evaluator | [`content-digest`](evaluators.md#content-digest) | `input`: `evals` |
+| `label-reconciliation-train` | evaluator | [`label-reconciliation`](evaluators.md#label-reconciliation) | `input`: `train` |
+| `label-reconciliation-evals` | evaluator | [`label-reconciliation`](evaluators.md#label-reconciliation) | `input`: `evals` |
+| `label-conformance-train` | check | [`label-conformance`](checks.md#label-conformance) | `input`: `label-reconciliation-train` |
+| `label-conformance-evals` | check | [`label-conformance`](checks.md#label-conformance) | `input`: `label-reconciliation-evals` |
+| `ood-kneighbors` | evaluator | [`ood-kneighbors`](evaluators.md#ood-kneighbors) | `input`: `train`, `evals` |
+| `eval-coverage` | check | [`eval-coverage`](checks.md#eval-coverage) | `input`: `ood-kneighbors` |
+| `divergence` | evaluator | [`divergence`](evaluators.md#divergence) | `input`: `train`, `evals` |
+| `distribution-shift` | check | [`distribution-shift`](checks.md#distribution-shift) | `input`: `divergence` |
+| `duplicates-cross` | evaluator | [`duplicates`](evaluators.md#duplicates) | `input`: `train`, `evals` |
+| `duplicates-pairs` | evaluator | [`duplicates`](evaluators.md#duplicates) | `input`: `evals`, each pair |
+| `factor-leakage-cross` | evaluator | [`factor-leakage`](evaluators.md#factor-leakage) | `input`: `train`, `evals` |
+| `factor-leakage-pairs` | evaluator | [`factor-leakage`](evaluators.md#factor-leakage) | `input`: `evals`, each pair |
+| `leakage` | check | [`leakage`](checks.md#leakage) | `duplicates`: `duplicates-cross`, `duplicates-pairs`; `factors`: `factor-leakage-cross`, `factor-leakage-pairs` |
+| `class-sufficiency` | check | [`class-sufficiency`](checks.md#class-sufficiency) | `input`: `label-health-train`; `evals`: `label-health-evals` |
+| `untrained-classes` | check | [`untrained-classes`](checks.md#untrained-classes) | `input`: `label-health-train`; `evals`: `label-health-evals` |
+| `stratification` | check | [`stratification`](checks.md#stratification) | `input`: `label-health-train`; `parts`: `label-health-evals` |
+| `crops` | transform | [`wrap`](transforms.md#wrap) | `input`: `train` |
+| `coverage` | evaluator | [`coverage`](evaluators.md#coverage) | `input`: `crops` |
+| `class-coverage` | check | [`class-coverage`](checks.md#class-coverage) | `input`: `coverage` |
+| `uncovered-items` | check | [`uncovered-items`](checks.md#uncovered-items) | `input`: `coverage` |
+| `completeness` | evaluator | [`completeness`](evaluators.md#completeness) | `input`: `crops` |
+| `dimensional-completeness` | check | [`dimensional-completeness`](checks.md#dimensional-completeness) | `input`: `completeness` |
+| `factor-summary` | evaluator | [`factor-summary`](evaluators.md#factor-summary) | `input`: `train` |
+| `balance` | evaluator | [`balance`](evaluators.md#balance) | `input`: `train` |
+| `diversity` | evaluator | [`diversity`](evaluators.md#diversity) | `input`: `train` |
+| `shortcut-risk` | check | [`shortcut-risk`](checks.md#shortcut-risk) | `input`: `balance` |
+| `factor-gaps` | combine | [`factor-gaps`](combines.md#factor-gaps) | `input`: `train`; `balance`: `balance` |
+| `factor-coverage-gaps` | check | [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `input`: `factor-gaps` |
+
+**Settings** ({py:class}`~dataeval_flow.workflows.audit.AuditConfig`):
+
+| Setting | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `stats` | a stats policy name, or `null` | `null` | The stats policy; see [Settings every preset shares](#settings-every-preset-shares) |
+| `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares). Every split's factors are encoded like train's, or like the source the policy's `reference_split` names |
+| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; set, it adds `label-reconciliation` and `label-conformance` on each split; see [Settings every preset shares](#settings-every-preset-shares) |
+| `outliers` | a block | required | [`outliers`](evaluators.md#outliers)'s `flags` and `outlier_threshold`, both required, and `cluster_threshold`, `cluster_algorithm` and `n_clusters`; the preset sets `per_target: false` |
+| `coverage` | a block | `method: adaptive`, `num_observations: 50` where the step's own default is DataEval's 20, and the step's other defaults | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples` and `near_duplicate_factor`; the step runs on train when the task names an extractor |
+| `wrap` | a block | `params: {padding: 0.0, min_size: 1}` | [`wrap`](transforms.md#wrap)'s `params`, used on detection data only; the preset fixes the wrapper |
+| `factor-gaps` | a block, or `false` | `mi_threshold: 0.1`, `min_representation: 5` | [`factor-gaps`](combines.md#factor-gaps)'s `mi_threshold` and `min_representation`; `false` leaves out the gap analysis and its check |
+| `factor-leakage` | a block, or `null` | `null` | [`factor-leakage`](evaluators.md#factor-leakage)'s `factors`, at least one: the group factors, such as a scene or site, whose values must not sit in two splits; unset leaves group leakage out. A factor a split's metadata lacks fails the task, which then has no verdict |
+| `diversity` | a block | `method: simpson` | [`diversity`](evaluators.md#diversity)'s `method` |
+| `divergence` | a block | `method: mst` | [`divergence`](evaluators.md#divergence)'s `method`; the step runs when the task names an extractor |
+| `ood-kneighbors` | a block | `threshold_perc: 99.0`, and the step's own defaults otherwise | [`ood-kneighbors`](evaluators.md#ood-kneighbors)'s `k`, `distance_metric` and `threshold_perc`, where the step's own default is DataEval's 95; the step is fitted on train and runs on each evaluation split when the task names an extractor |
+| `blocking` | a list of check types | `[leakage, untrained-classes]` | The check types whose unaccepted warning makes the verdict "Not ready"; each must name a check the chain runs |
+| `accepted` | a mapping of check type to a reason | `{}` | Why each check type's warning is accepted; each key must name a check the chain runs, and a reason may not be blank |
+| `checks` | a block | the defaults below | When findings warn, keyed by check type |
+
+**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.audit.AuditChecks`):
+
+| Check | Default settings |
+| --- | --- |
+| [`image-outliers`](checks.md#image-outliers) | `warning: 3.0` |
+| [`image-duplicates`](checks.md#image-duplicates) | `exact: 0.0`, `near: 5.0` |
+| [`metadata-issues`](checks.md#metadata-issues) | `max_examples: 20` |
+| [`class-imbalance`](checks.md#class-imbalance) | `warning: 5.0`, `info: null`, `empty: false` |
+| [`class-sufficiency`](checks.md#class-sufficiency) | `train: 20`, `eval: 30` |
+| [`untrained-classes`](checks.md#untrained-classes) | `declared: false` |
+| [`label-conformance`](checks.md#label-conformance) | `warning: 0`; run only where `ontology` is set |
+| [`class-coverage`](checks.md#class-coverage) | `dispersion: 0.5`, `isotropy: 0.5`, `near_duplicates: 0.1` |
+| [`uncovered-items`](checks.md#uncovered-items) | `warning: 10.0`; run only under `coverage: {method: naive}` |
+| [`dimensional-completeness`](checks.md#dimensional-completeness) | `warning: 0.5`, `info: 0.8` |
+| [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `warning: 2`; run unless `factor-gaps: false` |
+| [`shortcut-risk`](checks.md#shortcut-risk) | `warning: 0.1` |
+| [`leakage`](checks.md#leakage) | `exact: 0`, `near: 0`, `groups: 0` |
+| [`eval-coverage`](checks.md#eval-coverage) | `warning: 10.0`, `info: 2.0` |
+| [`stratification`](checks.md#stratification) | `info: 2.0`, `warning: 10.0` |
+| [`distribution-shift`](checks.md#distribution-shift) | `warning: 0.5`, and `info` 0.4 times `warning` |
+
+A check over each split applies its settings to every split. The settings of a check the chain does not run, such as
+`checks.uncovered-items` under adaptive coverage, are unused. `coverage`, `completeness`, `divergence` and
+`ood-kneighbors` are optional: with no extractor they are skipped with "requires an extractor", and their checks are
+not assessed. `balance`, `diversity` and `factor-gaps` are optional too, since DataEval refuses them on metadata with
+no factors. Any other step that fails fails the task, which then has no verdict. With one source, `evals` is empty,
+and every check of *Are the splits fit to evaluate on?* is not assessed, with "no evaluation split given", so a
+one-split audit is at best Ready with caveats. A check over each split then judges train alone, and its check over
+`evals`, which judged nothing, is left out of the verdict and the questions. `class-sufficiency` and
+`untrained-classes` still judge train.
+
+The report gives the verdict, then a record of what was audited: a column per split, with its items, labels, classes,
+metadata factors and the digests of its content and metadata, then the run and the criteria: the settings of each
+check the chain ran, the blocking checks and the acceptances. The findings follow under the five questions, then next
+steps: what to do about each check that warned, and about each check left unassessed. The console's short report
+leaves out the evidence and the next steps; `-v` prints them, and `result.txt` and `result.html` hold them unless
+`result: detail: summary`. {doc}`Audit a set of splits before training <../notebooks/audit>` walks through a run, and
+[Gate training on an audit](../how_to/gate_training_on_an_audit.md) reads the verdict in a training job. See
+[Dataset Splitting](../concepts/DatasetSplitting.md) for why leakage and unrepresentative splits make a test score
+untrustworthy.
+
+```yaml
+workflows:
+  - name: release-audit
+    type: audit
+    outliers: {flags: [dimension, pixel, visual], outlier_threshold: modzscore}
+    factor-leakage: {factors: [site]}
+    accepted:
+      class-imbalance: "Rare class by design; weighted loss in training."
+    checks:
+      class-sufficiency: {eval: 50}
+
+tasks:
+  - {name: audit-splits, workflow: release-audit, sources: [train, validation, test], extractor: bovw_ext}
+```
 
 ## `data-cleaning`
 
@@ -285,9 +454,9 @@ Imbalance for the whole set, Stratification for each fold, and Uncovered Items u
 diversity are report sections. The result is a `ChainResult`, and each part's indices into the source are in
 `result.steps["split"].details["indices"]`. Run as a step of a custom workflow, the entry hands on three Datasets:
 `<step>.train` (the rebalanced train, where the entry sets `rebalance:`), `<step>.val` and `<step>.test`. The preset
-does not judge leakage, shift or evaluation coverage, so see
-[Audit a set of splits](../how_to/write_a_custom_workflow.md#11-audit-a-set-of-splits) for the steps that do. See
-[Dataset Splitting](../concepts/DatasetSplitting.md).
+does not judge leakage, shift or evaluation coverage. [`audit`](#audit) does, given the parts as sources, train first,
+and [Check a set of splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) chains the same steps
+after a split. See [Dataset Splitting](../concepts/DatasetSplitting.md).
 
 ```yaml
 workflows:

@@ -1,4 +1,4 @@
-# End-to-end pipeline — clean, profile, and split one dataset
+# End-to-end pipeline — clean, audit, and split one dataset
 #
 # This is the single source of truth for the `end_to_end` tutorial. The notebook
 # loads this exact file, and the container runs this exact file — nothing in the
@@ -29,7 +29,7 @@ metadata:
     # remap before it can be binned; that judgment call belongs in the metadata
     # triage tutorial, not this pipeline. `metadata-triage` found all four.
     exclude: [label_file_exists, instance_missing, unit_missing, instance_zeros]
-    # Pin bin counts so profiling is reproducible across runs and samples;
+    # Pin bin counts so the audit is reproducible across runs and samples;
     # `metadata-triage` derived these from a 300-frame sample of train_src.
     continuous_factor_bins:
       height: 5
@@ -80,8 +80,8 @@ views:
   # Shuffle before limiting: SkySeaLand is stored grouped by collection site, so a
   # bare Limit would sample one site rather than the split. The seed is declared here
   # rather than inherited from the pipeline `seed:` above, which governs clustering and
-  # splitting; these are the same 300 frames the data_analysis tutorial profiles, so the
-  # two tutorials report the same numbers for the same splits.
+  # splitting; these are the same 300 frames the audit tutorial audits, so the
+  # two tutorials report the same outlier and label numbers for train.
   - name: sample300
     operations:
       - type: Shuffle
@@ -130,13 +130,11 @@ workflows:
       classwise-outliers: {warning: 12.0}
       class-imbalance: {warning: 5.0}
 
-  - name: profile
-    type: data-analysis
-    outlier_method: adaptive
-    outlier_threshold: 4.0
-    outlier_flags: [dimension, pixel, visual]
-    balance: true
-    diversity_method: simpson
+  - name: audit
+    type: audit
+    outliers:
+      outlier_threshold: [adaptive, 4.0]
+      flags: [dimension, pixel, visual]
     metadata: skysealand_factors
 
   - name: split
@@ -155,11 +153,12 @@ tasks:
     sources: train_src
     extractor: bovw_ext
 
-  - name: profile_splits
-    workflow: profile
+  - name: audit_splits
+    workflow: audit
     sources:
       - train_src
       - test_src
+    extractor: bovw_ext
 
   - name: split_train
     workflow: split

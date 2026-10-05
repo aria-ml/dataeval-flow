@@ -68,7 +68,10 @@ def test_a_failure_skips_what_reads_it_and_nothing_else() -> None:
     )
     assert run.steps["boom"].status == "failed"
     assert run.steps["boom"].errors == ["RuntimeError: boom on a"]
-    assert (run.steps["after"].status, run.steps["after"].reason) == ("skipped", "needs `boom`, which failed")
+    assert (run.steps["after"].status, run.steps["after"].reason) == (
+        "skipped",
+        "needs `boom`, which failed: RuntimeError: boom on a",
+    )
     assert run.steps["dupes"].status == "ok"
 
 
@@ -82,7 +85,20 @@ def test_an_optional_failure_is_a_skip_carrying_its_error() -> None:
     boom = run.steps["boom"]
     assert (boom.status, boom.errors) == ("skipped", ["RuntimeError: boom on a"])
     assert boom.reason == "failed: RuntimeError: boom on a"
-    assert run.steps["after"].reason == "needs `boom`, which was skipped"
+    assert run.steps["after"].reason == "needs `boom`, which was skipped: failed: RuntimeError: boom on a"
+
+
+def test_a_skip_reason_carries_the_cause_back_through_each_skipped_step() -> None:
+    run = _run(
+        [
+            {"name": "boom", "transform": "toy-explode", "input": "a"},
+            {"name": "after", "transform": "toy-keep", "input": "boom"},
+            {"name": "last", "transform": "toy-keep", "input": "after"},
+        ]
+    )
+    assert run.steps["last"].reason == (
+        "needs `after`, which was skipped: needs `boom`, which failed: RuntimeError: boom on a"
+    )
 
 
 def test_a_list_runs_a_single_item_step_once_per_element() -> None:
@@ -282,13 +298,12 @@ def test_a_transform_returning_a_dataset_with_no_length_fails_its_step_and_the_c
     )
     bad = run.steps["bad"]
     assert bad.status == "failed"
-    assert bad.errors == [
-        (
-            "TypeError: transform 'toy-no-length' returned object for `output`, which has no length: a Dataset must "
-            "have one."
-        )
-    ]
-    assert (run.steps["after"].status, run.steps["after"].reason) == ("skipped", "needs `bad`, which failed")
+    error = (
+        "TypeError: transform 'toy-no-length' returned object for `output`, which has no length: a Dataset must "
+        "have one."
+    )
+    assert bad.errors == [error]
+    assert (run.steps["after"].status, run.steps["after"].reason) == ("skipped", f"needs `bad`, which failed: {error}")
     assert run.steps["other"].status == "ok"
     assert [record.name for record in run.lineage] == ["a", "other"]
 
@@ -336,5 +351,8 @@ def test_an_element_whose_input_failed_is_skipped_with_that_elements_reason() ->
     elements = after.elements or {}
     assert after.status == "ok"
     assert (elements["src"].status, elements["src"].reason) == ("ok", None)
-    assert (elements["more"].status, elements["more"].reason) == ("skipped", "needs `boom[more]`, which failed")
+    assert (elements["more"].status, elements["more"].reason) == (
+        "skipped",
+        "needs `boom[more]`, which failed: RuntimeError: boom on all[more]",
+    )
     assert isinstance(run.nodes["after"].elements["more"], Missing)  # type: ignore[union-attr]

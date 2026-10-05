@@ -161,6 +161,254 @@
       "title": "AggregatorConfig",
       "type": "object"
     },
+    "AuditChecks": {
+      "additionalProperties": false,
+      "description": "When audit's findings warn: each check's settings, keyed by check type. A check over each split applies its\nsettings to every split.",
+      "properties": {
+        "image-outliers": {
+          "$ref": "#/$defs/ImageOutliersSettings",
+          "description": "The `image-outliers` check's settings."
+        },
+        "image-duplicates": {
+          "$ref": "#/$defs/ImageDuplicatesSettings",
+          "description": "The `image-duplicates` check's settings."
+        },
+        "metadata-issues": {
+          "$ref": "#/$defs/MetadataIssuesSettings",
+          "description": "The `metadata-issues` check's settings."
+        },
+        "class-imbalance": {
+          "$ref": "#/$defs/AuditClassImbalanceSettings",
+          "description": "The `class-imbalance` check's settings."
+        },
+        "class-sufficiency": {
+          "$ref": "#/$defs/ClassSufficiencySettings",
+          "description": "The `class-sufficiency` check's settings."
+        },
+        "untrained-classes": {
+          "$ref": "#/$defs/UntrainedClassesSettings"
+        },
+        "label-conformance": {
+          "$ref": "#/$defs/LabelConformanceSettings",
+          "description": "The `label-conformance` check's settings, read where `ontology` is set."
+        },
+        "class-coverage": {
+          "$ref": "#/$defs/ClassCoverageSettings",
+          "description": "The `class-coverage` check's settings."
+        },
+        "uncovered-items": {
+          "$ref": "#/$defs/DataCoverageUncoveredItemsSettings",
+          "description": "The `uncovered-items` check's settings, under `naive` coverage."
+        },
+        "dimensional-completeness": {
+          "$ref": "#/$defs/DimensionalCompletenessSettings",
+          "description": "The `dimensional-completeness` check's settings."
+        },
+        "factor-coverage-gaps": {
+          "$ref": "#/$defs/FactorCoverageGapsSettings",
+          "description": "The `factor-coverage-gaps` check's settings."
+        },
+        "shortcut-risk": {
+          "$ref": "#/$defs/ShortcutRiskSettings",
+          "description": "The `shortcut-risk` check's settings."
+        },
+        "leakage": {
+          "$ref": "#/$defs/LeakageSettings",
+          "description": "The `leakage` check's settings."
+        },
+        "eval-coverage": {
+          "$ref": "#/$defs/EvalCoverageSettings",
+          "description": "The `eval-coverage` check's settings."
+        },
+        "stratification": {
+          "$ref": "#/$defs/StratificationThresholds",
+          "description": "The `stratification` check's settings."
+        },
+        "distribution-shift": {
+          "$ref": "#/$defs/DistributionShiftSettings",
+          "description": "The `distribution-shift` check's settings."
+        }
+      },
+      "title": "AuditChecks",
+      "type": "object"
+    },
+    "AuditClassImbalanceSettings": {
+      "additionalProperties": false,
+      "description": "The `class-imbalance` check's settings in audit, judged on each split. Named for the preset, so it reaches the\nschema `$defs` apart from the other presets' class-imbalance settings.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` judges nothing but an empty class, which warns unless `empty` is false.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every ratio under `warning` information. Must not exceed `warning`.",
+          "title": "Info"
+        },
+        "empty": {
+          "default": false,
+          "description": "Whether a declared class with no labels warns; audit leaves that to `untrained-classes` and `class-sufficiency`.",
+          "title": "Empty",
+          "type": "boolean"
+        }
+      },
+      "title": "AuditClassImbalanceSettings",
+      "type": "object"
+    },
+    "AuditConfig": {
+      "additionalProperties": false,
+      "description": "The settings of one ``audit`` entry: each step type's settings, keyed by the step type, when a finding warns,\nand which warnings block or are accepted.\n\nExample YAML::\n\n    workflows:\n      - name: release_audit\n        type: audit\n        metadata: standard\n        outliers: {flags: [dimension, pixel, visual], outlier_threshold: modzscore}\n        factor-leakage: {factors: [scene]}\n        accepted: {class-imbalance: \"Rare class by design.\"}\n        checks:\n          leakage: {near: null}",
+      "properties": {
+        "stats": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
+          "title": "Stats"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "audit",
+          "default": "audit",
+          "description": "The workflow type this entry configures: `audit`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
+          "title": "Ontology"
+        },
+        "outliers": {
+          "$ref": "#/$defs/OutliersSettings",
+          "description": "The `outliers` step's settings, run on each split."
+        },
+        "coverage": {
+          "$ref": "#/$defs/DataCoverageCoverageSettings",
+          "description": "The `coverage` step's settings, run on train when the task names an extractor."
+        },
+        "wrap": {
+          "$ref": "#/$defs/WrapSettings",
+          "description": "The `wrap` step's settings, used on detection data only."
+        },
+        "factor-gaps": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactorGapsSettings"
+            },
+            {
+              "const": false,
+              "type": "boolean"
+            }
+          ],
+          "description": "The `factor-gaps` step's settings; `false` leaves out the gap analysis and its check.",
+          "title": "Factor-Gaps"
+        },
+        "factor-leakage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactorLeakageSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The `factor-leakage` step's settings; unset leaves group leakage out."
+        },
+        "diversity": {
+          "$ref": "#/$defs/DiversitySettings"
+        },
+        "divergence": {
+          "$ref": "#/$defs/DivergenceSettings",
+          "description": "The `divergence` step's settings, run when the task names an extractor."
+        },
+        "ood-kneighbors": {
+          "$ref": "#/$defs/OODKNeighborsSettings",
+          "description": "The `ood-kneighbors` step's settings, run when the task names an extractor."
+        },
+        "blocking": {
+          "description": "The check types whose warning makes the verdict not ready, unless accepted.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocking",
+          "type": "array"
+        },
+        "accepted": {
+          "additionalProperties": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": "Why each check type's warning is accepted, by check type, on every split: an accepted warning can't make the verdict not ready, but it still leaves it ready with caveats.",
+          "title": "Accepted",
+          "type": "object"
+        },
+        "checks": {
+          "$ref": "#/$defs/AuditChecks",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "required": [
+        "outliers"
+      ],
+      "title": "AuditConfig",
+      "type": "object"
+    },
     "BalanceConfig": {
       "additionalProperties": false,
       "description": "Config for ``balance``, DataEval's Balance.\n\nMeasures the mutual information between each metadata factor and the class labels, and between pairs of factors.\nA factor that predicts the class is a shortcut a model can learn.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators balance`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: balance\n        type: balance\n        metadata: standard\n        class_imbalance_threshold: 0.2",
@@ -2862,6 +3110,42 @@
       "title": "ClassKeys",
       "type": "object"
     },
+    "ClassSufficiencySettings": {
+      "additionalProperties": false,
+      "description": "The `class-sufficiency` check's settings: the fewest labels a class needs to learn and to evaluate.",
+      "properties": {
+        "train": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 20,
+          "description": "The fewest labels each class train holds needs in train; `null` judges no minimum there.",
+          "title": "Train"
+        },
+        "eval": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 30,
+          "description": "The fewest labels each class train holds needs in each evaluation split, a class the split lacks included. At 30, a per-class metric's 95% interval is about \u00b118 points.",
+          "title": "Eval"
+        }
+      },
+      "title": "ClassSufficiencySettings",
+      "type": "object"
+    },
     "ClasswiseOutliersSettings": {
       "additionalProperties": false,
       "description": "The `classwise-outliers` check's settings in data-cleaning.",
@@ -3728,303 +4012,6 @@
         "steps"
       ],
       "title": "CustomWorkflowConfig",
-      "type": "object"
-    },
-    "DataAnalysisConfig": {
-      "additionalProperties": false,
-      "description": "The settings of one ``data-analysis`` entry: what each split and each pair is assessed for, and when it warns.\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: cppe5_analysis\n        type: data-analysis\n        outlier_method: zscore\n        outlier_flags: [dimension, pixel, visual]\n        balance: true\n        diversity_method: simpson",
-      "properties": {
-        "stats": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
-          "title": "Stats"
-        },
-        "value_range": {
-          "anyOf": [
-            {
-              "maxItems": 2,
-              "minItems": 2,
-              "prefixItems": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "number"
-                }
-              ],
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "deprecated": true,
-          "description": "Interval the image data occupies, as (low, high). Integer encodings state their own range; float data does not, and the statistics that need one answer NaN without it \u2014 the whole visual family, pixel histogram and entropy, and dimension depth. Leave unset for integer imagery.",
-          "title": "Value Range"
-        },
-        "metadata_auto_bin_method": {
-          "anyOf": [
-            {
-              "enum": [
-                "uniform_width",
-                "uniform_count",
-                "clusters"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How a continuous factor with no declared bins is cut: `uniform_width`, `uniform_count` or `clusters`. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `auto_bin_method`.",
-          "title": "Metadata Auto Bin Method"
-        },
-        "metadata_exclude": {
-          "description": "Factor names removed before any evaluator sees them. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `exclude`.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Metadata Exclude",
-          "type": "array"
-        },
-        "metadata_continuous_factor_bins": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "anyOf": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "items": {
-                      "type": "number"
-                    },
-                    "type": "array"
-                  }
-                ]
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Bin count (int) or explicit edges (list) per continuous factor. Kept for compatibility, and refused alongside `metadata`: prefer a policy's `continuous_factor_bins`.",
-          "title": "Metadata Continuous Factor Bins"
-        },
-        "metadata_factor_source": {
-          "anyOf": [
-            {
-              "enum": [
-                "coded",
-                "values",
-                "auto"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Which representation of each factor the bias statistics read. `coded` reads the integer codes binning produced; `values` reads the measurements, which recovers resolution a cut threw away at roughly 11x the cost; `auto` decides per factor, keeping codes wherever somebody declared or ratified the cut and reading values where nobody did. Leave unset for DataEval's default (`auto`). It governs every bias number a workflow reports, so two workflows meant to be compared want the same one.",
-          "title": "Metadata Factor Source"
-        },
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
-        },
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "data-analysis",
-          "default": "data-analysis",
-          "description": "The workflow type this entry configures: `data-analysis`.",
-          "title": "Type",
-          "type": "string"
-        },
-        "ontology": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
-          "title": "Ontology"
-        },
-        "outlier_method": {
-          "description": "Statistical method for outlier detection",
-          "enum": [
-            "adaptive",
-            "zscore",
-            "modzscore",
-            "iqr"
-          ],
-          "title": "Outlier Method",
-          "type": "string"
-        },
-        "outlier_flags": {
-          "description": "Image statistics groups for outlier detection. At least one required.",
-          "items": {
-            "enum": [
-              "dimension",
-              "pixel",
-              "visual"
-            ],
-            "type": "string"
-          },
-          "minItems": 1,
-          "title": "Outlier Flags",
-          "type": "array"
-        },
-        "outlier_threshold": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Custom threshold (None = use DataEval default for chosen method)",
-          "title": "Outlier Threshold"
-        },
-        "balance": {
-          "default": false,
-          "description": "Run Balance (MI) analysis per split and combined",
-          "title": "Balance",
-          "type": "boolean"
-        },
-        "diversity_method": {
-          "anyOf": [
-            {
-              "enum": [
-                "simpson",
-                "shannon"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Diversity method (None = skip)",
-          "title": "Diversity Method"
-        },
-        "include_image_stats": {
-          "default": false,
-          "deprecated": true,
-          "description": "Deprecated. Use the metadata policy's `intrinsic_factors` instead.",
-          "title": "Include Image Stats",
-          "type": "boolean"
-        },
-        "divergence_method": {
-          "anyOf": [
-            {
-              "enum": [
-                "mst",
-                "fnn"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Method for computing cross-split embedding divergence. Only used when an extractor is configured.",
-          "title": "Divergence Method"
-        },
-        "health_thresholds": {
-          "$ref": "#/$defs/DataAnalysisHealthThresholds",
-          "description": "Warning thresholds for dataset health status. Findings are flagged as warnings."
-        }
-      },
-      "required": [
-        "outlier_method",
-        "outlier_flags"
-      ],
-      "title": "DataAnalysisConfig",
-      "type": "object"
-    },
-    "DataAnalysisHealthThresholds": {
-      "additionalProperties": false,
-      "description": "Configurable warning thresholds for data analysis health status.\n\nEach threshold is a percentage (0\u2013100) unless otherwise noted.\nWhen the detected rate exceeds the threshold the corresponding\nfinding is elevated to ``severity=\"warning\"``; otherwise it stays\nat ``severity=\"info\"``.\n\nSet a threshold to ``None`` to disable the warning for that metric.",
-      "properties": {
-        "image_outliers": {
-          "default": 3.0,
-          "description": "Max allowable % of images flagged as statistical outliers. Default 3%. Lower to 1% for safety-critical datasets; raise to 5\u201310% for diverse real-world collections where high visual variance is expected.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Image Outliers",
-          "type": "number"
-        },
-        "exact_duplicates": {
-          "default": 0.0,
-          "description": "Max allowable % of images in exact-duplicate groups. Default 0% \u2014 any exact duplicates trigger a warning.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Exact Duplicates",
-          "type": "number"
-        },
-        "near_duplicates": {
-          "default": 5.0,
-          "description": "Max allowable % of images in near-duplicate groups. Default 5%. Lower to 1\u20132% for curated benchmarks; raise to 10\u201315% for large-scale web-scraped datasets where some redundancy is expected.",
-          "maximum": 100.0,
-          "minimum": 0.0,
-          "title": "Near Duplicates",
-          "type": "number"
-        },
-        "class_label_imbalance": {
-          "default": 5.0,
-          "description": "Max allowable ratio between the largest and smallest class counts (max_class / min_class). Default 5:1. Set to 1.0 to require perfectly balanced classes.",
-          "minimum": 1.0,
-          "title": "Class Label Imbalance",
-          "type": "number"
-        },
-        "distribution_shift": {
-          "default": 0.5,
-          "description": "Embedding divergence above which cross-split shift is flagged as warning. Default 0.5. Values above 0.2 are reported as 'moderate'.",
-          "minimum": 0.0,
-          "title": "Distribution Shift",
-          "type": "number"
-        }
-      },
-      "title": "DataAnalysisHealthThresholds",
       "type": "object"
     },
     "DataCleaningChecks": {
@@ -5019,6 +5006,44 @@
       "title": "DimensionalCompletenessSettings",
       "type": "object"
     },
+    "DistributionShiftSettings": {
+      "additionalProperties": false,
+      "description": "The `distribution-shift` check's settings. An unset `info` is derived here, as the check derives it, because\nthe chain hands the check every setting, and a written `null` would mean no `info` band.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "The divergence above which the finding warns; `null` never warns.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times `warning`; `null` has no `info` band. Must not exceed `warning`.",
+          "title": "Info"
+        }
+      },
+      "title": "DistributionShiftSettings",
+      "type": "object"
+    },
     "DivergenceConfig": {
       "additionalProperties": false,
       "description": "Config for ``divergence``: how far apart two sources' embeddings sit.\n\nWraps ``dataeval.core.divergence_mst`` or ``divergence_fnn`` over the task extractor's embeddings of two sources,\nthe first then the second: 0 where they overlap, 1 where they are wholly apart. It is a distance, not a test: the\n``distribution-shift`` check judges it. Needs an extractor on the task.\n\nExample YAML::\n\n    evaluators:\n      - name: shift\n        type: divergence\n        method: mst",
@@ -5047,6 +5072,24 @@
         }
       },
       "title": "DivergenceConfig",
+      "type": "object"
+    },
+    "DivergenceSettings": {
+      "additionalProperties": false,
+      "description": "The `divergence` step's settings.",
+      "properties": {
+        "method": {
+          "default": "mst",
+          "description": "How divergence is counted: over the minimum spanning tree of both splits, or by nearest-neighbour disagreement.",
+          "enum": [
+            "mst",
+            "fnn"
+          ],
+          "title": "Method",
+          "type": "string"
+        }
+      },
+      "title": "DivergenceSettings",
       "type": "object"
     },
     "DiversityConfig": {
@@ -6423,6 +6466,44 @@
       "title": "DuplicatesSettings",
       "type": "object"
     },
+    "EvalCoverageSettings": {
+      "additionalProperties": false,
+      "description": "The `eval-coverage` check's settings: the share of an evaluation split that may lie beyond train.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10.0,
+          "description": "The percent of assessed test images flagged past which the finding warns; `null` never warns.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 2.0,
+          "description": "The percent flagged past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so `2.0` suits `threshold_perc: 99`.",
+          "title": "Info"
+        }
+      },
+      "title": "EvalCoverageSettings",
+      "type": "object"
+    },
     "EvaluatorStep": {
       "additionalProperties": false,
       "properties": {
@@ -6546,7 +6627,7 @@
             }
           ],
           "default": null,
-          "description": "Label space the emitted dataset's labels are read under, by name under the top-level `ontologies:` key or as a path. Written into the dataset's provenance so the emitted dataset carries the same digest as the run and the audit. An export names no workflow, so it cannot inherit one.",
+          "description": "Label space the emitted dataset's labels are read under, by name under the top-level `ontologies:` key or as a path. Written into the dataset's provenance so the emitted dataset carries the same digest as the run and the label-space run. An export names no workflow, so it cannot inherit one.",
           "title": "Ontology"
         }
       },
@@ -6661,9 +6742,29 @@
       "title": "FactorLeakageConfig",
       "type": "object"
     },
+    "FactorLeakageSettings": {
+      "additionalProperties": false,
+      "description": "The `factor-leakage` step's settings: the group factors whose values must stay in one split.",
+      "properties": {
+        "factors": {
+          "description": "The group factors, such as a scene or site, whose values must not sit in two splits.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Factors",
+          "type": "array"
+        }
+      },
+      "required": [
+        "factors"
+      ],
+      "title": "FactorLeakageSettings",
+      "type": "object"
+    },
     "FactorSummaryConfig": {
       "additionalProperties": false,
-      "description": "Config for ``factor-summary``: each metadata factor's type, binning, nulls, and range or top values.\n\nA Flow-only evaluator over DataEval's ``Metadata``, as legacy data-coverage's Metadata Distribution was; audit\nreuses it.\n\nExample YAML::\n\n    evaluators:\n      - name: summary\n        type: factor-summary\n        metadata: standard",
+      "description": "Config for ``factor-summary``: each metadata factor's type, binning, nulls, and range or top values.\n\nA Flow-only evaluator over DataEval's ``Metadata``; data-coverage and audit run it.\n\nExample YAML::\n\n    evaluators:\n      - name: summary\n        type: factor-summary\n        metadata: standard",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -7400,6 +7501,56 @@
         }
       },
       "title": "LeafCoverageSettings",
+      "type": "object"
+    },
+    "LeakageSettings": {
+      "additionalProperties": false,
+      "description": "The `leakage` check's settings: how many items and group values may sit in two splits.",
+      "properties": {
+        "exact": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "Most items, counted over every exact-duplicate group with members in two splits, that may leak before the finding warns; `null` judges nothing.",
+          "title": "Exact"
+        },
+        "near": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "The same for near-duplicate groups; `null` judges nothing.",
+          "title": "Near"
+        },
+        "groups": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "description": "Most group values (a factor's value held by both splits of a pair) that may be shared before the finding warns; `null` judges nothing.",
+          "title": "Groups"
+        }
+      },
+      "title": "LeakageSettings",
       "type": "object"
     },
     "LoggingConfig": {
@@ -8263,6 +8414,53 @@
       "title": "OODKNeighborsDetector",
       "type": "object"
     },
+    "OODKNeighborsSettings": {
+      "additionalProperties": false,
+      "description": "The `ood-kneighbors` step's settings, fitted on train and run on each evaluation split.",
+      "properties": {
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Neighbours each evaluation item is compared with; unset is DataEval's default.",
+          "title": "K"
+        },
+        "distance_metric": {
+          "anyOf": [
+            {
+              "enum": [
+                "cosine",
+                "euclidean"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The embedding distance; unset is DataEval's default.",
+          "title": "Distance Metric"
+        },
+        "threshold_perc": {
+          "default": 99.0,
+          "description": "An item is flagged when it lies farther from train than this percent of train lies from itself.",
+          "exclusiveMaximum": 100.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Threshold Perc",
+          "type": "number"
+        }
+      },
+      "title": "OODKNeighborsSettings",
+      "type": "object"
+    },
     "OODThresholds": {
       "additionalProperties": false,
       "description": "When an OOD finding is `info` or warns: the percent of the assessed test images flagged.",
@@ -8463,7 +8661,7 @@
     },
     "OntologyConfig": {
       "additionalProperties": false,
-      "description": "A named label space, referenced by the workflows that share it.\n\nDefine an ontology once here and reference it by name so workflows meant to be compared\nread the same vocabulary. Two tasks reading different ontologies produce worklists you\ncannot compare.\n\nYAML example::\n\n    ontologies:\n      - name: vehicles\n        source: config/label_ontology.jsonld\n        concepts:\n          - id: http://example.org/cv#FreightCar\n            label: Freight Car\n            synonyms: [freight_car, freight car]\n            parents: [http://example.org/cv#LandVehicle]\n\n    workflows:\n      - name: audit\n        type: label-space\n        ontology: vehicles",
+      "description": "A named label space, referenced by the workflows that share it.\n\nDefine an ontology once here and reference it by name so workflows meant to be compared\nread the same vocabulary. Two tasks reading different ontologies produce worklists you\ncannot compare.\n\nYAML example::\n\n    ontologies:\n      - name: vehicles\n        source: config/label_ontology.jsonld\n        concepts:\n          - id: http://example.org/cv#FreightCar\n            label: Freight Car\n            synonyms: [freight_car, freight car]\n            parents: [http://example.org/cv#LandVehicle]\n\n    workflows:\n      - name: vehicle-labels\n        type: label-space\n        ontology: vehicles",
       "properties": {
         "name": {
           "description": "Identifier for this ontology",
@@ -10812,7 +11010,7 @@
     },
     "ResultConfig": {
       "additionalProperties": false,
-      "description": "What each task's result carries, and the files the ``dataeval-flow`` command writes it to, under ``result:``.\n\n``name``, ``formats``, ``detail``, ``per_task`` and ``width`` shape what the command writes to ``--output`` and\nprints; :func:`~dataeval_flow.run_tasks` and :func:`~dataeval_flow.run` return results and write nothing.\n\nYAML example::\n\n    result:\n      name: audit\n      formats: [text, html]\n      detail: summary\n      per_task: true\n      max_images: 100",
+      "description": "What each task's result carries, and the files the ``dataeval-flow`` command writes it to, under ``result:``.\n\n``name``, ``formats``, ``detail``, ``per_task`` and ``width`` shape what the command writes to ``--output`` and\nprints; :func:`~dataeval_flow.run_tasks` and :func:`~dataeval_flow.run` return results and write nothing.\n\nYAML example::\n\n    result:\n      name: results\n      formats: [text, html]\n      detail: summary\n      per_task: true\n      max_images: 100",
       "properties": {
         "name": {
           "default": "result",
@@ -10931,6 +11129,29 @@
         }
       },
       "title": "SelectSettings",
+      "type": "object"
+    },
+    "ShortcutRiskSettings": {
+      "additionalProperties": false,
+      "description": "The `shortcut-risk` check's settings, judged on train.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.1,
+          "description": "The mutual information with the class, from 0 to 1, past which a factor warns; `null` judges nothing.",
+          "title": "Warning"
+        }
+      },
+      "title": "ShortcutRiskSettings",
       "type": "object"
     },
     "SourceConfig": {
@@ -11152,7 +11373,7 @@
             }
           ],
           "default": 3.0,
-          "description": "Most targets (boxes), as a percentage of all, that may be flagged as outliers (unusual box sizes, aspect ratios, or annotation counts) before the finding warns; `null` judges nothing. Lower to 1% for annotation-quality audits; raise to 5-10% for dense object detection.",
+          "description": "Most targets (boxes), as a percentage of all, that may be flagged as outliers (unusual box sizes, aspect ratios, or annotation counts) before the finding warns; `null` judges nothing. Lower to 1% for annotation-quality reviews; raise to 5-10% for dense object detection.",
           "title": "Warning"
         }
       },
@@ -12110,6 +12331,20 @@
       "title": "UncertaintyExtractorConfig",
       "type": "object"
     },
+    "UntrainedClassesSettings": {
+      "additionalProperties": false,
+      "description": "The `untrained-classes` check's settings.",
+      "properties": {
+        "declared": {
+          "default": false,
+          "description": "Whether a declared class with no labels in train also warns. Off, it is listed: a vocabulary conformed to an ontology carries abstract concepts with no items.",
+          "title": "Declared",
+          "type": "boolean"
+        }
+      },
+      "title": "UntrainedClassesSettings",
+      "type": "object"
+    },
     "ViewConfig": {
       "additionalProperties": false,
       "description": "Named view pipeline configuration.\n\nDefines a reusable pipeline of dataset operations, referenced by name from\nsources. Similar to PreprocessorConfig.",
@@ -12648,7 +12883,7 @@
           "items": {
             "oneOf": [
               {
-                "$ref": "#/$defs/DataAnalysisConfig"
+                "$ref": "#/$defs/AuditConfig"
               },
               {
                 "$ref": "#/$defs/DataCleaningConfig"

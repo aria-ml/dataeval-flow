@@ -10,11 +10,9 @@ import pytest
 from dataeval import Metadata
 from dataeval.protocols import DatasetMetadata
 
-from dataeval_flow import ResultMetadata
-from dataeval_flow._binning import attach_binning, describe_binning
+from dataeval_flow._binning import describe_binning, describe_under
 from dataeval_flow._logging import capture_diagnostics
 from dataeval_flow._policy import ResolvedPolicy
-from dataeval_flow.config import MetadataConfigMixin
 
 
 def _metadata(n: int = 60, **kwargs: Any) -> Metadata:
@@ -30,12 +28,8 @@ def _metadata(n: int = 60, **kwargs: Any) -> Metadata:
     )
 
 
-class _Params(MetadataConfigMixin):
-    """Minimal params carrier, for the fields that still live on a workflow."""
-
-
 def _policy(**kwargs) -> ResolvedPolicy:
-    """The resolved policy attach_binning records from."""
+    """The resolved policy a record is described under."""
     return ResolvedPolicy(**kwargs)
 
 
@@ -160,39 +154,6 @@ class TestDescribeBinning:
         assert "fit" not in entry  # the observation simply absent
 
 
-class TestAttachBinning:
-    def test_attaches_single_record(self):
-        meta = ResultMetadata()
-        attach_binning(meta, _metadata(), _policy())
-        assert meta.metadata_binning is not None
-        assert "elevation" in meta.metadata_binning["factors"]
-
-    def test_attaches_per_split_record(self):
-        meta = ResultMetadata()
-        attach_binning(meta, {"train": _metadata(), "test": _metadata()}, _policy())
-        assert meta.metadata_binning is not None
-        assert set(meta.metadata_binning["per_split"]) == {"train", "test"}
-
-    def test_forwards_configured_exclusions_and_bins(self):
-        meta = ResultMetadata()
-        policy = _policy(exclude=("id",), continuous_factor_bins={"elevation": 5})
-        attach_binning(meta, _metadata(continuous_factor_bins={"elevation": 5}), policy)
-        assert meta.metadata_binning is not None
-        assert meta.metadata_binning["excluded"] == ["id"]
-        # What was asked for, alongside what it resolved to.
-        assert meta.metadata_binning["requested_bins"] == {"elevation": 5}
-        assert meta.metadata_binning["factors"]["elevation"]["encoding"]["provenance"] == "count"
-
-    def test_never_raises(self, caplog: pytest.LogCaptureFixture):
-        """A broken Metadata costs the record, not the run."""
-        meta = ResultMetadata()
-        broken = object()
-        with caplog.at_level(logging.WARNING):
-            attach_binning(meta, broken, _policy())  # type: ignore[arg-type]
-        assert meta.metadata_binning is None
-        assert "Binning record unavailable" in caplog.text
-
-
 class TestReviewState:
     """`derived` is the un-reviewed state, and the forcing function needs it visible."""
 
@@ -221,61 +182,19 @@ class TestReviewState:
 class TestEncodingDigest:
     """A result that cannot say which cuts produced it cannot be compared with another."""
 
-    def test_single_metadata_stamps_its_digest(self):
-        meta = ResultMetadata()
-        attach_binning(meta, _metadata(), _policy())
-        assert meta.metadata_binning is not None
-        assert meta.encoding_digest
-        assert meta.encoding_digest == meta.metadata_binning["encoding_digest"]
-
     def test_same_encoding_over_different_rows_keeps_one_digest(self):
         """The digest covers the policy, so it does not move when only the data does."""
         declared = {"elevation": [-np.inf, 90.0, 110.0, np.inf]}
-        first, second = ResultMetadata(), ResultMetadata()
-        attach_binning(first, _metadata(continuous_factor_bins=declared), _policy())
-        attach_binning(second, _metadata(n=120, continuous_factor_bins=declared), _policy())
+        first = describe_under(_metadata(continuous_factor_bins=declared), _policy())
+        second = describe_under(_metadata(n=120, continuous_factor_bins=declared), _policy())
 
-        assert first.encoding_digest == second.encoding_digest
+        assert first["encoding_digest"]
+        assert first["encoding_digest"] == second["encoding_digest"]
 
     def test_a_declared_cut_changes_the_digest(self):
-        plain, declared = ResultMetadata(), ResultMetadata()
-        attach_binning(plain, _metadata(), _policy())
-        attach_binning(
-            declared,
-            _metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]}),
-            _policy(),
-        )
-        assert plain.encoding_digest != declared.encoding_digest
-
-    def test_splits_sharing_an_encoding_stamp_it_once(self):
-        declared = {"elevation": [-np.inf, 90.0, 110.0, np.inf]}
-        meta = ResultMetadata()
-        attach_binning(
-            meta,
-            {
-                "train": _metadata(continuous_factor_bins=declared),
-                "test": _metadata(n=120, continuous_factor_bins=declared),
-            },
-            _policy(),
-        )
-        assert meta.encoding_digest
-
-    def test_splits_encoded_differently_stamp_nothing(self):
-        """There is no single encoding to name."""
-        meta = ResultMetadata()
-        attach_binning(
-            meta,
-            {
-                "train": _metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]}),
-                "test": _metadata(continuous_factor_bins={"elevation": [-np.inf, 50.0, np.inf]}),
-            },
-            _policy(),
-        )
-        assert meta.encoding_digest is None
-        # The per-split records still say what each one ran under.
-        assert meta.metadata_binning is not None
-        per_split = meta.metadata_binning["per_split"]
-        assert per_split["train"]["encoding_digest"] != per_split["test"]["encoding_digest"]
+        plain = describe_under(_metadata(), _policy())
+        declared = describe_under(_metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]}), _policy())
+        assert plain["encoding_digest"] != declared["encoding_digest"]
 
 
 class TestCaptureDiagnostics:
@@ -466,20 +385,14 @@ class TestRecordsFactorSource:
 
         assert record["factor_source"] == Balance().factor_source
 
-    def test_attach_carries_it_from_the_resolved_policy(self):
-        """From the policy, not the workflow's fields: naming a policy leaves those empty."""
-        result_metadata = ResultMetadata()
-        attach_binning(result_metadata, _metadata(), _policy(factor_source="values"))
-        assert result_metadata.metadata_binning is not None
-        assert result_metadata.metadata_binning["factor_source"] == "values"
+    def test_describe_under_carries_it_from_the_resolved_policy(self):
+        assert describe_under(_metadata(), _policy(factor_source="values"))["factor_source"] == "values"
 
 
 class TestEnvelopeRecordsInjection:
     """A reader must be able to tell a carried factor from a synthesised one."""
 
     def _record(self):
-        from dataeval_flow import ResultMetadata
-        from dataeval_flow._binning import attach_binning
         from dataeval_flow._metadata import build_metadata
         from dataeval_flow._policy import ResolvedPolicy
         from tests.test_metadata_injection import _ODDataset
@@ -489,10 +402,7 @@ class TestEnvelopeRecordsInjection:
             value_range=(0.0, 1.0),
             continuous_factor_bins={"brightness": 4},
         )
-        metadata = build_metadata(_ODDataset(), policy)
-        result_metadata = ResultMetadata()
-        attach_binning(result_metadata, metadata, policy)
-        return result_metadata.metadata_binning
+        return describe_under(build_metadata(_ODDataset(), policy), policy)
 
     def test_the_declared_bin_is_not_reported_unmatched(self):
         record = self._record()
@@ -521,16 +431,12 @@ class TestEnvelopeRecordsInjection:
         assert "weather" not in injected  # carried by the dataset
 
     def test_a_run_without_injection_records_neither_key(self):
-        from dataeval_flow import ResultMetadata
-        from dataeval_flow._binning import attach_binning
         from dataeval_flow._metadata import build_metadata
         from dataeval_flow._policy import ResolvedPolicy
         from tests.test_metadata_injection import _ODDataset
 
         policy = ResolvedPolicy(continuous_factor_bins={"brightness": 4})
-        result_metadata = ResultMetadata()
-        attach_binning(result_metadata, build_metadata(_ODDataset(), policy), policy)
-        record = result_metadata.metadata_binning
+        record = describe_under(build_metadata(_ODDataset(), policy), policy)
         assert record
         assert record["bin_expansion"] == {}
         assert record["injected_factors"] == []
@@ -555,34 +461,6 @@ class TestEnvelopeRecordsInjection:
         )
         record = describe_binning(md, declared_bins=declared)
         assert record["bin_expansion"] == {}
-
-    def test_multi_split_records_expansion_and_injection_per_split(self):
-        """`data-analysis` binds per split; each split's record must be its own, not shared."""
-        from dataeval_flow._metadata import build_metadata
-        from tests.test_metadata_injection import _ODDataset
-
-        policy = ResolvedPolicy(
-            intrinsic_factors=("visual",),
-            value_range=(0.0, 1.0),
-            continuous_factor_bins={"brightness": 4},
-        )
-        metadata = {"train": build_metadata(_ODDataset(), policy), "test": build_metadata(_ODDataset(), policy)}
-        result_metadata = ResultMetadata()
-        attach_binning(result_metadata, metadata, policy)
-
-        assert result_metadata.metadata_binning
-        per_split = result_metadata.metadata_binning["per_split"]
-        for split in ("train", "test"):
-            record = per_split[split]
-            assert record["bin_expansion"] == {
-                "brightness": ["instance_brightness", "unit_brightness"],
-            }
-            assert "unit_brightness" in record["injected_factors"]
-
-        # Both splits ran under the same encoding, so a single top-level digest applies.
-        assert result_metadata.encoding_digest is not None
-        assert result_metadata.encoding_digest == per_split["train"]["encoding_digest"]
-        assert result_metadata.encoding_digest == per_split["test"]["encoding_digest"]
 
 
 class TestInjectedFactorsCoverBandViews:
@@ -610,11 +488,9 @@ class TestInjectedFactorsCoverBandViews:
         from dataeval_flow._metadata import build_metadata
 
         policy = self._policy([None, "rgb"])
-        result_metadata = ResultMetadata()
-        attach_binning(result_metadata, build_metadata(toy_multiband_dataset, policy), policy)
+        record = describe_under(build_metadata(toy_multiband_dataset, policy), policy)
 
-        assert result_metadata.metadata_binning
-        injected = set(result_metadata.metadata_binning["injected_factors"])
+        injected = set(record["injected_factors"])
         assert "unit_rgb_brightness" in injected
         assert "unit_brightness" in injected
 
@@ -623,11 +499,9 @@ class TestInjectedFactorsCoverBandViews:
         from dataeval_flow._metadata import build_metadata
 
         policy = self._policy([None])
-        result_metadata = ResultMetadata()
-        attach_binning(result_metadata, build_metadata(toy_multiband_dataset, policy), policy)
+        record = describe_under(build_metadata(toy_multiband_dataset, policy), policy)
 
-        assert result_metadata.metadata_binning
-        injected = set(result_metadata.metadata_binning["injected_factors"])
+        injected = set(record["injected_factors"])
         assert "unit_brightness" in injected
         assert not any(name.endswith("rgb_brightness") for name in injected)
 

@@ -90,7 +90,7 @@ class FactorTriageEvaluator(Evaluator[FactorTriageConfig, FactorTriageOutput]):
 
 
 def describe(metadata: Any, policy: Any) -> dict[str, Any]:
-    """The binning record, built the way ``attach_binning`` builds it.
+    """The binning record, built the way a chain's reads build it.
 
     The bins as applied, not as spelled: ``unmatched_bin_requests`` is a set difference
     against the factor names, and a bare declared name is not one of those.

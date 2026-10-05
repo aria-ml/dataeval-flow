@@ -218,7 +218,7 @@ def test_a_chain_with_no_checks_keeps_a_section_per_step() -> None:
         ("few", "`a` (src)", ""),
         ("dupes", "`few` ← `a` (src)", ""),
         ("boom", "`few` ← `a` (src)", "RuntimeError: boom on few"),
-        ("after", "`boom`", "needs `boom`, which failed"),
+        ("after", "`boom`", "needs `boom`, which failed: RuntimeError: boom on few"),
     ]
 
 

@@ -28,6 +28,7 @@ from dataeval_flow._blocks._models import (
     SummaryItem,
     Table,
     Tree,
+    Verdict,
 )
 
 __all__ = [
@@ -50,4 +51,5 @@ __all__ = [
     "SummaryItem",
     "Table",
     "Tree",
+    "Verdict",
 ]

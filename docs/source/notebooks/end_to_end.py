@@ -46,7 +46,7 @@
 # | Task | Workflow | Sources | Extractor | Answers |
 # | --- | --- | --- | --- | --- |
 # | `clean_train` | `data-cleaning` | train | BoVW | Are training samples free of severe outliers and duplicates? |
-# | `profile_splits` | `data-analysis` | train + test | (none) | Do train and test splits share label distributions without leakage? |
+# | `audit_splits` | `audit` | train + test | BoVW | Is the data ready to train on, with no leakage between train and test? |
 # | `split_train` | `data-splitting` | train | (none) | How should you partition training data into cross-validation folds? |
 
 # %% [markdown]
@@ -175,8 +175,8 @@ print(f"Need explicit bins:   {len(unbinned)} factors")
 # degenerate: every frame holds the same value, so the factor separates nothing. It also flags
 # `instance_zeros` for a sentinel-value remap before it can be binned — that judgment call is
 # exactly what the {doc}`metadata triage tutorial <metadata_triage>` covers, so this pipeline excludes
-# it instead. The remaining continuous pixel and visual factors need explicit bin counts, or
-# `data-analysis` would derive them silently from whatever sample happens to run.
+# it instead. The remaining continuous pixel and visual factors need explicit bin counts. Without
+# them, `audit` derives the counts from whatever sample happens to run, and warns that it did.
 #
 # `end_to_end.yaml`'s `metadata:` section already applies these findings: the four degenerate
 # and unresolved factors are excluded, and every remaining continuous factor has a pinned
@@ -250,7 +250,7 @@ for name, result in results.items():
 assert all(r.success for r in results.values()), [r.errors for r in results.values() if not r.success]
 
 # %%
-clean_result, profile_result, split_result = results["clean_train"], results["profile_splits"], results["split_train"]
+clean_result, audit_result, split_result = results["clean_train"], results["audit_splits"], results["split_train"]
 
 # %% [markdown]
 # ## Step 5: Display the results
@@ -259,9 +259,9 @@ clean_result, profile_result, split_result = results["clean_train"], results["pr
 #
 # - `result.report()`: Formatted text summary.
 # - `result.findings`: Structured finding objects.
-# - The numbers behind the findings. For `data-analysis`, `result.output.raw` holds the workflow-specific raw
-#   metrics. `data-cleaning` and `data-splitting` run as chains of steps, so their results hold each step's output
-#   in `result.steps`, by step name; the split's part indices are in `result.steps["split"].details["indices"]`.
+# - The numbers behind the findings. All three workflows run as chains of steps, so their results hold each step's
+#   output in `result.steps`, by step name. The split's part indices are in `result.steps["split"].details["indices"]`,
+#   and the audit's verdict is `result.verdict`.
 #
 # You can call `report(detailed=False)` for high-level summaries, or `report(detailed=True)`
 # for per-finding breakdowns.
@@ -316,30 +316,24 @@ if outlier_indices:
     )
 
 # %% [markdown]
-# ### 5d. Data analysis: Cross-split comparisons
+# ### 5d. Audit: The verdict
 #
-# The analysis task evaluates both train and test splits. It reports cross-split
-# overlap, class parity, and duplicate leakage across splits.
+# The audit task judges train and test together. Its verdict says whether the data is ready to
+# train on: a warning from a blocking check, such as leakage between the splits, makes it not
+# ready, and any other warning, or a check it could not assess, is a caveat. The task names the
+# BoVW extractor, so every check is assessed. Train and test share no image, and test has no
+# class train lacks, so nothing blocks. The verdict is ready with caveats: the outlier, metadata,
+# coverage and shortcut warnings.
 
 # %%
-print(f"Splits analyzed: {profile_result.metadata.split_names}")
+verdict = audit_result.verdict
+assert verdict is not None
 
-for pair, section in profile_result.output.raw.cross_split.items():
-    cs = section.model_dump()
-    leakage = cs["redundancy"]["duplicate_leakage"]
-    overlap = cs["label_health"]["label_overlap"]
-    parity = cs["label_health"]["label_parity"]
-
-    only = {key: value for key, value in overlap.items() if key.endswith("_only")}
-
-    print(f"\n{pair}")
-    print(f"  Duplicate leakage:  {leakage['exact_count']} exact, {leakage['near_count']} near")
-    print(f"  Shared classes:     {overlap['shared_classes']}")
-    print(f"  Classes in one split only: {only}")
-    print(
-        f"  Label parity:       chi2={parity['chi_squared']:.2f}, "
-        f"p={parity['p_value']:.4f}, significant={parity['significant']}"
-    )
+print(verdict.line())
+for item in verdict.blocking + verdict.warnings:
+    print(f"  [!!] {item.step:<32} {item.brief}")
+for item in verdict.not_assessed:
+    print(f"  [..] {item.step:<32} not assessed: {item.reason}")
 
 # %% [markdown]
 # ### 5e. Dataset splitting: Partition indices
@@ -484,9 +478,8 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # # Inspect executed tasks
 # jq -r 'keys[]' output/results/result.json
 #
-# # Print findings and severities: data-cleaning lists its findings at the top of its entry, and the
-# # other workflows in their report
-# jq -r 'to_entries[] | .key as $task | (.value.findings // .value.report.findings)[]
+# # Print findings and severities: each workflow lists its findings at the top of its entry
+# jq -r 'to_entries[] | .key as $task | .value.findings[]
 #        | "\($task)\t\(.severity)\t\(.title)"' output/results/result.json
 #
 # # Gate CI/CD pipelines on warnings
@@ -532,7 +525,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 #
 # - {doc}`Triage a dataset's metadata <metadata_triage>`: Deep dive into reading triage findings, distribution charts, and remediation policies.
 # - {doc}`Clean a dataset <data_cleaning>`: Deep dive into outlier and duplicate detection.
-# - {doc}`Analyze dataset quality across splits <data_analysis>`: Multi-split quality profiling and distribution shift.
+# - {doc}`Audit a set of splits before training <audit>`: A verdict on train and evaluation splits, and a record of what was audited.
 # - [Split a dataset](dataset_splitting): Stratification, cross-validation folds, and group-aware splitting.
 
 # %% [markdown]

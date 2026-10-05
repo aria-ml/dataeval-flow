@@ -1,40 +1,49 @@
 # Find the Right Step
 
-The steps are grouped by the question a user brings. Under each question, the page names the preset that answers it,
-then the evaluators, combines, checks and transforms its chain runs, so a step can appear under several questions. A
-last bullet names the steps on the question that the preset does not run, which you chain in a
+The steps are grouped by the question a user brings. Under each question, the page names the presets that answer it,
+then the evaluators, combines, checks and transforms on that question that their chains run, so a step can appear under
+several questions. A last bullet names the steps on the question that no listed preset runs, which you chain in a
 [workflow of your own](../how_to/write_a_custom_workflow.md). Each name links its catalog entry. With no preset, chain
 the steps in a workflow of your own.
 
+To ask whether a set of splits is ready to train on, run [`audit`](presets.md#audit). One task answers
+[Is the data clean?](#is-the-data-clean), [Are the labels sound?](#are-the-labels-sound),
+[Does the data cover what the model must handle?](#does-the-data-cover-what-the-model-must-handle),
+[Could the model learn a shortcut?](#could-the-model-learn-a-shortcut) and
+[Are the splits fit to evaluate on?](#are-the-splits-fit-to-evaluate-on), and gives a verdict over them.
+
 ## Is the data clean?
 
-Finds outlier and duplicate images and boxes, judges class imbalance, and removes the outliers and duplicates.
+Finds outlier and duplicate images and boxes, judges class imbalance, and removes the outliers and duplicates. `audit`
+judges each split's outliers, duplicates and metadata issues.
 
-- **Preset:** [`data-cleaning`](presets.md#data-cleaning)
+- **Preset:** [`audit`](presets.md#audit) and [`data-cleaning`](presets.md#data-cleaning)
 - **Evaluators:** [`outliers`](evaluators.md#outliers), [`duplicates`](evaluators.md#duplicates),
-  [`label-health`](evaluators.md#label-health)
+  [`label-health`](evaluators.md#label-health), [`factor-triage`](evaluators.md#factor-triage)
 - **Combines:** [`outliers-by-class`](combines.md#outliers-by-class)
 - **Checks:** [`image-outliers`](checks.md#image-outliers), [`target-outliers`](checks.md#target-outliers),
   [`classwise-outliers`](checks.md#classwise-outliers), [`image-duplicates`](checks.md#image-duplicates),
-  [`class-imbalance`](checks.md#class-imbalance)
+  [`class-imbalance`](checks.md#class-imbalance), [`metadata-issues`](checks.md#metadata-issues)
 - **Transforms:** [`remove`](transforms.md#remove)
 
 ## Are the labels sound?
 
 Measures how a Dataset's labels spread over its classes, and warns on classes that are too few, too uneven or missing
-from train.
+from train, and, where `ontology:` is set, on class names that resolve to no ontology concept, or to several.
 
-- **Preset:** none yet; chain its steps in a [workflow of your own](../how_to/write_a_custom_workflow.md)
-- **Evaluators:** [`label-health`](evaluators.md#label-health)
+- **Preset:** [`audit`](presets.md#audit)
+- **Evaluators:** [`label-health`](evaluators.md#label-health),
+  [`label-reconciliation`](evaluators.md#label-reconciliation)
 - **Checks:** [`class-imbalance`](checks.md#class-imbalance), [`class-sufficiency`](checks.md#class-sufficiency),
-  [`untrained-classes`](checks.md#untrained-classes)
+  [`untrained-classes`](checks.md#untrained-classes), [`label-conformance`](checks.md#label-conformance)
 
 ## Do the labels match an ontology?
 
 Judges a Dataset's class names against a declared ontology. In a workflow of your own, `conform` relabels the
 Dataset onto the ontology.
 
-- **Preset:** [`label-space`](presets.md#label-space)
+- **Preset:** [`label-space`](presets.md#label-space); [`audit`](presets.md#audit) runs `label-reconciliation` and
+  `label-conformance` on each split where `ontology:` is set
 - **Evaluators:** [`representation`](evaluators.md#representation),
   [`label-reconciliation`](evaluators.md#label-reconciliation), [`label-alignment`](evaluators.md#label-alignment),
   [`ontology-validation`](evaluators.md#ontology-validation)
@@ -48,7 +57,7 @@ Dataset onto the ontology.
 Judges how a Dataset's embeddings, classes and metadata factors cover their space, its class balance, and which
 classes fall short, and summarizes its metadata factors; detections are cropped first.
 
-- **Preset:** [`data-coverage`](presets.md#data-coverage)
+- **Preset:** [`audit`](presets.md#audit), on train, and [`data-coverage`](presets.md#data-coverage)
 - **Evaluators:** [`coverage`](evaluators.md#coverage), [`completeness`](evaluators.md#completeness),
   [`label-health`](evaluators.md#label-health), [`factor-summary`](evaluators.md#factor-summary),
   [`balance`](evaluators.md#balance), [`diversity`](evaluators.md#diversity),
@@ -64,31 +73,32 @@ classes fall short, and summarizes its metadata factors; detections are cropped 
 Measures how metadata factors relate to the class labels and how evenly their values spread, summarizes each factor, and
 warns when a factor tells much about the class.
 
-- **Preset:** none yet; chain its steps in a [workflow of your own](../how_to/write_a_custom_workflow.md)
-- **Evaluators:** [`balance`](evaluators.md#balance), [`parity`](evaluators.md#parity),
-  [`diversity`](evaluators.md#diversity), [`factor-summary`](evaluators.md#factor-summary)
+- **Preset:** [`audit`](presets.md#audit), on train
+- **Evaluators:** [`balance`](evaluators.md#balance), [`diversity`](evaluators.md#diversity),
+  [`factor-summary`](evaluators.md#factor-summary)
 - **Checks:** [`shortcut-risk`](checks.md#shortcut-risk)
+- **In a workflow of your own:** [`parity`](evaluators.md#parity); see the
+  [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ## Are the splits fit to evaluate on?
 
-Splits a Dataset, or cuts it into k folds, and judges the whole set's class balance, each part's class shares against
-the whole's and, under `naive` coverage when the task names an extractor, the items the whole set and each part leave
-uncovered. It does not judge leakage. A workflow of your own adds the items and group values two splits share, how far
-apart the splits sit, how much of each evaluation split lies beyond what train covers, whether each class train holds
-has enough labels in every split, and whether an evaluation split holds a class train lacks.
+`data-splitting` splits a Dataset, or cuts it into k folds, and judges the whole set's class balance, each part's class
+shares against the whole's and, under `naive` coverage when the task names an extractor, the items the whole set and
+each part leave uncovered. `audit` judges splits already made: the items and group values two splits share, how far
+apart the splits sit, how much of each evaluation split lies beyond what train covers, each split's class shares
+against train's, whether each class train holds has enough labels in every split, and whether an evaluation split holds
+a class train lacks.
 
-- **Preset:** [`data-splitting`](presets.md#data-splitting)
+- **Preset:** [`audit`](presets.md#audit) and [`data-splitting`](presets.md#data-splitting)
 - **Evaluators:** [`label-health`](evaluators.md#label-health), [`balance`](evaluators.md#balance),
-  [`diversity`](evaluators.md#diversity), [`coverage`](evaluators.md#coverage)
+  [`diversity`](evaluators.md#diversity), [`coverage`](evaluators.md#coverage),
+  [`duplicates`](evaluators.md#duplicates), [`factor-leakage`](evaluators.md#factor-leakage),
+  [`divergence`](evaluators.md#divergence), [`ood-kneighbors`](evaluators.md#ood-kneighbors)
 - **Checks:** [`class-imbalance`](checks.md#class-imbalance), [`uncovered-items`](checks.md#uncovered-items),
-  [`stratification`](checks.md#stratification)
-- **Transforms:** [`split`](transforms.md#split), [`kfold`](transforms.md#kfold), [`view`](transforms.md#view)
-- **In a workflow of your own:** [`duplicates`](evaluators.md#duplicates),
-  [`factor-leakage`](evaluators.md#factor-leakage), [`divergence`](evaluators.md#divergence),
-  [`ood-kneighbors`](evaluators.md#ood-kneighbors), [`leakage`](checks.md#leakage),
+  [`stratification`](checks.md#stratification), [`leakage`](checks.md#leakage),
   [`distribution-shift`](checks.md#distribution-shift), [`eval-coverage`](checks.md#eval-coverage),
-  [`class-sufficiency`](checks.md#class-sufficiency), [`untrained-classes`](checks.md#untrained-classes); see
-  [Audit a set of splits](../how_to/write_a_custom_workflow.md#11-audit-a-set-of-splits)
+  [`class-sufficiency`](checks.md#class-sufficiency), [`untrained-classes`](checks.md#untrained-classes)
+- **Transforms:** [`split`](transforms.md#split), [`kfold`](transforms.md#kfold), [`view`](transforms.md#view)
 
 ## Has new data drifted?
 
@@ -129,7 +139,8 @@ keeps the top.
 
 Reports the metadata factors a run could not read as configured, and a policy that repairs them.
 
-- **Preset:** [`metadata-triage`](presets.md#metadata-triage)
+- **Preset:** [`metadata-triage`](presets.md#metadata-triage); [`audit`](presets.md#audit) runs `factor-triage` and
+  `metadata-issues` on each split
 - **Evaluators:** [`factor-triage`](evaluators.md#factor-triage)
 - **Checks:** [`metadata-issues`](checks.md#metadata-issues)
 
@@ -137,7 +148,8 @@ Reports the metadata factors a run could not read as configured, and a policy th
 
 Records SHA-256 digests of every item's image and labels, and of its metadata.
 
-- **Preset:** none yet; chain its steps in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **Preset:** [`audit`](presets.md#audit), which records each split's content and metadata digests in its record of
+  what was audited
 - **Evaluators:** [`content-digest`](evaluators.md#content-digest)
 
 ## Preparing data

@@ -303,7 +303,7 @@ def label_space_records(
 
     One record per operand rather than one per result: a merge applies a different
     ``class_remap`` per operand against one shared target, so a single record would have
-    to union the mappings — and a union hashes to a value no audit ever produced. A merged
+    to union the mappings — and a union hashes to a value no run ever produced. A merged
     source's own view can then coarsen that shared target again, so it gets its own record
     under the source's own name.
     """

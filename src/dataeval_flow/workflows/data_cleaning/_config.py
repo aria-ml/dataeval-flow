@@ -53,7 +53,7 @@ class TargetOutliersSettings(BaseModel):
         description=(
             "Most targets (boxes), as a percentage of all, that may be flagged as outliers (unusual box sizes, aspect "
             "ratios, or annotation counts) before the finding warns; `null` judges nothing. Lower to 1% for "
-            "annotation-quality audits; raise to 5-10% for dense object detection."
+            "annotation-quality reviews; raise to 5-10% for dense object detection."
         ),
     )
 

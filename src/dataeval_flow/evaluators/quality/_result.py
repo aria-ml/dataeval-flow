@@ -121,6 +121,20 @@ class LabelHealthResult(EvaluatorResult[LabelHealthOutput]):
 
         return label_health_section(output)
 
+    def record_rows(self) -> list[tuple[str, str]]:
+        """The items; the labels, a box each on detection data and one per labelled item otherwise; the items with no
+        label; and the classes, counted and named."""
+        data = (self._serialized or {}).get("data")
+        if not data:
+            return []
+        names = [str(name) for name in data["label_counts_per_class"]]
+        return [
+            ("Items", f"{data['item_count']:,}"),
+            ("Labels", f"{data['label_count']:,}"),
+            ("Empty images", f"{data['empty_image_count']:,}"),
+            ("Classes", f"{len(names)}: {', '.join(names)}"),
+        ]
+
 
 class ContentDigestOutput(CoreOutput):
     """``content-digest``'s output: a Dataset's digests over every item.
@@ -155,6 +169,11 @@ class ContentDigestResult(EvaluatorResult[ContentDigestOutput]):
         from dataeval_flow.evaluators.quality._report import content_digest_section
 
         return content_digest_section(output)
+
+    def record_rows(self) -> list[tuple[str, str]]:
+        """Both digests, in full."""
+        data = (self._serialized or {}).get("data")
+        return [("Content digest", data["content"]), ("Metadata digest", data["metadata"])] if data else []
 
 
 class VerificationEntry(BaseModel):

@@ -7,7 +7,6 @@ asked. Catching them at config time costs a message instead of an hour.
 """
 
 import json
-import warnings
 from pathlib import Path
 from typing import Any
 
@@ -15,11 +14,6 @@ import pytest
 
 from dataeval_flow._policy import ResolvedPolicy, policy_for, policy_key, resolve_policy
 from dataeval_flow.config import MetadataConfigMixin, PipelineConfig
-from dataeval_flow.config._schemas._mixins import _LegacyMetadataMixin
-
-
-class _Legacy(MetadataConfigMixin, _LegacyMetadataMixin):
-    """A workflow config's metadata fields: the policy reference and the older spelling."""
 
 
 def _descriptor(tmp_path: Path, factors: dict, name: str = "policy.json", corrections: Any = None) -> Path:
@@ -45,23 +39,7 @@ def _config(**policy) -> PipelineConfig:
     return PipelineConfig.model_validate({"metadata": [{"name": "standard", **policy}]})
 
 
-class TestResolvingTheOlderSpelling:
-    """The per-workflow `metadata_*` fields keep working."""
-
-    def test_reads_them_when_no_policy_is_named(self):
-        params = _Legacy(
-            metadata_auto_bin_method="clusters",
-            metadata_exclude=["id"],
-            metadata_continuous_factor_bins={"temp_c": [0.0, 1.0]},
-            metadata_factor_source="coded",
-        )
-        policy = resolve_policy(params)
-
-        assert policy.auto_bin_method == "clusters"
-        assert policy.exclude == ("id",)
-        assert policy.continuous_factor_bins == {"temp_c": [0.0, 1.0]}
-        assert policy.factor_source == "coded"
-
+class TestResolvingNoPolicy:
     def test_an_empty_workflow_resolves_to_defaults(self):
         assert resolve_policy(MetadataConfigMixin()) == ResolvedPolicy()
 
@@ -87,17 +65,6 @@ class TestResolvingANamedPolicy:
     def test_a_reference_needs_a_config_to_resolve_against(self):
         with pytest.raises(ValueError, match="can only be resolved against a pipeline config"):
             resolve_policy(MetadataConfigMixin(metadata="standard"))
-
-    def test_naming_a_policy_and_the_older_fields_is_refused(self):
-        """Two sources disagreeing about one factor has no good resolution."""
-        params = _Legacy(metadata="standard", metadata_auto_bin_method="clusters")
-        with pytest.raises(ValueError, match="also sets"):
-            resolve_policy(params, _config())
-
-    def test_an_untouched_legacy_field_does_not_trip_the_check(self):
-        """`metadata_exclude` defaults to an empty list, which is not somebody setting it."""
-        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), _config(exclude=["id"]))
-        assert policy.exclude == ("id",)
 
 
 class TestApplyingADescriptor:
@@ -401,21 +368,19 @@ class TestPolicyKey:
 
 
 class TestPolicyFor:
-    """A workflow invoked directly still honours its own configured cuts."""
+    """A workflow invoked directly with no context policy resolves its own parameters."""
 
     def test_prefers_the_resolved_policy_on_the_context(self):
         class _Ctx:
             metadata_policy = ResolvedPolicy(auto_bin_method="clusters")
 
-        params = _Legacy(metadata_auto_bin_method="uniform_count")
-        assert policy_for(_Ctx(), params).auto_bin_method == "clusters"
+        assert policy_for(_Ctx(), MetadataConfigMixin()).auto_bin_method == "clusters"
 
     def test_falls_back_to_the_parameters(self):
         class _Ctx:
             metadata_policy = None
 
-        params = _Legacy(metadata_auto_bin_method="uniform_count")
-        assert policy_for(_Ctx(), params).auto_bin_method == "uniform_count"
+        assert policy_for(_Ctx(), MetadataConfigMixin()) == ResolvedPolicy()
 
 
 class TestDeriveFrom:
@@ -643,46 +608,6 @@ class TestStatsPolicyInPolicyKey:
         from dataeval_flow._policy import policy_key
 
         assert json.loads(policy_key(self._policy()))["stats"]["background"] is False
-
-
-class TestDeprecatedIncludeImageStats:
-    """The old spelling keeps working for one minor version, and says so."""
-
-    @staticmethod
-    def _params(**overrides):
-        """The analysis params, where `include_image_stats` lives.
-
-        `MetadataConfigMixin` cannot carry it: pydantic refuses an undeclared attribute.
-        `DataAnalysisConfig` is a `MetadataConfigMixin`, so `resolve_policy` takes the
-        value unchanged.
-        """
-        from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
-
-        base = {"outlier_method": "adaptive", "outlier_flags": ["pixel"]}
-        base.update(overrides)
-        return DataAnalysisConfig(**base)
-
-    def test_true_contributes_visual_and_pixel(self):
-        with pytest.warns(DeprecationWarning, match="intrinsic_factors"):
-            resolved = resolve_policy(self._params(include_image_stats=True))
-        assert resolved.intrinsic_factors == ("visual", "pixel")
-
-    def test_false_contributes_nothing_and_does_not_warn(self):
-        with warnings.catch_warnings(action="error"):
-            assert resolve_policy(self._params(include_image_stats=False)).intrinsic_factors == ()
-
-    def test_set_alongside_a_disagreeing_policy_is_an_error(self):
-        config = _config(intrinsic_factors=["dimension"])
-        params = self._params(metadata="standard", include_image_stats=True)
-        with pytest.raises(ValueError, match="include_image_stats"):
-            resolve_policy(params, config)
-
-    def test_the_field_is_marked_deprecated_for_config_authors(self):
-        """The schema marker is what reaches docs and editors; it must not be dropped."""
-        from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
-
-        schema = DataAnalysisConfig.model_json_schema()
-        assert schema["properties"]["include_image_stats"].get("deprecated") is True
 
 
 class TestDeclaringCorrectionsInYaml:
@@ -1098,15 +1023,8 @@ class TestDeriveFromCarriesTheReading:
 
 class TestTheMixins:
     def test_the_metadata_mixin_is_one_policy_name_like_the_stats_mixin(self):
-        """Each mixin names one policy; the older metadata fields live on the workflows that took them."""
+        """Each mixin names one policy."""
         from dataeval_flow.config import StatsConfigMixin
 
         assert set(MetadataConfigMixin.model_fields) == {"metadata"}
         assert set(StatsConfigMixin.model_fields) == {"stats"}
-
-    @pytest.mark.parametrize("workflow", ["data-analysis"])
-    def test_the_workflows_that_took_the_older_fields_still_do(self, workflow: str):
-        from dataeval_flow.workflows import get_workflow
-
-        fields = set(get_workflow(workflow).config_type.model_fields)
-        assert {"metadata", *_LegacyMetadataMixin.model_fields} <= fields

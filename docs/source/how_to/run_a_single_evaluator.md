@@ -1,7 +1,7 @@
 # Run a Single Evaluator
 
 Run one DataEval evaluator on a source, such as finding duplicates, without
-configuring a workflow. The result is DataEval's own output, with no health verdict.
+configuring a workflow. The result is DataEval's own output, with no health status.
 
 ## 1. See what is available
 

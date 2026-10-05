@@ -81,7 +81,8 @@ It runs `dataeval.quality.Outliers`, flagging the statistics that sit outside th
 
 - **Judged by:** [`image-outliers`](checks.md#image-outliers), [`target-outliers`](checks.md#target-outliers)
 - **Combined by:** [`outliers-by-class`](combines.md#outliers-by-class)
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning), [`data-prioritization`](presets.md#data-prioritization)
+- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning),
+  [`data-prioritization`](presets.md#data-prioritization)
 
 ```yaml
 evaluators:
@@ -125,7 +126,8 @@ It runs `dataeval.quality.Duplicates` across every source the task names.
 | `per_target` | `from_stats(per_target=...)` | DataEval's default |
 
 - **Judged by:** [`image-duplicates`](checks.md#image-duplicates), [`leakage`](checks.md#leakage)
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning), [`data-prioritization`](presets.md#data-prioritization)
+- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning),
+  [`data-prioritization`](presets.md#data-prioritization)
 
 ```yaml
 evaluators:
@@ -159,8 +161,8 @@ and the items that carry none.
 - **Judged by:** [`class-imbalance`](checks.md#class-imbalance), [`class-sufficiency`](checks.md#class-sufficiency),
   [`stratification`](checks.md#stratification), [`target-outliers`](checks.md#target-outliers),
   [`untrained-classes`](checks.md#untrained-classes)
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning), [`data-coverage`](presets.md#data-coverage),
-  [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning),
+  [`data-coverage`](presets.md#data-coverage), [`data-splitting`](presets.md#data-splitting)
 
 ```yaml
 metadata:
@@ -237,7 +239,7 @@ several concepts. The names are the Dataset's `index2label` values, in index ord
 | `ontology` | `ontology`: a name under `ontologies:`, a path, or an inline hierarchy | required |
 
 - **Judged by:** [`label-conformance`](checks.md#label-conformance)
-- **Used in:** [`label-space`](presets.md#label-space)
+- **Used in:** [`audit`](presets.md#audit), [`label-space`](presets.md#label-space)
 
 ```yaml
 ontologies:
@@ -354,7 +356,8 @@ logs a warning. Crop detections first with a `wrap` step, as `data-coverage` doe
 | `near_duplicate_factor` | `near_duplicate_factor` | DataEval's default (`0.5`) |
 
 - **Judged by:** [`class-coverage`](checks.md#class-coverage), [`uncovered-items`](checks.md#uncovered-items)
-- **Used in:** [`data-coverage`](presets.md#data-coverage), [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage),
+  [`data-splitting`](presets.md#data-splitting)
 
 ```yaml
 evaluators:
@@ -379,7 +382,7 @@ The embeddings are rescaled to the unit interval per dimension first, a constant
 It takes no parameters.
 
 - **Judged by:** [`dimensional-completeness`](checks.md#dimensional-completeness)
-- **Used in:** [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
 
 ```yaml
 evaluators:
@@ -420,7 +423,8 @@ It runs `dataeval.bias.Balance` on the Dataset's metadata.
 
 - **Judged by:** [`shortcut-risk`](checks.md#shortcut-risk)
 - **Combined by:** [`factor-gaps`](combines.md#factor-gaps)
-- **Used in:** [`data-coverage`](presets.md#data-coverage), [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage),
+  [`data-splitting`](presets.md#data-splitting)
 
 ```yaml
 evaluators:
@@ -480,7 +484,8 @@ It runs `dataeval.bias.Diversity` on the Dataset's metadata, overall and within 
 | `label` | `label`: a factor, or a list of factors, to condition on | the class labels |
 
 - **Judged by:** none
-- **Used in:** [`data-coverage`](presets.md#data-coverage), [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage),
+  [`data-splitting`](presets.md#data-splitting)
 
 ```yaml
 evaluators:
@@ -507,7 +512,7 @@ It reads the Dataset's metadata through DataEval's `Metadata`.
 | `metadata` | (DataEval Flow) the name of a `metadata:` policy | DataEval's default encoding |
 
 - **Judged by:** none
-- **Used in:** [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
 
 ```yaml
 metadata:
@@ -545,7 +550,7 @@ fails the run, naming the source. The `leakage` check judges the values both sou
 | `factors` | (DataEval Flow) the factors to compare, by name | required |
 
 - **Judged by:** [`leakage`](checks.md#leakage)
-- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **Used in:** [`audit`](presets.md#audit)
 
 ```yaml
 evaluators:
@@ -575,7 +580,7 @@ It runs `dataeval.core.divergence_mst` or `divergence_fnn`.
 | `method` | (DataEval Flow) `mst` or `fnn` | `mst` |
 
 - **Judged by:** [`distribution-shift`](checks.md#distribution-shift)
-- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **Used in:** [`audit`](presets.md#audit)
 
 ```yaml
 evaluators:
@@ -792,7 +797,7 @@ relates the share of its Output flagged to that percentile of train.
 - **Judged by:** [`eval-coverage`](checks.md#eval-coverage), [`ood`](checks.md#ood)
 - **Combined by:** [`factor-deviation`](combines.md#factor-deviation),
   [`factor-predictors`](combines.md#factor-predictors), [`ood-union`](combines.md#ood-union)
-- **Used in:** [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`audit`](presets.md#audit), [`ood-detection`](presets.md#ood-detection)
 
 ```yaml
 evaluators:
@@ -917,7 +922,7 @@ without a second walk.
 | `min_missing_fraction` | (DataEval Flow) the share of rows recording no value above which a factor is degenerate | `0.2` |
 
 - **Judged by:** [`metadata-issues`](checks.md#metadata-issues)
-- **Used in:** [`metadata-triage`](presets.md#metadata-triage)
+- **Used in:** [`audit`](presets.md#audit), [`metadata-triage`](presets.md#metadata-triage)
 
 ```yaml
 evaluators:
@@ -946,7 +951,7 @@ on the items' order. {py:func}`~dataeval_flow.dataset_digest` computes the same 
 It takes no parameters.
 
 - **Judged by:** none
-- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **Used in:** [`audit`](presets.md#audit)
 
 ```yaml
 evaluators:

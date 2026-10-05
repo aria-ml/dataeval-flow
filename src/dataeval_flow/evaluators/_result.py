@@ -179,3 +179,8 @@ class EvaluatorResult(Result[EvaluatorMetadata, TOutput]):
     def _dict_body(self) -> dict[str, object]:
         """DataEval's output as JSON, under ``output``."""
         return {"output": self._serialized}
+
+    def record_rows(self) -> list[tuple[str, str]]:
+        """What a preset's record of the data it read shows of this result, a labelled value per row: nothing, unless
+        a result class says what. A record names the evaluator types whose results it shows."""
+        return []

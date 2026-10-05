@@ -17,7 +17,7 @@ Each tier encodes more policy than the one below it.
 | Output | Raw numbers | Determinations (flags, groups, p-values) and the numbers behind them | Findings, each `ok`, `info` or `warning`, rolled up into a health status |
 | Configured under | not exposed | `evaluators:`, run by a task's `evaluator:` | a preset's `checks:`, or a `check:` step written beside the evaluator steps of a custom workflow; the workflow is run by a task's `workflow:` |
 
-## Determinations, not verdicts
+## Determinations, not judgments
 
 An evaluator applies DataEval's threshold and says *what* it found: this group of
 images is a near duplicate; this image's brightness is an outlier. It never says
@@ -25,7 +25,7 @@ whether that is a problem. That matches DataEval's own framing in
 [Acting on Results](https://dataeval.readthedocs.io/en/latest/concepts/ActingOnResults.html):
 every output is "a prompt to investigate, not a verdict".
 
-A check adds the verdict. `data-cleaning` runs DataEval's Duplicates and
+A check adds the judgment. `data-cleaning` runs DataEval's Duplicates and
 Outliers, and its checks compare what they found against their
 {term}`thresholds <Threshold>`, set under its `checks:`, and make a finding that warns
 where a threshold is passed. A check written as a step of a custom workflow judges the
@@ -33,6 +33,13 @@ same way; see [How thresholds work](../reference/checks.md#how-thresholds-work).
 Health, readiness and warnings come from checks' findings, and so does
 `--fail-on-warning`, which a workflow's warnings trip. An evaluator result has no
 health status, and `--fail-on-warning` never trips on one.
+
+A preset may add a verdict over its checks. `audit` names its blocking checks under
+`blocking:` and its accepted risks under `accepted:`: an unaccepted warning of a
+blocking check makes the verdict `not-ready`, and an accepted warning leaves it
+`ready-with-caveats`. Health still counts every warning, accepted or not, since it
+describes the data and the verdict records the decision. See the
+[Preset Catalog](../reference/presets.md#audit).
 
 ## When to use which
 

@@ -2,11 +2,7 @@
 
 __all__ = ["MetadataConfigMixin", "StatsConfigMixin"]
 
-from collections.abc import Mapping, Sequence
-
 from pydantic import BaseModel, Field
-
-from dataeval_flow.config._schemas._task import AutoBinMethod, FactorSource
 
 
 class MetadataConfigMixin(BaseModel):
@@ -22,48 +18,6 @@ class MetadataConfigMixin(BaseModel):
             "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so "
             "entries meant to be compared read their factors under one encoding. Leave unset for DataEval's "
             "defaults."
-        ),
-    )
-
-
-class _LegacyMetadataMixin(BaseModel):
-    """The older per-workflow spelling of a metadata policy, kept on the workflow configs that carried it.
-
-    Refused alongside ``metadata``, which supersedes it. Evaluator configs never take it.
-    """
-
-    metadata_auto_bin_method: AutoBinMethod | None = Field(
-        default=None,
-        description=(
-            "How a continuous factor with no declared bins is cut: `uniform_width`, `uniform_count` or "
-            "`clusters`. Kept for compatibility, and refused alongside `metadata`: prefer a policy's "
-            "`auto_bin_method`."
-        ),
-    )
-    metadata_exclude: Sequence[str] = Field(
-        default_factory=list,
-        description=(
-            "Factor names removed before any evaluator sees them. Kept for compatibility, and refused alongside "
-            "`metadata`: prefer a policy's `exclude`."
-        ),
-    )
-    metadata_continuous_factor_bins: Mapping[str, int | Sequence[float]] | None = Field(
-        default=None,
-        description=(
-            "Bin count (int) or explicit edges (list) per continuous factor. Kept for compatibility, and refused "
-            "alongside `metadata`: prefer a policy's `continuous_factor_bins`."
-        ),
-    )
-    metadata_factor_source: FactorSource | None = Field(
-        default=None,
-        description=(
-            "Which representation of each factor the bias statistics read. `coded` reads "
-            "the integer codes binning produced; `values` reads the measurements, which "
-            "recovers resolution a cut threw away at roughly 11x the cost; `auto` decides "
-            "per factor, keeping codes wherever somebody declared or ratified the cut and "
-            "reading values where nobody did. Leave unset for DataEval's default (`auto`). "
-            "It governs every bias number a workflow reports, so two workflows meant to be "
-            "compared want the same one."
         ),
     )
 

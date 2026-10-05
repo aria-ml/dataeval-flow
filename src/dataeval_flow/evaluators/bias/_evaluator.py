@@ -35,8 +35,7 @@ _EVALUATE: Mapping[InputKind, str] = {InputKind.METADATA: "evaluate"}
 def balance_arguments(config: BalanceConfig, policy: "ResolvedPolicy | None") -> dict[str, Any]:
     """``Balance``'s arguments: the config's, with the metadata policy's ``factor_source`` where the config sets none.
 
-    A shared policy then governs the evaluator's numbers as it governs ``data-analysis``'s, which passes the policy's
-    ``factor_source`` to ``Balance``.
+    A shared policy then governs the evaluator's numbers as it governs the rest of the run's.
     """
     arguments = dataeval_arguments(config)
     if "factor_source" not in arguments and policy is not None and policy.factor_source is not None:
