@@ -191,7 +191,10 @@ _MINIMAL = {
     "data-coverage": {"coverage": {"method": "naive"}},
     "data-prioritization": {"cleaning": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}},
     "data-splitting": {"rebalance": "interclass", "coverage": {"method": "naive"}},
-    "drift-monitoring": {"detectors": [{"name": "mmd", "type": "drift-mmd"}], "classwise": {"mmd": "class"}},
+    "drift-monitoring": {
+        "detectors": [{"name": "mmd", "type": "drift-mmd", "chunking": {"chunk_count": 5}}],
+        "classwise": {"mmd": "class"},
+    },
     "label-space": {"ontology": {"animal": {"cat": None}}},
     "metadata-triage": {},
     "ood-detection": {
@@ -215,7 +218,7 @@ def test_a_presets_steps_are_named_for_their_types(cls: type) -> None:
     entries = {entry.name: entry.type for entry in chain.evaluators or ()}
     detectors = {detector.name for detector in getattr(config, "detectors", ())}
     for name, type_id in entries.items():
-        if name not in detectors:
+        if not any(name == d or name.startswith(f"{d}-") for d in detectors):
             assert name == type_id, f"evaluator entry `{name}` is not named for its type `{type_id}`"
     for step in chain.steps:
         kind = next((kind for kind in _KINDS if kind in step), None)

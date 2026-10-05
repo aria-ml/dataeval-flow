@@ -157,3 +157,24 @@ def test_ood_detection_takes_factor_deviations_settings_under_its_type() -> None
     assert step["max_items"] == 9
     with pytest.raises(ValidationError, match="metadata_insights"):
         OODDetectionConfig.model_validate({"detectors": _DETECTORS, "metadata_insights": False})
+
+
+def test_data_prioritization_hands_its_cleaning_cluster_settings_to_its_evaluator_entries() -> None:
+    config = DataPrioritizationConfig.model_validate(
+        {
+            "cleaning": {
+                "outliers": {
+                    "flags": ["pixel"],
+                    "outlier_threshold": "zscore",
+                    "cluster_threshold": 2.5,
+                    "cluster_algorithm": "kmeans",
+                    "n_clusters": 3,
+                },
+                "duplicates": {"cluster_sensitivity": 0.9, "cluster_algorithm": "hdbscan", "n_clusters": 4},
+            }
+        }
+    )
+    chain = DataPrioritizationWorkflow.chain(config)
+    outliers, duplicates = _entry(chain, "outliers"), _entry(chain, "duplicates")
+    assert (outliers.cluster_threshold, outliers.cluster_algorithm, outliers.n_clusters) == (2.5, "kmeans", 3)
+    assert (duplicates.cluster_sensitivity, duplicates.cluster_algorithm, duplicates.n_clusters) == (0.9, "hdbscan", 4)
