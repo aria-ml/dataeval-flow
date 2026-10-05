@@ -43,9 +43,9 @@ gives the rule for each level, and the verdict's other fields. From Python the l
 the JSON it is `verdict.level`.
 
 The command's exit code doesn't read the verdict. Under the default `result: fail_on: failure`, it exits 1 only when a
-task fails, so a `not-ready` audit exits 0. `fail_on: warning` exits 3 on any warning, an accepted one included, since
-health counts the warnings the data has and the verdict records the decision made about them. Read the level from the
-JSON instead:
+task fails or an export can't be written, so a `not-ready` audit exits 0. `fail_on: warning` exits 3 on any warning,
+an accepted one included, since health counts the warnings the data has and the verdict records the decision made
+about them. Read the level from the JSON instead:
 
 ```bash
 jq -e '.["audit-splits"].verdict.level | IN("ready", "ready-with-caveats")' output/results/result.json
@@ -60,7 +60,7 @@ Choose what the gate refuses:
   whose only caveats are accepted risks goes through. Any other warning, or a check not assessed, stops training until
   a person fixes the data, accepts the warning under `accepted:`, or gives the check what it needs.
 - **Anything but `ready`.** An acceptance whose check warns keeps the verdict at `ready-with-caveats`, so once a
-  warning is accepted, this gate refuses until the data stops warning or the acceptance is removed.
+  warning is accepted, this gate refuses until the data stops warning.
 
 ## Refuse data that was not audited
 

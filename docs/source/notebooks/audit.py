@@ -302,9 +302,9 @@ for acceptance in verdict.accepted:
 #
 # The short report gives the verdict, then the record of what was audited, then one line per question. The record has
 # a column per split: its source and view, its items, labels and classes, its metadata factors, and the digests of its
-# content and its metadata. Below them are the run's library versions and extractor, and the criteria in force: every
-# check's settings, the blocking checks, and each acceptance with its reason. Call `report(detailed=True)` or
-# `to_html()` for each finding's evidence and the next steps.
+# content and its metadata. Below them are the run's library versions and extractor, and the criteria in force: the
+# settings of each check the chain ran, the blocking checks, and each acceptance with its reason. Call
+# `report(detailed=True)` or `to_html()` for each finding's evidence and the next steps.
 
 # %%
 print(result.report(detailed=False))

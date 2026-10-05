@@ -137,8 +137,9 @@ Embeddings
 
 Evaluation Split
     A `val` or `test` split whose labels or coverage are judged against `train`'s: a split `data-splitting` makes, or
-    a source after the first that `audit` names. `class-sufficiency` and `untrained-classes` read them. It is not a {term}`test source<Test Source>`, which is tested
-    against a {term}`reference<Reference Dataset>`, the data a detector fits on. See
+    a source after the first that `audit` names. `class-sufficiency` and `untrained-classes` read them. It is not a
+    {term}`test source<Test Source>`, which is tested against a {term}`reference<Reference Dataset>`, the data a
+    detector fits on. See
     [Are the splits fit to evaluate on?](index.md#are-the-splits-fit-to-evaluate-on).
 
 Evaluator
