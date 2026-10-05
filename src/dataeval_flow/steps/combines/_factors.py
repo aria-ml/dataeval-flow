@@ -196,10 +196,7 @@ class FactorDeviationConfig(_FactorsConfig):
     max_items: int = Field(
         default=50,
         gt=0,
-        description=(
-            "The most out-of-distribution agreed images explained, at most. ood-detection's `max_ood_insights` before "
-            "its port."
-        ),
+        description=("The most out-of-distribution agreed images explained, at most."),
     )
 
 

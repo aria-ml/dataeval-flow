@@ -40,7 +40,7 @@ class LeakageConfig(CheckConfig):
         ge=0,
         description=(
             "Most items, counted over every exact-duplicate group with members in two splits, that may leak before the "
-            "finding warns; `null` judges nothing. Legacy data-analysis warned on any."
+            "finding warns; `null` judges nothing."
         ),
     )
     near: int | None = Field(

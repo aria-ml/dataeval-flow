@@ -28,14 +28,12 @@ class LeafCoverageSettings(BaseModel):
         default=0.9,
         ge=0.0,
         le=1.0,
-        description=(
-            "The least share of the ontology's leaves with examples; `null` turns it off. Legacy `leaf_coverage`."
-        ),
+        description=("The least share of the ontology's leaves with examples; `null` turns it off."),
     )
     empty_branches: int | None = Field(
         default=0,
         ge=0,
-        description="Wholly empty branches tolerated; `null` turns it off. Legacy `dark_branch_count`.",
+        description="Wholly empty branches tolerated; `null` turns it off.",
     )
 
 

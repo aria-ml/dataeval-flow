@@ -236,3 +236,26 @@ def test_finding_is_exported_beside_check_and_only_there() -> None:
 
     assert "Finding" in steps.__all__
     assert "Finding" not in workflows.__all__
+
+
+_LEGACY_NOTE = re.compile(r"\blegacy\b|before its port|health_thresholds", re.IGNORECASE)
+
+
+def _fields(model: type[BaseModel], seen: set[type] | None = None) -> list[tuple[str, str]]:
+    """Every (model.field, description) under `model`, through nested models."""
+    seen = seen if seen is not None else set()
+    if model in seen:
+        return []
+    seen.add(model)
+    found = []
+    for name, field in model.model_fields.items():
+        found.append((f"{model.__name__}.{name}", field.description or ""))
+        for nested in _models(field.annotation):
+            found += _fields(nested, seen)
+    return found
+
+
+@pytest.mark.parametrize("cls", [cls for cls in _STEPS if cls.name not in _LEGACY], ids=_id)
+def test_a_setting_says_what_it_does_not_what_it_was_called(cls: type) -> None:
+    stale = [path for path, text in _fields(cls.config_type) if _LEGACY_NOTE.search(text)]
+    assert stale == [], f"{stale} cite a legacy name: the CHANGELOG carries the migration (naming spec §7.5)"

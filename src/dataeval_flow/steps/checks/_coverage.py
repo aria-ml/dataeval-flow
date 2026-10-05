@@ -69,13 +69,13 @@ class DimensionalCompletenessConfig(CheckConfig):
         default=0.5,
         ge=0.0,
         le=1.0,
-        description="The score under which the finding warns; `null` turns it off. Legacy `completeness_score`.",
+        description="The score under which the finding warns; `null` turns it off.",
     )
     info: float | None = Field(
         default=0.8,
         ge=0.0,
         le=1.0,
-        description="The score under which the finding informs; `null` turns it off. Legacy's hard-coded 0.8.",
+        description="The score under which the finding informs; `null` turns it off.",
     )
 
     @model_validator(mode="after")
@@ -136,21 +136,18 @@ class ClassCoverageConfig(CheckConfig):
     dispersion: float | None = Field(
         default=0.5,
         ge=0.0,
-        description="A class's dispersion under which it is clustered; `null` turns it off. Legacy `min_dispersion`.",
+        description="A class's dispersion under which it is clustered; `null` turns it off.",
     )
     isotropy: float | None = Field(
         default=0.5,
         ge=0.0,
-        description="A class's isotropy under which it is one-dimensional; `null` turns it off. Legacy `min_isotropy`.",
+        description="A class's isotropy under which it is one-dimensional; `null` turns it off.",
     )
     near_duplicates: float | None = Field(
         default=0.1,
         ge=0.0,
         le=1.0,
-        description=(
-            "A class's near-duplicate share over which it is duplicate-padded; `null` turns it off. Legacy "
-            "`max_near_duplicate_fraction`."
-        ),
+        description=("A class's near-duplicate share over which it is duplicate-padded; `null` turns it off."),
     )
 
 

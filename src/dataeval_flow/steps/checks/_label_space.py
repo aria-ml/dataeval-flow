@@ -79,16 +79,13 @@ class LeafCoverageConfig(CheckConfig):
         le=1.0,
         description=(
             "The least share of the ontology's leaves that must have examples; under it the finding warns. `null` "
-            "turns this criterion off. Legacy data-coverage's `health_thresholds.leaf_coverage`."
+            "turns this criterion off."
         ),
     )
     empty_branches: int | None = Field(
         default=0,
         ge=0,
-        description=(
-            "Wholly empty branches tolerated; more warn. `null` turns this criterion off. Legacy data-coverage's "
-            "`health_thresholds.dark_branch_count`."
-        ),
+        description=("Wholly empty branches tolerated; more warn. `null` turns this criterion off."),
     )
 
 

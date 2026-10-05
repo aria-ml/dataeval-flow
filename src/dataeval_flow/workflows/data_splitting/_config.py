@@ -33,17 +33,14 @@ class DataSplittingCoverageSettings(BaseModel):
         default=50,
         gt=0,
         description=(
-            "Neighbors an item needs within the radius to count as covered, fewer than the smallest part's items. "
-            "Legacy's `num_observations`."
+            "Neighbors an item needs within the radius to count as covered, fewer than the smallest part's items."
         ),
     )
     percent: float = Field(
         default=0.01,
         gt=0.0,
         lt=1.0,
-        description=(
-            "Fraction of each part's items flagged as uncovered, for `adaptive` only. Legacy's `coverage_percent`."
-        ),
+        description=("Fraction of each part's items flagged as uncovered, for `adaptive` only."),
     )
 
 

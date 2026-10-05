@@ -30,10 +30,7 @@ class DriftThresholds(BaseModel):
 
     warn_on_drift: bool = Field(
         default=True,
-        description=(
-            "Unchunked, and per class: drift is a warning, or info when false. drift-monitoring's legacy "
-            "`any_drift_is_warning` and `classwise_any_drift_is_warning`."
-        ),
+        description=("Unchunked, and per class: drift is a warning, or info when false."),
     )
     chunk_percent: float | None = Field(
         default=10.0,
@@ -117,10 +114,7 @@ class DistributionShiftConfig(CheckConfig):
         default=0.5,
         ge=0.0,
         le=1.0,
-        description=(
-            "The divergence above which the finding warns; `null` never warns. Legacy data-analysis's "
-            "`health_thresholds.distribution_shift`."
-        ),
+        description=("The divergence above which the finding warns; `null` never warns."),
     )
     info: float | None = Field(
         default=None,
@@ -128,7 +122,7 @@ class DistributionShiftConfig(CheckConfig):
         le=1.0,
         description=(
             "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times "
-            "`warning`, legacy's band; `null` has no `info` band. Must not exceed `warning`."
+            "`warning`; `null` has no `info` band. Must not exceed `warning`."
         ),
     )
 

@@ -200,6 +200,11 @@
 
 ### Changed
 
+- Names follow one rule per kind (see Naming conventions): a step type and its title name one thing, as
+  `class-imbalance` and "Class Imbalance"; checks are named for what they judge (`image-outliers`);
+  a check's one bound is `warning`; a preset's settings for a step sit under that step's type in the
+  step's own words (`outliers: {flags, outlier_threshold}`), and its checks' under `checks:` keyed by check type; a
+  preset's steps are named for their types (`label-health`, `class-imbalance[train]`)
 - `Finding` is exported from `dataeval_flow.steps`, beside `Check`; `dataeval_flow.workflows` no longer exports it
 - A check warns only past its bound, never at it: `ood`, `ood-agreement` and `eval-coverage` (which warned and
   informed at their bounds), `drift`'s `chunk_percent` and `consecutive_chunks`, and `factor-coverage-gaps`. The

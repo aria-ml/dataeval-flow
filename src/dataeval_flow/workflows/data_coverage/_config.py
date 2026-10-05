@@ -175,7 +175,7 @@ class ClassCoverageSettings(BaseModel):
         ge=0.0,
         description=(
             "An assessable class's dispersion under which it is clustered, and the Class Coverage finding warns; "
-            "`null` turns this criterion off. Legacy `min_dispersion`."
+            "`null` turns this criterion off."
         ),
     )
     isotropy: float | None = Field(
@@ -183,7 +183,7 @@ class ClassCoverageSettings(BaseModel):
         ge=0.0,
         description=(
             "An assessable class's isotropy under which it is one-dimensional, and the Class Coverage finding "
-            "warns; `null` turns this criterion off. Legacy `min_isotropy`."
+            "warns; `null` turns this criterion off."
         ),
     )
     near_duplicates: float | None = Field(
@@ -192,7 +192,7 @@ class ClassCoverageSettings(BaseModel):
         le=1.0,
         description=(
             "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Class "
-            "Coverage finding warns; `null` turns this criterion off. Legacy `max_near_duplicate_fraction`."
+            "Coverage finding warns; `null` turns this criterion off."
         ),
     )
 
@@ -225,7 +225,7 @@ class DimensionalCompletenessSettings(BaseModel):
         le=1.0,
         description=(
             "The completeness score under which the Dimensional Completeness finding warns; `null` turns this band "
-            "off. Must not exceed `info`. Legacy `completeness_score`."
+            "off. Must not exceed `info`."
         ),
     )
     info: float | None = Field(
@@ -234,8 +234,8 @@ class DimensionalCompletenessSettings(BaseModel):
         le=1.0,
         description=(
             "The score under which the finding informs, at or over which it is ok; `null` turns this band off, and "
-            "with `warning` also `null` the finding judges nothing. Legacy's hard-coded 0.8, or `warning` where "
-            "that is higher and `info` is unset."
+            "with `warning` also `null` the finding judges nothing. An unset `info` is 0.8, or `warning` where that "
+            "is higher."
         ),
     )
 

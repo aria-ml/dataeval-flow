@@ -82,8 +82,7 @@ class OODDetectionChecks(BaseModel):
         default_factory=OODThresholds,
         alias="ood-agreement",
         description=(
-            "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s, as "
-            "legacy judged both with one pair."
+            "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s."
         ),
     )
 

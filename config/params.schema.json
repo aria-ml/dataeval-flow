@@ -391,7 +391,7 @@
             }
           ],
           "default": 0.5,
-          "description": "A class's dispersion under which it is clustered; `null` turns it off. Legacy `min_dispersion`.",
+          "description": "A class's dispersion under which it is clustered; `null` turns it off.",
           "title": "Dispersion"
         },
         "isotropy": {
@@ -405,7 +405,7 @@
             }
           ],
           "default": 0.5,
-          "description": "A class's isotropy under which it is one-dimensional; `null` turns it off. Legacy `min_isotropy`.",
+          "description": "A class's isotropy under which it is one-dimensional; `null` turns it off.",
           "title": "Isotropy"
         },
         "near_duplicates": {
@@ -420,7 +420,7 @@
             }
           ],
           "default": 0.1,
-          "description": "A class's near-duplicate share over which it is duplicate-padded; `null` turns it off. Legacy `max_near_duplicate_fraction`.",
+          "description": "A class's near-duplicate share over which it is duplicate-padded; `null` turns it off.",
           "title": "Near Duplicates"
         },
         "check": {
@@ -815,7 +815,7 @@
             }
           ],
           "default": 0.5,
-          "description": "The score under which the finding warns; `null` turns it off. Legacy `completeness_score`.",
+          "description": "The score under which the finding warns; `null` turns it off.",
           "title": "Warning"
         },
         "info": {
@@ -830,7 +830,7 @@
             }
           ],
           "default": 0.8,
-          "description": "The score under which the finding informs; `null` turns it off. Legacy's hard-coded 0.8.",
+          "description": "The score under which the finding informs; `null` turns it off.",
           "title": "Info"
         },
         "check": {
@@ -903,7 +903,7 @@
             }
           ],
           "default": 0.5,
-          "description": "The divergence above which the finding warns; `null` never warns. Legacy data-analysis's `health_thresholds.distribution_shift`.",
+          "description": "The divergence above which the finding warns; `null` never warns.",
           "title": "Warning"
         },
         "info": {
@@ -918,7 +918,7 @@
             }
           ],
           "default": null,
-          "description": "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times `warning`, legacy's band; `null` has no `info` band. Must not exceed `warning`.",
+          "description": "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times `warning`; `null` has no `info` band. Must not exceed `warning`.",
           "title": "Info"
         },
         "check": {
@@ -976,7 +976,7 @@
       "properties": {
         "warn_on_drift": {
           "default": true,
-          "description": "Unchunked, and per class: drift is a warning, or info when false. drift-monitoring's legacy `any_drift_is_warning` and `classwise_any_drift_is_warning`.",
+          "description": "Unchunked, and per class: drift is a warning, or info when false.",
           "title": "Warn On Drift",
           "type": "boolean"
         },
@@ -1490,7 +1490,7 @@
             }
           ],
           "default": 0.9,
-          "description": "The least share of the ontology's leaves that must have examples; under it the finding warns. `null` turns this criterion off. Legacy data-coverage's `health_thresholds.leaf_coverage`.",
+          "description": "The least share of the ontology's leaves that must have examples; under it the finding warns. `null` turns this criterion off.",
           "title": "Coverage"
         },
         "empty_branches": {
@@ -1504,7 +1504,7 @@
             }
           ],
           "default": 0,
-          "description": "Wholly empty branches tolerated; more warn. `null` turns this criterion off. Legacy data-coverage's `health_thresholds.dark_branch_count`.",
+          "description": "Wholly empty branches tolerated; more warn. `null` turns this criterion off.",
           "title": "Empty Branches"
         },
         "check": {
@@ -1605,7 +1605,7 @@
             }
           ],
           "default": 0,
-          "description": "Most items, counted over every exact-duplicate group with members in two splits, that may leak before the finding warns; `null` judges nothing. Legacy data-analysis warned on any.",
+          "description": "Most items, counted over every exact-duplicate group with members in two splits, that may leak before the finding warns; `null` judges nothing.",
           "title": "Exact"
         },
         "near": {
@@ -2785,7 +2785,7 @@
             }
           ],
           "default": 0.5,
-          "description": "An assessable class's dispersion under which it is clustered, and the Class Coverage finding warns; `null` turns this criterion off. Legacy `min_dispersion`.",
+          "description": "An assessable class's dispersion under which it is clustered, and the Class Coverage finding warns; `null` turns this criterion off.",
           "title": "Dispersion"
         },
         "isotropy": {
@@ -2799,7 +2799,7 @@
             }
           ],
           "default": 0.5,
-          "description": "An assessable class's isotropy under which it is one-dimensional, and the Class Coverage finding warns; `null` turns this criterion off. Legacy `min_isotropy`.",
+          "description": "An assessable class's isotropy under which it is one-dimensional, and the Class Coverage finding warns; `null` turns this criterion off.",
           "title": "Isotropy"
         },
         "near_duplicates": {
@@ -2814,7 +2814,7 @@
             }
           ],
           "default": 0.1,
-          "description": "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Class Coverage finding warns; `null` turns this criterion off. Legacy `max_near_duplicate_fraction`.",
+          "description": "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Class Coverage finding warns; `null` turns this criterion off.",
           "title": "Near Duplicates"
         }
       },
@@ -3096,7 +3096,7 @@
         },
         "max_items": {
           "default": 50,
-          "description": "The most out-of-distribution agreed images explained, at most. ood-detection's `max_ood_insights` before its port.",
+          "description": "The most out-of-distribution agreed images explained, at most.",
           "exclusiveMinimum": 0,
           "title": "Max Items",
           "type": "integer"
@@ -3171,7 +3171,7 @@
         },
         "min_representation": {
           "default": 5,
-          "description": "A combination is a gap where its count is under this while its expected count is over it. Legacy `gap_min_representation`.",
+          "description": "A combination is a gap where its count is under this while its expected count is over it.",
           "minimum": 1,
           "title": "Min Representation",
           "type": "integer"
@@ -4772,14 +4772,14 @@
         },
         "num_observations": {
           "default": 50,
-          "description": "Neighbors an item needs within the radius to count as covered, fewer than the smallest part's items. Legacy's `num_observations`.",
+          "description": "Neighbors an item needs within the radius to count as covered, fewer than the smallest part's items.",
           "exclusiveMinimum": 0,
           "title": "Num Observations",
           "type": "integer"
         },
         "percent": {
           "default": 0.01,
-          "description": "Fraction of each part's items flagged as uncovered, for `adaptive` only. Legacy's `coverage_percent`.",
+          "description": "Fraction of each part's items flagged as uncovered, for `adaptive` only.",
           "exclusiveMaximum": 1.0,
           "exclusiveMinimum": 0.0,
           "title": "Percent",
@@ -4997,7 +4997,7 @@
             }
           ],
           "default": 0.5,
-          "description": "The completeness score under which the Dimensional Completeness finding warns; `null` turns this band off. Must not exceed `info`. Legacy `completeness_score`.",
+          "description": "The completeness score under which the Dimensional Completeness finding warns; `null` turns this band off. Must not exceed `info`.",
           "title": "Warning"
         },
         "info": {
@@ -5012,7 +5012,7 @@
             }
           ],
           "default": 0.8,
-          "description": "The score under which the finding informs, at or over which it is ok; `null` turns this band off, and with `warning` also `null` the finding judges nothing. Legacy's hard-coded 0.8, or `warning` where that is higher and `info` is unset.",
+          "description": "The score under which the finding informs, at or over which it is ok; `null` turns this band off, and with `warning` also `null` the finding judges nothing. An unset `info` is 0.8, or `warning` where that is higher.",
           "title": "Info"
         }
       },
@@ -5037,7 +5037,7 @@
         },
         "method": {
           "default": "mst",
-          "description": "How the divergence is counted: `mst`, the cross-source edges of the minimum spanning tree over both sources, or `fnn`, nearest neighbours of the other source. Legacy data-analysis's `divergence_method`.",
+          "description": "How the divergence is counted: `mst`, the cross-source edges of the minimum spanning tree over both sources, or `fnn`, nearest neighbours of the other source.",
           "enum": [
             "mst",
             "fnn"
@@ -5750,7 +5750,7 @@
       "properties": {
         "warn_on_drift": {
           "default": true,
-          "description": "Unchunked, and per class: drift is a warning, or info when false. drift-monitoring's legacy `any_drift_is_warning` and `classwise_any_drift_is_warning`.",
+          "description": "Unchunked, and per class: drift is a warning, or info when false.",
           "title": "Warn On Drift",
           "type": "boolean"
         },
@@ -7380,7 +7380,7 @@
             }
           ],
           "default": 0.9,
-          "description": "The least share of the ontology's leaves with examples; `null` turns it off. Legacy `leaf_coverage`.",
+          "description": "The least share of the ontology's leaves with examples; `null` turns it off.",
           "title": "Coverage"
         },
         "empty_branches": {
@@ -7394,7 +7394,7 @@
             }
           ],
           "default": 0,
-          "description": "Wholly empty branches tolerated; `null` turns it off. Legacy `dark_branch_count`.",
+          "description": "Wholly empty branches tolerated; `null` turns it off.",
           "title": "Empty Branches"
         }
       },
@@ -7797,7 +7797,7 @@
         },
         "ood-agreement": {
           "$ref": "#/$defs/OODThresholds",
-          "description": "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s, as legacy judged both with one pair."
+          "description": "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s."
         }
       },
       "title": "OODDetectionChecks",
