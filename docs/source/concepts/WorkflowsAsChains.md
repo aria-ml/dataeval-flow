@@ -83,7 +83,7 @@ settings.
 Evaluators judge nothing: they report what DataEval determined. A **check** step judges it. It reads Outputs,
 compares them with thresholds written beside it, and makes findings, each `ok`, `info` or `warning`. A **combine** step
 makes an Output a check reads, from Outputs and the Datasets they were computed on, such as outliers counted per class.
-The [Check and Combine Catalog](../reference/checks.md) lists the built-in ones.
+The [Check Catalog](../reference/checks.md) and the [Combine Catalog](../reference/combines.md) list the built-in ones.
 
 ```yaml
 evaluators:

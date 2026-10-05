@@ -301,7 +301,7 @@ images are exact duplicates, or 5% near duplicates. `imbalance` warns where the 
 outnumbers its smallest by more than 3 to 1. The task's health now says `warning` where either does, and
 `--fail-on-warning` fails the run. The report gives each finding a section, with the step it judged below it: the
 Image Duplicates finding holds `dupes`' duplicate groups, and the Class Imbalance finding holds `labels`' class counts.
-The [Check and Combine Catalog](../reference/checks.md) lists every check and its thresholds.
+The [Check Catalog](../reference/checks.md) lists every check and its thresholds.
 
 ## 6. Run data-cleaning as a step
 
@@ -539,5 +539,5 @@ Notice:
 - [Export a dataset](export_a_dataset.md) — formats, modes, and what an export records and drops
 - [Evaluator Catalog](../reference/evaluators.md) — every evaluator a step can run
 - [Transform Catalog](../reference/transforms.md) — every transform a step can run, with its settings
-- [Check and Combine Catalog](../reference/checks.md) — every check a step can run, with its thresholds
+- [Check Catalog](../reference/checks.md) — every check a step can run, with its thresholds
 - [Combine Catalog](../reference/combines.md) — every combine a step can run, with its settings

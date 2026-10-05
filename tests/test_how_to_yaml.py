@@ -50,6 +50,7 @@ _PAGES: dict[str, dict[str, Any]] = {
     "concepts/WorkflowsAsChains.md": _CHAINS_BASE,
     "reference/presets.md": _BASE,
     "reference/combines.md": _BASE,
+    "reference/checks.md": _BASE,
     "how_to/export_a_dataset.md": _EXPORT_BASE,
 }
 
