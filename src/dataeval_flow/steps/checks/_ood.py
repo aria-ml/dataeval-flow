@@ -135,7 +135,7 @@ class OODAgreementCheck(Check[OODAgreementConfig]):
         findings = [
             Finding(
                 severity=ood_severity(percent, config),
-                title="Aggregate OOD (all detectors agree)",
+                title=self.title,
                 brief=f"{mutual}/{len(union.union)} OOD images agreed by all detectors ({percent:.1f}%)",
                 description=(
                     "Ranked most out of distribution first. A score is a multiple of the detector's threshold, "
@@ -149,7 +149,7 @@ class OODAgreementCheck(Check[OODAgreementConfig]):
             findings.append(
                 Finding(
                     severity="info",
-                    title="Unique OOD Samples (single-detector only)",
+                    title=self.title,
                     brief=f"{unique} image(s) flagged by only one detector",
                     description=f"Images one detector flagged and the others did not{partial}.",
                 )

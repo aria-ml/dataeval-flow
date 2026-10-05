@@ -200,10 +200,12 @@
 
 ### Changed
 
-- The findings that data-cleaning and data-coverage shipped are retitled, so anything that matches a title must
-  follow: "Duplicates" is "Image Duplicates"; "Label Distribution", and "Label/Directory_Name Distribution" on an
-  ImageFolder source, are "Class Imbalance"; "Embedding Coverage" is "Class Coverage"; "Metadata Coverage Gaps" is
-  "Factor Coverage Gaps"; "Label Space Coverage" is "Leaf Coverage"; and "Class Balance Worklist" is "Class Shortfall"
+- The findings that data-cleaning, data-coverage and ood-detection shipped are retitled, so anything that matches a
+  title must follow: "Duplicates" is "Image Duplicates"; "Label Distribution", and "Label/Directory_Name Distribution"
+  on an ImageFolder source, are "Class Imbalance"; "Embedding Coverage" is "Class Coverage"; "Metadata Coverage Gaps"
+  is "Factor Coverage Gaps"; "Label Space Coverage" is "Leaf Coverage"; "Class Balance Worklist" is "Class Shortfall";
+  and "Aggregate OOD (all detectors agree)" and "Unique OOD Samples (single-detector only)" are both "OOD Agreement",
+  told apart by their briefs
 - Names follow one rule per kind (see Naming conventions): a step type and its title name one thing, as
   `class-imbalance` and "Class Imbalance"; checks are named for what they judge (`image-outliers`);
   a check's one bound is `warning`; a preset's settings for a step sit under that step's type in the

@@ -113,9 +113,9 @@ def test_the_agreement_check_judges_the_mutual_share_and_lists_unique_images() -
     config = OODAgreementConfig(input="agreement")
     node = SimpleNamespace(value=union_of([_A, _B]), config=None)
     aggregate, unique = OODAgreementCheck().run(config, {"input": node}, CheckContext("t", "s"))
-    assert (aggregate.severity, aggregate.title) == ("warning", "Aggregate OOD (all detectors agree)")
+    assert (aggregate.severity, aggregate.title) == ("warning", "OOD Agreement")
     assert aggregate.brief == "2/4 OOD images agreed by all detectors (40.0%)"
-    assert (unique.severity, unique.title) == ("info", "Unique OOD Samples (single-detector only)")
+    assert (unique.severity, unique.title) == ("info", "OOD Agreement")
     assert unique.brief == "2 image(s) flagged by only one detector"
 
 
@@ -145,7 +145,7 @@ def test_a_chain_combines_two_detectors_and_pictures_the_agreed_images() -> None
     union = (result.steps["agreement"].elements or {})["cam1"].output
     assert isinstance(union, OODUnionOutput)
     assert {asset.item.source for asset in result.assets} == {"tests[cam1]"}
-    assert result.findings[0].title == "Aggregate OOD (all detectors agree)"
+    assert result.findings[0].title == "OOD Agreement"
 
 
 def test_detectors_of_different_comparisons_are_refused_at_load() -> None:

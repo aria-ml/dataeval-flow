@@ -17,6 +17,8 @@ TITLES: dict[str, str] = {
     "Evaluation Coverage": "Eval Coverage",
     "OOD Factor Predictors": "Factor Predictors",
     "OOD Sample Metadata Deviations": "Factor Deviation",
+    "Aggregate OOD (all detectors agree)": "OOD Agreement",
+    "Unique OOD Samples (single-detector only)": "OOD Agreement",
 }
 
 

@@ -41,7 +41,7 @@ audit. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 | `eval-coverage` | check | `input`: an `ood-kneighbors` Output | Eval Coverage |
 | `leakage` | check | `duplicates`: `duplicates` Outputs over two splits; `factors`: `factor-leakage` Outputs | Leakage |
 | `drift` | check | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
-| `ood-agreement` | check | `input`: an `ood-union` Output | Aggregate OOD (all detectors agree), Unique OOD Samples |
+| `ood-agreement` | check | `input`: an `ood-union` Output | OOD Agreement: the share every detector flagged, and the images one alone flagged |
 | `ood` | check | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `metadata-issues` | check | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
 | `factor-gaps` | combine | `input`: a Dataset; `balance`: a `balance` Output computed on it | each factor's MI with the class, and the under-represented combinations |
@@ -400,7 +400,7 @@ level, and with both `null` the finding is `info`.
 
 Whether OOD detectors agree. The aggregate finding judges the percent of assessed test images every detector flagged,
 as `ood` judges its percent, and a second, `info` finding counts the images one detector alone flagged, where any
-did. Configured by {py:class}`~dataeval_flow.steps.checks.OODAgreementConfig`.
+did. Both are titled OOD Agreement, the check's title, and their briefs tell them apart. Configured by {py:class}`~dataeval_flow.steps.checks.OODAgreementConfig`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
