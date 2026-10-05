@@ -56,12 +56,13 @@ def test_chunked_briefs_its_chunks_and_warns_at_chunk_percent():
     drifted, total = (int(part) for part in finding.brief.split(" ")[0].split("/"))
     assert finding.brief.endswith("chunks drifted")
     assert total >= 1
-    assert finding.severity == ("warning" if drifted / total >= 0.10 else "info" if drifted else "ok")
+    assert finding.severity == ("warning" if drifted / total > 0.10 else "info" if drifted else "ok")
 
 
-def test_chunked_warns_at_consecutive_chunks_when_percent_is_off():
+def test_chunked_warns_past_consecutive_chunks_when_percent_is_off():
     finding = _finding(_SHIFTED, entry={"chunking": {"chunk_count": 4}}, chunk_percent=None, consecutive_chunks=1)
-    assert finding.severity == ("warning" if not finding.brief.startswith("0/") else "ok")
+    longest = int(finding.description.rsplit("max consecutive: ", 1)[1])
+    assert finding.severity == ("warning" if longest > 1 else "info" if longest else "ok")
 
 
 def test_chunked_with_both_thresholds_off_is_info():

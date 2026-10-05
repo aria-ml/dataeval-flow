@@ -39,12 +39,17 @@ class DriftThresholds(BaseModel):
         default=10.0,
         ge=0.0,
         le=100.0,
-        description="Chunked: the share of drifted chunks, in percent, at which the finding warns; `null` judges none.",
+        description=(
+            "Chunked: the share of drifted chunks, in percent, past which the finding warns; `null` judges none."
+        ),
     )
     consecutive_chunks: int | None = Field(
-        default=3,
+        default=2,
         ge=1,
-        description="Chunked: the longest run of drifted chunks at which the finding warns; `null` judges none.",
+        description=(
+            "Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row; "
+            "`null` judges none."
+        ),
     )
 
 
@@ -90,8 +95,8 @@ class DriftCheck(Check[DriftConfig]):
             longest = max(longest, run)
         percent = 100.0 * drifted / len(chunks)
         judged = config.chunk_percent is not None or config.consecutive_chunks is not None
-        warns = (config.chunk_percent is not None and drifted > 0 and percent >= config.chunk_percent) or (
-            config.consecutive_chunks is not None and longest >= config.consecutive_chunks
+        warns = (config.chunk_percent is not None and drifted > 0 and percent > config.chunk_percent) or (
+            config.consecutive_chunks is not None and longest > config.consecutive_chunks
         )
         severity = ("warning" if warns else "info" if drifted else "ok") if judged else "info"
         return [

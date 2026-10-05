@@ -992,7 +992,7 @@
             }
           ],
           "default": 10.0,
-          "description": "Chunked: the share of drifted chunks, in percent, at which the finding warns; `null` judges none.",
+          "description": "Chunked: the share of drifted chunks, in percent, past which the finding warns; `null` judges none.",
           "title": "Chunk Percent"
         },
         "consecutive_chunks": {
@@ -1005,8 +1005,8 @@
               "type": "null"
             }
           ],
-          "default": 3,
-          "description": "Chunked: the longest run of drifted chunks at which the finding warns; `null` judges none.",
+          "default": 2,
+          "description": "Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row; `null` judges none.",
           "title": "Consecutive Chunks"
         },
         "input": {
@@ -1092,7 +1092,7 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "description": "The percent of assessed test images flagged past which the finding warns; `null` never warns.",
           "title": "Warning"
         },
         "info": {
@@ -1107,7 +1107,7 @@
             }
           ],
           "default": 2.0,
-          "description": "The percent flagged at which the finding is `info`, below which it is `ok`; `null` is never `info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so `2.0` suits `threshold_perc: 99`.",
+          "description": "The percent flagged past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so `2.0` suits `threshold_perc: 99`.",
           "title": "Info"
         },
         "input": {
@@ -1183,8 +1183,8 @@
               "type": "null"
             }
           ],
-          "default": 3,
-          "description": "The number of gaps at which the finding warns: this many or more (`>=`); `null` judges nothing.",
+          "default": 2,
+          "description": "The most under-represented class-factor-value combinations before the finding warns; `null` never warns.",
           "title": "Warning"
         },
         "check": {
@@ -1882,7 +1882,7 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "description": "The percent of assessed test images flagged past which the finding warns; `null` never warns.",
           "title": "Warning"
         },
         "info": {
@@ -1897,7 +1897,7 @@
             }
           ],
           "default": 1.0,
-          "description": "The percent at which the finding is `info`, below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing. ood-detection's `health_thresholds.ood_pct_info` before its port.",
+          "description": "The percent past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing.",
           "title": "Info"
         },
         "input": {
@@ -1983,7 +1983,7 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "description": "The percent of assessed test images flagged past which the finding warns; `null` never warns.",
           "title": "Warning"
         },
         "info": {
@@ -1998,7 +1998,7 @@
             }
           ],
           "default": 1.0,
-          "description": "The percent at which the finding is `info`, below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing. ood-detection's `health_thresholds.ood_pct_info` before its port.",
+          "description": "The percent past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing.",
           "title": "Info"
         },
         "input": {
@@ -3554,8 +3554,8 @@
               "type": "null"
             }
           ],
-          "default": 3,
-          "description": "The number of under-represented class-factor-value combinations at which the Factor Coverage Gaps finding warns, this many or more; fewer inform, and `null` never warns.",
+          "default": 2,
+          "description": "The most under-represented class-factor-value combinations before the Factor Coverage Gaps finding warns; `null` never warns.",
           "title": "Warning"
         }
       },
@@ -5943,7 +5943,7 @@
             }
           ],
           "default": 10.0,
-          "description": "Chunked: the share of drifted chunks, in percent, at which the finding warns; `null` judges none.",
+          "description": "Chunked: the share of drifted chunks, in percent, past which the finding warns; `null` judges none.",
           "title": "Chunk Percent"
         },
         "consecutive_chunks": {
@@ -5956,8 +5956,8 @@
               "type": "null"
             }
           ],
-          "default": 3,
-          "description": "Chunked: the longest run of drifted chunks at which the finding warns; `null` judges none.",
+          "default": 2,
+          "description": "Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row; `null` judges none.",
           "title": "Consecutive Chunks"
         }
       },
@@ -8252,7 +8252,7 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of assessed test images flagged at which the finding warns; `null` never warns. ood-detection's `health_thresholds.ood_pct_warning` before its port.",
+          "description": "The percent of assessed test images flagged past which the finding warns; `null` never warns.",
           "title": "Warning"
         },
         "info": {
@@ -8267,7 +8267,7 @@
             }
           ],
           "default": 1.0,
-          "description": "The percent at which the finding is `info`, below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing. ood-detection's `health_thresholds.ood_pct_info` before its port.",
+          "description": "The percent past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. With both `null`, the finding is `info` and judges nothing.",
           "title": "Info"
         }
       },

@@ -40,7 +40,7 @@ def _judge(output: Any, **thresholds: Any) -> Any:
 
 
 @pytest.mark.parametrize(
-    ("flagged", "severity"), [(0, "ok"), (1, "info"), (9, "info"), (10, "warning"), (40, "warning")]
+    ("flagged", "severity"), [(0, "ok"), (1, "ok"), (2, "info"), (10, "info"), (11, "warning"), (40, "warning")]
 )
 def test_severity_follows_the_percent_of_images_flagged(flagged: int, severity: str) -> None:
     finding = _judge(_output([True] * flagged + [False] * (100 - flagged)))
@@ -55,8 +55,9 @@ def test_a_null_threshold_judges_nothing_at_its_level() -> None:
     assert _judge(_output([False] * 100), warning=None, info=None).severity == "info"
 
 
-def test_info_zero_makes_nothing_flagged_info_as_legacy_did() -> None:
-    assert _judge(_output([False] * 10), info=0.0).severity == "info"
+def test_info_zero_makes_any_flagged_image_info_and_none_ok() -> None:
+    assert _judge(_output([False] * 10), info=0.0).severity == "ok"
+    assert _judge(_output([True] + [False] * 9), info=0.0).severity == "info"
 
 
 def test_on_detection_rows_the_percent_is_of_assessed_images_and_detections_are_counted() -> None:

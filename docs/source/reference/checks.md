@@ -53,8 +53,9 @@ audit. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 ## How thresholds work
 
 A check's thresholds are written beside it, in the step entry, like a transform's settings. Each is a percentage or a
-ratio, and a finding warns where the measured value passes it. `null` switches a threshold off: the finding is still
-made, as `info`. The defaults are `data-cleaning`'s `health_thresholds`.
+ratio, and a finding warns where the measured value passes it. A value equal to a bound does not warn: the bound is the
+last value that does not. `null` switches a threshold off: the finding is still made, as `info`. The defaults are
+`data-cleaning`'s `health_thresholds`.
 A check with a criterion that has no threshold, such as an unmet share, an ambiguous name or an empty class, keeps
 judging it, so its finding can still be `ok` or `warning` when its thresholds are `null`.
 
@@ -112,14 +113,14 @@ Configured by {py:class}`~dataeval_flow.steps.checks.ClasswiseOutliersConfig`. I
 
 ### `factor-coverage-gaps`
 
-Whether class-factor-value combinations are under-represented: a warning at `warning` gaps or more, `info` with fewer,
+Whether class-factor-value combinations are under-represented: a warning past `warning` gaps, `info` up to that many,
 `ok` with none, and the gaps as a table, largest deficit first. Configured by
 {py:class}`~dataeval_flow.steps.checks.FactorCoverageGapsConfig`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `factor-gaps` Output |
-| `warning` | a count, or `null` | `3` | The number of gaps at which the finding warns, this many or more; `null` judges nothing |
+| `warning` | a count, or `null` | `2` | The most under-represented class-factor-value combinations before the finding warns; `null` never warns |
 
 ### `image-duplicates`
 
@@ -361,14 +362,14 @@ has about 100 minus that percent flagged by construction, so `info: 2.0` suits `
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | An `ood-kneighbors` Output fitted on train and run on one evaluation split |
-| `warning` | a percentage, or `null` | `10.0` | The percent flagged at which the finding warns |
-| `info` | a percentage, or `null` | `2.0` | The percent at which the finding is `info`, below which it is `ok` |
+| `warning` | a percentage, or `null` | `10.0` | The percent flagged past which the finding warns |
+| `info` | a percentage, or `null` | `2.0` | The percent past which the finding is `info`, at or below which it is `ok` |
 
 ### `drift`
 
 Whether a drift detector found drift. Configured by {py:class}`~dataeval_flow.steps.checks.DriftConfig`. Without
 chunking, drift is a warning, or `info` where `warn_on_drift` is false. With chunking, the finding warns when the share
-of drifted chunks or the longest run of drifted chunks reaches its limit, is `info` when some chunks drifted but
+of drifted chunks or the longest run of drifted chunks passes its limit, is `info` when some chunks drifted but
 neither does, and is `ok` when no chunk drifted. With both limits `null` it judges nothing, and is `info` whether or
 not a chunk drifted.
 
@@ -377,23 +378,23 @@ not a chunk drifted.
 | `input` | an address | required | A drift evaluator's Output |
 | `subject` | text, or `null` | `null` | The finding's title, a `not assessed` one's too; unset, the evaluator's title, followed by its entry's name where that differs from its type |
 | `warn_on_drift` | true or false | `true` | Unchunked, and per class: whether drift warns, or is `info` |
-| `chunk_percent` | a percentage, or `null` | `10.0` | Chunked: the share of drifted chunks at which the finding warns |
-| `consecutive_chunks` | an integer of at least 1, or `null` | `3` | Chunked: the longest run of drifted chunks at which the finding warns |
+| `chunk_percent` | a percentage, or `null` | `10.0` | Chunked: the share of drifted chunks past which the finding warns |
+| `consecutive_chunks` | an integer of at least 1, or `null` | `2` | Chunked: the longest run of drifted chunks past which the finding warns, so 2 warns on three in a row |
 
 ### `ood`
 
 How much of a test source an OOD detector flagged, as a percent of the images it assessed. On a detector's
 `uncertainty` rows, an image with no detection at the confidence is not assessed, and the brief also counts the
-detections flagged. Configured by {py:class}`~dataeval_flow.steps.checks.OODConfig`. The finding warns from
-`warning` percent, is `info` from `info` percent, and is `ok` below both; a `null` threshold judges nothing at its
+detections flagged. Configured by {py:class}`~dataeval_flow.steps.checks.OODConfig`. The finding warns past
+`warning` percent, is `info` past `info` percent, and is `ok` at or below it; a `null` threshold judges nothing at its
 level, and with both `null` the finding is `info`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | An OOD evaluator's Output |
 | `subject` | text, or `null` | `null` | The finding's title; unset, the evaluator's title, followed by its entry's name where that differs from its type |
-| `warning` | a percentage, or `null` | `10.0` | The percent of assessed test images flagged at which the finding warns |
-| `info` | a percentage, or `null` | `1.0` | The percent at which the finding is `info`, below which it is `ok` |
+| `warning` | a percentage, or `null` | `10.0` | The percent of assessed test images flagged past which the finding warns |
+| `info` | a percentage, or `null` | `1.0` | The percent past which the finding is `info`, at or below which it is `ok` |
 
 ### `ood-agreement`
 
@@ -404,8 +405,8 @@ did. Configured by {py:class}`~dataeval_flow.steps.checks.OODAgreementConfig`.
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | An `ood-union` Output |
-| `warning` | a percentage, or `null` | `10.0` | The percent of assessed test images every detector flagged at which the finding warns |
-| `info` | a percentage, or `null` | `1.0` | The percent at which the finding is `info`, below which it is `ok` |
+| `warning` | a percentage, or `null` | `10.0` | The percent of assessed test images every detector flagged past which the finding warns |
+| `info` | a percentage, or `null` | `1.0` | The percent past which the finding is `info`, at or below which it is `ok` |
 
 ## Combines
 

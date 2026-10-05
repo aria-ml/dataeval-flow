@@ -55,9 +55,9 @@ print(finding.severity, finding.brief)  # warning, 3/10 chunks drifted
 ```
 
 The `drift` check is the step `<detector>-check`. Unchunked, it warns where the detector found drift, or reports
-`info` when `warn_on_drift` is false. Chunked, it warns where the share of drifted chunks reaches `chunk_percent` or
-the longest run of drifted chunks reaches `consecutive_chunks`, and it reports `info` where some chunk drifted but
-neither threshold is reached. A threshold of `null` judges nothing.
+`info` when `warn_on_drift` is false. Chunked, it warns where the share of drifted chunks passes `chunk_percent` or
+the longest run of drifted chunks passes `consecutive_chunks`, and it reports `info` where some chunk drifted but
+neither threshold is passed. A threshold of `null` judges nothing.
 
 A detector that raises, such as a chunked one whose reference is too small to split into 3 chunks, fails its own step
 and the task. The other detectors still run, and their findings are in the result.

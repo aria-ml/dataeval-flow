@@ -200,6 +200,9 @@
 
 ### Changed
 
+- A check warns only past its bound, never at it: `ood`, `ood-agreement` and `eval-coverage` (which warned and
+  informed at their bounds), `drift`'s `chunk_percent` and `consecutive_chunks`, and `factor-coverage-gaps`. The
+  last two now default to 2 (were 3), so three drifted chunks in a row, or three gaps, still warn
 - A chain whose `label-alignment` steps agree, and whose sources and `conform` steps record no label space, stamps
   its result's `label_space_digest` with the alignment's: the join key to a dataset conformed by its stanza
 - `representation`'s output records the `expected` names it ignored, under `extras.ignored_expected`, and its report

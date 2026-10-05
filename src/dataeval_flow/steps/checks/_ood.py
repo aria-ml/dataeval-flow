@@ -38,32 +38,27 @@ class OODThresholds(BaseModel):
         default=10.0,
         ge=0.0,
         le=100.0,
-        description=(
-            "The percent of assessed test images flagged at which the finding warns; `null` never warns. "
-            "ood-detection's `health_thresholds.ood_pct_warning` before its port."
-        ),
+        description=("The percent of assessed test images flagged past which the finding warns; `null` never warns."),
     )
     info: float | None = Field(
         default=1.0,
         ge=0.0,
         le=100.0,
         description=(
-            "The percent at which the finding is `info`, below which it is `ok`; `null` is never `info`. With both "
-            "`null`, the finding is `info` and judges nothing. ood-detection's `health_thresholds.ood_pct_info` before "
-            "its port."
+            "The percent past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. "
+            "With both `null`, the finding is `info` and judges nothing."
         ),
     )
 
 
 def ood_severity(percent: float, thresholds: OODThresholds) -> Severity:
-    """The severity `percent` earns: `warning` from `warning`, `info` from `info`, else `ok`. With both `null`,
-    `info`, which judges nothing, as `_limits.unjudged` rules for one threshold. "From" is `>=`, legacy's
-    comparison."""
+    """The severity `percent` earns: `warning` past `warning`, `info` past `info`, else `ok`; with both `null`,
+    `info`, which judges nothing, as `_limits.unjudged` rules for one threshold."""
     if thresholds.warning is None and thresholds.info is None:
         return "info"
-    if thresholds.warning is not None and percent >= thresholds.warning:
+    if thresholds.warning is not None and percent > thresholds.warning:
         return "warning"
-    if thresholds.info is not None and percent >= thresholds.info:
+    if thresholds.info is not None and percent > thresholds.info:
         return "info"
     return "ok"
 
@@ -171,9 +166,9 @@ class EvalCoverageConfig(CheckConfig, OODThresholds):
         ge=0.0,
         le=100.0,
         description=(
-            "The percent flagged at which the finding is `info`, below which it is `ok`; `null` is never `info`. A "
-            "split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so `2.0` "
-            "suits `threshold_perc: 99`."
+            "The percent flagged past which the finding is `info`, at or below which it is `ok`; `null` is never "
+            "`info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so "
+            "`2.0` suits `threshold_perc: 99`."
         ),
     )
 

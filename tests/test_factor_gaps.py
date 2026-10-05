@@ -79,7 +79,7 @@ def test_no_gaps_is_ok() -> None:
 
 
 @pytest.mark.parametrize(("n", "severity"), [(2, "info"), (3, "warning")])
-def test_count_gaps_or_more_warn(n: int, severity: str) -> None:
+def test_gaps_past_warning_warn(n: int, severity: str) -> None:
     assert _judge([_GAP] * n).severity == severity
 
 

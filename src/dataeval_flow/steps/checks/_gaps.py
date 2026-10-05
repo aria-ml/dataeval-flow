@@ -20,14 +20,16 @@ class FactorCoverageGapsConfig(CheckConfig):
 
     input: str = Field(description="A `factor-gaps` Output.")
     warning: int | None = Field(
-        default=3,
+        default=2,
         ge=0,
-        description=("The number of gaps at which the finding warns: this many or more (`>=`); `null` judges nothing."),
+        description=(
+            "The most under-represented class-factor-value combinations before the finding warns; `null` never warns."
+        ),
     )
 
 
 class FactorCoverageGapsCheck(Check[FactorCoverageGapsConfig]):
-    """``factor-coverage-gaps``: warns at `warning` gaps or more, informs with fewer, and is ok with none."""
+    """``factor-coverage-gaps``: warns past `warning` gaps, informs with up to that many, and is ok with none."""
 
     name: ClassVar[str] = "factor-coverage-gaps"
     description: ClassVar[str] = "Warns when enough class-factor-value combinations are under-represented."
@@ -46,7 +48,7 @@ class FactorCoverageGapsCheck(Check[FactorCoverageGapsConfig]):
                     description="No class-factor-value combinations are significantly under-represented.",
                 )
             ]
-        severity: Severity = "warning" if config.warning is not None and len(gaps) >= config.warning else "info"
+        severity: Severity = "warning" if config.warning is not None and len(gaps) > config.warning else "info"
         rows: list[dict[str, Cell]] = [
             {
                 "class": gap.class_name,

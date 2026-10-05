@@ -116,11 +116,11 @@ class CoverageGapsLimits(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     warning: int | None = Field(
-        default=3,
+        default=2,
         ge=0,
         description=(
-            "The number of under-represented class-factor-value combinations at which the Factor Coverage Gaps "
-            "finding warns, this many or more; fewer inform, and `null` never warns."
+            "The most under-represented class-factor-value combinations before the Factor Coverage Gaps finding "
+            "warns; `null` never warns."
         ),
     )
 
