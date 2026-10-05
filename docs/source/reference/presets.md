@@ -4,7 +4,19 @@ A preset is a workflow type whose settings expand to a chain of steps. It runs a
 workflow. Each section below gives the question the preset answers, its chain, its settings, its `checks:` defaults
 and an example. See
 [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md#workflow-types-as-presets) for how a preset runs. The
-chain tables show the chain the settings named above each table build; other settings add, drop or retune steps.
+chain tables show the chain that the settings above each table build; other settings add, drop or retune steps. A
+block's row lists every field the block takes; it may take fewer than its step does, and refuses any other.
+
+## Settings every preset shares
+
+Most presets take `ontology`, and some take `stats` or `metadata`, as each settings table shows. Each means the same in
+every preset that takes it:
+
+| Setting | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space the preset's labels are read under: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children, read as an inline hierarchy. It is recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` requires it and judges labels against it. `data-coverage` refuses it as the config loads, so a data-coverage run on a conformed source records no label space of its own; judge its labels with a `label-space` entry on the same source. |
+| `stats` | a stats policy name, or `null` | `null` | The name of a policy under the top-level `stats:` key, which the preset's image statistics are measured under. Declare one to measure named band groups or the image background; leave it unset to measure the whole image. `data-cleaning` and `data-prioritization` pass it to their `outliers` and `duplicates` steps, and outlier detection reads the policy's `outliers_from` views. `ood-detection` passes it to `factor-predictors` and `factor-deviation`, which read the statistics beside the metadata factors. |
+| `metadata` | a metadata policy name, or `null` | `null` | The name of a policy under the top-level `metadata:` key, which the preset's metadata factors are read under. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave it unset for DataEval's defaults. The preset passes it to every step of its chain that reads metadata. |
 
 ## `data-cleaning`
 
@@ -33,11 +45,11 @@ Outlier and duplicate detection for image datasets, and the dataset without them
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `stats` | a stats policy name, or `null` | `null` | Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image. |
-| `metadata` | a metadata policy name, or `null` | `null` | Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults. |
-| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own. |
-| `outliers` | a block | required | [`outliers`](evaluators.md#outliers)'s settings, less `name` and `per_target`; the preset sets `per_target: true` |
-| `duplicates` | a block | `merge_near_duplicates: true`, and the step's own defaults otherwise | [`duplicates`](evaluators.md#duplicates)'s settings, less `name` |
+| `stats` | a stats policy name, or `null` | `null` | The stats policy; see [Settings every preset shares](#settings-every-preset-shares) |
+| `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares) |
+| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
+| `outliers` | a block | required | [`outliers`](evaluators.md#outliers)'s `flags` and `outlier_threshold`, both required, and `cluster_threshold`, `cluster_algorithm` and `n_clusters`; the preset sets `per_target: true` |
+| `duplicates` | a block | `merge_near_duplicates: true`, and the step's own defaults otherwise | [`duplicates`](evaluators.md#duplicates)'s `flags`, `merge_near_duplicates`, `cluster_sensitivity`, `cluster_algorithm` and `n_clusters` |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
 **Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.data_cleaning.DataCleaningChecks`):
@@ -51,9 +63,9 @@ Outlier and duplicate detection for image datasets, and the dataset without them
 | [`class-imbalance`](checks.md#class-imbalance) | `warning: 5.0` |
 
 The other settings go to the evaluators: the `outliers` block to `outliers`, the `duplicates` block to `duplicates`,
-`metadata` to `label-health`, and `stats` to both `outliers` and `duplicates`. Each block holds the settings its step
-takes, spelled as the step spells them. Each `checks` entry is the threshold of the check that judges it. `clean`
-removes each image and box with at least one outlier flag, and each exact or near duplicate but the first of its group.
+`metadata` to `label-health`, and `stats` to both `outliers` and `duplicates`. Each block holds the step settings its row
+lists, spelled as the step spells them. Each `checks:` entry holds the settings of the check it names. `clean` removes
+each image and box with at least one outlier flag, and each exact or near duplicate but the first of its group.
 
 Its report gives each finding a section, with the evaluators it judged below it: the flagged images and boxes under
 Image Outliers, and the duplicate groups under Image Duplicates. The class counts sit under the first finding that read
@@ -105,8 +117,8 @@ Judges a Dataset's labels against a declared ontology: leaf coverage, conformanc
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `ontology` | an ontology name, a path, or a nested mapping | required | The ontology to judge labels against: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children. |
-| `representation` | a block | the step's own defaults | [`representation`](evaluators.md#representation)'s settings, less `name`: each class's minimum share, as `expected` |
-| `ontology-validation` | a block | the step's own defaults | [`ontology-validation`](evaluators.md#ontology-validation)'s settings, less `name`: a `label_pattern` |
+| `representation` | a block | the step's own defaults | [`representation`](evaluators.md#representation)'s `expected`: each class's minimum share; the preset sets its `ontology` |
+| `ontology-validation` | a block | the step's own defaults | [`ontology-validation`](evaluators.md#ontology-validation)'s `label_pattern`; the preset sets its `ontology` |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
 **Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.label_space.LabelSpaceChecks`):
@@ -144,7 +156,8 @@ detections are cropped first.
 - **Reads:** `data`, the task's one source.
 - **Makes:** no Dataset; its findings are its result.
 
-**Chain**, from `coverage: {method: naive}`:
+**Chain**, from `coverage: {method: naive}`, with an extractor for `coverage` and `completeness`; `crops` crops
+detection data and passes other Datasets through:
 
 | Step | Kind | Type | Reads |
 | --- | --- | --- | --- |
@@ -168,14 +181,14 @@ detections are cropped first.
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `metadata` | a metadata policy name, or `null` | `null` | Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults. |
-| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own. |
-| `representation` | a block | the step's own defaults | [`representation`](evaluators.md#representation)'s settings, less `name`: each class's minimum share, as `expected` |
-| `coverage` | a block | `method: adaptive` and the step's other defaults | [`coverage`](evaluators.md#coverage)'s settings, less `name`; the step runs when the task names an extractor |
+| `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares) |
+| `ontology` | `null`; any other value is refused | `null` | Refused when set, as the config loads: judge the labels with a `label-space` entry on the same source; see [Settings every preset shares](#settings-every-preset-shares) |
+| `representation` | a block | the step's own defaults | [`representation`](evaluators.md#representation)'s `expected`: each class's minimum share |
+| `coverage` | a block | `method: adaptive`, `num_observations: 50` where the step's own default is DataEval's 20, and the step's other defaults | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples` and `near_duplicate_factor`; the step runs when the task names an extractor |
 | `wrap` | a block | `params: {padding: 0.0, min_size: 1}` | [`wrap`](transforms.md#wrap)'s `params`, used on detection data only; the preset fixes the wrapper |
 | `completeness` | `true` or `false` | `true` | Whether the completeness steps run, when the task names an extractor |
-| `diversity` | a block | `method: simpson` | [`diversity`](evaluators.md#diversity)'s settings, less `name` |
-| `factor-gaps` | a block, or `false` | `mi_threshold: 0.1`, `min_representation: 5` | [`factor-gaps`](combines.md#factor-gaps)'s settings; `false` leaves out the gap analysis and its check |
+| `diversity` | a block | `method: simpson` | [`diversity`](evaluators.md#diversity)'s `method` |
+| `factor-gaps` | a block, or `false` | `mi_threshold: 0.1`, `min_representation: 5` | [`factor-gaps`](combines.md#factor-gaps)'s `mi_threshold` and `min_representation`; `false` leaves out the gap analysis and its check |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
 **Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.data_coverage.DataCoverageChecks`):
@@ -188,13 +201,13 @@ detections are cropped first.
 | [`uncovered-items`](checks.md#uncovered-items) | `warning: 10.0` |
 | [`dimensional-completeness`](checks.md#dimensional-completeness) | `warning: 0.5`, `info: 0.8` |
 
-Coverage asks whether a collection spans the conditions the model will meet, where cleaning asks whether its samples
-are sound. The preset evaluates class balance and metadata factor gaps. When the task names an
+Coverage asks whether a collection spans the conditions the model will meet, where cleaning asks whether its samples are
+sound. The preset evaluates class balance and metadata factor gaps. When the task names an
 {term}`extractor <Extractor>`, it adds per-class embedding variety and dimensional completeness. A class can be
-plentiful by count and still occupy little of the representation space, which the embedding steps show. `naive`
-coverage is judged by an `uncovered-items` step. The chain above is the one an extractor adds, and the `coverage` and
-`completeness` steps run only then. Run it before training and before fixing a reference set, while a gap can still
-be closed by collecting more data. See [Dataset Coverage](../concepts/Coverage.md).
+plentiful by count and still occupy little of the representation space, which the embedding steps show. `naive` coverage
+is judged by an `uncovered-items` step. The chain is the same without an extractor, but the `coverage` and
+`completeness` steps are then skipped with "requires an extractor". Run it before training and before fixing a reference
+set, while a gap can still be closed by collecting more data. See [Dataset Coverage](../concepts/Coverage.md).
 
 ```yaml
 workflows:
@@ -217,7 +230,7 @@ of 2 or more, `train` and `val` are lists keyed by fold.
 - **Reads:** `data`, the task's one source.
 - **Makes:** `train`, `val` and `test`.
 
-**Chain**, from `rebalance: interclass` and `coverage: {method: naive}`:
+**Chain**, from `rebalance: interclass` and `coverage: {method: naive}`, with an extractor for the `coverage` steps:
 
 | Step | Kind | Type | Reads |
 | --- | --- | --- | --- |
@@ -245,15 +258,15 @@ of 2 or more, `train` and `val` are lists keyed by fold.
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `metadata` | a metadata policy name, or `null` | `null` | Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults. |
-| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own. |
+| `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares) |
+| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
 | `folds` | a count | `1` | `1` splits once into train, val and test; 2 or more make that many train and val folds and one test. |
 | `test_frac` | a fraction | `0.2` | The share held out as `test`; `0` holds out none. |
 | `val_frac` | a fraction, or `null` | `null` | The share held out as `val` with `folds: 1`; unset is 0.1. With `folds` 2 or more, each fold's val is its 1/k, and setting this is refused. |
 | `stratify` | `true` or `false` | `true` | Whether each part keeps the whole's class proportions. |
 | `split_on` | a list of metadata factors, or `null` | `null` | Metadata factors whose values never straddle parts, such as a scene or site. Classification data only: DataEval ignores it on detection data, with a warning in the log. |
 | `rebalance` | `global`, `interclass`, or `null` | `null` | DataEval's `ClassBalance` method applied to each train; unset rebalances nothing. |
-| `coverage` | a block | `method: null`, `num_observations: 50`, `percent: 0.01` | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations` and `percent`; the steps run on the whole set and each part when the task names an extractor |
+| `coverage` | a block | `method: adaptive`, `num_observations: 50`, `percent: 0.01` | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations` and `percent`; the steps run on the whole set and each part when the task names an extractor |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
 **Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.data_splitting.DataSplittingChecks`):
@@ -295,7 +308,7 @@ Tests each incoming source for drift from a reference, whole, by chunk and by cl
 - **Makes:** no Dataset; its findings are its result.
 
 **Chain**, from `detectors: [{name: mmd, type: drift-mmd, chunking: {chunk_count: 5}}]` and
-`classwise: {mmd: class}`:
+`classwise: {mmd: class}`, with the task's extractor or the detector's own:
 
 | Step | Kind | Type | Reads |
 | --- | --- | --- | --- |
@@ -308,7 +321,7 @@ Tests each incoming source for drift from a reference, whole, by chunk and by cl
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own. |
+| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
 | `detectors` | a list of drift evaluator entries | required | Drift evaluator entries (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), each tested on every test source against the reference. An entry's `name` names its step. An entry may name its own `extractor:`. |
 | `classwise` | a mapping of detector name to `by:` | `{}` | Detectors to also run per key, unchunked, each with its `by:`: `{drift-mmd: class}`, `{uncertainty: predicted}`, or with settings; `min_items` is 2 unless written. |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
@@ -350,7 +363,7 @@ them.
 - **Makes:** no Dataset; its findings are its result.
 
 **Chain**, from the detectors `knn` (`ood-kneighbors`, with `distance_metric: euclidean`) and `dc`
-(`ood-domain-classifier`):
+(`ood-domain-classifier`), with the task's extractor or each detector's own:
 
 | Step | Kind | Type | Reads |
 | --- | --- | --- | --- |
@@ -369,12 +382,12 @@ them.
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `stats` | a stats policy name, or `null` | `null` | Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image. |
-| `metadata` | a metadata policy name, or `null` | `null` | Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults. |
-| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own. |
+| `stats` | a stats policy name, or `null` | `null` | The stats policy; see [Settings every preset shares](#settings-every-preset-shares) |
+| `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares) |
+| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
 | `detectors` | a list of OOD evaluator entries | required | OOD evaluator entries (`ood-kneighbors`, `ood-domain-classifier`), each scoring every test source against the reference. An entry's `name` names its step. An entry may name its own `extractor:`. |
 | `factor-predictors` | `false`, or `null` | `null` | `false` leaves out the `factor-predictors` step; it takes no settings. |
-| `factor-deviation` | a block, or `false` | `max_items: 50` | The `factor-deviation` step's settings; `false` leaves it out. |
+| `factor-deviation` | a block, or `false` | `max_items: 50` | [`factor-deviation`](combines.md#factor-deviation)'s `max_items`; `false` leaves it out. |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
 **Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.ood_detection.OODDetectionChecks`):
@@ -410,10 +423,13 @@ tasks:
 Ranks each pool against a reference for labeling, after optional cleaning, and keeps the top.
 
 - **Answers:** [Which items should be labeled next?](index.md#which-items-should-be-labeled-next)
-- **Reads:** `reference`, then `pools`: the first source is the reference and the rest are the pools.
+- **Reads:** `reference`, then `pools`: the first source is the reference and the rest are the pools. This is the
+  reverse of the [`prioritization`](evaluators.md#prioritization) evaluator's order, the data to rank and then the
+  reference, and the chain hands them to it in that order.
 - **Makes:** `selected`, each pool's top-ranked items.
 
-**Chain**, from `cleaning: {outliers: {flags: [pixel], outlier_threshold: zscore}}`:
+**Chain**, from `cleaning: {outliers: {flags: [pixel], outlier_threshold: zscore}}`, with an extractor for
+`prioritization`:
 
 | Step | Kind | Type | Reads |
 | --- | --- | --- | --- |
@@ -430,17 +446,17 @@ Ranks each pool against a reference for labeling, after optional cleaning, and k
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `stats` | a stats policy name, or `null` | `null` | Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image. |
-| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own. |
+| `stats` | a stats policy name, or `null` | `null` | The stats policy; see [Settings every preset shares](#settings-every-preset-shares) |
+| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
 | `method` | `knn`, `kmeans_distance`, `kmeans_complexity`, `hdbscan_distance` or `hdbscan_complexity` | `knn` | The ranking method. |
 | `k` | a count, or `null` | `null` | The neighbors the `knn` method counts; unset uses the square root of the number of samples. |
 | `c` | a count, or `null` | `null` | The clusters the `kmeans` and `hdbscan` methods make; unset uses the square root of the number of samples. |
 | `n_init` | a count, or `auto` | `auto` | The K-means initializations, for the `kmeans` methods only. |
-| `max_cluster_size` | a count, or `null` | `null` | The largest cluster, for the `hdbscan` methods only; unset sets none. |
+| `max_cluster_size` | a count, or `null` | `null` | The largest cluster, for the `hdbscan` methods only; unset sets no limit. |
 | `order` | `easy_first` or `hard_first` | `hard_first` | The sort direction: `easy_first` puts prototypical items first, and `hard_first` puts novel or challenging items first. |
 | `policy` | `difficulty`, `stratified` or `class_balanced` | `difficulty` | The selection policy: `difficulty` keeps the ranking's order, `stratified` selects across bins of it, and `class_balanced` balances the classes. |
 | `num_bins` | a count | `50` | The bins of the `stratified` policy. |
-| `cleaning` | a block, or `null` | `null` | Cleaning before ranking: [`outliers`](evaluators.md#outliers)'s and [`duplicates`](evaluators.md#duplicates)'s settings, less `name`, and `dup_types`; unset ranks the data as it is |
+| `cleaning` | a block, or `null` | `null` | Cleaning before ranking: `outliers`, required, and `duplicates`, which take the fields of [`data-cleaning`](#data-cleaning)'s blocks of the same names, with the same defaults; and `dup_types`, the duplicate kinds removed, `[exact, near]` unless set. Unset ranks the data as it is |
 | `select` | a block | `n: null`, `fraction: null` | [`select`](transforms.md#select)'s `n` and `fraction`: how much of each pool's ranking `selected` keeps |
 
 The preset has no `checks:`. With `cleaning:` set, the reference and each pool are cleaned by their own `outliers`
@@ -483,8 +499,8 @@ Reports unreadable and unpinned metadata factors, with suggested corrections.
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `metadata` | a metadata policy name, or `null` | `null` | Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults. |
-| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own. |
+| `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares) |
+| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
 | `checks` | a block | the defaults below | The `metadata-issues` check's settings, keyed by check type. |
 | `verify` | `true` or `false` | `true` | Re-read the metadata under the complete suggestions and report what they recover. Costs no second dataset walk: `repair` returns a copy sharing the store. |
 | `default_bins` | a count | `10` | Bin count a suggestion falls back to where the run left no fit to read. Where there is one, the populated bins of the derived cut are carried forward instead, which pins the cut the run used rather than substituting a different one. |

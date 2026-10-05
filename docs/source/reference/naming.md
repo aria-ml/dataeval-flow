@@ -124,10 +124,12 @@ A preset's settings follow these rules. Each rule names its guard tests, or is m
   settings at the top: `data-splitting` takes `test_frac`, `val_frac` and `folds`, and `metadata-triage` takes `verify`
   and `default_bins`. The `detectors:` lists of `drift-monitoring` and `ood-detection` sit there too. Convention, no
   guard test.
-- **Other steps sit under their type.** Every other step's settings sit under a key named for its type, holding what
-  that type's own entry would hold, less what the preset fixes. `data-coverage`'s `coverage:` block holds `coverage`'s
-  settings. Setting a block to `false` switches its step off where the preset already allows that: `completeness: false`
-  and `factor-gaps: false` on `data-coverage`. Guard test for the block's contents:
+- **Other steps sit under their type.** Every other step's settings sit under a key named for its type. A block may
+  take a subset of what that type's own entry would hold, leaving out what the preset fixes or does not offer, but
+  never a setting the step does not take. `data-coverage`'s `coverage:` block holds `coverage`'s settings, and
+  `data-cleaning`'s `duplicates:` block holds five of `duplicates`' settings. Setting a block to `false` switches its
+  step off where the preset already allows that: `completeness: false` and `factor-gaps: false` on `data-coverage`.
+  Guard test that a block holds no setting its step does not take:
   `test_a_presets_step_block_holds_only_that_steps_own_settings`. The `false` switch is a convention with no guard
   test.
 - **`checks:` is keyed by check type.** Each value holds that check's own settings, spelled in the check's words, and

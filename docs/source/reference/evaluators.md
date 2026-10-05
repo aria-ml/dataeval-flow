@@ -838,6 +838,8 @@ Items ranked by difficulty, optionally against a reference (DataEval Prioritize)
 
 Items are ranked from easiest to hardest, or the reverse. A second source is the reference, and the ranking is then
 relative to it, as when choosing what to label next beside data already labeled. It runs `dataeval.scope.Prioritize`.
+The [`data-prioritization`](presets.md#data-prioritization) preset reads its sources the other way round, the
+reference first and then the pools, and hands each pool to this evaluator first.
 
 - **Reads:** `input`: one Dataset, or two: the data to rank, then a reference; Flow derives their embeddings through the
   task's extractor, and the labels where there is one per item.
