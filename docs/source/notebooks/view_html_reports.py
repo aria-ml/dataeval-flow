@@ -96,7 +96,9 @@ config = PipelineConfig(
     ],
     extractors=[BoVWExtractorConfig(name="bovw", vocab_size=256, batch_size=32, preprocessor="sonar")],
     workflows=[
-        DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel", "visual"], metadata="milco"),
+        DataCleaningConfig(
+            name="clean", outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}, metadata="milco"
+        ),
         DriftMonitoringConfig(
             name="drift",
             detectors=[

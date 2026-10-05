@@ -64,10 +64,13 @@ def test_an_unknown_type_lists_the_installed_ones() -> None:
 
 
 def test_an_invalid_entry_is_located_by_its_index() -> None:
-    entries = [{"type": "data-splitting"}, {"type": "data-cleaning", "outlier_method": "bogus", "outlier_flags": []}]
+    entries = [
+        {"type": "data-splitting"},
+        {"type": "data-cleaning", "outliers": {"flags": [], "outlier_threshold": "bogus"}},
+    ]
     with pytest.raises(ValidationError) as caught:
         PipelineConfig.model_validate({"workflows": entries})
-    assert caught.value.errors()[0]["loc"] == ("workflows", 1, "outlier_method")
+    assert caught.value.errors()[0]["loc"] == ("workflows", 1, "outliers", "flags")
 
 
 def test_a_broken_plugin_is_left_out_and_explains_itself(plugins, caplog) -> None:

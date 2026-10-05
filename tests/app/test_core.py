@@ -118,7 +118,11 @@ class TestGetFields:
         state.add("sources", {"name": "src1", "dataset": "ds1"})
         state.add(
             "workflows",
-            {"name": "wf1", "type": "data-cleaning", "outlier_method": "adaptive", "outlier_flags": ["dimension"]},
+            {
+                "name": "wf1",
+                "type": "data-cleaning",
+                "outliers": {"flags": ["dimension"], "outlier_threshold": "adaptive"},
+            },
         )
 
         fields = get_fields("tasks", None, state)
@@ -137,9 +141,9 @@ class TestGetFields:
         assert "name" not in names
         assert "type" not in names
         assert "mode" not in names
-        # Should have outlier_method, outlier_flags, etc.
-        assert "outlier_method" in names
-        assert "outlier_flags" in names
+        # Should have the outliers and duplicates blocks, etc.
+        assert "outliers" in names
+        assert "duplicates" in names
 
     def test_step_builder_sections_skip_steps(self):
         state = ConfigState()
@@ -277,7 +281,11 @@ class TestConfigState:
         state.add("sources", {"name": "src1", "dataset": "ds1", "view": "sel1"})
         state.add(
             "workflows",
-            {"name": "wf1", "type": "data-cleaning", "outlier_method": "adaptive", "outlier_flags": ["dimension"]},
+            {
+                "name": "wf1",
+                "type": "data-cleaning",
+                "outliers": {"flags": ["dimension"], "outlier_threshold": "adaptive"},
+            },
         )
         state.add(
             "tasks", {"name": "t1", "workflow": "wf1", "sources": "src1", "output_format": "json", "enabled": True}
@@ -902,3 +910,17 @@ class TestCoerceStepParams:
         params = [_FakeParam("flag", "bool", required=False, default=False)]
         result = coerce_step_params(params, {"flag": "true"})
         assert result == {}
+
+
+def test_a_data_cleaning_entry_keeps_its_blocks_through_load_and_save() -> None:
+    entry = {
+        "name": "clean",
+        "type": "data-cleaning",
+        "outliers": {"flags": ["pixel"], "outlier_threshold": ["zscore", 3.0]},
+        "checks": {"image-outliers": {"warning": 1.0}},
+    }
+    state = ConfigState()
+    state.load_dict({"workflows": [entry]})
+    (saved,) = state.to_dict()["workflows"]
+    assert saved["outliers"] == entry["outliers"]
+    assert saved["checks"] == entry["checks"]

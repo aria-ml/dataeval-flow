@@ -30,8 +30,7 @@ pytestmark = pytest.mark.required
 
 # Valid required parameters for reuse in tests
 VALID_REQUIRED_PARAMS = {
-    "outlier_method": "modzscore",
-    "outlier_flags": ["dimension", "pixel", "visual"],
+    "outliers": {"outlier_threshold": "modzscore", "flags": ["dimension", "pixel", "visual"]},
 }
 
 
@@ -40,97 +39,79 @@ class TestDataCleaningConfig:
 
     def test_required_fields_missing(self):
         """Missing required fields raise ValidationError (CR-4.14-G-1)."""
-        with pytest.raises(ValidationError, match="outlier_method"):
+        with pytest.raises(ValidationError, match="outliers"):
             DataCleaningConfig()  # type: ignore[call-arg]
 
     def test_required_fields_partial(self):
         """Partial required fields raise ValidationError."""
-        with pytest.raises(ValidationError, match="outlier_flags"):
-            DataCleaningConfig(outlier_method="iqr")  # type: ignore[call-arg]
+        with pytest.raises(ValidationError, match="flags"):
+            DataCleaningConfig(outliers={"outlier_threshold": "iqr"})  # type: ignore[typeddict-item]
 
     def test_required_fields_complete(self):
         """All required fields provided succeeds."""
-        params = DataCleaningConfig(**VALID_REQUIRED_PARAMS)
-        assert params.outlier_method == "modzscore"
-        assert params.outlier_flags == ["dimension", "pixel", "visual"]
+        params = DataCleaningConfig(**VALID_REQUIRED_PARAMS)  # type: ignore[arg-type]
+        assert params.outliers.outlier_threshold == "modzscore"
+        assert params.outliers.flags == ["dimension", "pixel", "visual"]
 
     def test_optional_defaults(self):
         """Optional fields have safe defaults."""
-        params = DataCleaningConfig(**VALID_REQUIRED_PARAMS)
-        assert params.outlier_threshold is None
+        params = DataCleaningConfig(**VALID_REQUIRED_PARAMS)  # type: ignore[arg-type]
+        assert params.outliers.cluster_threshold is None
+        assert params.duplicates.flags is None
+        assert params.duplicates.merge_near_duplicates is True
 
     def test_custom_values(self):
         """Parameters accept custom values."""
-        params = DataCleaningConfig(outlier_method="iqr", outlier_threshold=2.5, outlier_flags=["pixel", "visual"])
-        assert params.outlier_method == "iqr"
-        assert params.outlier_threshold == 2.5
-        assert params.outlier_flags == ["pixel", "visual"]
-
-    def test_invalid_outlier_method(self):
-        """Invalid outlier_method raises ValidationError."""
-        with pytest.raises(ValidationError, match="outlier_method"):
-            DataCleaningConfig(
-                outlier_method="invalid",  # type: ignore[arg-type]
-                outlier_flags=["dimension"],
-                outlier_threshold=None,
-            )
-
-    def test_negative_threshold_rejected(self):
-        """Negative outlier_threshold raises ValidationError."""
-        with pytest.raises(ValidationError, match="outlier_threshold"):
-            DataCleaningConfig(outlier_method="modzscore", outlier_flags=["dimension"], outlier_threshold=-1.0)
+        params = DataCleaningConfig(outliers={"outlier_threshold": ("iqr", 2.5), "flags": ["pixel", "visual"]})  # type: ignore[arg-type]
+        assert params.outliers.outlier_threshold == ("iqr", 2.5)
+        assert params.outliers.flags == ["pixel", "visual"]
 
     def test_empty_outlier_flags_rejected(self):
-        """Empty outlier_flags list raises ValidationError."""
-        with pytest.raises(ValidationError, match="outlier_flags"):
-            DataCleaningConfig(outlier_method="modzscore", outlier_flags=[], outlier_threshold=None)
+        """Empty outliers flags list raises ValidationError."""
+        with pytest.raises(ValidationError, match="flags"):
+            DataCleaningConfig(outliers={"outlier_threshold": "modzscore", "flags": []})  # type: ignore[arg-type]
 
     def test_invalid_duplicate_flag_rejected(self):
-        """Invalid duplicate_flags value raises ValidationError."""
-        with pytest.raises(ValidationError, match="duplicate_flags"):
+        """Invalid duplicates flags value raises ValidationError."""
+        with pytest.raises(ValidationError, match="flags"):
             DataCleaningConfig(
-                outlier_method="modzscore",
-                outlier_flags=["dimension"],
-                duplicate_flags=["invalid_hash"],  # type: ignore[list-item]
+                outliers={"outlier_threshold": "modzscore", "flags": ["dimension"]},  # type: ignore[arg-type]
+                duplicates={"flags": ["invalid_hash"]},  # type: ignore[list-item]
             )
 
-    def test_valid_duplicate_flags_accepted(self):
-        """Valid duplicate_flags values are accepted."""
+    def test_valid_hash_flags_accepted(self):
+        """Valid duplicates flags values are accepted."""
         params = DataCleaningConfig(
-            outlier_method="modzscore", outlier_flags=["dimension"], duplicate_flags=["hash_basic", "hash_d4"]
+            outliers={"outlier_threshold": "modzscore", "flags": ["dimension"]},  # type: ignore[arg-type]
+            duplicates={"flags": ["hash_basic", "hash_d4"]},  # type: ignore[arg-type]
         )
-        assert params.duplicate_flags == ["hash_basic", "hash_d4"]
+        assert params.duplicates.flags == ["hash_basic", "hash_d4"]
 
 
 class TestYAMLValidationEdgeCases:
     """Test YAML validation edge cases for user error scenarios."""
 
     def test_unknown_field_name_raises(self):
-        """Unknown field name (typo) shows as missing required field."""
-        # Using wrong field name simulates a typo - Pydantic ignores unknown fields
-        # but requires all declared fields, so missing 'outlier_method' raises
-        with pytest.raises(ValidationError, match="outlier_method"):
+        """An unknown setting (typo) in a block is refused, naming it."""
+        with pytest.raises(ValidationError, match="outler_threshold"):
             DataCleaningConfig(
-                outler_method="iqr",  # type: ignore[call-arg]  # wrong field name
-                outlier_flags=["dimension", "pixel", "visual"],
+                outliers={
+                    "outler_threshold": "iqr",
+                    "flags": ["dimension", "pixel", "visual"],
+                },  # type: ignore[arg-type]
             )
 
-    def test_wrong_type_string_instead_of_number(self):
-        """outlier_threshold as string raises ValidationError."""
+    def test_wrong_type_instead_of_number(self):
+        """An outlier_threshold of the wrong type raises ValidationError."""
         with pytest.raises(ValidationError, match="outlier_threshold"):
             DataCleaningConfig(
-                outlier_method="iqr",
-                outlier_flags=["dimension", "pixel", "visual"],
-                outlier_threshold="high",  # type: ignore[arg-type]  # string not number
+                outliers={"outlier_threshold": [1, 2, 3, 4, 5], "flags": ["dimension", "pixel", "visual"]},  # type: ignore[arg-type]
             )
 
     def test_invalid_outlier_flag_value(self):
         """Invalid outlier flag value raises ValidationError."""
-        with pytest.raises(ValidationError, match="outlier_flags"):
-            DataCleaningConfig(
-                outlier_method="iqr",
-                outlier_flags=["invalid_flag"],  # type: ignore[list-item]
-            )
+        with pytest.raises(ValidationError, match="flags"):
+            DataCleaningConfig(outliers={"outlier_threshold": "iqr", "flags": ["invalid_flag"]})  # type: ignore[arg-type]
 
 
 class TestUnifiedConfig:
@@ -150,11 +131,9 @@ class TestUnifiedConfig:
             "workflows:\n"
             "  - name: iqr_clean\n"
             "    type: data-cleaning\n"
-            "    outlier_method: iqr\n"
-            "    outlier_flags:\n"
-            "      - dimension\n"
-            "      - pixel\n"
-            "      - visual\n"
+            "    outliers:\n"
+            "      outlier_threshold: iqr\n"
+            "      flags: [dimension, pixel, visual]\n"
             "tasks:\n"
             "  - name: clean_train\n"
             "    workflow: iqr_clean\n"
@@ -169,7 +148,7 @@ class TestUnifiedConfig:
         assert config.workflows is not None
         wf = config.workflows[0]
         assert isinstance(wf, DataCleaningConfig)
-        assert wf.outlier_method == "iqr"
+        assert wf.outliers.outlier_threshold == "iqr"
 
     def test_load_config_file_not_found(self):
         """load_config raises FileNotFoundError when file doesn't exist."""
@@ -659,8 +638,7 @@ class TestP1SchemaClasses:
             "    batch_size: 64\n"
             "workflows:\n"
             "  - type: data-cleaning\n"
-            "    outlier_method: zscore\n"
-            "    outlier_flags: [pixel]\n"
+            "    outliers: {flags: [pixel], outlier_threshold: zscore}\n"
             "tasks:\n"
             "  - name: clean\n"
             "    workflow: data-cleaning\n"
@@ -824,8 +802,8 @@ class TestResultConfig:
             f"result:\n  per_task: {str(per_task).lower()}\n"
             "datasets:\n  - name: ds\n    format: image_folder\n    path: ./d\n"
             "sources:\n  - name: src\n    dataset: ds\n"
-            "workflows:\n  - name: wf\n    type: data-cleaning\n    outlier_method: iqr\n"
-            "    outlier_flags: [dimension]\n"
+            "workflows:\n  - name: wf\n    type: data-cleaning\n"
+            "    outliers: {flags: [dimension], outlier_threshold: iqr}\n"
             "tasks:\n  - name: train/clean\n    workflow: wf\n    sources: src\n"
         )
         if per_task:
@@ -839,15 +817,18 @@ class TestWorkflowConfig:
     """Workflow config entries, alone and in a pipeline."""
 
     def test_cleaning_workflow_config_basic(self):
-        """DataCleaningConfig stores name, type, and flat params."""
-        wc = DataCleaningConfig(name="aggressive_clean", outlier_method="zscore", outlier_flags=["dimension", "pixel"])
+        """DataCleaningConfig stores name, type, and its blocks."""
+        wc = DataCleaningConfig(
+            name="aggressive_clean",
+            outliers={"flags": ["dimension", "pixel"], "outlier_threshold": "zscore"},  # type: ignore[arg-type]
+        )
         assert wc.name == "aggressive_clean"
         assert wc.type == "data-cleaning"
-        assert wc.outlier_method == "zscore"
-        assert wc.outlier_flags == ["dimension", "pixel"]
+        assert wc.outliers.outlier_threshold == "zscore"
+        assert wc.outliers.flags == ["dimension", "pixel"]
 
     def test_cleaning_workflow_config_requires_fields(self):
-        """DataCleaningConfig requires outlier_method and outlier_flags."""
+        """DataCleaningConfig requires its outliers block."""
         with pytest.raises(ValidationError):
             DataCleaningConfig(name="empty")  # type: ignore[call-arg]
 
@@ -868,12 +849,10 @@ class TestWorkflowConfig:
             "workflows:\n"
             "  - name: standard_clean\n"
             "    type: data-cleaning\n"
-            "    outlier_method: adaptive\n"
-            "    outlier_flags: [dimension, pixel, visual]\n"
+            "    outliers: {flags: [dimension, pixel, visual], outlier_threshold: adaptive}\n"
             "  - name: strict_clean\n"
             "    type: data-cleaning\n"
-            "    outlier_method: zscore\n"
-            "    outlier_flags: [dimension]\n"
+            "    outliers: {flags: [dimension], outlier_threshold: zscore}\n"
         )
 
         config = load_config(config_file)
@@ -883,7 +862,7 @@ class TestWorkflowConfig:
         assert config.workflows[1].name == "strict_clean"
         wf = config.workflows[0]
         assert isinstance(wf, DataCleaningConfig)
-        assert wf.outlier_method == "adaptive"
+        assert wf.outliers.outlier_threshold == "adaptive"
 
     def test_full_config_with_workflows(self, tmp_path: Path):
         """Full config with workflows referenced by tasks."""
@@ -899,8 +878,7 @@ class TestWorkflowConfig:
             "workflows:\n"
             "  - name: standard_clean\n"
             "    type: data-cleaning\n"
-            "    outlier_method: adaptive\n"
-            "    outlier_flags: [dimension, pixel, visual]\n"
+            "    outliers: {flags: [dimension, pixel, visual], outlier_threshold: adaptive}\n"
             "tasks:\n"
             "  - name: clean_train\n"
             "    workflow: standard_clean\n"
@@ -917,8 +895,7 @@ class TestWorkflowConfig:
         with pytest.raises(ValidationError):
             DataCleaningConfig(
                 name="bad",
-                outlier_method="not_a_real_method",  # type: ignore[call-arg]
-                outlier_flags=["dimension"],
+                outliers={"flags": ["not_a_real_flag"], "outlier_threshold": "zscore"},  # type: ignore[list-item]
             )
 
     def test_metadata_triage_workflow_config_basic(self):
@@ -942,7 +919,8 @@ class TestResolveWorkflow:
         config = PipelineConfig(
             workflows=[
                 DataCleaningConfig(
-                    name="standard_clean", outlier_method="adaptive", outlier_flags=["dimension", "pixel"]
+                    name="standard_clean",
+                    outliers={"flags": ["dimension", "pixel"], "outlier_threshold": "adaptive"},  # type: ignore[arg-type]
                 ),
             ]
         )
@@ -950,14 +928,16 @@ class TestResolveWorkflow:
         assert result.name == "standard_clean"
         assert isinstance(result, DataCleaningConfig)
         assert result.type == "data-cleaning"
-        assert result.outlier_method == "adaptive"
+        assert result.outliers.outlier_threshold == "adaptive"
 
     def test_resolve_workflow_not_found(self):
         """Unknown workflow name raises ValueError."""
         from dataeval_flow._orchestrator import _resolve_workflow
 
         config = PipelineConfig(
-            workflows=[DataCleaningConfig(name="existing", outlier_method="zscore", outlier_flags=["dimension"])]
+            workflows=[
+                DataCleaningConfig(name="existing", outliers={"flags": ["dimension"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
+            ]
         )
         with pytest.raises(ValueError, match="Unknown workflow: 'nonexistent'"):
             _resolve_workflow("nonexistent", config)
@@ -1010,8 +990,8 @@ class TestPipelineConfigDuplicateNames:
         with pytest.raises(ValidationError, match="Duplicate name 'wf' in workflows"):
             PipelineConfig(
                 workflows=[
-                    DataCleaningConfig(name="wf", outlier_method="zscore", outlier_flags=["dimension"]),
-                    DataCleaningConfig(name="wf", outlier_method="iqr", outlier_flags=["pixel"]),
+                    DataCleaningConfig(name="wf", outliers={"flags": ["dimension"], "outlier_threshold": "zscore"}),  # type: ignore[arg-type]
+                    DataCleaningConfig(name="wf", outliers={"flags": ["pixel"], "outlier_threshold": "iqr"}),  # type: ignore[arg-type]
                 ]
             )
 
@@ -1518,8 +1498,7 @@ class TestStatsPoolWiring:
         params = DataCleaningConfig(
             name="c",  # type: ignore[call-arg]
             type="data-cleaning",  # type: ignore[call-arg]
-            outlier_method="modzscore",
-            outlier_flags=["visual"],
+            outliers={"flags": ["visual"], "outlier_threshold": "modzscore"},  # type: ignore[arg-type]
             stats="p",
         )
         assert params.stats == "p"

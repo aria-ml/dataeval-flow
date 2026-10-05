@@ -2885,6 +2885,38 @@
       "title": "ClasswiseOutliersSettings",
       "type": "object"
     },
+    "CleaningSettings": {
+      "additionalProperties": false,
+      "description": "The cleaning before ranking: the reference and each pool lose their outliers, and each duplicate but the first\nof its group. Its `outliers` and `duplicates` blocks are data-cleaning's.",
+      "properties": {
+        "outliers": {
+          "$ref": "#/$defs/OutliersSettings",
+          "description": "The `outliers` step's settings."
+        },
+        "duplicates": {
+          "$ref": "#/$defs/DuplicatesSettings",
+          "description": "The `duplicates` step's settings."
+        },
+        "dup_types": {
+          "description": "The duplicate kinds removed: `[exact]` keeps near duplicates.",
+          "items": {
+            "enum": [
+              "exact",
+              "near"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Dup Types",
+          "type": "array"
+        }
+      },
+      "required": [
+        "outliers"
+      ],
+      "title": "CleaningSettings",
+      "type": "object"
+    },
     "CocoDatasetConfig": {
       "additionalProperties": false,
       "description": "Dataset config for COCO format.\n\nYAML example::\n\n    datasets:\n      - name: coco_train\n        format: coco\n        path: coco\n        annotations_file: instances_train.json\n        images_dir: train2017",
@@ -4108,7 +4140,7 @@
     },
     "DataCleaningConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.\n\nThe type is a preset: these settings expand to a chain of steps, whose checks make the findings and whose\n``clean`` step removes each flagged item and each duplicate but the first (see ``DataCleaningWorkflow``).\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outlier_method: zscore\n        outlier_flags: [pixel, visual]",
+      "description": "The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.\n\nThe type is a preset: these settings expand to a chain of steps, whose checks make the findings and whose\n``clean`` step removes each flagged item and each duplicate but the first (see ``DataCleaningWorkflow``).\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outliers:\n          flags: [pixel, visual]\n          outlier_threshold: zscore",
       "properties": {
         "stats": {
           "anyOf": [
@@ -4165,156 +4197,13 @@
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
-        "outlier_method": {
-          "description": "Statistical method for outlier detection",
-          "enum": [
-            "adaptive",
-            "zscore",
-            "modzscore",
-            "iqr"
-          ],
-          "title": "Outlier Method",
-          "type": "string"
+        "outliers": {
+          "$ref": "#/$defs/OutliersSettings",
+          "description": "The `outliers` step's settings."
         },
-        "outlier_flags": {
-          "description": "Image statistics groups for outlier detection. At least one required.",
-          "items": {
-            "enum": [
-              "dimension",
-              "pixel",
-              "visual"
-            ],
-            "type": "string"
-          },
-          "minItems": 1,
-          "title": "Outlier Flags",
-          "type": "array"
-        },
-        "outlier_threshold": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Custom threshold (None = use DataEval default for chosen method)",
-          "title": "Outlier Threshold"
-        },
-        "outlier_cluster_threshold": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Std devs from cluster center to flag as outlier (requires extractor). None = skip cluster detection.",
-          "title": "Outlier Cluster Threshold"
-        },
-        "outlier_cluster_algorithm": {
-          "anyOf": [
-            {
-              "enum": [
-                "kmeans",
-                "hdbscan"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Clustering algorithm for cluster-based outlier detection.",
-          "title": "Outlier Cluster Algorithm"
-        },
-        "outlier_n_clusters": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Expected number of clusters. None = auto-detect.",
-          "title": "Outlier N Clusters"
-        },
-        "duplicate_flags": {
-          "anyOf": [
-            {
-              "items": {
-                "enum": [
-                  "hash_basic",
-                  "hash_d4"
-                ],
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Hash flag groups for duplicate detection. None = DataEval default (hash_basic: xxhash + phash + dhash).",
-          "title": "Duplicate Flags"
-        },
-        "duplicate_merge_near": {
-          "default": true,
-          "description": "Merge overlapping near-duplicate groups from different detection methods.",
-          "title": "Duplicate Merge Near",
-          "type": "boolean"
-        },
-        "duplicate_cluster_sensitivity": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Threshold for cluster-based near duplicate detection (requires extractor). None = skip cluster detection.",
-          "title": "Duplicate Cluster Sensitivity"
-        },
-        "duplicate_cluster_algorithm": {
-          "anyOf": [
-            {
-              "enum": [
-                "kmeans",
-                "hdbscan"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Clustering algorithm for cluster-based duplicate detection.",
-          "title": "Duplicate Cluster Algorithm"
-        },
-        "duplicate_n_clusters": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Expected number of clusters for duplicate detection. None = auto-detect.",
-          "title": "Duplicate N Clusters"
+        "duplicates": {
+          "$ref": "#/$defs/DuplicatesSettings",
+          "description": "The `duplicates` step's settings."
         },
         "checks": {
           "$ref": "#/$defs/DataCleaningChecks",
@@ -4322,8 +4211,7 @@
         }
       },
       "required": [
-        "outlier_method",
-        "outlier_flags"
+        "outliers"
       ],
       "title": "DataCleaningConfig",
       "type": "object"
@@ -4521,92 +4409,9 @@
       "title": "DataCoverageUncoveredItemsSettings",
       "type": "object"
     },
-    "DataPrioritizationCleaningConfig": {
-      "additionalProperties": false,
-      "description": "Optional cleaning sub-config for outlier/duplicate removal before prioritization.\n\nWhen provided, the reference and each pool lose their outliers, and each duplicate but the first of its group,\nbefore ranking.",
-      "properties": {
-        "outlier_method": {
-          "description": "Statistical method for outlier detection.",
-          "enum": [
-            "adaptive",
-            "zscore",
-            "modzscore",
-            "iqr"
-          ],
-          "title": "Outlier Method",
-          "type": "string"
-        },
-        "outlier_flags": {
-          "description": "Image statistics groups for outlier detection. At least one required.",
-          "items": {
-            "enum": [
-              "dimension",
-              "pixel",
-              "visual"
-            ],
-            "type": "string"
-          },
-          "minItems": 1,
-          "title": "Outlier Flags",
-          "type": "array"
-        },
-        "outlier_threshold": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Custom threshold (None = use DataEval default for chosen method).",
-          "title": "Outlier Threshold"
-        },
-        "duplicate_flags": {
-          "anyOf": [
-            {
-              "items": {
-                "enum": [
-                  "hash_basic",
-                  "hash_d4"
-                ],
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Hash flag groups for duplicate detection. None = DataEval default (hash_basic).",
-          "title": "Duplicate Flags"
-        },
-        "duplicate_merge_near": {
-          "default": true,
-          "description": "Merge overlapping near-duplicate groups from different detection methods.",
-          "title": "Duplicate Merge Near",
-          "type": "boolean"
-        },
-        "duplicate_exact_only": {
-          "default": false,
-          "description": "When True, only flag exact duplicates \u2014 skip near-duplicate detection.",
-          "title": "Duplicate Exact Only",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "outlier_method",
-        "outlier_flags"
-      ],
-      "title": "DataPrioritizationCleaningConfig",
-      "type": "object"
-    },
     "DataPrioritizationConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``data-prioritization`` entry: how data is ranked against a reference, and cleaned first.\n\nRequires at least two sources: the first is the reference (labeled) dataset,\nand each later source is a pool, ranked against it on its own.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        method: knn\n        k: 10\n        order: hard_first\n        n: 200\n        cleaning:\n          outlier_method: adaptive\n          outlier_flags: [dimension, pixel]",
+      "description": "The settings of one ``data-prioritization`` entry: how data is ranked against a reference, and cleaned first.\n\nRequires at least two sources: the first is the reference (labeled) dataset,\nand each later source is a pool, ranked against it on its own.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        method: knn\n        k: 10\n        order: hard_first\n        select:\n          n: 200\n        cleaning:\n          outliers:\n            flags: [dimension, pixel]\n            outlier_threshold: adaptive",
       "properties": {
         "stats": {
           "anyOf": [
@@ -4750,43 +4555,18 @@
         "cleaning": {
           "anyOf": [
             {
-              "$ref": "#/$defs/DataPrioritizationCleaningConfig"
+              "$ref": "#/$defs/CleaningSettings"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Optional cleaning config. When set, outlier/duplicate detection runs before prioritization."
+          "description": "Cleaning before ranking; unset ranks the data as it is."
         },
-        "n": {
-          "anyOf": [
-            {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How many of each pool's ranked items `selected` keeps. With `fraction` also unset, it keeps them all.",
-          "title": "N"
-        },
-        "fraction": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0.0,
-              "maximum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The share of each pool's ranked items `selected` keeps, rounded up. With `n` also unset, it keeps them all.",
-          "title": "Fraction"
+        "select": {
+          "$ref": "#/$defs/SelectSettings",
+          "description": "The `select` step's settings."
         }
       },
       "title": "DataPrioritizationConfig",
@@ -6497,6 +6277,83 @@
         }
       },
       "title": "DuplicatesConfig",
+      "type": "object"
+    },
+    "DuplicatesSettings": {
+      "additionalProperties": false,
+      "description": "The `duplicates` step's settings. data-prioritization's `cleaning:` takes the same block.",
+      "properties": {
+        "flags": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "hash_basic",
+                  "hash_d4"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hash groups to compare; unset is DataEval's default, `hash_basic`.",
+          "title": "Flags"
+        },
+        "merge_near_duplicates": {
+          "default": true,
+          "description": "Merge overlapping near-duplicate groups found by different methods.",
+          "title": "Merge Near Duplicates",
+          "type": "boolean"
+        },
+        "cluster_sensitivity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cluster-based near-duplicate threshold; needs an extractor. Unset skips it.",
+          "title": "Cluster Sensitivity"
+        },
+        "cluster_algorithm": {
+          "anyOf": [
+            {
+              "enum": [
+                "kmeans",
+                "hdbscan"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The clustering algorithm cluster detection uses.",
+          "title": "Cluster Algorithm"
+        },
+        "n_clusters": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Expected number of clusters; unset detects it.",
+          "title": "N Clusters"
+        }
+      },
+      "title": "DuplicatesSettings",
       "type": "object"
     },
     "EvaluatorStep": {
@@ -9418,6 +9275,538 @@
       "title": "OutliersConfig",
       "type": "object"
     },
+    "OutliersSettings": {
+      "additionalProperties": false,
+      "description": "The `outliers` step's settings: which statistics, and how far out an outlier sits. data-prioritization's\n`cleaning:` takes the same block.",
+      "properties": {
+        "flags": {
+          "description": "Image statistics groups to judge. At least one.",
+          "items": {
+            "enum": [
+              "dimension",
+              "pixel",
+              "visual"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Flags",
+          "type": "array"
+        },
+        "outlier_threshold": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  ],
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "maxItems": 2,
+                      "minItems": 2,
+                      "prefixItems": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      ],
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  ],
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "maxItems": 2,
+                            "minItems": 2,
+                            "prefixItems": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            ],
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 3,
+                    "minItems": 3,
+                    "prefixItems": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "maxItems": 2,
+                            "minItems": 2,
+                            "prefixItems": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            ],
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "maxItems": 2,
+                        "minItems": 2,
+                        "prefixItems": [
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        ],
+                        "type": "array"
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "maxItems": 2,
+                            "minItems": 2,
+                            "prefixItems": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            ],
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "maxItems": 2,
+                        "minItems": 2,
+                        "prefixItems": [
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        ],
+                        "type": "array"
+                      }
+                    ],
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            }
+          ],
+          "description": "The method, such as `zscore`, `modzscore`, `iqr` or `adaptive`, alone for its default bound or as `[method, bound]`; or a mapping from flag to either.",
+          "title": "Outlier Threshold"
+        },
+        "cluster_threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Standard deviations from a cluster's center past which an item is an outlier; needs an extractor. Unset skips cluster detection.",
+          "title": "Cluster Threshold"
+        },
+        "cluster_algorithm": {
+          "anyOf": [
+            {
+              "enum": [
+                "kmeans",
+                "hdbscan"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The clustering algorithm cluster detection uses.",
+          "title": "Cluster Algorithm"
+        },
+        "n_clusters": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Expected number of clusters; unset detects it.",
+          "title": "N Clusters"
+        }
+      },
+      "required": [
+        "flags",
+        "outlier_threshold"
+      ],
+      "title": "OutliersSettings",
+      "type": "object"
+    },
     "ParityConfig": {
       "additionalProperties": false,
       "description": "Config for ``parity``, DataEval's Parity.\n\nTests each metadata factor for association with the class labels (chi-squared, reported as Cram\u00e9r's V). A factor\nsignificantly associated with the class is a shortcut a model can learn.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators parity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: parity\n        type: parity\n        p_value_threshold: 0.01",
@@ -10397,6 +10786,43 @@
         }
       },
       "title": "ResultConfig",
+      "type": "object"
+    },
+    "SelectSettings": {
+      "additionalProperties": false,
+      "description": "The `select` step's settings: how much of each pool's ranking is kept.",
+      "properties": {
+        "n": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many of each pool's ranked items `selected` keeps. With `fraction` also unset, it keeps them all.",
+          "title": "N"
+        },
+        "fraction": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "maximum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The share of each pool's ranked items `selected` keeps, rounded up. With `n` also unset, it keeps them all.",
+          "title": "Fraction"
+        }
+      },
+      "title": "SelectSettings",
       "type": "object"
     },
     "SourceConfig": {

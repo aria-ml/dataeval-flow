@@ -111,18 +111,20 @@ extractors:
 workflows:
   - name: adaptive_clean
     type: data-cleaning
-    outlier_method: adaptive
-    outlier_flags:
-      - dimension
-      - pixel
+    outliers:
+      outlier_threshold: adaptive
+      flags:
+        - dimension
+        - pixel
 
   - name: thorough_clean
     type: data-cleaning
-    outlier_method: modzscore
-    outlier_flags:
-      - dimension
-      - pixel
-      - visual
+    outliers:
+      outlier_threshold: modzscore
+      flags:
+        - dimension
+        - pixel
+        - visual
 
 # -----------------------------------------------------------------------------
 # TASKS — Lightweight composition by name

@@ -74,8 +74,7 @@ def test_a_data_cleaning_task_computes_its_statistics_once() -> None:
     cleaning = {
         "name": "cleaning",
         "type": "data-cleaning",
-        "outlier_method": "zscore",
-        "outlier_flags": ["pixel", "visual"],
+        "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
     }
     config = chain_pipeline(
         workflows=[cleaning],
@@ -171,8 +170,7 @@ def test_steps_reading_a_preset_step_s_output_compute_once_on_the_node_it_names(
     cleaning = {
         "name": "cleaning",
         "type": "data-cleaning",
-        "outlier_method": "zscore",
-        "outlier_flags": ["pixel", "visual"],
+        "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
     }
     steps = [
         {"name": "cleaning", "workflow": "cleaning", "input": "data"},

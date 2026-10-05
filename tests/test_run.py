@@ -142,11 +142,13 @@ def test_two_protocol_extractors_never_share_embeddings_or_clusters(monkeypatch:
 
 _CLUSTERING_CLEANERS = [
     DataCleaningConfig(
-        outlier_method="zscore",
-        outlier_flags=["dimension"],
-        outlier_cluster_threshold=2.0,
-        outlier_cluster_algorithm="kmeans",
-        outlier_n_clusters=2,
+        outliers={  # type: ignore[arg-type]
+            "flags": ["dimension"],
+            "outlier_threshold": "zscore",
+            "cluster_threshold": 2.0,
+            "cluster_algorithm": "kmeans",
+            "n_clusters": 2,
+        },
     ),
 ]
 
@@ -259,7 +261,7 @@ def test_load_config_reads_a_file_named_as_a_string(tmp_path: Path) -> None:
 def test_a_cleaning_run_carries_a_thumbnail_of_each_item_its_report_names() -> None:
     """The white image its outliers flag (7), and both members of its exact (0, 5) and near (3, 9) duplicate groups,
     each captured once. Each is named by ``data``, the preset's name for the Dataset ``run`` hands it."""
-    config = DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel", "visual"])
+    config = DataCleaningConfig(outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
     result = run(config, ToyImages(count=40, near_duplicate=True))
     assert sorted(asset.item.index for asset in result.assets) == [0, 3, 5, 7, 9]
     assert {(asset.item.source, asset.media_type, asset.width, asset.height) for asset in result.assets} == {
@@ -303,7 +305,7 @@ def test_with_images_off_no_item_is_read_for_a_thumbnail(monkeypatch: pytest.Mon
         raise AssertionError("captured with images off")
 
     monkeypatch.setattr(capture_module, "capture", refuse)
-    config = DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel", "visual"])
+    config = DataCleaningConfig(outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
     result = run(config, ToyImages(count=40, near_duplicate=True), report_images=False)
     assert result.assets == []
     assert "assets" not in result.to_dict()
@@ -442,7 +444,9 @@ def test_the_result_block_limits_a_run_s_tables() -> None:
     from tests.finding_blocks import walk
 
     config = toy_pipeline(
-        workflows=[DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel", "visual"])],
+        workflows=[
+            DataCleaningConfig(name="clean", outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
+        ],
         tasks=[TaskConfig(name="t", workflow="clean", sources="src")],
         dataset=ToyImages(count=40, near_duplicate=True),
     )

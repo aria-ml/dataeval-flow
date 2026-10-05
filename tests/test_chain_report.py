@@ -34,9 +34,10 @@ def toys(plugins):
 
 
 def _cleaning() -> ChainResult:
-    workflow = {"name": "cleaning", "type": "data-cleaning", "outlier_method": "zscore"}
+    workflow = {"name": "cleaning", "type": "data-cleaning"}
+    outliers = {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}
     config = chain_pipeline(
-        workflows=[{**workflow, "outlier_flags": ["pixel", "visual"]}],
+        workflows=[{**workflow, "outliers": outliers}],
         tasks=[{"name": "t", "workflow": "cleaning", "sources": ["src"]}],
         datasets={"src": ToyImages(count=24)},
     )
@@ -333,7 +334,11 @@ def test_a_check_with_a_failed_element_lists_that_element_among_the_other_steps(
 
 def _spliced() -> ChainResult:
     """data-cleaning run as step `cleaning` of a custom workflow, whose spliced steps' names are the widest."""
-    tidy = {"name": "tidy", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel", "visual"]}
+    tidy = {
+        "name": "tidy",
+        "type": "data-cleaning",
+        "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
+    }
     kept = {"name": "kept", "transform": "toy-keep", "input": "cleaning.clean"}
     workflow = {
         "name": "w",
@@ -419,7 +424,11 @@ def test_a_failed_chain_with_no_findings_still_has_a_health_line() -> None:
 
 def _by_split() -> ChainResult:
     """data-cleaning run as step `cleaning` over a list of two splits, `train` of 24 toy images and `val` of 12."""
-    tidy = {"name": "tidy", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel", "visual"]}
+    tidy = {
+        "name": "tidy",
+        "type": "data-cleaning",
+        "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
+    }
     workflow = {
         "name": "w",
         "inputs": [{"name": "splits", "list": True}],

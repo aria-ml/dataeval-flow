@@ -289,8 +289,9 @@ datasets:
 workflows:
   - name: quality_check
     type: data-cleaning
-    outlier_method: modzscore
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: modzscore
 ```
 
 Every workflow reading that dataset then measures against the same interval, including the `intrinsic_factors`

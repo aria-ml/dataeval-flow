@@ -31,8 +31,7 @@ class TestDataCleaningWorkflow:
                 DataCleaningConfig(
                     name="clean_main",
                     type="data-cleaning",
-                    outlier_method="zscore",
-                    outlier_flags=["dimension", "pixel"],
+                    outliers={"flags": ["dimension", "pixel"], "outlier_threshold": "zscore"},
                 ),
             ],
             tasks=[

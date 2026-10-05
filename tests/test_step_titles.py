@@ -108,7 +108,7 @@ def test_the_catalog_carries_each_title() -> None:
     assert catalog[("workflow", "data-cleaning")] == "Data Cleaning"
 
 
-_CLEAN = {"name": "clean", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
+_CLEAN = {"name": "clean", "type": "data-cleaning", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
 
 
 def _banner(report: str) -> list[str]:
@@ -220,7 +220,7 @@ def test_a_step_is_headed_by_its_type_title_and_named_where_it_differs() -> None
 
 
 def test_run_of_a_config_with_the_default_entry_name_names_the_id_alone() -> None:
-    result = run(DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel"]), ToyImages())
+    result = run(DataCleaningConfig(outliers={"flags": ["pixel"], "outlier_threshold": "zscore"}), ToyImages())  # type: ignore[arg-type]
     assert _banner(result.report()) == ["DATA CLEANING"]
     assert _first_line(result.report()) == "Workflow: data-cleaning"
     assert "<title>Data Cleaning</title>" in result.to_html()

@@ -261,14 +261,15 @@
 # workflows:
 #   - name: standard_clean
 #     type: data-cleaning
-#     outlier_method: adaptive
-#     outlier_flags: [dimension, pixel, visual]
+#     outliers:
+#       flags: [dimension, pixel, visual]
+#       outlier_threshold: adaptive
 #
 #   - name: strict_clean
 #     type: data-cleaning
-#     outlier_method: zscore
-#     outlier_flags: [dimension, pixel, visual]
-#     outlier_threshold: 2.0
+#     outliers:
+#       flags: [dimension, pixel, visual]
+#       outlier_threshold: [zscore, 2.0]
 #     checks:
 #       image-duplicates: {exact: 0.0, near: 1.0}
 #       image-outliers: {warning: 1.0}
@@ -290,8 +291,9 @@
 #   - name: clean
 #     type: data-cleaning
 #     stats: multispectral
-#     outlier_method: modzscore
-#     outlier_flags: [visual]
+#     outliers:
+#       flags: [visual]
+#       outlier_threshold: modzscore
 
 # -----------------------------------------------------------------------------
 # EVALUATORS — Named evaluator instances (type + params)

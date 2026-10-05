@@ -117,22 +117,27 @@ from dataeval_flow.workflows.data_cleaning import (
     DataCleaningChecks,
     DataCleaningClassImbalanceSettings,
     DataCleaningConfig,
+    DuplicatesSettings,
     ImageDuplicatesSettings,
     ImageOutliersSettings,
+    OutliersSettings,
     TargetOutliersSettings,
 )
 
 workflow = DataCleaningConfig(
     name="skysealand_cleaning",
-    outlier_method="adaptive",  # Use adaptive thresholding for outliers
-    outlier_threshold=3.5,
-    outlier_flags=["dimension", "pixel", "visual"],  # All image stat groups
-    outlier_cluster_threshold=3.5,  # Cluster-based detection in embedding space (requires extractor).
-    outlier_cluster_algorithm="hdbscan",
-    outlier_n_clusters=4,  # SkySeaLand has 4 classes
-    duplicate_cluster_sensitivity=0.5,  # Duplicate detection: hash-based plus cluster-based.
-    duplicate_cluster_algorithm="hdbscan",
-    duplicate_n_clusters=4,
+    outliers=OutliersSettings(
+        outlier_threshold=("adaptive", 3.5),  # Adaptive thresholding for outliers, bound 3.5
+        flags=["dimension", "pixel", "visual"],  # All image stat groups
+        cluster_threshold=3.5,  # Cluster-based detection in embedding space (requires extractor).
+        cluster_algorithm="hdbscan",
+        n_clusters=4,  # SkySeaLand has 4 classes
+    ),
+    duplicates=DuplicatesSettings(  # Duplicate detection: hash-based plus cluster-based.
+        cluster_sensitivity=0.5,
+        cluster_algorithm="hdbscan",
+        n_clusters=4,
+    ),
     checks=DataCleaningChecks(
         image_duplicates=ImageDuplicatesSettings(
             exact=0.0,  # No exact duplicates allowed (default)
@@ -401,7 +406,7 @@ print(json_str[:500] + "\n...")
 #
 # - **Data analysis**: Use the `data-analysis` workflow for cross-split leakage,
 #   distribution shift, and bias analysis.
-# - **Threshold tuning**: Adjust `outlier_threshold`, test alternative outlier methods
+# - **Threshold tuning**: Adjust `outliers.outlier_threshold`, test alternative outlier methods
 #   like IQR, or compare several settings in one run with a task matrix, as
 #   {doc}`Tune data cleaning with a matrix <tune_data_cleaning>` does.
 

@@ -234,14 +234,12 @@ See the {doc}`Data Cleaning tutorial <../notebooks/data_cleaning>` for a full wa
 workflows:
   - name: standard_clean
     type: data-cleaning
-    outlier_method: adaptive       # adaptive | zscore | modzscore | iqr
-    outlier_flags:
-      - dimension
-      - pixel
-      - visual
-    outlier_threshold: 3.5         # optional custom threshold
-    duplicate_cluster_sensitivity: 0.5
-    duplicate_cluster_algorithm: hdbscan
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: [adaptive, 3.5]   # method | [method, bound]: adaptive | zscore | modzscore | iqr
+    duplicates:
+      cluster_sensitivity: 0.5
+      cluster_algorithm: hdbscan
     checks:
       image-duplicates: {exact: 0.0, near: 5.0}
       image-outliers: {warning: 5.0}
@@ -373,10 +371,12 @@ workflows:
                                    # | hdbscan_distance | hdbscan_complexity
     order: hard_first              # or easy_first
     policy: difficulty             # difficulty | stratified | class_balanced
-    n: 200                         # keep each pool's top 200 as `selected`; omit to keep all
+    select:
+      n: 200                       # keep each pool's top 200 as `selected`; omit to keep all
     cleaning:
-      outlier_method: adaptive
-      outlier_flags: [dimension, pixel]
+      outliers:
+        flags: [dimension, pixel]
+        outlier_threshold: adaptive
 ```
 ````
 
@@ -392,8 +392,9 @@ tutorial for a worked run.
 workflows:
   - name: threshold_tuning
     type: data-cleaning
-    outlier_method: modzscore
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: modzscore
 
 tasks:
   - name: tune_train
@@ -453,8 +454,9 @@ extractors:
 workflows:
   - name: clean
     type: data-cleaning
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: adaptive
 
 tasks:
   - name: clean_my_data

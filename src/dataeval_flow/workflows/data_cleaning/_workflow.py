@@ -39,29 +39,25 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
     def chain(cls, config: DataCleaningConfig) -> PresetChain:
         """The evaluators these settings configure, the checks their thresholds judge by, and the removal."""
         limits = config.checks
-        method: Any = (
-            config.outlier_method
-            if config.outlier_threshold is None
-            else (config.outlier_method, config.outlier_threshold)
-        )
+        outliers, duplicates = config.outliers, config.duplicates
         evaluators = [
             OutliersConfig(
                 name="outliers",
-                flags=list(config.outlier_flags),
-                outlier_threshold=method,
-                cluster_threshold=config.outlier_cluster_threshold,
-                cluster_algorithm=config.outlier_cluster_algorithm,
-                n_clusters=config.outlier_n_clusters,
+                flags=list(outliers.flags),
+                outlier_threshold=outliers.outlier_threshold,
+                cluster_threshold=outliers.cluster_threshold,
+                cluster_algorithm=outliers.cluster_algorithm,
+                n_clusters=outliers.n_clusters,
                 per_target=True,
                 stats=config.stats,
             ),
             DuplicatesConfig(
                 name="dupes",
-                flags=list(config.duplicate_flags) if config.duplicate_flags is not None else None,
-                merge_near_duplicates=config.duplicate_merge_near,
-                cluster_sensitivity=config.duplicate_cluster_sensitivity,
-                cluster_algorithm=config.duplicate_cluster_algorithm,
-                n_clusters=config.duplicate_n_clusters,
+                flags=list(duplicates.flags) if duplicates.flags is not None else None,
+                merge_near_duplicates=duplicates.merge_near_duplicates,
+                cluster_sensitivity=duplicates.cluster_sensitivity,
+                cluster_algorithm=duplicates.cluster_algorithm,
+                n_clusters=duplicates.n_clusters,
                 stats=config.stats,
             ),
             LabelHealthConfig(name="labels", metadata=config.metadata),

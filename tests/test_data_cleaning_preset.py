@@ -38,8 +38,7 @@ from tests.workflow_toys import register_count
 _BASE: dict[str, Any] = {
     "name": "cleaning",
     "type": "data-cleaning",
-    "outlier_method": "zscore",
-    "outlier_flags": ["pixel", "visual"],
+    "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
 }
 _STEPS = [
     "outliers",
@@ -110,7 +109,10 @@ def test_clean_says_what_it_kept_and_what_each_plan_named() -> None:
 
 
 def test_run_returns_the_chain_and_the_cleaned_dataset() -> None:
-    result = run(DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel", "visual"]), ToyImages(count=12))
+    result = run(
+        DataCleaningConfig(outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}),  # type: ignore[arg-type]
+        ToyImages(count=12),
+    )
     assert isinstance(result, ChainResult)
     clean = result.steps["clean"].output
     assert isinstance(clean, View)
@@ -239,17 +241,20 @@ def test_a_step_reading_the_cleaned_dataset_is_refused_a_kind_it_cannot_take_bef
 def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
     """Each setting holds a value no other shares, so one routed to the wrong evaluator or check fails."""
     config = DataCleaningConfig(
-        outlier_method="modzscore",
-        outlier_flags=["dimension"],
-        outlier_threshold=4.0,
-        outlier_cluster_threshold=2.5,
-        outlier_cluster_algorithm="kmeans",
-        outlier_n_clusters=3,
-        duplicate_flags=["hash_d4"],
-        duplicate_merge_near=False,
-        duplicate_cluster_sensitivity=0.7,
-        duplicate_cluster_algorithm="hdbscan",
-        duplicate_n_clusters=5,
+        outliers={  # type: ignore[arg-type]
+            "flags": ["dimension"],
+            "outlier_threshold": ("modzscore", 4.0),
+            "cluster_threshold": 2.5,
+            "cluster_algorithm": "kmeans",
+            "n_clusters": 3,
+        },
+        duplicates={  # type: ignore[arg-type]
+            "flags": ["hash_d4"],
+            "merge_near_duplicates": False,
+            "cluster_sensitivity": 0.7,
+            "cluster_algorithm": "hdbscan",
+            "n_clusters": 5,
+        },
         metadata="policy",
         stats="measured",
         checks={  # type: ignore[arg-type]
@@ -308,7 +313,9 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
 )
 def test_a_retired_field_is_refused(field: str, value: Any) -> None:
     with pytest.raises(ValidationError, match=re.escape(field)):
-        DataCleaningConfig.model_validate({"outlier_method": "zscore", "outlier_flags": ["pixel"], field: value})
+        DataCleaningConfig.model_validate(
+            {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}, field: value}
+        )
 
 
 def _conformed(ontology: str, plugins: dict[str, list[tuple[str, str]]]) -> PipelineConfig:
@@ -401,11 +408,13 @@ class TestClustersFollowTheirExtractor:
         DatasetCache.clear_instances()
         clean = DataCleaningConfig(
             name="clean",
-            outlier_method="zscore",
-            outlier_flags=["dimension"],
-            outlier_cluster_threshold=2.0,
-            outlier_cluster_algorithm="kmeans",
-            outlier_n_clusters=2,
+            outliers={  # type: ignore[arg-type]
+                "flags": ["dimension"],
+                "outlier_threshold": "zscore",
+                "cluster_threshold": 2.0,
+                "cluster_algorithm": "kmeans",
+                "n_clusters": 2,
+            },
         )
         config = PipelineConfig(
             datasets=[DatasetProtocolConfig(name="toy", dataset=ToyImages())],

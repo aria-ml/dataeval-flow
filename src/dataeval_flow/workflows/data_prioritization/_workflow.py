@@ -13,7 +13,7 @@ from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._preset import Preset, PresetChain
 from dataeval_flow.workflows.data_prioritization._config import (
-    DataPrioritizationCleaningConfig,
+    CleaningSettings,
     DataPrioritizationConfig,
 )
 
@@ -69,7 +69,9 @@ class DataPrioritizationWorkflow(Preset, Workflow[DataPrioritizationConfig, Chai
             steps += _cleaning_steps("reference", "reference", config.cleaning)
             steps += _cleaning_steps("pool", "pools", config.cleaning)
             reference, pools = "reference-clean", "pool-clean"
-        amount: dict[str, Any] = {"n": config.n} if config.n is not None else {"fraction": config.fraction or 1.0}
+        amount: dict[str, Any] = (
+            {"n": config.select.n} if config.select.n is not None else {"fraction": config.select.fraction or 1.0}
+        )
         steps += [
             {"name": "rank", "evaluator": "rank", "input": [pools, reference]},
             {"name": "selected", "transform": "select", "input": pools, "ranking": "rank", **amount},
@@ -77,29 +79,33 @@ class DataPrioritizationWorkflow(Preset, Workflow[DataPrioritizationConfig, Chai
         return PresetChain(steps=steps, evaluators=evaluators)
 
 
-def _cleaning_evaluators(cleaning: DataPrioritizationCleaningConfig, config: DataPrioritizationConfig) -> list[Any]:
+def _cleaning_evaluators(cleaning: CleaningSettings, config: DataPrioritizationConfig) -> list[Any]:
     """The ``outliers`` and ``dupes`` entries the cleaning steps name, with the cleaning block's settings."""
-    method: Any = (
-        cleaning.outlier_method
-        if cleaning.outlier_threshold is None
-        else (cleaning.outlier_method, cleaning.outlier_threshold)
-    )
+    outliers, duplicates = cleaning.outliers, cleaning.duplicates
     return [
         OutliersConfig(
-            name="outliers", flags=list(cleaning.outlier_flags), outlier_threshold=method, stats=config.stats
+            name="outliers",
+            flags=list(outliers.flags),
+            outlier_threshold=outliers.outlier_threshold,
+            cluster_threshold=outliers.cluster_threshold,
+            cluster_algorithm=outliers.cluster_algorithm,
+            n_clusters=outliers.n_clusters,
+            stats=config.stats,
         ),
         DuplicatesConfig(
             name="dupes",
-            flags=list(cleaning.duplicate_flags) if cleaning.duplicate_flags is not None else None,
-            merge_near_duplicates=cleaning.duplicate_merge_near,
+            flags=list(duplicates.flags) if duplicates.flags is not None else None,
+            merge_near_duplicates=duplicates.merge_near_duplicates,
+            cluster_sensitivity=duplicates.cluster_sensitivity,
+            cluster_algorithm=duplicates.cluster_algorithm,
+            n_clusters=duplicates.n_clusters,
             stats=config.stats,
         ),
     ]
 
 
-def _cleaning_steps(prefix: str, source: str, cleaning: DataPrioritizationCleaningConfig) -> list[dict[str, Any]]:
+def _cleaning_steps(prefix: str, source: str, cleaning: CleaningSettings) -> list[dict[str, Any]]:
     """``source`` without its outliers and duplicates, as steps ``<prefix>-outliers``, ``-dupes`` and ``-clean``."""
-    dup_types = ["exact"] if cleaning.duplicate_exact_only else ["exact", "near"]
     return [
         {"name": f"{prefix}-outliers", "evaluator": "outliers", "input": source},
         {"name": f"{prefix}-dupes", "evaluator": "dupes", "input": source},
@@ -108,7 +114,7 @@ def _cleaning_steps(prefix: str, source: str, cleaning: DataPrioritizationCleani
             "transform": "remove",
             "input": source,
             "plans": {
-                f"{prefix}-dupes": {"dup_types": dup_types, "keep": "first"},
+                f"{prefix}-dupes": {"dup_types": cleaning.dup_types, "keep": "first"},
                 f"{prefix}-outliers": {"min_flags": 1},
             },
         },

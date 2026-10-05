@@ -126,7 +126,9 @@ class TestConfigFolder:
 
 
 _STILL_WRITES_MODE = [
-    pytest.param(DataCleaningConfig, {"outlier_method": "zscore", "outlier_flags": ["pixel"]}, id="data-cleaning"),
+    pytest.param(
+        DataCleaningConfig, {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}, id="data-cleaning"
+    ),
     pytest.param(DataCoverageConfig, {}, id="data-coverage"),
     pytest.param(MetadataTriageConfig, {}, id="metadata-triage"),
 ]
@@ -140,7 +142,7 @@ def test_a_workflow_entry_that_still_writes_mode_is_refused(model: type[BaseMode
 
 
 def test_a_pipeline_whose_workflow_still_writes_mode_fails_to_load_naming_it() -> None:
-    entry = {"name": "c", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
+    entry = {"name": "c", "type": "data-cleaning", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
     with pytest.raises(ValidationError) as info:
         chain_pipeline(workflows=[{**entry, "mode": "advisory"}])
     assert [error["loc"][-1] for error in info.value.errors() if error["type"] == "extra_forbidden"] == ["mode"]

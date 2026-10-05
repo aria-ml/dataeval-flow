@@ -6,11 +6,11 @@ from pydantic import ValidationError
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
 
-_CLEANING = {"outlier_method": "zscore", "outlier_flags": ["pixel"]}  # Task 5 reshapes these into `outliers:`
+_CLEANING = {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
 
 
 def test_data_cleaning_keys_its_checks_by_type_with_todays_defaults() -> None:
-    checks = DataCleaningConfig(**_CLEANING).model_dump(by_alias=True)["checks"]
+    checks = DataCleaningConfig(**_CLEANING).model_dump(by_alias=True)["checks"]  # type: ignore[arg-type]
     assert checks == {
         "image-outliers": {"warning": 3.0},
         "target-outliers": {"warning": 3.0},

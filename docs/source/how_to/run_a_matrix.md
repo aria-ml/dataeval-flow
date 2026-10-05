@@ -15,29 +15,30 @@ Write the `data-cleaning` entry as you would for one run, and list the values to
 workflows:
   - name: cleaning
     type: data-cleaning
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: adaptive
 
 tasks:
   - name: clean
     workflow: cleaning
     sources: train
     matrix:
-      outlier_threshold: [2.5, 3.5, 4.5]
+      outliers.outlier_threshold: [[adaptive, 2.5], [adaptive, 3.5], [adaptive, 4.5]]
 ```
 
 Notice:
 
-- The entry must be valid on its own, as every entry must. `data-cleaning` has no default for `outlier_method` or
-  `outlier_flags`, so the entry sets both, even in a matrix that varies them. Where the entry sets a value the matrix
-  varies, each run replaces it.
+- The entry must be valid on its own, as every entry must. `data-cleaning` has no default for `outliers.flags` or
+  `outliers.outlier_threshold`, so the entry sets both, even in a matrix that varies them. Where the entry sets a
+  value the matrix varies, each run replaces it.
 - The task keeps its name. `--task clean` runs it, and the results hold one entry for it, under `clean`.
 - Each run's configuration is checked when the config loads, as a task's is. A value the setting refuses fails the
-  load, and the message names every run that fails. `outlier_threshold: [-1.0, 3.0]` fails with:
+  load, and the message names every run that fails. `outliers.flags: [[pixel], [bogus]]` fails with:
 
   ```text
   Task 'clean' has a matrix that can't run:
-  - run 1 (outlier_threshold=-1.0): Input should be greater than or equal to 0
+  - run 2 (outliers.flags=[bogus]): Input should be 'dimension', 'pixel' or 'visual'
   ```
 
 Run it:
@@ -46,32 +47,33 @@ Run it:
 dataeval-flow -c pipeline.yaml -o out/
 ```
 
-The runs go in order, each logging `Task 'clean': run 2/3 (outlier_threshold=3.5)` as it starts, which `-vv` shows.
+The runs go in order, each logging `Task 'clean': run 2/3 (outliers.outlier_threshold=[adaptive, 3.5])` as it starts,
+which `-vv` shows.
 The console prints the matrix's report. Below its banner, on a 1,000-image sample of the
 [MilitaryVehicles](../notebooks/tune_data_cleaning.py) dataset with `seed: 42`:
 
 ```text
   Health: 9 warnings [!!] across 3 runs — review flagged findings
 
-  #  outlier_threshold  Health  Image Outliers  Classwise Outliers  Duplicates  Class Imbalance
-  -  -----------------  ------  --------------  ------------------  ----------  ------------------
-  1  2.5                [!!]    [!!] 157        [!!] worst: 2S19    [!!] 4      [..] 24 classes,
-                                images (15.7%)  MSTA (25.0%),       exact       1000 items,
-                                                23/24 classes over  (0.4%), 2   imbalance 3.0:1
-                                                3.0%                near
-                                                                    (0.2%)
+  #  outliers.outlier_threshold  Health  Image Outliers  Classwise Outliers  Duplicates  Class Imbalance
+  -  --------------------------  ------  --------------  ------------------  ----------  ------------------
+  1  [adaptive, 2.5]         [!!]    [!!] 157        [!!] worst: 2S19    [!!] 4      [..] 24 classes,
+                                         images (15.7%)  MSTA (25.0%),       exact       1000 items,
+                                                         23/24 classes over  (0.4%), 2   imbalance 3.0:1
+                                                         3.0%                near
+                                                                             (0.2%)
 
-  2  3.5                [!!]    [!!] 112        [!!] worst:         [!!] 4      [..] 24 classes,
-                                images (11.2%)  Tornado (20.4%),    exact       1000 items,
-                                                23/24 classes over  (0.4%), 2   imbalance 3.0:1
-                                                3.0%                near
-                                                                    (0.2%)
+  2  [adaptive, 3.5]         [!!]    [!!] 112        [!!] worst:         [!!] 4      [..] 24 classes,
+                                         images (11.2%)  Tornado (20.4%),    exact       1000 items,
+                                                         23/24 classes over  (0.4%), 2   imbalance 3.0:1
+                                                         3.0%                near
+                                                                             (0.2%)
 
-  3  4.5                [!!]    [!!] 96 images  [!!] worst:         [!!] 4      [..] 24 classes,
-                                (9.6%)          Tornado (16.3%),    exact       1000 items,
-                                                23/24 classes over  (0.4%), 2   imbalance 3.0:1
-                                                3.0%                near
-                                                                    (0.2%)
+  3  [adaptive, 4.5]         [!!]    [!!] 96 images  [!!] worst:         [!!] 4      [..] 24 classes,
+                                         (9.6%)          Tornado (16.3%),    exact       1000 items,
+                                                         23/24 classes over  (0.4%), 2   imbalance 3.0:1
+                                                         3.0%                near
+                                                                             (0.2%)
 ```
 
 The table has a row per run and a column per finding. Raising the threshold from 2.5 to 4.5 flags 61 fewer images,
@@ -79,7 +81,7 @@ and changes which class has the most outliers. The duplicates and the label dist
 threshold does not reach them. Each run has 3 warnings, so the matrix has 9.
 
 With `-v`, the console adds each run's full report below the table, under `RUNS`: the report the task would print run
-alone with those values, headed with the run's number and values, `Run 1 · outlier_threshold=2.5`.
+alone with those values, headed with the run's number and values, `Run 1 · outliers.outlier_threshold=[adaptive, 2.5]`.
 `out/results/result.txt` and the HTML report hold the table and every run's report, or only the table under
 `result: detail: summary`. In the HTML report, each run's report follows the table as a report of its own, with the
 thumbnails of the items it names.
@@ -101,11 +103,11 @@ for run in result.runs:
 
 ## 2. Write the values
 
-Each key takes a list of values, or a range. A bare value fails the load: `outlier_threshold: 3.0` says
-`` `outlier_threshold` takes a list of values, such as `[3.0]`, or a range `{from, to, step}`; got 3.0 ``.
+Each key takes a list of values, or a range. A bare value fails the load: `outliers.n_clusters: 3` says
+`` `outliers.n_clusters` takes a list of values, such as `[3]`, or a range `{from, to, step}`; got 3 ``.
 
 **A list** holds one run's value per item, written as the setting would be written, `null` included. To vary a
-setting that is itself a list, write a list of lists: `outlier_flags: [[pixel], [pixel, visual]]` is two runs.
+setting that is itself a list, write a list of lists: `outliers.flags: [[pixel], [pixel, visual]]` is two runs.
 
 **A range** `{from, to, step}` counts up from `from` by `step`, and includes `to` where a step lands on it. It counts
 in decimal, so `{from: 2.5, to: 4.5, step: 0.5}` is `2.5, 3.0, 3.5, 4.0, 4.5`, never `3.0000000004`. The values are
@@ -121,41 +123,42 @@ tasks:
   - name: clean
     workflow: cleaning
     sources: train
+    extractor: bovw_ext
     matrix:
-      outlier_threshold: {from: 2.5, to: 4.5, step: 0.5}
+      outliers.cluster_threshold: {from: 2.5, to: 4.5, step: 0.5}
       checks.image-outliers.warning: [3.0, 10.0]
 ```
 
-That is 5 × 2 = 10 runs: run 1 is `outlier_threshold=2.5, checks.image-outliers.warning=3.0`, run 2 is
-`outlier_threshold=2.5, checks.image-outliers.warning=10.0`, and so on. Each run's label, in the table, the logs
+That is 5 × 2 = 10 runs: run 1 is `outliers.cluster_threshold=2.5, checks.image-outliers.warning=3.0`, run 2 is
+`outliers.cluster_threshold=2.5, checks.image-outliers.warning=10.0`, and so on. Each run's label, in the table, the logs
 and the JSON, names its grid's keys and values in the order written.
 
 **Several grids**, a list of them, run in turn, each grid's runs together, numbered from 1 across the matrix. Write
-grids when one setting means something different under another. An outlier threshold counts standard deviations under
-`zscore` and `modzscore`, and interquartile ranges beyond the quartiles under `iqr`, where 1.5 is the usual fence. In
-one grid, every method would run at every threshold, `iqr` at 4 and `zscore` at 1.5 among them. Two grids give each
-method its own thresholds:
+grids when one setting means something under one value of another and nothing under another. `kmeans` needs a cluster
+count, and `hdbscan` finds its own. In one grid, every algorithm would run at every count, and `hdbscan` would run
+three times over with the same result. Two grids give each algorithm its own counts:
 
 ```yaml
 tasks:
   - name: clean
     workflow: cleaning
     sources: train
+    extractor: bovw_ext
     matrix:
-      - outlier_method: [zscore, modzscore]
-        outlier_threshold: {from: 2, to: 4, step: 1}
-      - outlier_method: [iqr]
-        outlier_threshold: [1.5, 3.0]
+      - outliers.cluster_algorithm: [kmeans]
+        outliers.n_clusters: {from: 2, to: 4, step: 1}
+      - outliers.cluster_algorithm: [hdbscan]
 ```
 
-That is 6 + 2 = 8 runs. A grid need not set every key; where it does not, its runs' cells for that key are blank in
+That is 3 + 1 = 4 runs. A grid need not set every key; where it does not, its runs' cells for that key are blank in
 the table, and the entry's own value holds.
 
 The load refuses:
 
 - **Duplicate runs**, two runs that set the same settings to the same values once validated, whatever the order of
-  their keys. On a float setting, `outlier_threshold: [3, 3.0]` is a duplicate:
-  `runs 1 and 2 (outlier_threshold=3.0) set the same settings; drop one`. So is one combination two grids both reach.
+  their keys. On a float setting, `outliers.cluster_threshold: [3, 3.0]` is a duplicate:
+  `runs 1 and 2 (outliers.cluster_threshold=3.0) set the same settings; drop one`. So is one combination two grids
+  both reach.
 - **Two keys in one grid where one sets part of the other**, such as `checks` and
   `checks.image-outliers.warning`, since which one wins would be a guess. In separate grids they are fine.
 - An empty matrix, a grid with no keys, and a key with an empty list.
@@ -418,7 +421,7 @@ tasks:
     workflow: tidy
     sources: train
     matrix:
-      workflows.cleaning.outlier_threshold: [3.5, 4.5]
+      workflows.cleaning.outliers.outlier_threshold: [[adaptive, 3.5], [adaptive, 4.5]]
 ```
 
 The runs cannot clash with each other, but another task writing to the same `to` still fails the load. A matrix may
@@ -444,14 +447,15 @@ Where the runs read other sources, or other items through a varied view, one add
   "clean": {
     "kind": "matrix",
     "type": "data-cleaning",
-    "keys": ["outlier_threshold"],
+    "keys": ["outliers.outlier_threshold"],
     "metadata": {"source_descriptions": ["train (ds[sample])"], "model_id": null, "metadata_binning": null,
                  "resolved_config": {"task": {"name": "clean", "workflow": "cleaning", "sources": "train",
-                                              "matrix": {"outlier_threshold": [2.5, 3.5, 4.5]}},
+                                              "matrix": {"outliers.outlier_threshold": [["adaptive", 2.5], ["adaptive", 3.5], ["adaptive", 4.5]]}},
                                      "sources": ["train"], "seed": 42}},
     "health": {"status": "warning", "warnings": 9, "failed_runs": []},
     "runs": [
-      {"number": 1, "label": "outlier_threshold=2.5", "values": {"outlier_threshold": 2.5},
+      {"number": 1, "label": "outliers.outlier_threshold=[adaptive, 2.5]",
+       "values": {"outliers.outlier_threshold": ["adaptive", 2.5]},
        "result": {"kind": "workflow", "metadata": {}, "health": {}, "steps": {}, "findings": [], "assets": []}}
     ]
   }
@@ -495,9 +499,11 @@ becomes:
 workflows:
   - name: cleaning_tune
     type: data-cleaning
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
-    duplicate_cluster_algorithm: hdbscan
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: adaptive
+    duplicates:
+      cluster_algorithm: hdbscan
 
 tasks:
   - name: tune
@@ -505,21 +511,22 @@ tasks:
     sources: train
     extractor: bovw_ext
     matrix:
-      outlier_threshold: [2.5, 3.5, 4.5]
-      duplicate_cluster_sensitivity: [0.5, 2.0]
+      outliers.outlier_threshold: [[adaptive, 2.5], [adaptive, 3.5], [adaptive, 4.5]]
+      duplicates.cluster_sensitivity: [0.5, 2.0]
 ```
 
 Notice:
 
-- **Set `outlier_method` and `outlier_flags` on the entry.** The sweep defaulted them to `[adaptive]` and all three
-  flag groups, and `data-cleaning` has no default for either.
+- **Set `outliers.outlier_threshold` and `outliers.flags` on the entry.** The sweep defaulted them to `[adaptive]` and
+  all three flag groups, and `data-cleaning` has no default for either. The sweep's `outlier_method` and
+  `outlier_threshold` are one setting here: `adaptive` alone, or `[adaptive, 2.5]`.
 - A field the sweep held one value for is a setting of the entry. A field with several values is a key of the matrix,
   `null` included where the sweep tried DataEval's default.
 - The sweep's statistics ignored `value_range`. `data-cleaning` reads the dataset's `value_range`, so on float
   imagery that declares one, its statistics can differ from the sweep's.
 - **On detection data, `data-cleaning` also judges boxes**, and its outlier counts include them, where the sweep
   counted whole images. On classification data, the count of images flagged and of near-duplicate groups match what
-  the sweep reported for each combination, where `duplicate_merge_near` is left at its default: the sweep merged
+  the sweep reported for each combination, where `duplicates.merge_near_duplicates` is left at its default: the sweep merged
   near-duplicate groups whatever it said.
 - The sweep printed one pivot table per count. The matrix prints one table of every run's findings, and each run's
   full result is in `result.runs`, with every step's output.

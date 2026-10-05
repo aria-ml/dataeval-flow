@@ -56,9 +56,7 @@ def test_triage_with_an_extractor_is_refused() -> None:
 def test_cluster_cleaning_without_an_extractor_is_refused() -> None:
     cleaning = {
         "type": "data-cleaning",
-        "outlier_method": "zscore",
-        "outlier_flags": ["pixel"],
-        "outlier_cluster_threshold": 2.0,
+        "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore", "cluster_threshold": 2.0},
     }
     with pytest.raises(ValidationError, match="needs an extractor"):
         PipelineConfig.model_validate(_pipeline(cleaning, {"sources": "a"}))

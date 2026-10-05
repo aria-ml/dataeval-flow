@@ -147,3 +147,39 @@ def test_a_presets_checks_are_keyed_by_check_type_in_each_checks_own_words(cls: 
         for block in _models(field.annotation):
             stray = set(block.model_fields) - set(_settings(check))
             assert not stray, f"`checks.{key}` holds {sorted(stray)}, which `{key}` does not take"
+
+
+_STEP_TYPES = {name for registry in (EVALUATORS, TRANSFORMS, COMBINES) for name in registry.names()}
+
+
+def _blocks(model: type[BaseModel], path: str = "") -> list[tuple[str, str, type[BaseModel]]]:
+    """Each settings block keyed by a step type in `model`, as (path, type, block), walking blocks keyed by none."""
+    found = []
+    for name, field in model.model_fields.items():
+        key = field.alias or name
+        if key == "checks":
+            continue  # its own test
+        for block in _models(field.annotation):
+            if key in _STEP_TYPES:
+                found.append((f"{path}{key}", key, block))
+            else:
+                found += _blocks(block, f"{path}{key}.")
+    return found
+
+
+def _type_settings(type_id: str) -> set[str]:
+    registry = next(registry for registry in (EVALUATORS, TRANSFORMS, COMBINES) if type_id in registry.names())
+    return set(_settings(registry.get(type_id)))
+
+
+@pytest.mark.parametrize("cls", _PRESETS, ids=_id)
+def test_a_presets_step_block_holds_only_that_steps_own_settings(cls: type) -> None:
+    for path, type_id, block in _blocks(cls.config_type):
+        stray = set(block.model_fields) - _type_settings(type_id)
+        assert not stray, f"`{path}` holds {sorted(stray)}, which `{type_id}` does not take"
+
+
+@pytest.mark.parametrize("cls", _PRESETS, ids=_id)
+def test_a_preset_spells_no_setting_with_a_step_prefix(cls: type) -> None:
+    prefixed = [name for name in cls.config_type.model_fields if re.match(r"(outlier|duplicate)_", name)]
+    assert prefixed == [], "a setting sits under its step's type, spelled as the step spells it"

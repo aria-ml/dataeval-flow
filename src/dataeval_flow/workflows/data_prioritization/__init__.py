@@ -1,13 +1,15 @@
 """Data prioritization workflow."""
 
 __all__ = [
-    "DataPrioritizationCleaningConfig",
+    "CleaningSettings",
     "DataPrioritizationConfig",
     "DataPrioritizationWorkflow",
+    "SelectSettings",
 ]
 
 from dataeval_flow.workflows.data_prioritization._config import (
-    DataPrioritizationCleaningConfig,
+    CleaningSettings,
     DataPrioritizationConfig,
+    SelectSettings,
 )
 from dataeval_flow.workflows.data_prioritization._workflow import DataPrioritizationWorkflow

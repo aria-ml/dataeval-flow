@@ -17,7 +17,7 @@ def _config(tasks: list[Any]) -> dict[str, Any]:
         "sources": [{"name": "a", "dataset": "ds"}, {"name": "b", "dataset": "ds"}],
         "extractors": [{"name": "flat", "model": "flatten"}],
         "workflows": [
-            {"name": "clean", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
+            {"name": "clean", "type": "data-cleaning", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
         ],
         "evaluators": [
             {"name": "dupes", "type": "duplicates"},

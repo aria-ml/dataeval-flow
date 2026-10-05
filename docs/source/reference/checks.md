@@ -497,7 +497,7 @@ a {py:class}`~dataeval_flow.steps.combines.FactorDeviationOutput`.
 ## data-cleaning is this chain
 
 `data-cleaning` is a preset: its settings expand to a chain of steps, run on the task's one source, `data`. With
-`outlier_method: zscore`, `outlier_flags: [pixel, visual]` and the default thresholds, it runs these steps:
+`outliers: {flags: [pixel, visual], outlier_threshold: zscore}` and the default checks, it runs these steps:
 
 ```yaml
 evaluators:
@@ -526,9 +526,9 @@ workflows:
           outliers: {min_flags: 1}
 ```
 
-Its other settings go to the evaluators: `outlier_threshold`, `outlier_cluster_threshold`,
-`outlier_cluster_algorithm` and `outlier_n_clusters` to `outliers`, the `duplicate_*` settings to `dupes`, `metadata`
-to `labels`, and `stats` to both `outliers` and `dupes`. Each `checks` entry is the threshold of the check
+Its other settings go to the evaluators: the `outliers` block to `outliers`, the `duplicates` block to `dupes`,
+`metadata` to `labels`, and `stats` to both `outliers` and `dupes`. Each block holds the settings its step takes,
+spelled as the step spells them. Each `checks` entry is the threshold of the check
 that judges it. `clean` removes each image and box with at least one outlier flag, and each exact or near duplicate
 but the first of its group.
 
@@ -547,8 +547,9 @@ Run as a step of a custom workflow, `<step>.clean` reads the cleaned Dataset; se
 ## data-prioritization is this chain
 
 `data-prioritization` is a preset too: its settings expand to a chain of steps, run on the task's sources, the first
-the `reference` and the rest the `pools`. With `cleaning:` set (`outlier_method: zscore`,
-`outlier_flags: [pixel, visual]`), `method: knn`, `k: 5` and `n: 200`, it runs these steps:
+the `reference` and the rest the `pools`. With `cleaning:` set
+(`outliers: {flags: [pixel, visual], outlier_threshold: zscore}`), `method: knn`, `k: 5` and `select: {n: 200}`, it runs
+these steps:
 
 ```yaml
 evaluators:
@@ -580,8 +581,8 @@ workflows:
       - {name: selected, transform: select, input: pool-clean, ranking: rank, n: 200}
 ```
 
-Without `cleaning:`, only `rank` and `selected` run, reading `pools` and `reference`. `duplicate_exact_only: true`
-makes both plans' `dup_types` `[exact]`. With neither `n` nor `fraction`, `selected` keeps every item
+Without `cleaning:`, only `rank` and `selected` run, reading `pools` and `reference`. `cleaning.dup_types: [exact]`
+makes both plans' `dup_types` `[exact]`. With neither `select.n` nor `select.fraction`, `selected` keeps every item
 (`fraction: 1.0`). The chain has no checks, so it makes no findings.
 
 ## metadata-triage is this chain

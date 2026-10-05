@@ -150,8 +150,8 @@
 - `by_plan` in a `remove` step's `details`, beside `removed`: what each plan named, at each level it named something
 - Report blocks' `in_text` on a table column, `failed` on a summary and `group` on a summary item, each left out
   of the JSON at its default
-- `n` and `fraction` on `data-prioritization`: its `selected` step keeps each pool's top `n`, or that share rounded up;
-  unset, it keeps every item in ranked order
+- `select:` on `data-prioritization`, holding `n` or `fraction`: its `selected` step keeps each pool's top `n`, or that
+  share rounded up; unset, it keeps every item in ranked order
 - A `prioritization` step's report pictures its ranking's 25 highest and 25 lowest items, with rank and score
 - `factor-triage`, an evaluator: what a Dataset's metadata failed to read, the policy stanza that repairs it, and, with
   `verify`, what the repair recovers
@@ -244,7 +244,7 @@
 - `WorkflowParametersBase` becomes `WorkflowConfig`, the base of every workflow config, no longer their union
 - `Reportable` is `Finding`; `WorkflowOutputsBase` / `WorkflowReportBase` are `WorkflowRawOutput` / `WorkflowReport`
 - `DriftHealthThresholds` / `OODHealthThresholds` are `DriftMonitoringChecks` / `OODDetectionChecks`
-- Data-prioritization's `CleaningConfig` is `DataPrioritizationCleaningConfig`
+- Data-prioritization's `CleaningConfig` is `CleaningSettings`, with `outliers`, `duplicates` and `dup_types`
 - A workflow package's modules (`params`, `outputs`, `workflow`, `report`) are private; import from the package
 - `list_workflows()` / `list_evaluators()` return the classes; `get_*` return the class, not an instance
 - Extractor configs are imported from `dataeval_flow.config.extractors`; `ToRGB` from
@@ -281,11 +281,20 @@
   `imbalance` and `clean`. Legacy `health_thresholds` is refused: `image_outliers`, `target_outliers` and
   `classwise_outliers` are `checks.image-outliers.warning`, `checks.target-outliers.warning` and
   `checks.classwise-outliers.warning`; `exact_duplicates` and `near_duplicates` are `checks.image-duplicates.exact` and
-  `.near`; and `class_label_imbalance` is `checks.class-imbalance.warning`
+  `.near`; and `class_label_imbalance` is `checks.class-imbalance.warning`. The `outlier_*` and `duplicate_*` settings
+  are `outliers:` and `duplicates:` blocks, spelled as the `outliers` and `duplicates` steps spell them: `outlier_method`
+  and `outlier_threshold` are `outliers.outlier_threshold` (`zscore`, or `[zscore, 3.0]`), `outlier_flags` is
+  `outliers.flags`, `outlier_cluster_threshold`, `outlier_cluster_algorithm` and `outlier_n_clusters` are
+  `outliers.cluster_threshold`, `.cluster_algorithm` and `.n_clusters`, `duplicate_flags` is `duplicates.flags`,
+  `duplicate_merge_near` is `duplicates.merge_near_duplicates`, and `duplicate_cluster_sensitivity`,
+  `duplicate_cluster_algorithm` and `duplicate_n_clusters` are `duplicates.cluster_sensitivity`, `.cluster_algorithm`
+  and `.n_clusters`
 - `data-prioritization` is a preset: `cleaning:` runs as `outliers`, `duplicates` and `remove` steps on the reference
   and each pool, `rank` (`prioritization`) ranks each pool against the reference, and `selected` (`select`) keeps the top
   of each ranking. It returns a `ChainResult`, whose `steps` replace `raw` and `report`, and it makes no findings: the
-  Pruning warning and each pool's info finding are gone
+  Pruning warning and each pool's info finding are gone. Its `cleaning:` takes data-cleaning's `outliers:` and
+  `duplicates:` blocks, and `duplicate_exact_only: true` is `dup_types: [exact]`; its `n` and `fraction` are
+  `select.n` and `select.fraction`
 - `metadata-triage` is a preset: `factor-triage` reads the metadata, and `metadata-issues` makes its findings, with
   `max_examples` set under `checks.metadata-issues`. It
   returns a `ChainResult`: the issues, the stanza and the verification are its `triage` step's output

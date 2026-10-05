@@ -92,14 +92,14 @@ print(f"Reading from {data_path}")
 # ## Step 1: Build the configuration
 #
 # The `data-cleaning` entry is an ordinary one, and must be valid on its own: it sets
-# `outlier_method` and `outlier_flags`, which have no defaults. Its cluster settings,
-# `duplicate_cluster_algorithm` here, turn on cluster-based near-duplicate detection,
+# `outliers.outlier_threshold` and `outliers.flags`, which have no defaults. Its cluster settings,
+# `duplicates.cluster_algorithm` here, turn on cluster-based near-duplicate detection,
 # which reads the BoVW embeddings.
 #
 # The task's `matrix` names the settings to vary and the values each takes:
 #
-# - `outlier_threshold`: 2.5 (aggressive), 3.5 and 4.5 (conservative).
-# - `duplicate_cluster_sensitivity`: 0.5, 2.0 and 3.0, within the 0.1 to 3.0 that DataEval
+# - `outliers.outlier_threshold`: `adaptive` with the bound 2.5 (aggressive), 3.5 and 4.5 (conservative).
+# - `duplicates.cluster_sensitivity`: 0.5, 2.0 and 3.0, within the 0.1 to 3.0 that DataEval
 #   documents as its typical range.
 #
 # One grid crosses every key with every other, so the task runs 3 × 3 = 9 times. The
@@ -119,10 +119,8 @@ from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
 cleaning = DataCleaningConfig(
     name="mv_cleaning",
-    outlier_method="adaptive",
-    outlier_flags=["dimension", "pixel", "visual"],
-    duplicate_cluster_algorithm="hdbscan",
-    duplicate_merge_near=True,
+    outliers={"flags": ["dimension", "pixel", "visual"], "outlier_threshold": "adaptive"},
+    duplicates={"cluster_algorithm": "hdbscan", "merge_near_duplicates": True},
 )
 
 task = TaskConfig(
@@ -131,8 +129,8 @@ task = TaskConfig(
     sources="mv_src",
     extractor="bovw_ext",
     matrix={
-        "outlier_threshold": [2.5, 3.5, 4.5],
-        "duplicate_cluster_sensitivity": [0.5, 2.0, 3.0],
+        "outliers.outlier_threshold": [["adaptive", 2.5], ["adaptive", 3.5], ["adaptive", 4.5]],
+        "duplicates.cluster_sensitivity": [0.5, 2.0, 3.0],
     },
 )
 
@@ -192,7 +190,7 @@ print(result.report(detailed=False, width=160))
 # Every run warns, with 3 warnings each and 27 in all: Image Outliers, Classwise Outliers
 # and Duplicates are past their thresholds in every run, and Class Imbalance is `info`.
 #
-# **`outlier_threshold` changes the outlier findings.** The adaptive method flags 157
+# **`outliers.outlier_threshold` changes the outlier findings.** The adaptive method flags 157
 # images (15.7%) at 2.5, 112 (11.2%) at 3.5 and 96 (9.6%) at 4.5. The count falls by 45
 # images from 2.5 to 3.5, then by 16 from 3.5 to 4.5: it changes less the higher the
 # threshold. The class with the largest share of outliers changes with it: 2S19 MSTA
@@ -200,7 +198,7 @@ print(result.report(detailed=False, width=160))
 # sample is flagged, over the 3% at which `image-outliers` warns by default, and 23 of the
 # 24 classes are over the classwise threshold at every setting.
 #
-# **`duplicate_cluster_sensitivity` changes nothing on this sample.** Runs 1, 2 and 3
+# **`duplicates.cluster_sensitivity` changes nothing on this sample.** Runs 1, 2 and 3
 # differ only in it, and their rows are identical; so are runs 4 to 6, and runs 7 to 9.
 # Every run counts 4 images as exact duplicates (0.4%) and 6 as near duplicates (0.6%).
 # Step 4 shows why.
@@ -234,7 +232,7 @@ print(run.result.steps["dupes"].output.data())
 # The two exact groups are pairs that `xxhash` matched. Of the three near groups, one is a
 # pair the perceptual hashes (`dhash`, `phash`) found, and the other two are the same two
 # exact pairs, found again by the cluster pass. The cluster pass is the only part of
-# duplicate detection that `duplicate_cluster_sensitivity` changes, and at 0.5, 2.0 and
+# duplicate detection that `duplicates.cluster_sensitivity` changes, and at 0.5, 2.0 and
 # 3.0 alike it finds the exact copies and nothing else, so the count does not move.
 #
 # `result.report(detailed=True)`, the default, adds each run's full report under the
@@ -246,13 +244,13 @@ print(run.result.steps["dupes"].output.data())
 #
 # From this table:
 #
-# - **`outlier_threshold` matters.** The count is still falling at 4.5, but by about a
+# - **`outliers.outlier_threshold` matters.** The count is still falling at 4.5, but by about a
 #   third of what it fell from 2.5 to 3.5, so a value from 3.5 to 4.5 depends less on the
 #   exact choice than one below 3.5. Even 4.5 flags more than the default 3% warning, so
 #   look at the flagged images, as {doc}`Clean a dataset <data_cleaning>` does, before
 #   raising `checks.image-outliers.warning` for a collection this varied.
-# - **`duplicate_cluster_sensitivity` does not matter here**: 0.5, 2.0 and 3.0 give the
-#   same groups. Keep any of them, or leave it and `duplicate_cluster_algorithm` unset to
+# - **`duplicates.cluster_sensitivity` does not matter here**: 0.5, 2.0 and 3.0 give the
+#   same groups. Keep any of them, or leave it and `duplicates.cluster_algorithm` unset to
 #   skip the cluster pass, which found no group the hashes missed.
 
 # %% [markdown]

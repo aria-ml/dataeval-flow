@@ -548,7 +548,7 @@ class TestWorkflowsCommand:
 
         assert _list_workflows("data-cleaning", as_json=False) == 0
         schema = json.loads(capsys.readouterr().out)
-        assert "outlier_method" in schema["properties"]
+        assert "outliers" in schema["properties"]
 
     def test_unknown_workflow_reports_and_exits_one(self, capsys: pytest.CaptureFixture):
         from dataeval_flow.__main__ import _list_workflows

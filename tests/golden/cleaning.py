@@ -16,8 +16,7 @@ from tests.evaluator_toys import ToyImages
 _BASE: dict[str, Any] = {
     "name": "cleaning",
     "type": "data-cleaning",
-    "outlier_method": "zscore",
-    "outlier_flags": ["pixel", "visual"],
+    "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
 }
 _LENIENT = {
     "image-duplicates": {"exact": 50.0, "near": 50.0},
@@ -60,6 +59,9 @@ CASES: dict[str, Callable[[], list[Finding]]] = {
     "no_duplicates": lambda: findings(ToyImages(count=6)),
     "lenient_thresholds": lambda: findings(ToyImages(count=24), checks=_LENIENT),
     "cluster_mode": lambda: findings(
-        ToyImages(count=40), extractor=True, outlier_cluster_threshold=2.0, duplicate_cluster_sensitivity=1.0
+        ToyImages(count=40),
+        extractor=True,
+        outliers={**_BASE["outliers"], "cluster_threshold": 2.0},
+        duplicates={"cluster_sensitivity": 1.0},
     ),
 }

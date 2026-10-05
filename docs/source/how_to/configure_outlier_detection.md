@@ -10,8 +10,8 @@ control what counts as an outlier and when a finding becomes a warning.
 
 ## Pick a statistical method
 
-`outlier_method` selects how far from typical a statistic has to be before the sample is flagged. There is no
-universally correct choice. It depends on how heavy-tailed your data is.
+The method in `outliers.outlier_threshold` selects how far from typical a statistic has to be before the sample is
+flagged. There is no universally correct choice. It depends on how heavy-tailed your data is.
 
 | Method | Flags a sample when a statistic is… | Use when |
 | --- | --- | --- |
@@ -24,13 +24,14 @@ universally correct choice. It depends on how heavy-tailed your data is.
 workflows:
   - name: quality_check
     type: data-cleaning
-    outlier_method: modzscore
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: modzscore
 ```
 
 ## Choose which statistics to test
 
-`outlier_flags` selects the *groups* of image statistics the method is applied to. At least one is required.
+`outliers.flags` selects the *groups* of image statistics the method is applied to. At least one is required.
 
 - `dimension` — geometry: width, height, aspect ratio, channel count, value range, total pixel count, and (for detection
   boxes) offsets and distances to the image center and edges.
@@ -49,12 +50,12 @@ converted dataset is fast and answers one question cleanly.
 
 ## Override the threshold
 
-`outlier_threshold` replaces the method's built-in cutoff. Leave it unset to use the DataEval default for the method
-you chose; raise it to flag less, lower it to flag more.
+Write `outliers.outlier_threshold` as `[method, bound]` to replace the method's built-in cutoff. Write the method alone
+to use the DataEval default for it; raise the bound to flag less, lower it to flag more.
 
 ```yaml
-    outlier_method: modzscore
-    outlier_threshold: 3.5
+    outliers:
+      outlier_threshold: [modzscore, 3.5]
 ```
 
 Because the right value depends on the dataset, this is the parameter most worth sweeping. A `matrix:` on the task
@@ -81,11 +82,12 @@ extractors:
 workflows:
   - name: quality_check
     type: data-cleaning
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
-    outlier_cluster_threshold: 3.5        # std devs from a cluster center
-    outlier_cluster_algorithm: hdbscan    # or kmeans
-    outlier_n_clusters: 5                 # omit to auto-detect
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: adaptive
+      cluster_threshold: 3.5              # std devs from a cluster center
+      cluster_algorithm: hdbscan          # or kmeans
+      n_clusters: 5                       # omit to auto-detect
 
 tasks:
   - name: check
@@ -94,8 +96,8 @@ tasks:
     extractor: bovw_ext                   # required for cluster-based detection
 ```
 
-Leaving `outlier_cluster_threshold` unset skips cluster-based detection entirely, even when an extractor is
-configured. `outlier_n_clusters` is a hint — omit it and the algorithm auto-detects. `hdbscan` handles clusters of
+Leaving `outliers.cluster_threshold` unset skips cluster-based detection entirely, even when an extractor is
+configured. `outliers.n_clusters` is a hint — omit it and the algorithm auto-detects. `hdbscan` handles clusters of
 varying density and does not need a cluster count; `kmeans` is faster and predictable when you know roughly how many
 groups to expect.
 

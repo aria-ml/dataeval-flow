@@ -35,8 +35,7 @@ _CONTEXT = CheckContext(task="t", step="s")
 _CLEANING = {
     "name": "cleaning",
     "type": "data-cleaning",
-    "outlier_method": "zscore",
-    "outlier_flags": ["pixel", "visual"],
+    "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
 }
 _EVALUATORS = [
     {

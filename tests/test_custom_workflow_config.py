@@ -144,7 +144,7 @@ def test_to_yaml_writes_a_workflows_fragment() -> None:
 @pytest.mark.usefixtures("toys")
 def test_save_replaces_the_entry_of_its_name_and_keeps_the_rest(tmp_path: Path) -> None:
     path = tmp_path / "workflows.yaml"
-    other = {"name": "other", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
+    other = {"name": "other", "type": "data-cleaning", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
     stale = {"name": "audit", "inputs": ["a"], "steps": [{"name": "k", "transform": "toy-keep", "input": "a"}]}
     path.write_text(yaml.safe_dump({"logging": {"app_level": "INFO"}, "workflows": [stale, other]}, sort_keys=False))
 
@@ -197,8 +197,7 @@ def test_each_saved_definition_loads_back_as_it_was(tmp_path: Path) -> None:
     # `warning: null` judges nothing, where the default judges: a setting given as `None` must survive.
     cleaning = DataCleaningConfig(
         name="basic",
-        outlier_method="zscore",
-        outlier_flags=["pixel"],
+        outliers={"flags": ["pixel"], "outlier_threshold": "zscore"},  # type: ignore[arg-type]
         checks=DataCleaningChecks.model_validate({"image-outliers": {"warning": None}}),
     )
     path = tmp_path / "my_clean.yaml"

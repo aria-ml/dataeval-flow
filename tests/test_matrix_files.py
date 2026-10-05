@@ -17,7 +17,11 @@ from dataeval_flow._ci_reports import junit_report, markdown_summary
 from dataeval_flow._encoding_cli import agreed
 from tests.chain_toys import chain_pipeline
 
-_CLEANING = {"name": "cleaning", "type": "data-cleaning", "outlier_method": "zscore", "outlier_flags": ["pixel"]}
+_CLEANING = {
+    "name": "cleaning",
+    "type": "data-cleaning",
+    "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"},
+}
 
 
 @pytest.fixture(autouse=True)
@@ -30,7 +34,14 @@ def _fresh_cache() -> Any:
 def _results() -> dict[str, Any]:
     config = chain_pipeline(
         workflows=[{**_CLEANING, "checks": {"image-outliers": {"warning": 0.0}}}],
-        tasks=[{"name": "t", "workflow": "cleaning", "sources": "src", "matrix": {"outlier_threshold": [1.0, 3.0]}}],
+        tasks=[
+            {
+                "name": "t",
+                "workflow": "cleaning",
+                "sources": "src",
+                "matrix": {"outliers.outlier_threshold": [1.0, 3.0]},
+            }
+        ],
     )
     return run_tasks(config)
 
@@ -44,7 +55,7 @@ def test_markdown_writes_the_comparison_table() -> None:
     text = markdown_summary(_results())
     assert "## t" in text
     # Markdown's punctuation is escaped in a header, as everywhere in the summary.
-    assert "| \\# | outlier\\_threshold | Health |" in text
+    assert "| \\# | outliers.outlier\\_threshold | Health |" in text
 
 
 def test_the_runner_writes_a_matrix_and_gates_on_its_warnings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -52,7 +63,14 @@ def test_the_runner_writes_a_matrix_and_gates_on_its_warnings(tmp_path: Path, mo
 
     config = chain_pipeline(
         workflows=[{**_CLEANING, "checks": {"image-outliers": {"warning": 0.0}}}],
-        tasks=[{"name": "t", "workflow": "cleaning", "sources": "src", "matrix": {"outlier_threshold": [1.0, 3.0]}}],
+        tasks=[
+            {
+                "name": "t",
+                "workflow": "cleaning",
+                "sources": "src",
+                "matrix": {"outliers.outlier_threshold": [1.0, 3.0]},
+            }
+        ],
         extra={"result": {"formats": ["json", "text"], "fail_on": "warning"}},
     )
     # The pipeline holds in-memory datasets, which no config file can name: hand it to the runner as loaded.
@@ -60,7 +78,7 @@ def test_the_runner_writes_a_matrix_and_gates_on_its_warnings(tmp_path: Path, mo
     assert _runner.run(None, output_dir=tmp_path, data_dir=tmp_path) == 3
     files = {path.suffix: path for path in (tmp_path / "results").iterdir() if path.suffix in (".json", ".txt")}
     assert json.loads(files[".json"].read_text(encoding="utf-8"))["t"]["kind"] == "matrix"
-    assert "outlier_threshold" in files[".txt"].read_text(encoding="utf-8")
+    assert "outliers.outlier_threshold" in files[".txt"].read_text(encoding="utf-8")
 
 
 def test_the_runner_prints_and_writes_a_failed_matrix_and_exits_1(
@@ -69,7 +87,10 @@ def test_the_runner_prints_and_writes_a_failed_matrix_and_exits_1(
     from dataeval_flow import _runner
 
     # k-means can't make 50 clusters of 12 items, so run 2's outliers step fails and run 1 finishes.
-    entry = {**_CLEANING, "outlier_cluster_threshold": 1.0, "outlier_cluster_algorithm": "kmeans"}
+    entry = {
+        **_CLEANING,
+        "outliers": {**_CLEANING["outliers"], "cluster_threshold": 1.0, "cluster_algorithm": "kmeans"},
+    }
     config = chain_pipeline(
         workflows=[entry],
         extractor=True,
@@ -79,7 +100,7 @@ def test_the_runner_prints_and_writes_a_failed_matrix_and_exits_1(
                 "workflow": "cleaning",
                 "sources": "src",
                 "extractor": "flat",
-                "matrix": {"outlier_n_clusters": [None, 50]},
+                "matrix": {"outliers.n_clusters": [None, 50]},
             }
         ],
         extra={"result": {"formats": ["json", "text", "html", "markdown", "junit"]}},
@@ -92,7 +113,7 @@ def test_the_runner_prints_and_writes_a_failed_matrix_and_exits_1(
     assert (payload["health"]["status"], payload["health"]["failed_runs"]) == ("failed", [2])
     assert [run["result"]["kind"] for run in payload["runs"]] == ["workflow", "workflow"]
     assert "Run 2 failed:" in (results / "result.txt").read_text(encoding="utf-8")
-    assert "Run 2 · outlier_n_clusters=50" in (results / "result.html").read_text(encoding="utf-8")
+    assert "Run 2 · outliers.n_clusters=50" in (results / "result.html").read_text(encoding="utf-8")
     assert "**Health:** failed" in (results / "result.md").read_text(encoding="utf-8")
     suites = ET.fromstring((results / "result.xml").read_text(encoding="utf-8"))  # noqa: S314 - our own output
     assert [suite.get("name") for suite in suites] == ["t · run 1", "t · run 2"]

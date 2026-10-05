@@ -509,10 +509,11 @@ result, with a `kind` of `"matrix"`:
 {
   "kind":     "matrix",
   "type":     "data-cleaning",
-  "keys":     ["outlier_threshold"],
+  "keys":     ["outliers.outlier_threshold"],
   "metadata": { "timestamp": "...", "resolved_config": { "task": {}, "sources": ["train"], "seed": 42 } },
   "health":   { "status": "warning", "warnings": 9, "failed_runs": [] },
-  "runs":     [ { "number": 1, "label": "outlier_threshold=2.5", "values": { "outlier_threshold": 2.5 },
+  "runs":     [ { "number": 1, "label": "outliers.outlier_threshold=[adaptive, 2.5]",
+                  "values": { "outliers.outlier_threshold": ["adaptive", 2.5] },
                   "result": { "kind": "workflow", "metadata": {}, "health": {}, "steps": {}, "findings": [],
                               "assets": [] } } ]
 }

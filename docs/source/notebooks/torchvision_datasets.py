@@ -69,9 +69,7 @@ extractors = [BoVWExtractorConfig(name="bovw", vocab_size=512, batch_size=64)]
 workflows = [
     DataCleaningConfig(
         name="adaptive_clean",
-        outlier_method="adaptive",
-        outlier_threshold=3.5,
-        outlier_flags=["dimension", "pixel", "visual"],
+        outliers={"outlier_threshold": ("adaptive", 3.5), "flags": ["dimension", "pixel", "visual"]},
     )
 ]
 tasks = [

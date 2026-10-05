@@ -46,7 +46,10 @@ def test_data_cleaning_gives_the_findings_it_gave_before_its_port(name: str) -> 
 def test_a_data_cleaning_result_records_the_encoding_its_steps_read() -> None:
     """`labels` and `by-class` read one encoding, so the envelope holds one record, as the legacy run's did."""
     DatasetCache.clear_instances()
-    result = run(DataCleaningConfig(outlier_method="zscore", outlier_flags=["pixel", "visual"]), ToyImages(count=12))
+    result = run(
+        DataCleaningConfig(outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}),  # type: ignore[arg-type]
+        ToyImages(count=12),
+    )
     assert result.success, result.errors
     record = result.metadata.metadata_binning
     assert record is not None

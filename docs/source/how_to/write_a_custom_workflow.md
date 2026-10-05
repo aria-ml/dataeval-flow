@@ -313,8 +313,9 @@ and each duplicate but the first. Name the entry with `workflow:`, and read the 
 workflows:
   - name: tidy
     type: data-cleaning
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: adaptive
 
   - name: street_clean
     inputs: [data]

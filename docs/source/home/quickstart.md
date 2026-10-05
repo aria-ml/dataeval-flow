@@ -57,8 +57,9 @@ extractors:
 workflows:
   - name: quality_check
     type: data-cleaning
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: adaptive
 
 tasks:
   - name: check_my_data

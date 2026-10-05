@@ -246,8 +246,7 @@ def synthetic_pipeline_config(tmp_path: Path) -> tuple[object, Path]:
             DataCleaningConfig(
                 name="clean_main",
                 type="data-cleaning",
-                outlier_method="zscore",
-                outlier_flags=["dimension", "pixel"],
+                outliers={"flags": ["dimension", "pixel"], "outlier_threshold": "zscore"},
             ),
         ],
         tasks=[

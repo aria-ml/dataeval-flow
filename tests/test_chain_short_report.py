@@ -18,7 +18,7 @@ _RULE = "=" * 80
 @pytest.fixture
 def cleaned():
     DatasetCache.clear_instances()
-    config = DataCleaningConfig(name="clean", outlier_method="zscore", outlier_flags=["pixel", "visual"])
+    config = DataCleaningConfig(name="clean", outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
     yield run(config, ToyImages(count=24))
     DatasetCache.clear_instances()
 

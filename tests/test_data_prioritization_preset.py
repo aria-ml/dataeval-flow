@@ -15,7 +15,7 @@ from dataeval_flow.workflows.data_prioritization import DataPrioritizationConfig
 from tests.chain_toys import FLAT, chain_pipeline
 from tests.evaluator_toys import ToyImages
 
-_CLEANING = {"outlier_method": "zscore", "outlier_flags": ["pixel", "visual"]}
+_CLEANING = {"outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}}
 
 
 @pytest.fixture(autouse=True)
@@ -70,21 +70,21 @@ def test_cleaning_runs_as_steps_on_the_reference_and_each_pool() -> None:
 
 
 def test_n_keeps_the_top_of_each_ranking() -> None:
-    assert _selected(_task(_pair(), n=5)) == {"pool": 5}
+    assert _selected(_task(_pair(), select={"n": 5})) == {"pool": 5}
 
 
 def test_n_larger_than_a_pool_keeps_the_whole_pool() -> None:
-    assert _selected(_task(_pair(), n=100)) == {"pool": 20}
+    assert _selected(_task(_pair(), select={"n": 100})) == {"pool": 20}
 
 
 def test_fraction_keeps_its_share_rounded_up() -> None:
-    assert _selected(_task(_pair(), fraction=0.21)) == {"pool": 5}
+    assert _selected(_task(_pair(), select={"fraction": 0.21})) == {"pool": 5}
 
 
 def test_n_and_fraction_together_are_refused() -> None:
-    message = "A `data-prioritization` entry takes `n:` or `fraction:`, not both."
+    message = "`select` takes `n:` or `fraction:`, not both."
     with pytest.raises(ValidationError, match=re.escape(message)):
-        DataPrioritizationConfig(n=5, fraction=0.5)
+        DataPrioritizationConfig(select={"n": 5, "fraction": 0.5})  # type: ignore[arg-type]
 
 
 def test_each_pool_is_ranked_on_its_own_against_the_one_reference() -> None:
@@ -116,7 +116,7 @@ def test_a_config_that_still_writes_a_removed_key_is_refused(key: str) -> None:
 
 
 def test_exact_only_cleaning_removes_exact_duplicates_alone() -> None:
-    config = DataPrioritizationConfig(cleaning={**_CLEANING, "duplicate_exact_only": True})  # type: ignore[arg-type]
+    config = DataPrioritizationConfig(cleaning={**_CLEANING, "dup_types": ["exact"]})  # type: ignore[arg-type]
     steps = [cast("Mapping[str, Any]", step) for step in DataPrioritizationWorkflow.chain(config).steps]
     (clean,) = [step for step in steps if step["name"] == "pool-clean"]
     assert clean["plans"] == {
@@ -162,7 +162,7 @@ def test_data_prioritization_runs_as_a_step_after_data_cleaning_over_the_pools()
 
 def test_cleaning_that_empties_a_pool_ranks_it_as_empty() -> None:
     sources = {"ref": ToyImages(count=80), "p1": ToyImages(count=80, seed=1), "p2": ToyImages(count=2, seed=2)}
-    cleaning = {"outlier_method": "zscore", "outlier_flags": ["visual"], "outlier_threshold": 0.99}
+    cleaning = {"outliers": {"flags": ["visual"], "outlier_threshold": ("zscore", 0.99)}}
     result = _task(sources, cleaning=cleaning)
     assert _selected(result) == {"p1": 72, "p2": 0}
     assert result.report()

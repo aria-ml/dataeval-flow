@@ -253,7 +253,7 @@ def test_a_not_assessed_description_ends_in_one_full_stop(tmp_path: Path) -> Non
 def test_a_data_cleaning_step_hands_its_cleaned_dataset_to_an_export(tmp_path: Path) -> None:
     text = """
 workflows:
-  - {name: basic_clean, type: data-cleaning, outlier_method: zscore, outlier_flags: [pixel, visual]}
+  - {name: basic_clean, type: data-cleaning, outliers: {flags: [pixel, visual], outlier_threshold: zscore}}
   - name: clean_export
     inputs: [data]
     steps:

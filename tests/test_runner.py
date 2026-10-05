@@ -148,8 +148,7 @@ def _write_config(tmp_path: Path, *, disable: str | None = None, extra: str = ""
         "workflows:",
         "  - name: wf",
         "    type: data-cleaning",
-        "    outlier_method: modzscore",
-        "    outlier_flags: [dimension]",
+        "    outliers: {flags: [dimension], outlier_threshold: modzscore}",
         "tasks:",
     ]
     for name in ("task_a", "task_b"):

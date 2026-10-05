@@ -15,8 +15,9 @@ A `workflows:` entry is one of two things:
 workflows:
   - name: basic_clean               # a workflow type
     type: data-cleaning
-    outlier_method: adaptive
-    outlier_flags: [dimension, pixel, visual]
+    outliers:
+      flags: [dimension, pixel, visual]
+      outlier_threshold: adaptive
 
   - name: clean_export              # a chain
     inputs: [data]

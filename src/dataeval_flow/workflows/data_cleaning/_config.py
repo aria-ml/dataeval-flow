@@ -1,12 +1,13 @@
 """The ``data-cleaning`` workflow's config and check settings."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.evaluators._threshold import ThresholdSpec
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
 
@@ -15,8 +16,10 @@ __all__ = [
     "DataCleaningChecks",
     "DataCleaningClassImbalanceSettings",
     "DataCleaningConfig",
+    "DuplicatesSettings",
     "ImageDuplicatesSettings",
     "ImageOutliersSettings",
+    "OutliersSettings",
     "TargetOutliersSettings",
 ]
 
@@ -145,6 +148,52 @@ class DataCleaningChecks(BaseModel):
     )
 
 
+class OutliersSettings(BaseModel):
+    """The `outliers` step's settings: which statistics, and how far out an outlier sits. data-prioritization's
+    `cleaning:` takes the same block."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    flags: Sequence[Literal["dimension", "pixel", "visual"]] = Field(
+        min_length=1, description="Image statistics groups to judge. At least one."
+    )
+    outlier_threshold: ThresholdSpec | Mapping[str, ThresholdSpec] = Field(
+        description=(
+            "The method, such as `zscore`, `modzscore`, `iqr` or `adaptive`, alone for its default bound or as "
+            "`[method, bound]`; or a mapping from flag to either."
+        ),
+    )
+    cluster_threshold: float | None = Field(
+        default=None,
+        description="Standard deviations from a cluster's center past which an item is an outlier; needs an extractor. "
+        "Unset skips cluster detection.",
+    )
+    cluster_algorithm: Literal["kmeans", "hdbscan"] | None = Field(
+        default=None, description="The clustering algorithm cluster detection uses."
+    )
+    n_clusters: int | None = Field(default=None, description="Expected number of clusters; unset detects it.")
+
+
+class DuplicatesSettings(BaseModel):
+    """The `duplicates` step's settings. data-prioritization's `cleaning:` takes the same block."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    flags: Sequence[Literal["hash_basic", "hash_d4"]] | None = Field(
+        default=None, description="Hash groups to compare; unset is DataEval's default, `hash_basic`."
+    )
+    merge_near_duplicates: bool = Field(
+        default=True, description="Merge overlapping near-duplicate groups found by different methods."
+    )
+    cluster_sensitivity: float | None = Field(
+        default=None, description="Cluster-based near-duplicate threshold; needs an extractor. Unset skips it."
+    )
+    cluster_algorithm: Literal["kmeans", "hdbscan"] | None = Field(
+        default=None, description="The clustering algorithm cluster detection uses."
+    )
+    n_clusters: int | None = Field(default=None, description="Expected number of clusters; unset detects it.")
+
+
 class DataCleaningConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, StatsConfigMixin):
     """The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.
 
@@ -159,8 +208,9 @@ class DataCleaningConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
         workflows:
           - name: clean_zscore_stats
             type: data-cleaning
-            outlier_method: zscore
-            outlier_flags: [pixel, visual]
+            outliers:
+              flags: [pixel, visual]
+              outlier_threshold: zscore
     """
 
     type: str = Field(default="data-cleaning", description="The workflow type this entry configures: `data-cleaning`.")
@@ -171,58 +221,9 @@ class DataCleaningConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
         sources=SourceCount.ONE,
     )
 
-    # --- Outlier detection params ---
-    outlier_method: Literal["adaptive", "zscore", "modzscore", "iqr"] = Field(
-        description="Statistical method for outlier detection",
-    )
-    outlier_flags: Sequence[Literal["dimension", "pixel", "visual"]] = Field(
-        min_length=1,
-        description="Image statistics groups for outlier detection. At least one required.",
-    )
-    outlier_threshold: float | None = Field(
-        default=None,
-        ge=0.0,
-        description="Custom threshold (None = use DataEval default for chosen method)",
-    )
-    outlier_cluster_threshold: float | None = Field(
-        default=None,
-        description=(
-            "Std devs from cluster center to flag as outlier (requires extractor). None = skip cluster detection."
-        ),
-    )
-    outlier_cluster_algorithm: Literal["kmeans", "hdbscan"] | None = Field(
-        default=None,
-        description="Clustering algorithm for cluster-based outlier detection.",
-    )
-    outlier_n_clusters: int | None = Field(
-        default=None,
-        description="Expected number of clusters. None = auto-detect.",
-    )
-
-    # --- Duplicate detection params ---
-    duplicate_flags: Sequence[Literal["hash_basic", "hash_d4"]] | None = Field(
-        default=None,
-        description=(
-            "Hash flag groups for duplicate detection. None = DataEval default (hash_basic: xxhash + phash + dhash)."
-        ),
-    )
-    duplicate_merge_near: bool = Field(
-        default=True,
-        description="Merge overlapping near-duplicate groups from different detection methods.",
-    )
-    duplicate_cluster_sensitivity: float | None = Field(
-        default=None,
-        description=(
-            "Threshold for cluster-based near duplicate detection (requires extractor). None = skip cluster detection."
-        ),
-    )
-    duplicate_cluster_algorithm: Literal["kmeans", "hdbscan"] | None = Field(
-        default=None,
-        description="Clustering algorithm for cluster-based duplicate detection.",
-    )
-    duplicate_n_clusters: int | None = Field(
-        default=None,
-        description="Expected number of clusters for duplicate detection. None = auto-detect.",
+    outliers: OutliersSettings = Field(description="The `outliers` step's settings.")
+    duplicates: DuplicatesSettings = Field(
+        default_factory=DuplicatesSettings, description="The `duplicates` step's settings."
     )
 
     # --- Checks ---
@@ -233,12 +234,12 @@ class DataCleaningConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
     def wanted_kinds(self) -> frozenset[InputKind]:
         """Stats and metadata always, and clusters too when a cluster parameter is set."""
         cluster_fields = (
-            self.outlier_cluster_threshold,
-            self.outlier_cluster_algorithm,
-            self.outlier_n_clusters,
-            self.duplicate_cluster_sensitivity,
-            self.duplicate_cluster_algorithm,
-            self.duplicate_n_clusters,
+            self.outliers.cluster_threshold,
+            self.outliers.cluster_algorithm,
+            self.outliers.n_clusters,
+            self.duplicates.cluster_sensitivity,
+            self.duplicates.cluster_algorithm,
+            self.duplicates.n_clusters,
         )
         clusters = frozenset({InputKind.CLUSTERS}) if any(f is not None for f in cluster_fields) else frozenset()
         return self.inputs.required | clusters
