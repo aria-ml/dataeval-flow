@@ -103,8 +103,8 @@ groups to expect.
 
 ## Decide when a finding becomes a warning
 
-Detection and *severity* are separate concerns. `checks` sets the rate at which each finding is elevated
-from `info` to `warning` in the report's health line — it does not change what is detected.
+Detection and {term}`severity <Severity>` are separate concerns. `checks` sets the bound past which each finding is
+a `warning`, counted in the report's health line. It does not change what is detected.
 
 ```yaml
     checks:

@@ -40,7 +40,7 @@ A workflow's report is laid out in this order:
    tables and charts.
 6. **Metadata factors** — how the run encoded its metadata, when it used any.
 7. **Configuration** — the configuration as actually executed, less the settings left unset. A setting written as
-   `null` stays, since `null` means something, such as a health threshold switched off.
+   `null` stays, since `null` means something, such as a check's threshold switched off.
 
 `detailed=False` leaves out the detail, and the metadata factors' *Per-factor detail*. The rest is rendered at both
 detail levels.
@@ -159,9 +159,9 @@ banner and configuration:
 
 ### Severity and the health line
 
-Each finding carries a severity of `ok`, `info`, or `warning`. A finding becomes a `warning` when it breaches its
-{term}`threshold <Threshold>`; otherwise it stays at `info`. The health line summarizes the run,
-counting its warnings or saying that every check passed:
+Each finding carries a {term}`severity <Severity>` of `ok`, `info`, or `warning`, which the glossary defines. A
+finding is a `warning` when it passes a {term}`threshold <Threshold>` or meets another criterion its check warns on.
+The health line summarizes the run, counting its warnings or saying that every check passed:
 
 ```text
   Health: 1 warning(s) [!!] — review flagged findings

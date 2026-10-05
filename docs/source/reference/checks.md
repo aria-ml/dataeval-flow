@@ -1,9 +1,9 @@
 # Check Catalog
 
-A **check** is a step of a custom workflow that judges what evaluators found. It reads their Outputs, and makes
-findings: each `ok`, `info` or `warning`, rolled up into the task's health, where a warning counts toward
-`--fail-on-warning`. A **combine**, which the [Combine Catalog](combines.md) lists, reads Outputs, and the Datasets they
-were computed on, and makes an Output a check reads. See [Workflows as Chains of
+A **check** is a step, in a preset's chain or a custom workflow, that judges what evaluators found. It reads their
+Outputs, and makes findings: each `ok`, `info` or `warning`, rolled up into the task's health, where a warning counts
+toward `--fail-on-warning`. A **combine**, which the [Combine Catalog](combines.md) lists, reads Outputs, and the
+Datasets they were computed on, and makes an Output a check reads. See [Workflows as Chains of
 Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and the [Transform Catalog](transforms.md) for the steps
 that make Datasets.
 
@@ -46,8 +46,10 @@ splits](../how_to/write_a_custom_workflow.md#11-audit-a-set-of-splits) chains `l
 
 ## How thresholds work
 
-A check's thresholds are written beside it, in the step entry, like a transform's settings. Each is a percentage or a
-ratio, and a finding warns where the measured value passes it. A value equal to a bound does not warn: the bound is the
+A check's thresholds are written beside it, in the step entry, like a transform's settings. Each is in the unit its
+row names: a percentage, a ratio, a count, a fraction, a score, percentage points or mutual information. A finding
+warns where the measured value passes it, and the glossary's {term}`Severity` entry defines `ok`, `info` and
+`warning`. A value equal to a bound does not warn: the bound is the
 last value that does not. `null` switches a threshold off: the finding is still made, as `info`. Each preset's `checks:`
 defaults are in the [Preset Catalog](presets.md). A check with a criterion that has no threshold, such as an unmet
 share, an ambiguous name or an empty class, keeps judging it, so its finding can still be `ok` or `warning` when its
@@ -222,7 +224,7 @@ The ratio is taken over the classes with labels. A class with none is named and 
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-health` Output |
 | `warning` | a ratio of at least 1, or `null` | `5.0` | Largest class count over smallest that may hold before the finding warns; an empty class warns unless `empty` is `false` |
-| `info` | a ratio, or `null` | `null` | A ratio at or under which the finding is ok; must not exceed `warning` |
+| `info` | a ratio, or `null` | `null` | A ratio at or under which the finding is ok; must not exceed `warning`. `null`, which data-cleaning and data-splitting keep, makes every ratio that does not warn `info` |
 | `empty` | `true` or `false` | `true` | Whether a declared class with no labels warns; `false` leaves it to `untrained-classes` and `class-sufficiency` |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)

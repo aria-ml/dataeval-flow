@@ -1,9 +1,9 @@
 # Combine Catalog
 
-A **combine** is a step of a custom workflow that reads Outputs, and the Datasets they were computed on, and makes an
-Output a check reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, the
-[Check Catalog](checks.md) for the checks that judge a combine's Output, and the [Transform Catalog](transforms.md) for
-the steps that make Datasets.
+A **combine** is a step, in a preset's chain or a custom workflow, that reads Outputs, and the Datasets they were
+computed on, and makes an Output a check reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for
+how steps chain, the [Check Catalog](checks.md) for the checks that judge a combine's Output, and the [Transform
+Catalog](transforms.md) for the steps that make Datasets.
 
 ## At a glance
 

@@ -566,7 +566,7 @@ With no `--task`, every task the config marks `enabled` runs.
 
 By default the run exits `0` whenever every task *ran*, whatever its findings say. A
 warning is a prompt to look, not a failure. `--fail-on-warning`, or `fail_on: warning` in the
-pipeline's `result:` block, makes findings that breached their health thresholds fatal, so a CI
+pipeline's `result:` block, makes findings that passed their checks' thresholds fatal, so a CI
 job can gate on data quality:
 
 ```bash

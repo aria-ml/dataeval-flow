@@ -1,10 +1,10 @@
 # Transform Catalog
 
-A transform is a step of a custom workflow that makes Datasets: it views, wraps, merges, splits, selects from,
-removes from or relabels the Datasets earlier steps made, or writes one to disk. See
-[Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and
-[Chain steps into a workflow of your own](../how_to/write_a_custom_workflow.md) for a worked example. Each entry's
-**Used in** names the presets that run the transform; where it names none, chain it in a workflow of your own.
+A transform is a step, in a preset's chain or a custom workflow, that makes Datasets: it views, wraps, merges, splits,
+selects from, removes from or relabels the Datasets earlier steps made, or writes one to disk. See [Workflows as Chains
+of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and [Chain steps into a workflow of your
+own](../how_to/write_a_custom_workflow.md) for a worked example. Each entry's **Used in** names the presets that run the
+transform; where it names none, chain it in a workflow of your own.
 
 ## At a glance
 

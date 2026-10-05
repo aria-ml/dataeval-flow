@@ -48,8 +48,9 @@ Classwise Drift
     distribution shift affects most.
 
 Combine
-    A {term}`step<Step>` that makes one {term}`Output` from other Outputs, for a {term}`check<Check>` to read, such as
-    `outliers-by-class` or `ood-union`. See the [Combine Catalog](combines.md).
+    A {term}`step<Step>` that makes one {term}`Output` from other Outputs, and from the Datasets they were computed on,
+    for a {term}`check<Check>` to read, such as `outliers-by-class` or `ood-union`. See the
+    [Combine Catalog](combines.md).
 
 Coverage
     How completely a dataset spans the conditions a model will meet in operation,
@@ -70,6 +71,12 @@ DataEval
     The core evaluation library that provides the statistical analysis, outlier
     detection, drift, OOD, and data-quality algorithms. DataEval Flow
     orchestrates these evaluators behind a declarative configuration.
+
+Dataset
+    One loaded dataset that {term}`steps<Step>` read and make: a {term}`source's<Source>` data once loaded, possibly
+    through a {term}`view<View>`, or what a {term}`transform<Transform>` made from one, such as a split's `train`. A
+    source is the configured input a task binds; the Dataset is the data a step reads. See
+    [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md).
 
 Determination
     What an {term}`evaluator<Evaluator>` reports: a flag, a group or a p-value
@@ -94,9 +101,10 @@ Duplicates
     {term}`embedding<Embedding>` distance.
 
 Element
-    One Dataset, or one {term}`Output`, of a list. A list comes from a list input, keyed by source name, or from
-    `kfold`'s `train` and `val`. A step that reads one Dataset, handed a list, runs once per element. Each element has a
-    {term}`key<Key>`. See [Addresses and lists](../concepts/WorkflowsAsChains.md#addresses-and-lists).
+    One {term}`Dataset`, or one {term}`Output`, of a list. A list comes from a list input, keyed by source name, or
+    from `kfold`'s `train` and `val`. A step that reads one Dataset, handed a list, runs once per element, and a step
+    with `pairs: true` runs once per pair of a list's elements. Each element has a {term}`key<Key>`. See
+    [Addresses and lists](../concepts/WorkflowsAsChains.md#addresses-and-lists).
 
 Embedding
 Embeddings
@@ -138,8 +146,9 @@ Finding
     the evidence it judged. See [Check Catalog](checks.md).
 
 Key
-    An {term}`element's<Element>` name in its list: a source name, or a fold number from `0` to `k-1`. It appears in
-    an address, as `train` in `kfold.train[0]`, and in a finding's `step`, as `train` in `class-imbalance[train]`. See
+    An {term}`element's<Element>` name in its list: a source name, a fold number from `0` to `k-1`, or a pair key
+    such as `val_vs_test`, which a step with `pairs: true` gives each pair it runs on. It appears in an address, as
+    `0` in `kfold.train[0]`, and in a finding's `step`, as `train` in `class-imbalance[train]`. See
     [Addresses and lists](../concepts/WorkflowsAsChains.md#addresses-and-lists).
 
 MAITE
@@ -219,8 +228,8 @@ Preprocessor
 
 Preset
     A {term}`workflow<Workflow>` type whose settings expand to a chain of steps:
-    evaluators, the checks that judge what they found, and the transforms that
-    make Datasets. `data-cleaning` is one. See the
+    evaluators, the combines that join their Outputs, the checks that judge what
+    they found, and the transforms that make Datasets. `data-cleaning` is one. See the
     [Preset Catalog](presets.md) and
     [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md).
 
@@ -255,9 +264,11 @@ Result Envelope
     that satisfies JATIC interoperability requirements.
 
 Severity
-    A {term}`finding's<Finding>` verdict: `ok` when nothing was judged wrong, `warning` when it breached a
-    {term}`threshold<Threshold>` or another criterion, and `info` when nothing judged it. Warnings count toward the
-    result's health and `--fail-on-warning`.
+    A {term}`finding's<Finding>` verdict, one of three. `ok`: its check judged it, and it is within every bound.
+    `info`: it falls in an `info` band or meets a criterion its check informs on, its check had nothing to judge (it is
+    briefed `not assessed`), or no bound was set to judge it by. `warning`: it passes a {term}`threshold<Threshold>`
+    or meets another criterion its check warns on. Warnings count toward the result's health and `--fail-on-warning`.
+    Each check's entry in the [Check Catalog](checks.md) says which applies when.
 
 Source
     A configured dataset input — a {term}`MAITE`-compatible dataset or one
@@ -275,7 +286,8 @@ Stratified Split
 
 Subject
     A `drift` or `ood` check's `subject:` setting: the title its {term}`finding<Finding>` takes, so a finding names
-    the detector it judged. Unset, the title is the evaluator's. See [Naming Conventions](naming.md).
+    the detector it judged. Unset, the title is the evaluator's title, followed by its entry's name where that differs
+    from its type, as in `Drift (MMD) · mmd`. See [Naming Conventions](naming.md).
 
 Task
     A single configured unit of work within a {term}`pipeline<Pipeline>` —
@@ -288,8 +300,9 @@ Test Source
     against `train` and not against a reference. See [Has new data drifted?](index.md#has-new-data-drifted).
 
 Threshold
-    A {term}`check's<Check>` bound on a measured value, as a percentage or a ratio. A {term}`finding<Finding>`
-    warns only past the bound, and `null` switches it off. A {term}`preset<Preset>`'s defaults are under `checks:`. See
+    A {term}`check's<Check>` bound on a measured value, in the unit its check names: a percentage, a ratio, a count,
+    a fraction, a score, percentage points or mutual information. A {term}`finding<Finding>` warns only past the
+    bound, and `null` switches it off. A {term}`preset<Preset>`'s defaults are under `checks:`. See
     [How thresholds work](checks.md#how-thresholds-work).
 
 Transform
