@@ -290,3 +290,24 @@ def test_a_run_with_no_report_to_show_still_writes_a_page():
     page = results_html([])
     assert "<title>dataeval-flow results</title>" in page
     assert _well_formed(page)
+
+
+def test_a_nulled_setting_of_an_alias_keyed_model_is_tracked_under_its_alias() -> None:
+    from pydantic import BaseModel, ConfigDict, Field
+
+    from dataeval_flow._orchestrator import _nulls_of
+
+    class Block(BaseModel):
+        warning: float | None = 1.0
+
+    class Keyed(BaseModel):
+        model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+        image_outliers: Block = Field(default_factory=Block, alias="image-outliers")
+
+    class Plain(BaseModel):
+        image_outliers: Block = Field(default_factory=Block)
+
+    assert _nulls_of(Keyed.model_validate({"image-outliers": {"warning": None}}), ("w",)) == {
+        ("w", "image-outliers", "warning")
+    }
+    assert _nulls_of(Plain(image_outliers=Block(warning=None)), ("w",)) == {("w", "image_outliers", "warning")}
