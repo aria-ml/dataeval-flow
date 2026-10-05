@@ -25,14 +25,14 @@ class DataSplittingWorkflow(Preset, Workflow[DataSplittingConfig, ChainResult]):
 
     The settings expand to:
 
-    - ``labels`` (``label-health``) and ``labels-check`` (``class-imbalance``) on the whole set; ``balance`` and
+    - ``label-health`` and ``class-imbalance`` on the whole set; ``balance`` and
       ``diversity``, optional; ``coverage``, optional, which embeds the whole set once for every part, and
-      ``uncovered`` (``uncovered-items``) under ``naive`` coverage;
-    - ``split`` (``split``, or ``kfold`` with ``folds`` of 2 or more), and ``rebalance`` (a ``view`` holding
+      ``uncovered-items`` under ``naive`` coverage;
+    - ``split`` (``split``, or ``kfold`` with ``folds`` of 2 or more), and ``rebalanced`` (a ``view`` holding
       ``ClassBalance``) on each train where ``rebalance`` is set;
-    - ``labels-<part>`` on each part the settings fill, ``labels-rebalanced`` where rebalancing, and
+    - ``label-health-<part>`` on each part the settings fill, ``label-health-rebalanced`` where rebalancing, and
       ``stratification``, judging the parts before rebalancing;
-    - ``coverage-<part>`` on each part as handed on, optional, and ``uncovered-<part>`` under ``naive`` coverage.
+    - ``coverage-<part>`` on each part as handed on, optional, and ``uncovered-items-<part>`` under ``naive`` coverage.
 
     Under ``kfold`` every step on a train or val runs once per fold. Run as a step of a custom workflow,
     ``<step>.train`` (the rebalanced train where set), ``<step>.val`` and ``<step>.test`` read the parts; under
@@ -55,47 +55,49 @@ class DataSplittingWorkflow(Preset, Workflow[DataSplittingConfig, ChainResult]):
         naive = config.coverage.method == "naive"
         rate = limits.uncovered_items.warning
         evaluators: list[Any] = [
-            LabelHealthConfig(name="labels", metadata=config.metadata),
+            LabelHealthConfig(name="label-health", metadata=config.metadata),
             BalanceConfig(name="balance", metadata=config.metadata),
             DiversityConfig(name="diversity", metadata=config.metadata),
             CoverageConfig(name="coverage", **config.coverage.model_dump()),
         ]
         steps: list[dict[str, Any]] = [
-            {"name": "labels", "evaluator": "labels", "input": "data"},
+            {"name": "label-health", "evaluator": "label-health", "input": "data"},
             {
-                "name": "labels-check",
+                "name": "class-imbalance",
                 "check": "class-imbalance",
-                "input": "labels",
+                "input": "label-health",
                 "warning": limits.class_imbalance.warning,
             },
             {"name": "balance", "evaluator": "balance", "input": "data", "optional": True},
             {"name": "diversity", "evaluator": "diversity", "input": "data", "optional": True},
-            *_coverage("coverage", "data", "uncovered", naive, rate),
+            *_coverage("coverage", "data", "uncovered-items", naive, rate),
             _split(config),
         ]
         handed = {part: f"split.{part}" for part in _PARTS}
         if config.rebalance is not None:
             operations = [{"type": "ClassBalance", "params": {"method": config.rebalance}}]
-            steps.append({"name": "rebalance", "transform": "view", "input": "split.train", "operations": operations})
-            handed["train"] = "rebalance"
+            steps.append({"name": "rebalanced", "transform": "view", "input": "split.train", "operations": operations})
+            handed["train"] = "rebalanced"
         parts = _filled(config)
-        steps += [{"name": f"labels-{part}", "evaluator": "labels", "input": f"split.{part}"} for part in parts]
+        steps += [
+            {"name": f"label-health-{part}", "evaluator": "label-health", "input": f"split.{part}"} for part in parts
+        ]
         shown: dict[str, Any] = {}
         if config.rebalance is not None:
-            steps.append({"name": "labels-rebalanced", "evaluator": "labels", "input": "rebalance"})
-            shown = {"shown": "labels-rebalanced"}
+            steps.append({"name": "label-health-rebalanced", "evaluator": "label-health", "input": "rebalanced"})
+            shown = {"shown": "label-health-rebalanced"}
         steps.append(
             {
                 "name": "stratification",
                 "check": "stratification",
-                "input": "labels",
-                "parts": [f"labels-{part}" for part in parts],
+                "input": "label-health",
+                "parts": [f"label-health-{part}" for part in parts],
                 **shown,
                 **limits.stratification.model_dump(),
             }
         )
         for part in parts:
-            steps += _coverage(f"coverage-{part}", handed[part], f"uncovered-{part}", naive, rate)
+            steps += _coverage(f"coverage-{part}", handed[part], f"uncovered-items-{part}", naive, rate)
         return PresetChain(steps=steps, evaluators=evaluators, outputs=handed)
 
 

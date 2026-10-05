@@ -47,8 +47,8 @@ def test_two_detectors_expand_to_their_checks_the_agreement_and_the_factor_steps
         "ood-kneighbors-check",
         "ood-domain-classifier",
         "ood-domain-classifier-check",
-        "agreement",
-        "agreement-check",
+        "ood-union",
+        "ood-agreement",
         "factor-predictors",
         "factor-deviation",
     ]
@@ -61,19 +61,19 @@ def test_two_detectors_expand_to_their_checks_the_agreement_and_the_factor_steps
         **_LIMITS,
     }
     assert steps[4] == {
-        "name": "agreement",
+        "name": "ood-union",
         "combine": "ood-union",
         "input": ["ood-kneighbors", "ood-domain-classifier"],
     }
-    assert steps[5] == {"name": "agreement-check", "check": "ood-agreement", "input": "agreement", **_LIMITS}
-    factors = {"ood": "agreement", "reference": "reference", "input": "tests", "optional": True}
+    assert steps[5] == {"name": "ood-agreement", "check": "ood-agreement", "input": "ood-union", **_LIMITS}
+    factors = {"ood": "ood-union", "reference": "reference", "input": "tests", "optional": True}
     assert steps[6] == {"name": "factor-predictors", "combine": "factor-predictors", **factors}
     assert steps[7] == {"name": "factor-deviation", "combine": "factor-deviation", **factors, "max_items": 50}
 
 
 def test_one_detector_has_no_agreement_check_and_insights_off_drop_the_factor_steps() -> None:
     names = [step["name"] for step in _steps(detectors=[_KNN], factor_predictors=False, factor_deviation=False)]
-    assert names == ["ood-kneighbors", "ood-kneighbors-check", "agreement"]
+    assert names == ["ood-kneighbors", "ood-kneighbors-check", "ood-union"]
 
 
 def test_settings_reach_their_steps() -> None:
@@ -94,7 +94,7 @@ def test_settings_reach_their_steps() -> None:
 
 def test_the_agreement_thresholds_are_keyed_by_check_type() -> None:
     config = _config(detectors=[_KNN, _DC], checks={"ood-agreement": {"warning": 50.0}})
-    check = next(step for step in OODDetectionWorkflow.chain(config).steps if dict(step)["name"] == "agreement-check")
+    check = next(step for step in OODDetectionWorkflow.chain(config).steps if dict(step)["name"] == "ood-agreement")
     assert dict(check)["warning"] == 50.0
     assert config.checks.ood_agreement.warning == 50.0
     assert config.checks.model_dump() == {"ood": _LIMITS, "ood-agreement": {**_LIMITS, "warning": 50.0}}
@@ -126,7 +126,7 @@ def test_two_unnamed_detectors_of_one_type_are_refused() -> None:
         _config(detectors=[_KNN, {**_KNN, "k": 3}])
 
 
-@pytest.mark.parametrize("name", ["agreement", "factor-predictors", "factor-deviation", "knn-check"])
+@pytest.mark.parametrize("name", ["ood-union", "ood-agreement", "factor-predictors", "factor-deviation", "knn-check"])
 def test_a_detector_named_as_a_preset_step_is_refused(name: str) -> None:
     with pytest.raises(ValidationError, match=f"Detector `{name}` is a name the preset's own steps use"):
         _config(detectors=[{**_KNN, "name": name}])
@@ -206,5 +206,5 @@ def test_a_detector_on_uncertainty_agrees_with_one_on_embeddings(tmp_path, monke
     datasets = {"reference": ClassImages({0: 20, 1: 20}), "cam1": ClassImages({0: 20, 1: 20}, seed=1, bright=True)}
     result = run_uncertainty(tmp_path, preset, [], datasets, detector=False, task_extractor="flat", extractors=[FLAT])
     assert result.success, result.errors
-    union = element(result, "agreement").output
+    union = element(result, "ood-union").output
     assert (union.detectors, union.images) == (["flat-knn", "unc-knn"], 40)

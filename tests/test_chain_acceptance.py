@@ -266,14 +266,14 @@ tasks:
     assert result.success, result.errors
     assert [(f.severity, f.title, f.step) for f in result.findings] == [
         ("ok", "Image Outliers", "cleaning/image-outliers"),
-        ("ok", "Classwise Outliers", "cleaning/classwise"),
-        ("warning", "Image Duplicates", "cleaning/duplicates"),
-        ("info", "Class Imbalance", "cleaning/imbalance"),
+        ("ok", "Classwise Outliers", "cleaning/classwise-outliers"),
+        ("warning", "Image Duplicates", "cleaning/image-duplicates"),
+        ("info", "Class Imbalance", "cleaning/class-imbalance"),
     ]
     assert result.health == {"status": "warning", "warnings": 1, "findings": 4, "failed_steps": []}
     assert result.steps["cleaning/clean"].details == {
         "removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0},
-        "by_plan": {"dupes": {"items": 1}, "outliers": {}},
+        "by_plan": {"duplicates": {"items": 1}, "outliers": {}},
     }
     written = _coco(tmp_path / "datasets" / "prep.dataset")
     assert (len(written["images"]), len(written["annotations"])) == (23, 46)

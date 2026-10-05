@@ -374,7 +374,7 @@ print(overall_result.report())
 # - **Univariate CVM**: Runs Cramer-von Mises tests on individual embedding dimensions.
 #
 # Each named detector keeps its whole-set step, `drift-mmd`, and gains a step that runs it by class,
-# `drift-mmd-classes`. A `drift` check judges each, as `drift-mmd-check` and `drift-mmd-classes-check`.
+# `drift-mmd-by-class`. A `drift` check judges each, as `drift-mmd-check` and `drift-mmd-by-class-check`.
 # A class needs 2 or more items in the reference and in the incoming data to be tested; the step
 # lists any it leaves out as skipped.
 
@@ -458,7 +458,7 @@ print()
 print("── Classwise Drift ──")
 per_class = {}
 for name in ("drift-mmd", "drift-univariate"):
-    per_class[name] = (steps[f"{name}-classes"].elements or {})["incoming_2k"].output
+    per_class[name] = (steps[f"{name}-by-class"].elements or {})["incoming_2k"].output
     print(f"\n  Detector: {name}")
     rows = [
         {

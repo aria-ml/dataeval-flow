@@ -183,3 +183,48 @@ def test_a_presets_step_block_holds_only_that_steps_own_settings(cls: type) -> N
 def test_a_preset_spells_no_setting_with_a_step_prefix(cls: type) -> None:
     prefixed = [name for name in cls.config_type.model_fields if re.match(r"(outlier|duplicate)_", name)]
     assert prefixed == [], "a setting sits under its step's type, spelled as the step spells it"
+
+
+# The fewest settings each preset needs to build its chain, with every optional step on.
+_MINIMAL = {
+    "data-cleaning": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}},
+    "data-coverage": {"coverage": {"method": "naive"}},
+    "data-prioritization": {"cleaning": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}},
+    "data-splitting": {"rebalance": "interclass", "coverage": {"method": "naive"}},
+    "drift-monitoring": {"detectors": [{"name": "mmd", "type": "drift-mmd"}], "classwise": {"mmd": "class"}},
+    "label-space": {"ontology": {"animal": {"cat": None}}},
+    "metadata-triage": {},
+    "ood-detection": {
+        "detectors": [
+            {"name": "knn", "type": "ood-kneighbors", "distance_metric": "euclidean"},
+            {"name": "dc", "type": "ood-domain-classifier"},
+        ]
+    },
+}
+_KINDS = ("evaluator", "combine", "check")
+
+
+def test_every_preset_has_a_minimal_config_here() -> None:
+    assert sorted(_MINIMAL) == sorted(cls.name for cls in _PRESETS)
+
+
+@pytest.mark.parametrize("cls", _PRESETS, ids=_id)
+def test_a_presets_steps_are_named_for_their_types(cls: type) -> None:
+    config = cls.config_type.model_validate(_MINIMAL[cls.name])
+    chain = cls.chain(config)
+    entries = {entry.name: entry.type for entry in chain.evaluators or ()}
+    detectors = {detector.name for detector in getattr(config, "detectors", ())}
+    for name, type_id in entries.items():
+        if name not in detectors:
+            assert name == type_id, f"evaluator entry `{name}` is not named for its type `{type_id}`"
+    for step in chain.steps:
+        kind = next((kind for kind in _KINDS if kind in step), None)
+        if kind is None:
+            continue  # a transform is named for the Dataset it makes
+        name = step["name"]
+        if any(name == d or name.startswith(f"{d}-") for d in detectors):
+            continue  # a user-named detector's steps keep its name
+        type_id = entries.get(step[kind], step[kind]) if kind == "evaluator" else step[kind]
+        assert name == type_id or name.startswith(f"{type_id}-"), (
+            f"step `{name}` is not `{type_id}` or `{type_id}-<role>`"
+        )

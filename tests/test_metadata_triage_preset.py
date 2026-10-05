@@ -41,15 +41,15 @@ def test_the_settings_expand_to_triage_and_its_check() -> None:
     (triage,) = chain.evaluators
     assert isinstance(triage, FactorTriageConfig)
     assert (triage.name, triage.metadata, triage.verify, triage.default_bins, triage.min_missing_fraction) == (
-        "triage",
+        "factor-triage",
         "weights",
         False,
         4,
         0.5,
     )
     assert list(chain.steps) == [
-        {"name": "triage", "evaluator": "triage", "input": "data"},
-        {"name": "issues", "check": "metadata-issues", "input": "triage", "max_examples": 3},
+        {"name": "factor-triage", "evaluator": "factor-triage", "input": "data"},
+        {"name": "metadata-issues", "check": "metadata-issues", "input": "factor-triage", "max_examples": 3},
     ]
 
 
@@ -57,7 +57,7 @@ def test_a_run_is_a_chain_result_of_its_two_steps() -> None:
     result = run(MetadataTriageConfig(), MixedWeightDataset())
     assert isinstance(result, ChainResult)
     assert result.type == "metadata-triage"
-    assert list(result.steps) == ["triage", "issues"]
+    assert list(result.steps) == ["factor-triage", "metadata-issues"]
     assert result.health["status"] == "warning"
     assert [f.title for f in result.findings] == [
         "Unreadable factors",
@@ -139,7 +139,7 @@ def test_as_a_step_over_a_list_it_triages_each_element() -> None:
     result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
-    assert list(result.steps["triage/issues"].elements or {}) == ["a", "b"]
+    assert list(result.steps["triage/metadata-issues"].elements or {}) == ["a", "b"]
     assert result.metadata.metadata_binning is not None
     assert list(result.metadata.metadata_binning["per_split"]) == ["splits[a]", "splits[b]"]
     assert result.health["status"] == "warning"

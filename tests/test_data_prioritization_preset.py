@@ -49,7 +49,7 @@ def _selected(result: ChainResult) -> dict[str, int]:
 def test_without_cleaning_the_preset_ranks_and_selects() -> None:
     result = _task(_pair())
     assert result.type == "data-prioritization"
-    assert list(result.steps) == ["rank", "selected"]
+    assert list(result.steps) == ["prioritization", "selected"]
     assert result.findings == []
     assert _selected(result) == {"pool": 20}
 
@@ -57,16 +57,16 @@ def test_without_cleaning_the_preset_ranks_and_selects() -> None:
 def test_cleaning_runs_as_steps_on_the_reference_and_each_pool() -> None:
     result = _task(_pair(), cleaning=_CLEANING)
     assert list(result.steps) == [
-        "reference-outliers",
-        "reference-dupes",
+        "outliers-reference",
+        "duplicates-reference",
         "reference-clean",
-        "pool-outliers",
-        "pool-dupes",
+        "outliers-pool",
+        "duplicates-pool",
         "pool-clean",
-        "rank",
+        "prioritization",
         "selected",
     ]
-    assert result.steps["rank"].inputs == ["pool-clean", "reference-clean"]
+    assert result.steps["prioritization"].inputs == ["pool-clean", "reference-clean"]
 
 
 def test_n_keeps_the_top_of_each_ranking() -> None:
@@ -91,7 +91,7 @@ def test_each_pool_is_ranked_on_its_own_against_the_one_reference() -> None:
     sources = {"ref": ToyImages(count=16), "p1": ToyImages(count=20, seed=1), "p2": ToyImages(count=12, seed=2)}
     result = _task(sources, cleaning=_CLEANING)
     assert result.steps["reference-clean"].elements is None
-    assert list(result.steps["rank"].elements or {}) == ["p1", "p2"]
+    assert list(result.steps["prioritization"].elements or {}) == ["p1", "p2"]
     assert list(result.steps["selected"].elements or {}) == ["p1", "p2"]
 
 
@@ -120,8 +120,8 @@ def test_exact_only_cleaning_removes_exact_duplicates_alone() -> None:
     steps = [cast("Mapping[str, Any]", step) for step in DataPrioritizationWorkflow.chain(config).steps]
     (clean,) = [step for step in steps if step["name"] == "pool-clean"]
     assert clean["plans"] == {
-        "pool-dupes": {"dup_types": ["exact"], "keep": "first"},
-        "pool-outliers": {"min_flags": 1},
+        "duplicates-pool": {"dup_types": ["exact"], "keep": "first"},
+        "outliers-pool": {"min_flags": 1},
     }
 
 
@@ -166,4 +166,4 @@ def test_cleaning_that_empties_a_pool_ranks_it_as_empty() -> None:
     result = _task(sources, cleaning=cleaning)
     assert _selected(result) == {"p1": 72, "p2": 0}
     assert result.report()
-    assert cast(Mapping[str, Any], result.to_dict()["steps"])["rank"]
+    assert cast(Mapping[str, Any], result.to_dict()["steps"])["prioritization"]

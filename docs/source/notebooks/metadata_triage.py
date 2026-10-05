@@ -132,11 +132,11 @@ print(f"success={result.success}  health={result.health['status']}")
 print(result.report())
 
 # %% [markdown]
-# The preset's `triage` step holds the issues, the suggested policy and the verification, and its `issues` step
-# makes the findings the report shows.
+# The preset's `factor-triage` step holds the issues, the suggested policy and the verification, and its
+# `metadata-issues` step makes the findings the report shows.
 
 # %%
-triage = result.steps["triage"].output.data()
+triage = result.steps["factor-triage"].output.data()
 
 # %% [markdown]
 # ### Reading the report
@@ -170,7 +170,7 @@ triage = result.steps["triage"].output.data()
 # `latitude` contains the string `'N'`. Because automated triage cannot determine what `'N'` represents,
 # it generates a remap rule with a `null` target and sets `complete=False`.
 #
-# You can inspect individual findings in the `triage` step's `findings`:
+# You can inspect individual findings in the `factor-triage` step's `findings`:
 
 # %%
 latitude = next(f for f in triage["findings"] if f.factor == "latitude")
@@ -306,7 +306,7 @@ result2 = run_task(task, corrected)
 print(f"success={result2.success}  health={result2.health['status']}")
 
 # %%
-after = result2.steps["triage"].output.data()
+after = result2.steps["factor-triage"].output.data()
 print(f"factors : {triage['factor_count']} -> {after['factor_count']}")
 print(f"findings: {len(triage['findings'])} -> {len(after['findings'])}")
 print(f"blocking: {triage['counts'].get('blocking', 0)} -> {after['counts'].get('blocking', 0)}")

@@ -403,7 +403,7 @@ assert result.success
 # %% [markdown]
 # ### Prioritization report
 #
-# The report lists each step of the preset. Its `rank` step pictures the 25 highest-priority
+# The report lists each step of the preset. Its `prioritization` step pictures the 25 highest-priority
 # and the 25 lowest-priority frames.
 
 # %%

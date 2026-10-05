@@ -24,7 +24,8 @@ Deliberate differences, each with its reason:
 - **Deviations are computed for the most out-of-distribution agreed images.** Legacy took the first
   `max_ood_insights` flagged images in index order, and showed the agreed ones among them. The deviations of the
   images both computed agree.
-- **Names follow the naming pass** (naming spec §3.2): recorded titles are read through `tests/golden/_renames.py`.
+- **Names follow the naming pass** (naming spec §3.2, §5.3): recorded titles and step names are read through
+  `tests/golden/_renames.py`.
 """
 
 import json
@@ -39,6 +40,7 @@ import pytest
 from dataeval_flow import PipelineConfig, run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.steps import ChainResult
+from tests.golden._renames import step as renamed
 from tests.golden._renames import title
 from tests.golden.ood import CASES, SINGLE_SOURCE, pipeline
 from tests.golden.rerouting import approximately
@@ -135,7 +137,7 @@ def test_the_flags_scores_and_agreement_agree_with_legacy(name: str) -> None:
         assert scores == approximately(golden["detectors"][key]["scores"])
     if name not in SINGLE_SOURCE:
         return
-    (union,) = _elements(result, "agreement").values()
+    (union,) = _elements(result, renamed("ood-detection", "agreement")).values()
     assert (union.union, union.mutual) == (golden["union"], golden["mutual"])
     assert union.unique == {case.steps[key]: indices for key, indices in golden["unique"].items()}
     assert union.scores == approximately(golden["normalized"])

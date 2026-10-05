@@ -277,8 +277,9 @@
 - `data-cleaning` is a preset: its evaluators find outliers, duplicates and label counts, and its checks judge them
   against `checks`, keyed by check type. It returns a `ChainResult`, whose `steps` and `findings` replace `raw` and `report`,
   and `run()` on a `DataCleaningConfig` is typed to `ChainResult`. Its steps are named in kebab case, as ids are:
-  `outliers`, `labels`, `by-class`, `dupes`, `image-outliers`, `target-outliers`, `classwise`, `duplicates`,
-  `imbalance` and `clean`. Legacy `health_thresholds` is refused: `image_outliers`, `target_outliers` and
+  `outliers`, `label-health`, `outliers-by-class`, `duplicates`, `image-outliers`, `target-outliers`,
+  `classwise-outliers`, `image-duplicates`, `class-imbalance` and `clean`. Legacy `health_thresholds` is refused:
+  `image_outliers`, `target_outliers` and
   `classwise_outliers` are `checks.image-outliers.warning`, `checks.target-outliers.warning` and
   `checks.classwise-outliers.warning`; `exact_duplicates` and `near_duplicates` are `checks.image-duplicates.exact` and
   `.near`; and `class_label_imbalance` is `checks.class-imbalance.warning`. The `outlier_*` and `duplicate_*` settings
@@ -290,14 +291,14 @@
   `duplicate_cluster_algorithm` and `duplicate_n_clusters` are `duplicates.cluster_sensitivity`, `.cluster_algorithm`
   and `.n_clusters`
 - `data-prioritization` is a preset: `cleaning:` runs as `outliers`, `duplicates` and `remove` steps on the reference
-  and each pool, `rank` (`prioritization`) ranks each pool against the reference, and `selected` (`select`) keeps the top
+  and each pool, `prioritization` ranks each pool against the reference, and `selected` (`select`) keeps the top
   of each ranking. It returns a `ChainResult`, whose `steps` replace `raw` and `report`, and it makes no findings: the
   Pruning warning and each pool's info finding are gone. Its `cleaning:` takes data-cleaning's `outliers:` and
   `duplicates:` blocks, and `duplicate_exact_only: true` is `dup_types: [exact]`; its `n` and `fraction` are
   `select.n` and `select.fraction`
 - `metadata-triage` is a preset: `factor-triage` reads the metadata, and `metadata-issues` makes its findings, with
   `max_examples` set under `checks.metadata-issues`. It
-  returns a `ChainResult`: the issues, the stanza and the verification are its `triage` step's output
+  returns a `ChainResult`: the issues, the stanza and the verification are its `factor-triage` step's output
 - `drift-monitoring` is a preset: each detector is a step judged by a `drift` check, and each detector `classwise`
   names also runs by class. Each test source is tested on its own against the reference, where they were merged;
   `merge` them in a custom workflow to test them as one. `detectors:` takes drift evaluator entries
@@ -315,7 +316,7 @@
   - `chunking.threshold_multiplier: k` is `chunking.threshold: [zscore, k]`. Legacy chunked every detector with a
     z-score threshold of 3, while an unset `threshold` now uses DataEval's default for the detector, a constant AUROC
     band for `drift-domain-classifier`, so `threshold: [zscore, 3.0]` restores legacy's judgment
-- `ood-detection` is a preset: each detector is a step judged by an `ood` check, an `agreement` step groups each
+- `ood-detection` is a preset: each detector is a step judged by an `ood` check, an `ood-union` step groups each
   flagged image as mutual, partial or unique and is judged by `ood-agreement`, and two optional steps explain the
   flagged images by their metadata, as report sections where they were findings. Each test source is tested on its own
   against the reference, where they were joined; `merge` them in a custom workflow to test them as one. It returns a
@@ -354,7 +355,7 @@
   and `val`, in its summary and below it; in HTML each finding stays a card
 - `label-health`'s report lists each class's labels and images in a table
 - `remove`'s report says what it kept and what each plan named: "Kept 22 of 24 images. Removed 2 images: 1 named by
-  `dupes`, 1 by `outliers`."
+  `duplicates`, 1 by `outliers`."
 - The report's configuration leaves out settings left unset, and keeps a setting written as `null`; an evaluator's
   report leaves out extras that hold nothing
 - The Image Outliers, Target Outliers, Classwise Outliers and Class Imbalance findings have no `description`, which
@@ -367,7 +368,7 @@
   custom workflow, it exposes `train` (rebalanced where set), `val` and `test`, as lists keyed by fold under
   `folds` of 2 or more. It returns a `ChainResult`: each part's indices are in
   `result.steps["split"].details["indices"]`. Under `folds` of 2 or more, each fold's rebalanced train is in
-  `result.steps["rebalance"].elements["<k>"].details["indices"]`; where rebalancing kept the train as it was,
+  `result.steps["rebalanced"].elements["<k>"].details["indices"]`; where rebalancing kept the train as it was,
   `details` is `None` and the train's indices from `split` apply.
   Its findings are Class Imbalance, Stratification for each fold, and Uncovered Items under `naive` coverage;
   balance and diversity are report sections, and the split's sizes are in the `split` step's section and the
@@ -383,9 +384,9 @@
   - the `split_sizes` and `stratified` of `metadata`, and `output.raw`, are in `result.steps` and `lineage`
 - `data-coverage` is a preset. A `crops` step (`wrap`) crops detection data into one item per box and hands other data
   on unchanged. `coverage` and `completeness` embed the crops, judged by `class-coverage`, by `uncovered-items` under
-  `naive` coverage, and by `dimensional-completeness`. `labels` (`label-health`) is judged by `class-imbalance`; `summary`
-  (`factor-summary`), `balance` and `diversity` read the metadata, and `gaps` (`factor-gaps`), judged by
-  `factor-coverage-gaps`, reads balance; `worklist` (`representation`) is judged by `class-shortfall`. Without an extractor
+  `naive` coverage, and by `dimensional-completeness`. `label-health` is judged by `class-imbalance`; `factor-summary`,
+  `balance` and `diversity` read the metadata, and `factor-gaps`, judged by
+  `factor-coverage-gaps`, reads balance; `representation` is judged by `class-shortfall`. Without an extractor
   the embedding steps are skipped, and their findings say "not assessed". It returns a `ChainResult`, whose numbers
   are each step's output in `result.steps`, such as `result.steps["coverage"].output`. Metadata Distribution, balance
   and diversity are report sections, where Metadata Distribution was a finding. Under `naive` coverage, legacy's
@@ -424,8 +425,9 @@
   - `health_thresholds.leaf_coverage`, `dark_branch_count` and `unmatched_class_count` are `label-space`'s
     `checks.leaf-coverage.coverage`, `leaf-coverage.empty_branches` and `label-conformance.warning`
   - `output.raw` and `metadata.has_extractor` are gone: `coverage`, `completeness` and `metadata_gaps` are the
-    `coverage`, `completeness` and `gaps` steps' outputs, `label_distribution` is `labels`', `metadata_distribution`
-    is `summary`'s, a skipped step's reason is its `reason`, and `coverage.dropped_detections` is
+    `coverage`, `completeness` and `factor-gaps` steps' outputs, `label_distribution` is `label-health`'s,
+    `metadata_distribution` is `factor-summary`'s, a skipped step's reason is its `reason`, and
+    `coverage.dropped_detections` is
     `result.steps["crops"].details["dropped"]`
 - `label-health` lists every class the Dataset declares, at 0 where it has no labels, and the items with no label as
   `empty_image_indices`. So a declared class with no labels now shows at 0 in data-cleaning's and data-splitting's

@@ -63,7 +63,7 @@ A check is never skipped because an input produced nothing. Where a step it read
 `info` finding briefed `not assessed`, titled with its `subject` where it takes one and with its own title otherwise,
 followed by " by class" where it has `by: class`. Its description names that input and why it holds nothing: "Not
 assessed: `count` failed: RuntimeError: …". A check that reads a list on a port that takes one Output runs once
-per element, and each finding names its element under `step`, as `imbalance[train]`. The report groups those findings
+per element, and each finding names its element under `step`, as `class-imbalance[train]`. The report groups those findings
 by the element's key, `train`, in its summary and below it.
 
 A check that has its inputs but cannot assess them raises `StepSkipped(reason)`. The engine records it as not assessed,
@@ -502,43 +502,43 @@ a {py:class}`~dataeval_flow.steps.combines.FactorDeviationOutput`.
 ```yaml
 evaluators:
   - {name: outliers, type: outliers, flags: [pixel, visual], outlier_threshold: zscore, per_target: true}
-  - {name: dupes, type: duplicates, merge_near_duplicates: true}
-  - {name: labels, type: label-health}
+  - {name: duplicates, type: duplicates, merge_near_duplicates: true}
+  - {name: label-health, type: label-health}
 
 workflows:
   - name: cleaning
     inputs: [data]
     steps:
       - {name: outliers, evaluator: outliers, input: data}
-      - {name: labels, evaluator: labels, input: data}
-      - {name: by-class, combine: outliers-by-class, input: data, outliers: outliers}
-      - {name: dupes, evaluator: dupes, input: data}
+      - {name: label-health, evaluator: label-health, input: data}
+      - {name: outliers-by-class, combine: outliers-by-class, input: data, outliers: outliers}
+      - {name: duplicates, evaluator: duplicates, input: data}
       - {name: image-outliers, check: image-outliers, input: outliers}
-      - {name: target-outliers, check: target-outliers, input: outliers, labels: labels}
-      - {name: classwise, check: classwise-outliers, input: by-class}
-      - {name: duplicates, check: image-duplicates, input: dupes}
-      - {name: imbalance, check: class-imbalance, input: labels}
+      - {name: target-outliers, check: target-outliers, input: outliers, labels: label-health}
+      - {name: classwise-outliers, check: classwise-outliers, input: outliers-by-class}
+      - {name: image-duplicates, check: image-duplicates, input: duplicates}
+      - {name: class-imbalance, check: class-imbalance, input: label-health}
       - name: clean
         transform: remove
         input: data
         plans:
-          dupes: {dup_types: [exact, near], keep: first}
+          duplicates: {dup_types: [exact, near], keep: first}
           outliers: {min_flags: 1}
 ```
 
-Its other settings go to the evaluators: the `outliers` block to `outliers`, the `duplicates` block to `dupes`,
-`metadata` to `labels`, and `stats` to both `outliers` and `dupes`. Each block holds the settings its step takes,
+Its other settings go to the evaluators: the `outliers` block to `outliers`, the `duplicates` block to `duplicates`,
+`metadata` to `label-health`, and `stats` to both `outliers` and `duplicates`. Each block holds the settings its step takes,
 spelled as the step spells them. Each `checks` entry is the threshold of the check
 that judges it. `clean` removes each image and box with at least one outlier flag, and each exact or near duplicate
 but the first of its group.
 
 Its report gives each finding a section, with the evaluators it judged below it: the flagged images and boxes under
 Image Outliers, and the duplicate groups under Duplicates. The class counts sit under the first finding that read
-`labels`: Target Outliers where any box was flagged, else Class Imbalance. A finding that read a step shown already
-names the finding it is under, as Classwise Outliers names Image Outliers for the outliers `by-class` counted.
+`label-health`: Target Outliers where any box was flagged, else Class Imbalance. A finding that read a step shown already
+names the finding it is under, as Classwise Outliers names Image Outliers for the outliers `outliers-by-class` counted.
 `clean`'s section follows, saying how many images it kept and what each plan named. On MILCO's reference campaigns,
 as {doc}`View a report as HTML <../notebooks/view_html_reports>` runs it: "Kept 162 of 261 images. Removed 99 images
-and 32 detections: 90 images named by `dupes`, 11 images and 32 detections by `outliers`." Two images were named by
+and 32 detections: 90 images named by `duplicates`, 11 images and 32 detections by `outliers`." Two images were named by
 both plans. A Steps table lists every step, what it read, and why it made nothing where it did not.
 
 Run as a step of a custom workflow, `<step>.clean` reads the cleaned Dataset; see
@@ -553,35 +553,35 @@ these steps:
 
 ```yaml
 evaluators:
-  - {name: rank, type: prioritization, method: knn, k: 5, order: hard_first, policy: difficulty, num_bins: 50, n_init: auto}
+  - {name: prioritization, type: prioritization, method: knn, k: 5, order: hard_first, policy: difficulty, num_bins: 50, n_init: auto}
   - {name: outliers, type: outliers, flags: [pixel, visual], outlier_threshold: zscore}
-  - {name: dupes, type: duplicates, merge_near_duplicates: true}
+  - {name: duplicates, type: duplicates, merge_near_duplicates: true}
 
 workflows:
   - name: prioritization
     inputs: [reference, {name: pools, list: true}]
     steps:
-      - {name: reference-outliers, evaluator: outliers, input: reference}
-      - {name: reference-dupes, evaluator: dupes, input: reference}
+      - {name: outliers-reference, evaluator: outliers, input: reference}
+      - {name: duplicates-reference, evaluator: duplicates, input: reference}
       - name: reference-clean
         transform: remove
         input: reference
         plans:
-          reference-dupes: {dup_types: [exact, near], keep: first}
-          reference-outliers: {min_flags: 1}
-      - {name: pool-outliers, evaluator: outliers, input: pools}
-      - {name: pool-dupes, evaluator: dupes, input: pools}
+          duplicates-reference: {dup_types: [exact, near], keep: first}
+          outliers-reference: {min_flags: 1}
+      - {name: outliers-pool, evaluator: outliers, input: pools}
+      - {name: duplicates-pool, evaluator: duplicates, input: pools}
       - name: pool-clean
         transform: remove
         input: pools
         plans:
-          pool-dupes: {dup_types: [exact, near], keep: first}
-          pool-outliers: {min_flags: 1}
-      - {name: rank, evaluator: rank, input: [pool-clean, reference-clean]}
-      - {name: selected, transform: select, input: pool-clean, ranking: rank, n: 200}
+          duplicates-pool: {dup_types: [exact, near], keep: first}
+          outliers-pool: {min_flags: 1}
+      - {name: prioritization, evaluator: prioritization, input: [pool-clean, reference-clean]}
+      - {name: selected, transform: select, input: pool-clean, ranking: prioritization, n: 200}
 ```
 
-Without `cleaning:`, only `rank` and `selected` run, reading `pools` and `reference`. `cleaning.dup_types: [exact]`
+Without `cleaning:`, only `prioritization` and `selected` run, reading `pools` and `reference`. `cleaning.dup_types: [exact]`
 makes both plans' `dup_types` `[exact]`. With neither `select.n` nor `select.fraction`, `selected` keeps every item
 (`fraction: 1.0`). The chain has no checks, so it makes no findings.
 
@@ -592,18 +592,18 @@ defaults, it runs:
 
 ```yaml
 evaluators:
-  - {name: triage, type: factor-triage}
+  - {name: factor-triage, type: factor-triage}
 
 workflows:
   - name: triage_chain
     inputs: [data]
     steps:
-      - {name: triage, evaluator: triage, input: data}
-      - {name: issues, check: metadata-issues, input: triage}
+      - {name: factor-triage, evaluator: factor-triage, input: data}
+      - {name: metadata-issues, check: metadata-issues, input: factor-triage}
 ```
 
-- `metadata:`, `verify`, `default_bins` and `min_missing_fraction` are `triage`'s settings, and `max_examples` is
-  `issues`', set under `checks.metadata-issues`.
-- Its findings are `issues`': one per kind of issue, then the suggested policy and what verification recovered.
+- `metadata:`, `verify`, `default_bins` and `min_missing_fraction` are `factor-triage`'s settings, and `max_examples` is
+  `metadata-issues`', set under `checks.metadata-issues`.
+- Its findings are `metadata-issues`': one per kind of issue, then the suggested policy and what verification recovered.
 - The chain makes no Dataset, so it declares no output.
-- Its result's `metadata_binning` records the encoding `triage` read, which `dataeval-flow encoding` writes out.
+- Its result's `metadata_binning` records the encoding `factor-triage` read, which `dataeval-flow encoding` writes out.

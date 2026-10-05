@@ -66,7 +66,7 @@ def evaluator_entry(detector: Any) -> Any:
     return _BASES[detector.type].model_validate(detector.model_dump(exclude={"extractor"}))
 
 
-_RESERVED = ("-check", "-classes", "-unchunked")
+_RESERVED = ("-check", "-by-class", "-unchunked")
 
 
 def _detector_entry(entry: Any) -> Any:

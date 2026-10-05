@@ -53,7 +53,7 @@ def test_data_cleaning_hands_its_duplicates_block_to_the_duplicates_entry() -> N
     config = DataCleaningConfig.model_validate(
         {"outliers": _OUTLIERS, "duplicates": {"flags": ["hash_d4"], "merge_near_duplicates": False}}
     )
-    entry = _entry(DataCleaningWorkflow.chain(config), "dupes")
+    entry = _entry(DataCleaningWorkflow.chain(config), "duplicates")
     assert list(entry.flags) == ["hash_d4"]
     assert entry.merge_near_duplicates is False
 
@@ -68,7 +68,7 @@ def test_data_prioritization_cleans_with_data_cleanings_blocks_and_its_dup_types
         {"cleaning": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}, "dup_types": ["exact"]}}
     )
     chain = DataPrioritizationWorkflow.chain(config)
-    plan = next(value for key, value in _step(chain, "reference-clean")["plans"].items() if "dupes" in key)
+    plan = next(value for key, value in _step(chain, "reference-clean")["plans"].items() if "duplicates" in key)
     assert plan["dup_types"] == ["exact"]
     assert config.cleaning is not None
     assert config.cleaning.duplicates.merge_near_duplicates is True

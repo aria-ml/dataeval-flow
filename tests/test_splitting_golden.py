@@ -76,21 +76,21 @@ def _produced(result: ChainResult) -> dict[str, Any]:
     keys = list(indices["train"]) if isinstance(indices["train"], dict) else None
     trains = [indices["train"]] if keys is None else [indices["train"][key] for key in keys]
     vals = [indices["val"]] if keys is None else [indices["val"][key] for key in keys]
-    train_labels = steps["labels-train"]
-    if "rebalance" in steps:
-        trains = [(record.details or {}).get("indices") for record in _elements(steps["rebalance"], keys)]
-        train_labels = steps["labels-rebalanced"]
-    parts = "labels-test" in steps
+    train_labels = steps["label-health-train"]
+    if "rebalanced" in steps:
+        trains = [(record.details or {}).get("indices") for record in _elements(steps["rebalanced"], keys)]
+        train_labels = steps["label-health-rebalanced"]
+    parts = "label-health-test" in steps
     return {
         "test": indices["test"] if parts else [],
-        "test_counts": _counts(steps["labels-test"]) if parts else {},
+        "test_counts": _counts(steps["label-health-test"]) if parts else {},
         "folds": [
             {"train": train, "val": val, "train_counts": _counts(t), "val_counts": _counts(v)}
             for train, val, t, v in zip(
-                trains, vals, _elements(train_labels, keys), _elements(steps["labels-val"], keys), strict=True
+                trains, vals, _elements(train_labels, keys), _elements(steps["label-health-val"], keys), strict=True
             )
         ],
-        "full_counts": _counts(steps["labels"]),
+        "full_counts": _counts(steps["label-health"]),
         "balance": steps["balance"].output.balance.to_dicts(),
         "diversity": steps["diversity"].output.factors.to_dicts(),
     }
@@ -117,7 +117,7 @@ def test_data_splitting_gives_the_splits_it_gave_before_its_port(name: str) -> N
         _same_counts(fold["val_counts"], recorded["val_counts"])
     assert produced["balance"] == approximately(golden["balance"])
     assert produced["diversity"] == approximately(golden["diversity"])
-    imbalance = next(finding for finding in result.findings if finding.step == "labels-check")
+    imbalance = next(finding for finding in result.findings if finding.step == "class-imbalance")
     assert imbalance.severity == golden["class_distribution"]
 
 

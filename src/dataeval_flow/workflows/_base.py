@@ -233,7 +233,7 @@ class Finding(BaseModel):
         default=None,
         description=(
             "The check step that made it, with the element's key where the check ran once per element of a list, "
-            "such as `imbalance[train]`. Left out for a workflow type's own findings."
+            "such as `class-imbalance[train]`. Left out for a workflow type's own findings."
         ),
     )
 

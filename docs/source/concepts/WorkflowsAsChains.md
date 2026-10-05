@@ -184,13 +184,13 @@ Until then, each runs as one step that makes its result, and its findings stay i
 
 Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of
 its chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the
-`basic_clean` entry above, its steps run in your chain as `cleaning/outliers`, `cleaning/dupes` and so on. The step's
+`basic_clean` entry above, its steps run in your chain as `cleaning/outliers`, `cleaning/duplicates` and so on. The step's
 `optional:` holds for each of them, and its `extractor:` for each that reads embeddings. Its checks' findings are your
 chain's, listed at the top of the JSON, each naming its step, such as `cleaning/image-outliers`.
 
 Only a preset's declared outputs can be addressed, and always by name: `cleaning.clean` reads the cleaned Dataset,
-while `cleaning` alone, `cleaning.dupes` and `cleaning/dupes` are refused. Handed a list, a preset runs its whole chain
-once per element, so `cleaning.clean` is a list with the same keys. A preset's last input can be a list, as
+while `cleaning` alone, `cleaning.duplicates` and `cleaning/duplicates` are refused. Handed a list, a preset runs its whole
+chain once per element, so `cleaning.clean` is a list with the same keys. A preset's last input can be a list, as
 data-prioritization's `pools` is, and a step running it binds that input to a list, such as
 `input: [ref, cleaning.clean]`.
 

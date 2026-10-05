@@ -145,8 +145,8 @@ plt.show()
 # is a preset: its settings expand to a chain of steps, each an evaluator, a check that
 # judges one, or a transform. Without an extractor, the steps that embed the images,
 # `coverage` and `completeness`, are skipped, and the steps that read labels and metadata
-# run: `labels`, `summary`, `balance`, `diversity`, `gaps` (the gap analysis) and
-# `worklist` (what each class lacks of an even spread).
+# run: `label-health`, `factor-summary`, `balance`, `diversity`, `factor-gaps` (the gap analysis)
+# and `representation` (what each class lacks of an even spread).
 #
 # You will evaluate intrinsic image factors (such as brightness, contrast, and
 # sharpness) as metadata conditions. The gap analysis cross-tabulates class labels against
@@ -234,11 +234,11 @@ print(result_metadata.report())
 # ### Drill into each step's output
 #
 # The result is a `ChainResult`. `result.steps` holds each step's output by step name,
-# for programmatic inspection. The `labels` step's output is a `label-health` count of
+# for programmatic inspection. The `label-health` step's output is a `label-health` count of
 # every class the dataset declares, at 0 where it has no labels.
 
 # %%
-label_health = result_metadata.steps["labels"].output.data()
+label_health = result_metadata.steps["label-health"].output.data()
 print(f"Number of classes: {label_health['class_count']}")
 print(f"Empty images: {label_health['empty_image_count']}")
 print("\nClass distribution (five largest, five smallest):")
@@ -251,7 +251,7 @@ for cls, count in by_size[-5:]:
 
 # %%
 # Metadata gaps: evaluate if a class was only imaged under narrow conditions
-gaps = result_metadata.steps["gaps"].output
+gaps = result_metadata.steps["factor-gaps"].output
 print(f"Metadata coverage gaps: {len(gaps.gaps)}\n")
 
 print("  Mutual information (class -> factor), five strongest:")
@@ -271,7 +271,7 @@ if not gaps.gaps:
 
 # %%
 # The class worklist: each class short of an even spread over the declared classes
-worklist = result_metadata.steps["worklist"].output
+worklist = result_metadata.steps["representation"].output
 print(f"Total deficit: {worklist.total_deficit} labels\n")
 for row in worklist.data().iter_rows(named=True):
     print(f"  {row['label']:>14}  {row['action']:<8} have {row['count']:>4}, want {row['target']:>4}")

@@ -406,7 +406,7 @@
       },
       "elapsed_s": 13.916
     },
-    "labels": {
+    "label-health": {
       "kind": "evaluator",
       "type": "label-health",
       "status": "ok",
@@ -443,7 +443,7 @@
       },
       "elapsed_s": 0.128
     },
-    "by-class": {
+    "outliers-by-class": {
       "kind": "combine",
       "type": "outliers-by-class",
       "status": "ok",
@@ -473,7 +473,7 @@
       },
       "elapsed_s": 0.026
     },
-    "dupes": {
+    "duplicates": {
       "kind": "evaluator",
       "type": "duplicates",
       "status": "ok",
@@ -532,7 +532,7 @@
       "status": "ok",
       "inputs": [
         "outliers",
-        "labels"
+        "label-health"
       ],
       "output": {
         "findings": 1,
@@ -540,12 +540,12 @@
       },
       "elapsed_s": 0.005
     },
-    "classwise": {
+    "classwise-outliers": {
       "kind": "check",
       "type": "classwise-outliers",
       "status": "ok",
       "inputs": [
-        "by-class"
+        "outliers-by-class"
       ],
       "output": {
         "findings": 1,
@@ -553,12 +553,12 @@
       },
       "elapsed_s": 0.0
     },
-    "duplicates": {
+    "image-duplicates": {
       "kind": "check",
       "type": "image-duplicates",
       "status": "ok",
       "inputs": [
-        "dupes"
+        "duplicates"
       ],
       "output": {
         "findings": 0,
@@ -566,12 +566,12 @@
       },
       "elapsed_s": 0.003
     },
-    "imbalance": {
+    "class-imbalance": {
       "kind": "check",
       "type": "class-imbalance",
       "status": "ok",
       "inputs": [
-        "labels"
+        "label-health"
       ],
       "output": {
         "findings": 1,
@@ -585,7 +585,7 @@
       "status": "ok",
       "inputs": [
         "data",
-        "dupes",
+        "duplicates",
         "outliers"
       ],
       "output": {
@@ -600,7 +600,7 @@
           "frames": 0
         },
         "by_plan": {
-          "dupes": {},
+          "duplicates": {},
           "outliers": {
             "items": 2,
             "detections": 16
@@ -669,7 +669,7 @@
           ]
         }
       ],
-      "step": "classwise"
+      "step": "classwise-outliers"
     },
     {
       "severity": "warning",
@@ -721,7 +721,7 @@
           "text": "Imbalance ratio: 26.1 (max/min)"
         }
       ],
-      "step": "imbalance"
+      "step": "class-imbalance"
     }
   ],
   "assets": [

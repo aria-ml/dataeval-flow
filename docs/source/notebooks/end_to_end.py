@@ -159,7 +159,7 @@ triage_config = PipelineConfig(
 triage_result = run_task(triage_config.tasks[0], triage_config, data_dir=Path("."), cache_dir=Path("./cache"))
 
 # %%
-triage = triage_result.steps["triage"].output.data()
+triage = triage_result.steps["factor-triage"].output.data()
 findings = triage["findings"]
 degenerate = sorted({f.factor for f in findings if f.category == "degenerate"})
 unbinned = sorted({f.factor for f in findings if f.category == "unbinned"})
@@ -290,14 +290,14 @@ for result in results.values():
 # ### 5c. Data cleaning: Inspect flagged images
 #
 # The cleaning report summarizes the count of flagged images. You can retrieve specific
-# sample indices from the `outliers` and `dupes` steps, whose outputs are DataEval's own, and slice
+# sample indices from the `outliers` and `duplicates` steps, whose outputs are DataEval's own, and slice
 # `result.sources` directly without reloading data. It holds each source the task read, after its view.
 
 # %%
 issues = clean_result.steps["outliers"].output.data()
 image_issues = issues.filter(issues["target_index"].is_null())  # the rest flag single boxes
 outlier_indices = sorted(set(image_issues["item_index"].to_list()))
-near_groups = clean_result.steps["dupes"].output.items.near
+near_groups = clean_result.steps["duplicates"].output.items.near
 
 print(f"Image outliers:        {len(outlier_indices)} images, {image_issues.height} flags")
 print(f"Near-duplicate groups: {len(near_groups)}")

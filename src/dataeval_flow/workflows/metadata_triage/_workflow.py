@@ -18,9 +18,9 @@ class MetadataTriageWorkflow(Preset, Workflow[MetadataTriageConfig, ChainResult]
 
     The settings expand to two steps on the task's one source, ``data``:
 
-    - ``triage`` (the ``factor-triage`` evaluator): each factor the run could not read as configured, a policy stanza
+    - ``factor-triage`` (the evaluator): each factor the run could not read as configured, a policy stanza
       that repairs them, and, with ``verify``, what the repair recovers;
-    - ``issues`` (the ``metadata-issues`` check): one finding per kind of issue, a warning where any is blocking, then
+    - ``metadata-issues`` (the check): one finding per kind of issue, a warning where any is blocking, then
       the suggested policy, and what verification recovered or that it failed.
 
     It makes no Dataset, so it declares no outputs. Run as a step of a custom workflow, its findings are the chain's.
@@ -33,20 +33,20 @@ class MetadataTriageWorkflow(Preset, Workflow[MetadataTriageConfig, ChainResult]
 
     @classmethod
     def chain(cls, config: MetadataTriageConfig) -> PresetChain:
-        """The ``triage`` entry these settings configure, and the check that makes its findings."""
+        """The ``factor-triage`` entry these settings configure, and the check that makes its findings."""
         triage = FactorTriageConfig(
-            name="triage",
+            name="factor-triage",
             metadata=config.metadata,
             verify=config.verify,
             default_bins=config.default_bins,
             min_missing_fraction=config.min_missing_fraction,
         )
         steps = [
-            {"name": "triage", "evaluator": "triage", "input": "data"},
+            {"name": "factor-triage", "evaluator": "factor-triage", "input": "data"},
             {
-                "name": "issues",
+                "name": "metadata-issues",
                 "check": "metadata-issues",
-                "input": "triage",
+                "input": "factor-triage",
                 **config.checks.metadata_issues.model_dump(),
             },
         ]

@@ -19,7 +19,7 @@ _BASES: dict[str, type[BaseModel]] = {
     "ood-domain-classifier": OODDomainClassifierConfig,
 }
 _EXTRACTOR = "An `extractors:` entry this detector's steps embed with, instead of the task's."
-_RESERVED = ("agreement", "factor-predictors", "factor-deviation")
+_RESERVED = ("ood-union", "ood-agreement", "factor-predictors", "factor-deviation")
 
 
 class OODKNeighborsDetector(OODKNeighborsConfig):
@@ -157,7 +157,7 @@ class OODDetectionConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, Stats
         reserved = [name for name in names if name in _RESERVED or name.endswith("-check")]
         if reserved:
             raise ValueError(
-                f"Detector {', '.join(f'`{n}`' for n in reserved)} is a name the preset's own steps use (`agreement`, "
-                "`factor-predictors`, `factor-deviation`, or a name ending in `-check`): rename it."
+                f"Detector {', '.join(f'`{n}`' for n in reserved)} is a name the preset's own steps use (`ood-union`, "
+                "`ood-agreement`, `factor-predictors`, `factor-deviation`, or a name ending in `-check`): rename it."
             )
         return self

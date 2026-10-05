@@ -36,8 +36,8 @@ Stratification for each fold, and Uncovered Items under `naive` coverage; balanc
 
 The result is a `ChainResult`. Each part's indices into the source are in
 `result.steps["split"].details["indices"]`, as `train`, `val` and `test`; under k-fold, `train` and `val` are keyed by
-fold, `"0"` to `"k-1"`. The rebalanced train's indices are in `result.steps["rebalance"].details["indices"]`; under
-k-fold, each fold's are in `result.steps["rebalance"].elements["<k>"].details["indices"]`. Where rebalancing kept the
+fold, `"0"` to `"k-1"`. The rebalanced train's indices are in `result.steps["rebalanced"].details["indices"]`; under
+k-fold, each fold's are in `result.steps["rebalanced"].elements["<k>"].details["indices"]`. Where rebalancing kept the
 train as it was, `details` is `None` and the train's indices from `split` apply.
 
 Run as a step of a custom workflow, the entry hands on three Datasets: `<step>.train` (the rebalanced train, where the

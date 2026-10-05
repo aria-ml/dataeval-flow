@@ -19,10 +19,11 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
 
     The settings expand to this chain, run on the task's one source, ``data``:
 
-    - ``outliers`` (the ``outliers`` evaluator, per box on detection data), ``labels`` (``label-health``),
-      ``by-class`` (``outliers-by-class``) and ``dupes`` (``duplicates``);
-    - the checks ``image-outliers``, ``target-outliers``, ``classwise``, ``duplicates`` and ``imbalance``, each
-      judged against its ``checks`` entry;
+    - ``outliers`` (the ``outliers`` evaluator, per box on detection data), ``label-health``,
+      ``outliers-by-class`` and ``duplicates``;
+    - the checks ``image-outliers``, ``target-outliers``, ``classwise-outliers``, ``image-duplicates`` and
+      ``class-imbalance``, each judged
+      against its ``checks`` entry;
     - ``clean`` (``remove``): the dataset without each flagged image and box, and without each duplicate but the
       first of its group.
 
@@ -52,7 +53,7 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
                 stats=config.stats,
             ),
             DuplicatesConfig(
-                name="dupes",
+                name="duplicates",
                 flags=list(duplicates.flags) if duplicates.flags is not None else None,
                 merge_near_duplicates=duplicates.merge_near_duplicates,
                 cluster_sensitivity=duplicates.cluster_sensitivity,
@@ -60,13 +61,13 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
                 n_clusters=duplicates.n_clusters,
                 stats=config.stats,
             ),
-            LabelHealthConfig(name="labels", metadata=config.metadata),
+            LabelHealthConfig(name="label-health", metadata=config.metadata),
         ]
         steps: list[dict[str, Any]] = [
             {"name": "outliers", "evaluator": "outliers", "input": "data"},
-            {"name": "labels", "evaluator": "labels", "input": "data"},
-            {"name": "by-class", "combine": "outliers-by-class", "input": "data", "outliers": "outliers"},
-            {"name": "dupes", "evaluator": "dupes", "input": "data"},
+            {"name": "label-health", "evaluator": "label-health", "input": "data"},
+            {"name": "outliers-by-class", "combine": "outliers-by-class", "input": "data", "outliers": "outliers"},
+            {"name": "duplicates", "evaluator": "duplicates", "input": "data"},
             {
                 "name": "image-outliers",
                 "check": "image-outliers",
@@ -77,32 +78,35 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
                 "name": "target-outliers",
                 "check": "target-outliers",
                 "input": "outliers",
-                "labels": "labels",
+                "labels": "label-health",
                 **limits.target_outliers.model_dump(),
             },
             {
-                "name": "classwise",
+                "name": "classwise-outliers",
                 "check": "classwise-outliers",
-                "input": "by-class",
+                "input": "outliers-by-class",
                 **limits.classwise_outliers.model_dump(),
             },
             {
-                "name": "duplicates",
+                "name": "image-duplicates",
                 "check": "image-duplicates",
-                "input": "dupes",
+                "input": "duplicates",
                 **limits.image_duplicates.model_dump(),
             },
             {
-                "name": "imbalance",
+                "name": "class-imbalance",
                 "check": "class-imbalance",
-                "input": "labels",
+                "input": "label-health",
                 **limits.class_imbalance.model_dump(),
             },
             {
                 "name": "clean",
                 "transform": "remove",
                 "input": "data",
-                "plans": {"dupes": {"dup_types": ["exact", "near"], "keep": "first"}, "outliers": {"min_flags": 1}},
+                "plans": {
+                    "duplicates": {"dup_types": ["exact", "near"], "keep": "first"},
+                    "outliers": {"min_flags": 1},
+                },
             },
         ]
         return PresetChain(steps=steps, evaluators=evaluators)

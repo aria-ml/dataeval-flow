@@ -42,26 +42,26 @@ def test_its_chain_follows_legacy_s_finding_order() -> None:
         "coverage",
         "class-coverage",
         "completeness",
-        "completeness-check",
-        "labels",
-        "labels-check",
-        "summary",
+        "dimensional-completeness",
+        "label-health",
+        "class-imbalance",
+        "factor-summary",
         "balance",
         "diversity",
-        "gaps",
-        "gaps-check",
-        "worklist",
-        "shortfall",
+        "factor-gaps",
+        "factor-coverage-gaps",
+        "representation",
+        "class-shortfall",
     ]
 
 
 def test_naive_coverage_adds_the_uncovered_rate() -> None:
-    assert "uncovered" in _names(DataCoverageConfig(name="w", coverage={"method": "naive"}))  # type: ignore[arg-type]
+    assert "uncovered-items" in _names(DataCoverageConfig(name="w", coverage={"method": "naive"}))  # type: ignore[arg-type]
 
 
 def test_settings_leave_out_their_steps() -> None:
     names = _names(DataCoverageConfig.model_validate({"name": "w", "completeness": False, "factor-gaps": False}))
-    assert not {"completeness", "completeness-check", "gaps", "gaps-check"} & set(names)
+    assert not {"completeness", "dimensional-completeness", "factor-gaps", "factor-coverage-gaps"} & set(names)
 
 
 @pytest.mark.parametrize("key", sorted(_MOVED))

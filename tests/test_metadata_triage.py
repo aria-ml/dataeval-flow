@@ -69,7 +69,7 @@ def test_the_preset_runs_end_to_end_on_a_real_dataset():
     result = run(MetadataTriageConfig(), MixedWeightDataset())
 
     assert result.success is True
-    data = result.steps["triage"].output.data()
+    data = result.steps["factor-triage"].output.data()
     assert any(f.factor == "weight" for f in data["findings"])
     assert "parse_value" in data["suggested_policy_yaml"]
     (weight,) = [v for v in data["verification"] if v.factor == "weight"]

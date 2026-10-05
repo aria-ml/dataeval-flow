@@ -37,7 +37,7 @@ class TestDataCoverageWorkflow:
         titles = [finding.title for finding in result.findings]
         # An ImageFolder source's labels are its directory names, which the label finding's title says.
         assert {"Class Imbalance", "Class Shortfall"} <= set(titles)
-        assert result.steps["summary"].output is not None
+        assert result.steps["factor-summary"].output is not None
 
     def test_coverage_runs_without_extractor(
         self,

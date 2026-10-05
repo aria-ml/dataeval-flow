@@ -270,7 +270,7 @@ extractor_config = TorchExtractorConfig(
 # that correlate with flagged OOD images; `false` under either key leaves that step out.
 #
 # Each detector is an evaluator entry, which becomes a step, and the preset adds a check
-# per detector, an `agreement` step combining their flags, and two steps explaining the
+# per detector, an `ood-union` step combining their flags, and two steps explaining the
 # flagged images by their metadata.
 
 # %%
@@ -336,7 +336,7 @@ print(result.report())
 # ### Per-detector summary
 #
 # Each detector scores incoming images independently and flags those scoring above
-# a threshold set from the reference. The `agreement` step reports each threshold as
+# a threshold set from the reference. The `ood-union` step reports each threshold as
 # derived from the flags: the highest score the detector did not flag.
 
 # %%
@@ -348,7 +348,7 @@ def output(step: str) -> Any:
     return result.steps[step].elements["inc_src"].output
 
 
-union = output("agreement")
+union = output("ood-union")
 print(f"Test images:  {union.images}")
 print(f"OOD images:   {len(union.union)} (union across all detectors), {len(union.mutual)} flagged by every one")
 print()
@@ -390,7 +390,7 @@ for method in DETECTORS:
 #
 # You can plot score histograms to evaluate separation between in-distribution
 # and out-of-distribution images relative to the threshold, drawn dashed as the
-# `agreement` step derives it from the flags (the highest score not flagged).
+# `ood-union` step derives it from the flags (the highest score not flagged).
 
 # %%
 fig, axes = plt.subplots(1, len(DETECTORS), figsize=(6 * len(DETECTORS), 4))

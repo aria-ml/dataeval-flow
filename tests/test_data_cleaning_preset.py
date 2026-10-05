@@ -42,14 +42,14 @@ _BASE: dict[str, Any] = {
 }
 _STEPS = [
     "outliers",
-    "labels",
-    "by-class",
-    "dupes",
+    "label-health",
+    "outliers-by-class",
+    "duplicates",
     "image-outliers",
     "target-outliers",
-    "classwise",
-    "duplicates",
-    "imbalance",
+    "classwise-outliers",
+    "image-duplicates",
+    "class-imbalance",
     "clean",
 ]
 
@@ -83,9 +83,9 @@ def test_a_data_cleaning_task_returns_a_chain_result_of_its_steps() -> None:
     assert list(result.steps) == _STEPS
     assert _verdicts(result) == [
         ("warning", "Image Outliers", "1 images (8.3%)", "image-outliers"),
-        ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "classwise"),
-        ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "duplicates"),
-        ("info", "Class Imbalance", "2 classes, 12 items, imbalance 1.0:1", "imbalance"),
+        ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "classwise-outliers"),
+        ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "image-duplicates"),
+        ("info", "Class Imbalance", "2 classes, 12 items, imbalance 1.0:1", "class-imbalance"),
     ]
 
 
@@ -94,7 +94,7 @@ def test_clean_removes_each_flagged_item_and_each_duplicate_but_the_first() -> N
     assert len(clean.output) == 10
     assert clean.details == {
         "removed": {"items": 2, "detections": 0, "tracks": 0, "frames": 0},
-        "by_plan": {"dupes": {"items": 1}, "outliers": {"items": 1}},
+        "by_plan": {"duplicates": {"items": 1}, "outliers": {"items": 1}},
     }
 
 
@@ -104,7 +104,7 @@ def test_clean_says_what_it_kept_and_what_each_plan_named() -> None:
 
     clean = _task(ToyImages(count=24)).steps["clean"]
     assert RemoveTransform().section(clean) == [
-        Paragraph(text="Kept 22 of 24 images. Removed 2 images: 1 named by `dupes`, 1 by `outliers`.")
+        Paragraph(text="Kept 22 of 24 images. Removed 2 images: 1 named by `duplicates`, 1 by `outliers`.")
     ]
 
 
@@ -174,7 +174,7 @@ def test_a_data_cleaning_task_reads_its_source_through_its_view() -> None:
     result = run_task(task, config.model_copy(update={"views": [view], "sources": [source]}))
     assert isinstance(result, ChainResult)
     assert result.metadata.lineage[0].items == 16
-    assert ("info", "Class Imbalance", "2 classes, 16 items, imbalance 1.0:1", "imbalance") in _verdicts(result)
+    assert ("info", "Class Imbalance", "2 classes, 16 items, imbalance 1.0:1", "class-imbalance") in _verdicts(result)
     assert len(result.steps["clean"].output) == 16
 
 
@@ -202,12 +202,12 @@ def test_a_data_cleaning_step_cleans_each_split_of_a_list() -> None:
     assert _verdicts(result) == [
         ("warning", "Image Outliers", "1 images (8.3%)", "cleaning/image-outliers[s1]"),
         ("warning", "Image Outliers", "1 images (4.2%)", "cleaning/image-outliers[s2]"),
-        ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "cleaning/classwise[s1]"),
-        ("warning", "Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "cleaning/classwise[s2]"),
-        ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "cleaning/duplicates[s1]"),
-        ("warning", "Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "cleaning/duplicates[s2]"),
-        ("info", "Class Imbalance", "2 classes, 12 items, imbalance 1.0:1", "cleaning/imbalance[s1]"),
-        ("info", "Class Imbalance", "2 classes, 24 items, imbalance 1.0:1", "cleaning/imbalance[s2]"),
+        ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "cleaning/classwise-outliers[s1]"),
+        ("warning", "Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "cleaning/classwise-outliers[s2]"),
+        ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "cleaning/image-duplicates[s1]"),
+        ("warning", "Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "cleaning/image-duplicates[s2]"),
+        ("info", "Class Imbalance", "2 classes, 12 items, imbalance 1.0:1", "cleaning/class-imbalance[s1]"),
+        ("info", "Class Imbalance", "2 classes, 24 items, imbalance 1.0:1", "cleaning/class-imbalance[s2]"),
     ]
     clean = result.steps["cleaning/clean"].elements or {}
     assert {key: len(element.output) for key, element in clean.items()} == {"s1": 10, "s2": 22}
@@ -288,16 +288,16 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
         dupes.cluster_algorithm,
         dupes.n_clusters,
         dupes.stats,
-    ) == ("dupes", ["hash_d4"], False, 0.7, "hdbscan", 5, "measured")
-    assert (labels.name, labels.metadata) == ("labels", "policy")
+    ) == ("duplicates", ["hash_d4"], False, 0.7, "hdbscan", 5, "measured")
+    assert (labels.name, labels.metadata) == ("label-health", "policy")
     steps: dict[str, Any] = {step["name"]: step for step in chain.steps}  # type: ignore[index]
     assert (
         steps["image-outliers"]["warning"],
         steps["target-outliers"]["warning"],
-        steps["classwise"]["warning"],
-        steps["duplicates"]["exact"],
-        steps["duplicates"]["near"],
-        steps["imbalance"]["warning"],
+        steps["classwise-outliers"]["warning"],
+        steps["image-duplicates"]["exact"],
+        steps["image-duplicates"]["near"],
+        steps["class-imbalance"]["warning"],
     ) == (6.0, 7.0, 8.0, 1.0, 9.0, None)
 
 

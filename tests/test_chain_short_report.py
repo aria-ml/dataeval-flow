@@ -51,18 +51,18 @@ def test_data_cleaning_short_text_is_its_summary_health_and_steps(cleaned) -> No
 ================================================================================
   STEPS
 ================================================================================
-  Step             Status  Note
-  ---------------  ------  -----------
-  outliers         ok
-  labels           ok
-  by-class         ok
-  dupes            ok
-  image-outliers   ok
-  target-outliers  ok      no findings
-  classwise        ok
-  duplicates       ok
-  imbalance        ok
-  clean            ok
+  Step                Status  Note
+  ------------------  ------  -----------
+  outliers            ok
+  label-health        ok
+  outliers-by-class   ok
+  duplicates          ok
+  image-outliers      ok
+  target-outliers     ok      no findings
+  classwise-outliers  ok
+  image-duplicates    ok
+  class-imbalance     ok
+  clean               ok
 
 ================================================================================
   METADATA FACTORS

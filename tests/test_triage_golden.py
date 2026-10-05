@@ -34,7 +34,7 @@ def _produced(result: ChainResult) -> dict[str, Any]:
     """The preset's findings, its `triage` step's stanza, and its envelope's binning record."""
     return {
         "findings": [[f.severity, f.title, f.brief] for f in result.findings if f.title != "Recommended policy"],
-        "suggested_policy_yaml": result.steps["triage"].output.data()["suggested_policy_yaml"],
+        "suggested_policy_yaml": result.steps["factor-triage"].output.data()["suggested_policy_yaml"],
         "metadata_binning": result.metadata.metadata_binning,
     }
 

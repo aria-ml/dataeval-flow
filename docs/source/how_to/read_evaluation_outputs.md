@@ -66,8 +66,8 @@ beside the evidence it judged:
 4. **Findings** — a section per finding, headed by its title and brief. It holds the finding's own description and
    blocks, then the evidence: each step the finding read, headed *From* and the step's heading. A step's heading is
    its type's title, with the step's name beside it where the name is not the type id: `Outliers` for the step
-   `outliers`, `Duplicates · dupes` for the step `dupes`. A combine shows nothing of its own, so the steps it read
-   stand in for it. A step two findings read is shown under the first, and the second names it.
+   `outliers`, `Duplicates · dupes` for a custom workflow's step `dupes`. A combine shows nothing of its own, so
+   the steps it read stand in for it. A step two findings read is shown under the first, and the second names it.
 5. **Other steps** — a section for each step no finding showed that has something to show: what a transform made,
    an evaluator's output no check judged, or why a step failed or was skipped. A check that did not complete made
    no finding, so it is listed here.
@@ -77,7 +77,7 @@ beside the evidence it judged:
 
 In `data-cleaning`'s report on MILCO's reference campaigns, from {doc}`View a report as HTML
 <../notebooks/view_html_reports>`, the Target Outliers finding read the `outliers` step, which the Image Outliers
-section above it already shows, and the `labels` step, which no finding had shown yet:
+section above it already shows, and the `label-health` step, which no finding had shown yet:
 
 ```text
 ================================================================================
@@ -143,18 +143,18 @@ banner and configuration:
 ================================================================================
   STEPS
 ================================================================================
-  Step             Status  Note
-  ---------------  ------  ----
-  outliers         ok
-  labels           ok
-  by-class         ok
-  dupes            ok
-  image-outliers   ok
-  target-outliers  ok
-  classwise        ok
-  duplicates       ok
-  imbalance        ok
-  clean            ok
+  Step                Status  Note
+  ------------------  ------  ----
+  outliers            ok
+  label-health        ok
+  outliers-by-class   ok
+  duplicates          ok
+  image-outliers      ok
+  target-outliers     ok
+  classwise-outliers  ok
+  image-duplicates    ok
+  class-imbalance     ok
+  clean               ok
 ```
 
 ### Severity and the health line
@@ -231,7 +231,7 @@ holds everything the text report holds, laid out for reading on screen:
 - Histograms and sparklines are drawn as SVG, and the page follows the system's dark mode.
 
 A chain's report, `data-cleaning`'s among them, draws each finding as a card too, and holds in it the evidence the
-finding judged, each step headed *From* and the step's heading: data cleaning's Duplicates card holds the `dupes`
+finding judged, each step headed *From* and the step's heading: data cleaning's Duplicates card holds the `duplicates`
 step's duplicate groups. A step two findings judged is shown in the first one's card, and the second names that card.
 Findings grouped by key sit under a heading per key, each still a card. The chain's other steps, such as `clean`,
 follow as sections, then the Steps table and the configuration as panels. The Steps table gives each step's title,
@@ -354,7 +354,7 @@ The same run's Class Imbalance finding:
     "rows": [{"name": "MILCO", "value": 319}, {"name": "NOMBO", "value": 173}]},
    {"type": "paragraph", "text": "Labels annotations"},
    {"type": "paragraph", "text": "Imbalance ratio: 1.8 (max/min)"}],
- "step": "imbalance"}
+ "step": "class-imbalance"}
 ```
 
 A block is an object whose `type` says what it holds. A field at its default is left out, so a reader fills in the
@@ -558,7 +558,7 @@ result = run_task(task, config)  # a data-cleaning task
 
 outliers = result.steps["outliers"].output  # DataEval's Outliers output
 flags = outliers.data()  # one row per flag: its item, its box if any, the metric, its value and the limit crossed
-duplicates = result.steps["dupes"].output  # DataEval's Duplicates output
+duplicates = result.steps["duplicates"].output  # DataEval's Duplicates output
 cleaned = result.steps["clean"].output  # without each flagged image and box, and each duplicate but the first
 ```
 
@@ -568,8 +568,8 @@ A `data-coverage` result reads the same way:
 result = run_task(task, config)  # a data-coverage task with an extractor
 
 coverage = result.steps["coverage"].output  # DataEval's Coverage output: a row per class, and uncovered_indices
-gaps = result.steps["gaps"].output.gaps  # each under-represented class-factor-value combination
-counts = result.steps["labels"].output.data()["label_counts_per_class"]  # every declared class, at 0 where unseen
+gaps = result.steps["factor-gaps"].output.gaps  # each under-represented class-factor-value combination
+counts = result.steps["label-health"].output.data()["label_counts_per_class"]  # every declared class, at 0 where unseen
 ```
 
 On detection data, `coverage` indexes the `crops` step's items, one per box: `result.steps["crops"].output.item_indices`

@@ -398,14 +398,14 @@ class TestEndToEndCleaningWorkflow:
         assert results_data["kind"] == "workflow"
         assert list(results_data["steps"]) == [
             "outliers",
-            "labels",
-            "by-class",
-            "dupes",
+            "label-health",
+            "outliers-by-class",
+            "duplicates",
             "image-outliers",
             "target-outliers",
-            "classwise",
-            "duplicates",
-            "imbalance",
+            "classwise-outliers",
+            "image-duplicates",
+            "class-imbalance",
             "clean",
         ]
         # Nothing is flagged in empty statistics, so no duplicate is found and nothing is removed.
@@ -428,7 +428,7 @@ class TestEndToEndCleaningWorkflow:
 
         # ── 8. Verify mock calls ──────────────────────────────────────
         mock_load_ic.assert_called_once()
-        # `outliers` and `dupes` read the same node, and each makes one request: for the union of both steps'
+        # `outliers` and `duplicates` read the same node, and each makes one request: for the union of both steps'
         # families, the outlier families and the hash families, which the first computes in one pass.
         assert mock_get_stats.call_count == 2
         union = {None: ImageStats.DIMENSION | ImageStats.PIXEL | ImageStats.HASH_DUPLICATES_BASIC}

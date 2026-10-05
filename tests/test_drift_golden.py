@@ -22,6 +22,9 @@ that answers it. Deliberate differences from the legacy run (spec §10.3 item 3)
 - **`update_strategy`, `device` and the summary line are gone.** `update_strategy` was never applied, Flow sets
   the device, and the chain's findings replace the summary.
 
+- **Step names follow the naming pass** (naming spec §5.3): recorded step names are read through
+  `tests/golden/_renames.py`.
+
 A detector that raises fails its step and the task, where legacy recorded it and still succeeded. No toy here makes
 one raise, so `tests/test_drift_preset.py` pins it.
 """
@@ -34,6 +37,7 @@ import pytest
 
 from dataeval_flow import PipelineConfig, run_tasks
 from dataeval_flow.steps import ChainResult
+from tests.golden._renames import step as renamed
 from tests.golden.drift import CASES, pipeline
 from tests.golden.rerouting import approximately
 
@@ -88,7 +92,7 @@ def test_drift_monitoring_gives_what_it_gave_before_its_port(name: str) -> None:
         }
         severity = _severity(result, f"{step}-check")
         if key in golden["classwise_detectors"]:
-            per_class = _output(result, f"{step}-classes")
+            per_class = _output(result, renamed("drift-monitoring", f"{step}-classes"))
             if per_class is not None:
                 classes[key] = [
                     {
@@ -100,7 +104,9 @@ def test_drift_monitoring_gives_what_it_gave_before_its_port(name: str) -> None:
                     for label, inner in per_class.outputs.items()
                 ]
             if key not in golden["chunked_detectors"]:
-                severity = max(severity, _severity(result, f"{step}-classes-check"), key=_ORDER.index)
+                severity = max(
+                    severity, _severity(result, renamed("drift-monitoring", f"{step}-classes-check")), key=_ORDER.index
+                )
         severities.append(severity)
     assert detectors == approximately(golden["detectors"])
     assert classes == approximately(golden["classwise"])
@@ -109,6 +115,8 @@ def test_drift_monitoring_gives_what_it_gave_before_its_port(name: str) -> None:
 
 def test_classwise_on_detection_data_is_not_assessed() -> None:
     result = _run("classwise_boxes")
-    assert (result.steps["drift-kneighbors-classes"].elements or {})["test"].status == "skipped"
-    (finding,) = _output(result, "drift-kneighbors-classes-check")
+    assert (result.steps[renamed("drift-monitoring", "drift-kneighbors-classes")].elements or {})[
+        "test"
+    ].status == "skipped"
+    (finding,) = _output(result, renamed("drift-monitoring", "drift-kneighbors-classes-check"))
     assert (finding.severity, finding.title, finding.brief) == ("info", "Drift (K-Neighbors) by class", "not assessed")

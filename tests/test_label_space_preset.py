@@ -32,11 +32,11 @@ def test_its_chain_is_four_evaluators_each_judged() -> None:
     assert names == [
         "representation",
         "leaf-coverage",
-        "reconciliation",
-        "conformance",
-        "alignment",
+        "label-reconciliation",
+        "label-conformance",
+        "label-alignment",
         "mergeability",
-        "structure",
+        "ontology-validation",
         "ontology-structure",
     ]
     assert all(entry.ontology == _ONTOLOGY for entry in chain.evaluators)  # type: ignore[attr-defined]
@@ -46,7 +46,7 @@ def test_it_makes_legacy_s_four_findings_in_order_and_stamps_the_digest() -> Non
     result = _run({"ontology": _ONTOLOGY})
     assert result.success, result.errors
     assert [finding.title for finding in result.findings] == _TITLES
-    assert result.metadata.label_space_digest == result.steps["alignment"].output.alignment.label_space_digest
+    assert result.metadata.label_space_digest == result.steps["label-alignment"].output.alignment.label_space_digest
     assert result.metadata.metadata_binning is None
 
 

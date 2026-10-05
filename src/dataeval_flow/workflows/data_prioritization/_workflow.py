@@ -24,10 +24,10 @@ class DataPrioritizationWorkflow(Preset, Workflow[DataPrioritizationConfig, Chai
 
     The task's first source is ``reference``; every later one is an element of ``pools``. The settings expand to:
 
-    - with ``cleaning`` set, ``reference-outliers`` and ``pool-outliers`` (``outliers``), ``reference-dupes`` and
-      ``pool-dupes`` (``duplicates``), then ``reference-clean`` and ``pool-clean`` (``remove``): each source without
-      its outliers, and without each duplicate but the first of its group;
-    - ``rank`` (``prioritization``): each pool, cleaned or not, ranked against the reference;
+    - with ``cleaning`` set, ``outliers-reference`` and ``outliers-pool`` (``outliers``), ``duplicates-reference`` and
+      ``duplicates-pool`` (``duplicates``), then ``reference-clean`` and ``pool-clean`` (``remove``): each source
+      without its outliers, and without each duplicate but the first of its group;
+    - ``prioritization``: each pool, cleaned or not, ranked against the reference;
     - ``selected`` (``select``): the first ``n``, or ``fraction``, of each pool's ranking; all of it when neither is
       set.
 
@@ -51,7 +51,7 @@ class DataPrioritizationWorkflow(Preset, Workflow[DataPrioritizationConfig, Chai
         """The cleaning steps ``cleaning`` configures, the ranking, and the selection."""
         evaluators: list[Any] = [
             PrioritizationConfig(
-                name="rank",
+                name="prioritization",
                 method=config.method,
                 k=config.k,
                 c=config.c,
@@ -73,14 +73,14 @@ class DataPrioritizationWorkflow(Preset, Workflow[DataPrioritizationConfig, Chai
             {"n": config.select.n} if config.select.n is not None else {"fraction": config.select.fraction or 1.0}
         )
         steps += [
-            {"name": "rank", "evaluator": "rank", "input": [pools, reference]},
-            {"name": "selected", "transform": "select", "input": pools, "ranking": "rank", **amount},
+            {"name": "prioritization", "evaluator": "prioritization", "input": [pools, reference]},
+            {"name": "selected", "transform": "select", "input": pools, "ranking": "prioritization", **amount},
         ]
         return PresetChain(steps=steps, evaluators=evaluators)
 
 
 def _cleaning_evaluators(cleaning: CleaningSettings, config: DataPrioritizationConfig) -> list[Any]:
-    """The ``outliers`` and ``dupes`` entries the cleaning steps name, with the cleaning block's settings."""
+    """The ``outliers`` and ``duplicates`` entries the cleaning steps name, with the cleaning block's settings."""
     outliers, duplicates = cleaning.outliers, cleaning.duplicates
     return [
         OutliersConfig(
@@ -93,7 +93,7 @@ def _cleaning_evaluators(cleaning: CleaningSettings, config: DataPrioritizationC
             stats=config.stats,
         ),
         DuplicatesConfig(
-            name="dupes",
+            name="duplicates",
             flags=list(duplicates.flags) if duplicates.flags is not None else None,
             merge_near_duplicates=duplicates.merge_near_duplicates,
             cluster_sensitivity=duplicates.cluster_sensitivity,
@@ -105,17 +105,18 @@ def _cleaning_evaluators(cleaning: CleaningSettings, config: DataPrioritizationC
 
 
 def _cleaning_steps(prefix: str, source: str, cleaning: CleaningSettings) -> list[dict[str, Any]]:
-    """``source`` without its outliers and duplicates, as steps ``<prefix>-outliers``, ``-dupes`` and ``-clean``."""
+    """``source`` without its outliers and duplicates, as steps ``outliers-<prefix>``, ``duplicates-<prefix>`` and
+    ``<prefix>-clean``."""
     return [
-        {"name": f"{prefix}-outliers", "evaluator": "outliers", "input": source},
-        {"name": f"{prefix}-dupes", "evaluator": "dupes", "input": source},
+        {"name": f"outliers-{prefix}", "evaluator": "outliers", "input": source},
+        {"name": f"duplicates-{prefix}", "evaluator": "duplicates", "input": source},
         {
             "name": f"{prefix}-clean",
             "transform": "remove",
             "input": source,
             "plans": {
-                f"{prefix}-dupes": {"dup_types": cleaning.dup_types, "keep": "first"},
-                f"{prefix}-outliers": {"min_flags": 1},
+                f"duplicates-{prefix}": {"dup_types": cleaning.dup_types, "keep": "first"},
+                f"outliers-{prefix}": {"min_flags": 1},
             },
         },
     ]

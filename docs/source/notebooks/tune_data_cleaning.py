@@ -221,12 +221,12 @@ for finding in run.result.findings:
 
 # %% [markdown]
 # Its findings are row 4 of the table. Its steps hold each step's output, as a lone
-# `data-cleaning` run's do. The `dupes` step's output is DataEval's duplicates output, and
+# `data-cleaning` run's do. The `duplicates` step's output is DataEval's duplicates output, and
 # its `data()` lists the groups behind the Duplicates finding, with the methods that found
 # each:
 
 # %%
-print(run.result.steps["dupes"].output.data())
+print(run.result.steps["duplicates"].output.data())
 
 # %% [markdown]
 # The two exact groups are pairs that `xxhash` matched. Of the three near groups, one is a

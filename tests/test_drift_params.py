@@ -91,7 +91,7 @@ def test_checks_hold_the_drift_check_s_fields() -> None:
         ({"detectors": []}, "at least 1 item"),
         ({"detectors": [{"type": "drift-mmd"}, {"type": "drift-mmd"}]}, "two detectors named `drift-mmd`"),
         ({"detectors": [{"name": "x-check", "type": "drift-mmd"}]}, "-check"),
-        ({"detectors": [{"name": "x-classes", "type": "drift-mmd"}]}, "`x-classes` ends in"),
+        ({"detectors": [{"name": "x-by-class", "type": "drift-mmd"}]}, "`x-by-class` ends in"),
         ({"detectors": [{"name": "x-unchunked", "type": "drift-mmd"}]}, "`x-unchunked` ends in"),
         ({"detectors": [{"method": "mmd"}]}, "needs a `type`.*`method: mmd` is now `type: drift-mmd`"),
         ({"detectors": [{"type": ["drift-mmd"]}]}, "needs a `type`, one of drift-univariate"),

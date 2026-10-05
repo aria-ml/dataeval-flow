@@ -62,7 +62,7 @@ def test_label_space_gives_what_legacy_data_coverage_gave(name: str) -> None:
     assert representation.dark_branches.to_dicts() == approximately(golden["dark_branches"])
     assert representation.violations.to_dicts() == approximately(golden["violations"])
     assert representation.ignored_expected == golden["ignored_expected"]
-    assert result.steps["reconciliation"].output.data() == golden["conformance"]
-    alignment = result.steps["alignment"].output.alignment.model_dump(mode="json")
+    assert result.steps["label-reconciliation"].output.data() == golden["conformance"]
+    alignment = result.steps["label-alignment"].output.alignment.model_dump(mode="json")
     assert _sorted_alignment(alignment) == approximately(_sorted_alignment(golden["alignment"]))
-    assert result.steps["structure"].output.data() == golden["structure"]
+    assert result.steps["ontology-validation"].output.data() == golden["structure"]

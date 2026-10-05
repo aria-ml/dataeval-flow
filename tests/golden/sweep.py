@@ -50,7 +50,7 @@ def matrix_counts() -> list[dict[str, Any]]:
         chain = run.result
         assert isinstance(chain, ChainResult)
         outliers = chain.steps["outliers"].output.data()
-        dupes = chain.steps["dupes"].output.data()
+        dupes = chain.steps["duplicates"].output.data()
         near = dupes.filter((pl.col("dup_type") == "near") & (pl.col("level") == "item")) if len(dupes) else dupes
         counts.append(
             {

@@ -312,14 +312,14 @@ if outlier_indices:
 # #### Duplicate images
 #
 # You can plot duplicate groups side by side (both exact and near duplicates) to
-# verify whether images are redundant. The `dupes` step's output is DataEval's own
+# verify whether images are redundant. The `duplicates` step's output is DataEval's own
 # Duplicates output, and its `items` holds the groups of whole images.
 #
 # SkySeaLand contains distinct captures without duplicates in this sample. When
 # duplicate images are detected in a dataset, each group renders here for visual inspection.
 
 # %%
-duplicates = result.steps["dupes"].output.items
+duplicates = result.steps["duplicates"].output.items
 exact_groups = duplicates.exact
 near_groups = duplicates.near
 
@@ -344,7 +344,7 @@ for i, (indices, methods) in enumerate(near_groups[:3]):
 # The chain's last step, `clean`, removes each flagged image and box, and each duplicate but the first of its group.
 # Its output is a DataEval `View` of the images that survived, which you can go on to train on or evaluate from
 # Python. Its `details` count what it removed at each level, images (`items`) and boxes (`detections`), and under
-# `by_plan` what each plan named, `dupes` and `outliers`.
+# `by_plan` what each plan named, `duplicates` and `outliers`.
 
 # %%
 clean = result.steps["clean"].output

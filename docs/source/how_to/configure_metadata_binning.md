@@ -17,7 +17,7 @@ These workflows read metadata factors under the policy their `metadata:` names:
 | Workflow | Reads metadata for |
 | --- | --- |
 | `data-analysis` | balance, diversity, per-factor summaries |
-| `data-coverage` | its `summary`, `balance`, `diversity` and `gaps` steps: per-factor summaries, class balance, diversity, and the factor gap analysis with factor-to-class mutual information |
+| `data-coverage` | its `factor-summary`, `balance`, `diversity` and `factor-gaps` steps: per-factor summaries, class balance, diversity, and the factor gap analysis with factor-to-class mutual information |
 
 Only `data-analysis` also takes the four older `metadata_*` settings; `data-coverage` refuses them, saying to name a
 policy under `metadata:`. `data-cleaning` and `ood-detection` take a policy's name, `metadata:`, but none of the

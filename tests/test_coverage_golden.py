@@ -112,11 +112,11 @@ def test_the_findings_agree(name: str) -> None:
 def test_what_they_were_computed_from_agrees(name: str) -> None:
     result = _run(name)
     golden = _GOLDEN[name]
-    labels = result.steps["labels"].output.data()
+    labels = result.steps["label-health"].output.data()
     assert labels["label_counts_per_class"] == golden["labels"]["counts"]
     assert labels["empty_image_indices"] == golden["labels"]["empty_images"]
     # Through JSON, as the golden was written: a discrete factor's top values are keyed by number.
-    summary = json.loads(json.dumps(result.steps["summary"].output.data()["summary"]))
+    summary = json.loads(json.dumps(result.steps["factor-summary"].output.data()["summary"]))
     assert summary == approximately(golden["summary"])
     if golden["coverage"] is not None:
         _coverage_agrees(result, golden["coverage"])
@@ -126,14 +126,14 @@ def test_what_they_were_computed_from_agrees(name: str) -> None:
         assert data["completeness"] == pytest.approx(golden["completeness"]["score"], rel=1e-3)
         assert len(data["nearest_neighbor_pairs"]) == golden["completeness"]["pairs"]
     if golden["gaps"] is not None:
-        gaps = result.steps["gaps"].output
+        gaps = result.steps["factor-gaps"].output
         assert gaps.mutual_information == approximately(golden["gaps"]["mutual_information"])
         assert [(gap.class_name, gap.factor_name) for gap in gaps.gaps] == [
             (gap["class_name"], gap["factor_name"]) for gap in golden["gaps"]["gaps"]
         ]
         assert _canonical([gap.model_dump() for gap in gaps.gaps]) == approximately(_canonical(golden["gaps"]["gaps"]))
     if golden["worklist"] is not None and name != "unlabelled":
-        assert result.steps["worklist"].output.data().to_dicts() == approximately(golden["worklist"])
+        assert result.steps["representation"].output.data().to_dicts() == approximately(golden["worklist"])
 
 
 def _canonical(gaps: list[dict[str, Any]]) -> list[dict[str, Any]]:

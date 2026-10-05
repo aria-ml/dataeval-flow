@@ -130,7 +130,7 @@ def test_every_entry_point_builds_and_fits_once_per_task(
     task, config = _pipeline()
     result = entry_point(task, config)
     assert result.success, result.errors
-    classes = result.steps["drift-mmd-classes"].elements
+    classes = result.steps["drift-mmd-by-class"].elements
     assert {key: element.status for key, element in classes.items()} == {"incoming": "ok", "later": "ok"}
     assert len(recording) == 1
     assert recording[0].fitted_on is not None

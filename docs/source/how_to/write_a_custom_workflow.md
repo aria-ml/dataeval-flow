@@ -329,11 +329,11 @@ tasks:
     sources: [street_2024]
 ```
 
-`cleaning` runs data-cleaning's steps as `cleaning/outliers`, `cleaning/dupes` and so on, to `cleaning/clean`. In the
+`cleaning` runs data-cleaning's steps as `cleaning/outliers`, `cleaning/duplicates` and so on, to `cleaning/clean`. In the
 report, each of its checks' findings has a section, with the steps it judged below it, headed such as
 `From Outliers · cleaning/outliers`, and `cleaning/clean` has one of its own, `Remove · cleaning/clean`. Its checks'
 findings count toward the task's health, as section 5's do.
-Only `clean` can be read from outside, and only as `cleaning.clean`: `cleaning` alone and `cleaning.dupes` fail the
+Only `clean` can be read from outside, and only as `cleaning.clean`: `cleaning` alone and `cleaning.duplicates` fail the
 config load. [Workflow types as presets](../concepts/WorkflowsAsChains.md#workflow-types-as-presets) says more.
 
 ## 7. Read the result

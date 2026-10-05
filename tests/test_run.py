@@ -354,7 +354,7 @@ def test_an_ood_thumbnail_is_the_image_scored_though_its_view_shuffles_unseeded(
     )
     result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
-    union = (result.steps["agreement"].elements or {})["test"].output
+    union = (result.steps["ood-union"].elements or {})["test"].output
     agreed = {ItemRef(source="tests[test]", index=index) for index in union.mutual}
     shades = {
         asset.item: int(np.asarray(Image.open(io.BytesIO(base64.b64decode(asset.data))).convert("L")).max())
@@ -457,12 +457,10 @@ def test_the_result_block_limits_a_run_s_tables() -> None:
     config.result = ResultConfig(max_rows=1, preview_rows=-1, max_images=0)
     result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
-    assert result.steps["dupes"].type == "duplicates"
+    assert result.steps["duplicates"].type == "duplicates"
     report = result._document(detailed=True).blocks
     # The Duplicates finding shows the step it judged as its evidence.
-    (dupes,) = [
-        block for block in walk(report) if isinstance(block, Section) and block.title == "From Duplicates · dupes"
-    ]
+    (dupes,) = [block for block in walk(report) if isinstance(block, Section) and block.title == "From Duplicates"]
     blocks = list(walk(dupes.blocks))
     (groups,) = [block for block in blocks if isinstance(block, Table)]
     assert (len(groups.rows), groups.preview) == (1, None)

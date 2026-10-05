@@ -24,11 +24,11 @@ class LabelSpaceWorkflow(Preset, Workflow[LabelSpaceConfig, ChainResult]):
 
     - ``representation`` and ``leaf-coverage``: how many of the ontology's leaves have examples, the worklist, the
       empty branches and the unmet minimum shares;
-    - ``reconciliation`` (``label-reconciliation``) and ``conformance`` (``label-conformance``): which class names
+    - ``label-reconciliation`` and ``label-conformance``: which class names
       resolve to one concept;
-    - ``alignment`` (``label-alignment``) and ``mergeability``: whether the classes carry over, with the Relabel
+    - ``label-alignment`` and ``mergeability``: whether the classes carry over, with the Relabel
       stanza;
-    - ``structure`` (``ontology-validation``) and ``ontology-structure``: the ontology's own structure.
+    - ``ontology-validation`` and ``ontology-structure``: the ontology's own structure.
 
     No step is optional: the ontology is the preset's whole input. The result's ``label_space_digest`` is the
     alignment's, unless a source's ``Relabel`` already recorded a label space (coverage spec §3.5). It makes no
@@ -50,10 +50,12 @@ class LabelSpaceWorkflow(Preset, Workflow[LabelSpaceConfig, ChainResult]):
             RepresentationConfig(
                 name="representation", ontology=config.ontology, expected=config.representation.expected
             ),
-            LabelReconciliationConfig(name="reconciliation", ontology=config.ontology),
-            LabelAlignmentConfig(name="alignment", ontology=config.ontology),
+            LabelReconciliationConfig(name="label-reconciliation", ontology=config.ontology),
+            LabelAlignmentConfig(name="label-alignment", ontology=config.ontology),
             OntologyValidationConfig(
-                name="structure", ontology=config.ontology, label_pattern=config.ontology_validation.label_pattern
+                name="ontology-validation",
+                ontology=config.ontology,
+                label_pattern=config.ontology_validation.label_pattern,
             ),
         ]
         steps: list[dict[str, Any]] = [
@@ -64,16 +66,16 @@ class LabelSpaceWorkflow(Preset, Workflow[LabelSpaceConfig, ChainResult]):
                 "input": "representation",
                 **limits.leaf_coverage.model_dump(),
             },
-            {"name": "reconciliation", "evaluator": "reconciliation", "input": "data"},
+            {"name": "label-reconciliation", "evaluator": "label-reconciliation", "input": "data"},
             {
-                "name": "conformance",
+                "name": "label-conformance",
                 "check": "label-conformance",
-                "input": "reconciliation",
+                "input": "label-reconciliation",
                 **limits.label_conformance.model_dump(),
             },
-            {"name": "alignment", "evaluator": "alignment", "input": "data"},
-            {"name": "mergeability", "check": "mergeability", "input": "alignment"},
-            {"name": "structure", "evaluator": "structure", "input": "data"},
-            {"name": "ontology-structure", "check": "ontology-structure", "input": "structure"},
+            {"name": "label-alignment", "evaluator": "label-alignment", "input": "data"},
+            {"name": "mergeability", "check": "mergeability", "input": "label-alignment"},
+            {"name": "ontology-validation", "evaluator": "ontology-validation", "input": "data"},
+            {"name": "ontology-structure", "check": "ontology-structure", "input": "ontology-validation"},
         ]
         return PresetChain(steps=steps, evaluators=evaluators)

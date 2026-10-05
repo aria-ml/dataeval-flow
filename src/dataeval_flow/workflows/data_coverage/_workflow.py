@@ -21,12 +21,12 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
     The settings expand to, in legacy's finding order:
 
     - ``crops`` (``wrap``, ``DetectionCrops``, passing other kinds through), then ``coverage`` (optional) with
-      ``class-coverage`` and, under ``naive`` coverage, ``uncovered`` (``uncovered-items``); and ``completeness``
-      (optional) with ``completeness-check`` (``dimensional-completeness``), where ``completeness`` is set;
-    - ``labels`` (``label-health``) and ``labels-check`` (``class-imbalance``);
-    - ``summary`` (``factor-summary``), ``balance`` and ``diversity`` (optional), and ``gaps`` (``factor-gaps``,
-      optional) with ``gaps-check`` (``factor-coverage-gaps``), where ``gaps`` is set;
-    - ``worklist`` (``representation`` with no ontology, optional) and ``shortfall`` (``class-shortfall``).
+      ``class-coverage`` and, under ``naive`` coverage, ``uncovered-items``; and ``completeness``
+      (optional) with ``dimensional-completeness``, where ``completeness`` is set;
+    - ``label-health`` and ``class-imbalance``;
+    - ``factor-summary``, ``balance`` and ``diversity`` (optional), and ``factor-gaps`` (optional) with
+      ``factor-coverage-gaps``, where ``factor-gaps`` is set;
+    - ``representation`` (with no ontology, optional) and ``class-shortfall``.
 
     The embedding steps are skipped with "requires an extractor" when the task names none. It makes no Dataset, so it
     declares no outputs; ontology analysis is ``label-space``'s.
@@ -47,11 +47,11 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
         evaluators: list[Any] = [
             CoverageConfig(name="coverage", **config.coverage.model_dump()),
             CompletenessConfig(name="completeness"),
-            LabelHealthConfig(name="labels", metadata=config.metadata),
-            FactorSummaryConfig(name="summary", metadata=config.metadata),
+            LabelHealthConfig(name="label-health", metadata=config.metadata),
+            FactorSummaryConfig(name="factor-summary", metadata=config.metadata),
             BalanceConfig(name="balance", metadata=config.metadata),
             DiversityConfig(name="diversity", method=config.diversity.method, metadata=config.metadata),
-            RepresentationConfig(name="worklist", expected=config.representation.expected),
+            RepresentationConfig(name="representation", expected=config.representation.expected),
         ]
         steps: list[dict[str, Any]] = [
             {
@@ -73,7 +73,7 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
         if config.coverage.method == "naive":
             steps.append(
                 {
-                    "name": "uncovered",
+                    "name": "uncovered-items",
                     "check": "uncovered-items",
                     "input": "coverage",
                     **limits.uncovered_items.model_dump(),
@@ -83,28 +83,28 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
             steps += [
                 {"name": "completeness", "evaluator": "completeness", "input": "crops", "optional": True},
                 {
-                    "name": "completeness-check",
+                    "name": "dimensional-completeness",
                     "check": "dimensional-completeness",
                     "input": "completeness",
                     **limits.dimensional_completeness.model_dump(),
                 },
             ]
         steps += [
-            {"name": "labels", "evaluator": "labels", "input": "data"},
+            {"name": "label-health", "evaluator": "label-health", "input": "data"},
             {
-                "name": "labels-check",
+                "name": "class-imbalance",
                 "check": "class-imbalance",
-                "input": "labels",
+                "input": "label-health",
                 **limits.class_imbalance.model_dump(),
             },
-            {"name": "summary", "evaluator": "summary", "input": "data"},
+            {"name": "factor-summary", "evaluator": "factor-summary", "input": "data"},
             {"name": "balance", "evaluator": "balance", "input": "data", "optional": True},
             {"name": "diversity", "evaluator": "diversity", "input": "data", "optional": True},
         ]
         if config.factor_gaps is not False:
             steps += [
                 {
-                    "name": "gaps",
+                    "name": "factor-gaps",
                     "combine": "factor-gaps",
                     "input": "data",
                     "balance": "balance",
@@ -113,14 +113,14 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
                     **config.factor_gaps.model_dump(),
                 },
                 {
-                    "name": "gaps-check",
+                    "name": "factor-coverage-gaps",
                     "check": "factor-coverage-gaps",
-                    "input": "gaps",
+                    "input": "factor-gaps",
                     **limits.factor_coverage_gaps.model_dump(),
                 },
             ]
         steps += [
-            {"name": "worklist", "evaluator": "worklist", "input": "data", "optional": True},
-            {"name": "shortfall", "check": "class-shortfall", "input": "worklist"},
+            {"name": "representation", "evaluator": "representation", "input": "data", "optional": True},
+            {"name": "class-shortfall", "check": "class-shortfall", "input": "representation"},
         ]
         return PresetChain(steps=steps, evaluators=evaluators)

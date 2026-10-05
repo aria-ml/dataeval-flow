@@ -30,7 +30,7 @@ def test_each_detector_is_a_step_and_its_check():
 def test_classwise_runs_follow_every_whole_set_detector():
     steps, _ = _chain(detectors=[{"type": "drift-mmd"}, {"type": "drift-kneighbors"}], classwise={"drift-mmd": "class"})
     names = [step["name"] for step in steps]
-    assert names[-2:] == ["drift-mmd-classes", "drift-mmd-classes-check"]
+    assert names[-2:] == ["drift-mmd-by-class", "drift-mmd-by-class-check"]
     classes = steps[-2]
     assert (classes["by"], classes["optional"], classes["evaluator"]) == ("class", True, "drift-mmd")
     subjects = [step["subject"] for step in steps if step.get("check")]
@@ -106,10 +106,10 @@ def test_an_empty_test_source_fails_only_its_own_element():  # Review Focus 1
 def test_classwise_on_unlabelled_data_is_not_assessed():  # Review Focus 3, through the preset
     datasets = {"reference": ToyImages(40, labeled=False), "cam1": ToyImages(40, seed=1, labeled=False)}
     result = _preset_run(datasets, classwise={"drift-kneighbors": "class"})
-    assert (result.steps["drift-kneighbors-classes"].elements or {})["cam1"].status == "skipped"
+    assert (result.steps["drift-kneighbors-by-class"].elements or {})["cam1"].status == "skipped"
     (whole,) = (result.steps["drift-kneighbors-check"].elements or {})["cam1"].output
     assert (whole.severity, whole.title) == ("ok", "Drift (K-Neighbors)")
-    (finding,) = (result.steps["drift-kneighbors-classes-check"].elements or {})["cam1"].output
+    (finding,) = (result.steps["drift-kneighbors-by-class-check"].elements or {})["cam1"].output
     assert (finding.severity, finding.title, finding.brief) == ("info", "Drift (K-Neighbors) by class", "not assessed")
 
 
@@ -136,7 +136,7 @@ def test_the_crop_recipe_runs_the_preset_on_detections():
     with pytest.warns(UserWarning, match="`source_id` was binned automatically"):
         result = run_task(task, config)
     assert isinstance(result, ChainResult)
-    (finding,) = (result.steps["drift/drift-kneighbors-classes-check"].elements or {})["cam1"].output
+    (finding,) = (result.steps["drift/drift-kneighbors-by-class-check"].elements or {})["cam1"].output
     assert finding.title == "Drift (K-Neighbors) by class"
     assert finding.brief.endswith("/3 classes warn")
 
@@ -147,18 +147,18 @@ def test_a_detectors_own_extractor_reaches_its_steps_and_never_its_evaluator_ent
         classwise={"u": "predicted"},
     )
     by_name = {step["name"]: step for step in steps}
-    assert by_name["u"]["extractor"] == by_name["u-classes"]["extractor"] == "unc"
+    assert by_name["u"]["extractor"] == by_name["u-by-class"]["extractor"] == "unc"
     assert "extractor" not in by_name["u-check"]
     assert {type(entry).__name__ for entry in evaluators} == {"DriftUnivariateConfig"}
-    assert (by_name["u-classes"]["by"], by_name["u-classes-check"]["by"]) == ("predicted", "predicted")
+    assert (by_name["u-by-class"]["by"], by_name["u-by-class-check"]["by"]) == ("predicted", "predicted")
 
 
 def test_classwise_takes_groups_in_the_preset():
     groups = {"class": {"groups": {"pets": ["cat", "dog"]}}}
     steps, _ = _chain(detectors=[{"type": "drift-mmd"}], classwise={"drift-mmd": groups})
     by_name = {step["name"]: step for step in steps}
-    assert by_name["drift-mmd-classes"]["by"] == groups
-    assert by_name["drift-mmd-classes-check"]["by"] == "class"
+    assert by_name["drift-mmd-by-class"]["by"] == groups
+    assert by_name["drift-mmd-by-class-check"]["by"] == "class"
 
 
 def test_one_task_mixes_extractors_by_class_and_by_predicted_class(tmp_path, monkeypatch):  # Review Focus 4
@@ -179,9 +179,9 @@ def test_one_task_mixes_extractors_by_class_and_by_predicted_class(tmp_path, mon
     }
     datasets = {"reference": ClassImages({0: 20, 1: 20}), "cam1": ClassImages({0: 20, 1: 20}, seed=1)}
     result = run_uncertainty(tmp_path, preset, [], datasets, detector=False, task_extractor="flat", extractors=[FLAT])
-    assert element(result, "drift-kneighbors-classes").output.label == "class"
-    assert element(result, "u-classes").output.label == "predicted class"
-    assert set(element(result, "u-classes").output.outputs) <= {"cat", "dog", "bird"}
+    assert element(result, "drift-kneighbors-by-class").output.label == "class"
+    assert element(result, "u-by-class").output.label == "predicted class"
+    assert set(element(result, "u-by-class").output.outputs) <= {"cat", "dog", "bird"}
 
 
 def test_a_detectors_extractor_the_pipeline_does_not_define_is_refused_at_load():
