@@ -52,10 +52,29 @@ def _strip_empty_params(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return cleaned
 
 
+def _dump(model: BaseModel) -> dict[str, Any]:
+    """`model` as a plain dict, less the nulls it didn't set: a null it set, such as a bound turned off, means
+    something its default doesn't. A default it didn't set, such as a discriminator, is kept."""
+    return _with_set_nulls(model.model_dump(exclude_none=True), model.model_dump(exclude_unset=True))
+
+
+def _with_set_nulls(lean: Any, written: Any) -> Any:
+    """`lean` with each null `written` holds put back, at any depth."""
+    if isinstance(lean, dict) and isinstance(written, dict):
+        for key, value in written.items():
+            if value is None:
+                lean[key] = None
+            elif key in lean:
+                lean[key] = _with_set_nulls(lean[key], value)
+    elif isinstance(lean, list) and isinstance(written, list) and len(lean) == len(written):
+        lean[:] = [_with_set_nulls(item, set_item) for item, set_item in zip(lean, written, strict=True)]
+    return lean
+
+
 def _to_dict(obj: Any) -> dict[str, Any]:
     """Convert a Pydantic model or dict to a plain dict."""
     if isinstance(obj, BaseModel):
-        return obj.model_dump(exclude_none=True)
+        return _dump(obj)
     return dict(obj)
 
 
@@ -130,7 +149,7 @@ class ConfigState:
         if isinstance(data, BaseModel):
             # Only the settings the config set: a saved file needn't spell out every default.
             settings = data.model_dump(exclude_unset=True, exclude_none=True)
-            data = data.model_dump(exclude_none=True)
+            data = _dump(data)
         else:
             settings = data
         self._settings = {key: copy.deepcopy(settings[key]) for key in _SETTINGS if key in settings}

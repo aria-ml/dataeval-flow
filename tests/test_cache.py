@@ -237,6 +237,23 @@ class TestDatasetFingerprint:
         expected = xxhash_of_reprs(imgs, targets)
         assert dataset_fingerprint(_FakeDataset(imgs, targets)) == expected
 
+    def test_class_names_are_part_of_the_fingerprint(self):
+        """Renaming a class leaves every item as it was, so only the declared names tell the two datasets apart."""
+        imgs = [np.zeros((3, 8, 8), dtype=np.float32) for _ in range(5)]
+
+        def named(*names: str) -> _FakeDataset:
+            dataset = _FakeDataset(imgs)
+            dataset.metadata = {"id": "toy", "index2label": dict(enumerate(names))}  # type: ignore[reportAttributeAccessIssue]
+            return dataset
+
+        assert dataset_fingerprint(named("cat", "dog")) == dataset_fingerprint(named("cat", "dog"))
+        assert dataset_fingerprint(named("cat", "dog")) != dataset_fingerprint(named("cat", "wolf"))
+
+    def test_class_names_keyed_by_mixed_types_still_fingerprint(self):
+        dataset = _FakeDataset([np.zeros((3, 8, 8), dtype=np.float32)])
+        dataset.metadata = {"id": "toy", "index2label": {0: "cat", "1": "dog"}}  # type: ignore[reportAttributeAccessIssue]
+        assert dataset_fingerprint(dataset) == dataset_fingerprint(dataset)
+
     def test_different_metadata_different_fingerprint(self):
         imgs = [np.zeros((3, 8, 8), dtype=np.float32) for _ in range(5)]
         meta_a = [{"label": "cat"} for _ in range(5)]

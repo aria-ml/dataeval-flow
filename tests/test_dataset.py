@@ -1005,7 +1005,7 @@ class TestDatasetProtocolConfigTorchvision:
         assert isinstance(resolved.dataset, TorchvisionDataset)
         assert resolved.name == "tv-test"
         assert resolved.label_source == "torchvision"
-        assert resolved.cache_key == "tv-test:torchvision:1|fp:e9eabbceed9ca6de"
+        assert resolved.cache_key == "tv-test:torchvision:1|fp:82b88f62d767d35f"
 
     def test_resolve_maite_passes_through(self) -> None:
         """resolve_dataset does not wrap maite datasets."""

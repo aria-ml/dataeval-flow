@@ -36,6 +36,14 @@ def _declaring(*names: str, **kwargs: Any) -> ToyImages:
 
 
 class TestRepresentation:
+    def test_a_dataset_renamed_between_runs_reports_its_new_names(self):
+        """The items are the same, so only the names tell a warm cache the two datasets apart."""
+        run(RepresentationConfig(), _declaring("a", "b", "c"))
+        result = run(RepresentationConfig(), _declaring("x", "y", "z"))
+        assert isinstance(result, RepresentationResult)
+        assert result.success, result.errors
+        assert [row["concept"] for row in output_json(result)["rows"]] == ["z"]
+
     def test_a_declared_class_with_no_samples_is_on_the_worklist(self):
         result = run(RepresentationConfig(), _declaring("a", "b", "c"))
         assert isinstance(result, RepresentationResult)

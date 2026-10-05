@@ -481,6 +481,8 @@ def dataset_fingerprint(dataset: Any) -> str:
     the dataset (or all data if it is no larger than that), plus the dataset
     length, using xxHash.  Each element of the tuple (image, target, metadata)
     is hashed so that label or metadata changes also invalidate the cache.
+    The dataset's class names, its ``metadata["index2label"]``, are hashed too:
+    renaming a class changes no item.
 
     The sample is spread, not clustered, because the changes this has to catch are
     usually *localized*: a wrapper that corrupts one span of frames, or degrades a
@@ -521,6 +523,16 @@ def dataset_fingerprint(dataset: Any) -> str:
         datum = datum if isinstance(datum, tuple) else (datum,)
         for element in datum:
             _hash_element(hasher, element)
+
+    # Only when declared, so a dataset with no class names keeps the fingerprint it had.
+    metadata = getattr(dataset, "metadata", None)
+    index2label = metadata.get("index2label") if isinstance(metadata, Mapping) else None
+    if index2label:
+        try:
+            names = sorted(index2label.items())
+        except TypeError:  # keys of mixed types, such as int and str, sort by repr; other names keep their order
+            names = sorted(index2label.items(), key=lambda item: repr(item[0]))
+        hasher.update(repr(names).encode("utf-8"))
 
     return hasher.hexdigest()
 

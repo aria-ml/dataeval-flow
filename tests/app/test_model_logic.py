@@ -22,6 +22,8 @@ from dataeval_flow._app._model._item import (
     diagnose_collect_failure,
 )
 from dataeval_flow._app._model._state import ConfigState, _strip_empty_params, _to_dict
+from dataeval_flow.config._loader import load_config
+from dataeval_flow.workflows.audit import AuditConfig
 
 pytestmark = pytest.mark.optional
 
@@ -218,6 +220,24 @@ class TestConfigState:
         state.load_file(path)
         assert state.to_dict() == {"result": {"fail_on": "warning"}}
         assert state.to_pipeline_config().result.fail_on == "warning"
+
+    def test_an_explicit_null_survives_a_load_and_save(self, tmp_path: Path) -> None:
+        """A null bound means the check never warns; dropping it on save would bring back the default, which does."""
+        path = tmp_path / "params.yaml"
+        path.write_text(
+            "workflows:\n"
+            "  - name: w\n"
+            "    type: audit\n"
+            "    outliers: {flags: [pixel], outlier_threshold: zscore}\n"
+            "    checks: {leakage: {near: null}}\n"
+        )
+        state = ConfigState()
+        state.load_file(path)
+        saved = tmp_path / "saved.yaml"
+        state.save_file(saved)
+        (audit,) = load_config(saved).workflows or []
+        assert isinstance(audit, AuditConfig)
+        assert audit.checks.leakage.near is None
 
     def test_snapshot_restore(self) -> None:
         state = ConfigState()

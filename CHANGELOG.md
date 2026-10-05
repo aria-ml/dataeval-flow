@@ -464,6 +464,10 @@
 
 ### Fixed
 
+- A dataset whose class names change while its items don't is cached apart from the old one, so a warm cache no
+  longer serves the old names. A dataset that declares class names is computed once more, under its new key
+- The config builder keeps a null the config set, such as `checks.leakage.near: null`, when it saves; it dropped
+  it, and the default came back on reload
 - Every step of a task reads a source through its Dataset node's one draw of its view, so an unseeded `Shuffle` or any
   random view gives all of a task's steps the same order, where each step drew its own. A result's `dataset` and
   `sources`, and the report's thumbnails, hold that same draw, where they drew the view again
