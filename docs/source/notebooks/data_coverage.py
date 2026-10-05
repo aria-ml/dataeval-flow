@@ -190,8 +190,8 @@ metadata_only_workflow = DataCoverageConfig(
     gaps={"min_representation": 5},  # Flag class-factor-value combos with < 5 samples
     diversity="simpson",
     health_thresholds={
-        "class-imbalance": {"ratio": 3.0},  # Catch moderate class imbalance
-        "factor-coverage-gaps": {"count": 2},  # Warn if >= 2 gaps found
+        "class-imbalance": {"warning": 3.0},  # Catch moderate class imbalance
+        "factor-coverage-gaps": {"warning": 2},  # Warn if >= 2 gaps found
     },
 )
 
@@ -471,8 +471,8 @@ full_workflow = DataCoverageConfig(
     diversity="simpson",
     health_thresholds={
         "dimensional-completeness": {"warning": 0.5},  # Warn if completeness < 0.5
-        "class-imbalance": {"ratio": 3.0},
-        "factor-coverage-gaps": {"count": 2},
+        "class-imbalance": {"warning": 3.0},
+        "factor-coverage-gaps": {"warning": 2},
     },
 )
 
@@ -571,16 +571,16 @@ print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}"
 #
 # | Preset | Check | Field | Default | Safety-critical | Web-scraped data |
 # |---|---|---|---|---|---|
-# | `data-coverage` | `uncovered-items` | `rate` | 10% | 3–5% | 15–20% |
+# | `data-coverage` | `uncovered-items` | `warning` | 10% | 3–5% | 15–20% |
 # | `data-coverage` | `dimensional-completeness` | `warning` | 0.5 | 0.7–0.8 | 0.3–0.4 |
-# | `data-coverage` | `class-imbalance` | `ratio` | 5:1 | 2–3:1 | 10–20:1 |
-# | `data-coverage` | `factor-coverage-gaps` | `count` | 3 | 1 | 5–10 |
+# | `data-coverage` | `class-imbalance` | `warning` | 5:1 | 2–3:1 | 10–20:1 |
+# | `data-coverage` | `factor-coverage-gaps` | `warning` | 3 | 1 | 5–10 |
 # | `data-coverage` | `class-coverage` | `dispersion` | 0.5 | 0.7 | 0.3 |
 # | `data-coverage` | `class-coverage` | `isotropy` | 0.5 | 0.7 | 0.3 |
 # | `data-coverage` | `class-coverage` | `near_duplicates` | 0.1 | 0.02 | 0.25 |
 # | `label-space` | `leaf-coverage` | `coverage` | 0.9 | 0.95 | 0.6 |
 # | `label-space` | `leaf-coverage` | `empty_branches` | 0 | 0 | 2–5 |
-# | `label-space` | `label-conformance` | `unmatched` | 0 | 0 | 3–10 |
+# | `label-space` | `label-conformance` | `warning` | 0 | 0 | 3–10 |
 #
 # `class-imbalance` and `dimensional-completeness` also take `info`, the band between `ok` and
 # a warning: a ratio over 2.0, or a score under 0.8, informs by default. `null` turns a
@@ -596,8 +596,8 @@ from dataeval_flow.workflows.data_coverage import DataCoverageThresholds
 strict_thresholds = DataCoverageThresholds.model_validate(
     {
         "dimensional-completeness": {"warning": 0.6},
-        "class-imbalance": {"ratio": 2.0},
-        "factor-coverage-gaps": {"count": 1},
+        "class-imbalance": {"warning": 2.0},
+        "factor-coverage-gaps": {"warning": 1},
         "class-coverage": {"dispersion": 0.7, "isotropy": 0.7, "near_duplicates": 0.02},
     }
 )

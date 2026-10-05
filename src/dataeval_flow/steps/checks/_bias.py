@@ -19,13 +19,12 @@ class ShortcutRiskConfig(CheckConfig):
     """A `shortcut-risk` step's input, and how much a factor may tell about the class."""
 
     input: str = Field(description="A `balance` Output.")
-    mutual_information: float | None = Field(
+    warning: float | None = Field(
         default=0.1,
         ge=0.0,
         le=1.0,
         description=(
-            "The mutual information with the class, from 0 to 1, past which a factor warns; `null` judges nothing. "
-            "Legacy data-analysis's 0.1."
+            "The mutual information with the class, from 0 to 1, past which a factor warns; `null` judges nothing."
         ),
     )
 
@@ -58,9 +57,9 @@ class ShortcutRiskCheck(Check[ShortcutRiskConfig]):
         over = [
             (name, value)
             for name, value in sorted(mi.items(), key=lambda item: -item[1])
-            if exceeds(value, config.mutual_information)
+            if exceeds(value, config.warning)
         ]
-        severity: Severity = "info" if config.mutual_information is None else ("warning" if over else "ok")
+        severity: Severity = "info" if config.warning is None else ("warning" if over else "ok")
         if over:
             listed = ", ".join(f"{name} (MI={value:.2f})" for name, value in over[:3])
             brief = f"{len(over)} of {len(mi)} factors tied to the class: {listed}"

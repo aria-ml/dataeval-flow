@@ -146,15 +146,15 @@ def test_the_outlier_checks_agree_with_data_cleaning(name: str) -> None:
 def test_the_outlier_checks_judge_nothing_where_their_limits_are_none() -> None:
     steps = [
         *_OUTLIER_STEPS[:3],
-        {"name": "image-outliers", "check": "image-outliers", "input": "outliers", "image": None},
+        {"name": "image-outliers", "check": "image-outliers", "input": "outliers", "warning": None},
         {
             "name": "target-outliers",
             "check": "target-outliers",
             "input": "outliers",
             "labels": "labels",
-            "target": None,
+            "warning": None,
         },
-        {"name": "classwise", "check": "classwise-outliers", "input": "by-class", "total": None},
+        {"name": "classwise", "check": "classwise-outliers", "input": "by-class", "warning": None},
     ]
     _, judged = _both(_OUTLIER_STEPS, _DATASETS["detection"]())
     assert "warning" in {finding.severity for finding in judged}  # the defaults do warn on these
@@ -165,7 +165,7 @@ def test_the_outlier_checks_judge_nothing_where_their_limits_are_none() -> None:
 def test_outlier_rate_counts_each_image_once_and_warns_past_its_limit() -> None:
     output = _issues([(1, None), (1, None), (4, None), (6, 0)])
     (finding,) = ImageOutliersCheck().run(
-        ImageOutliersConfig(input="o", image=10.0), {"input": _node(output, 10)}, _CONTEXT
+        ImageOutliersConfig(input="o", warning=10.0), {"input": _node(output, 10)}, _CONTEXT
     )
     assert (finding.severity, finding.title, finding.brief) == ("warning", "Image Outliers", "2 images (20.0%)")
 
@@ -208,7 +208,7 @@ _PIVOT = OutliersByClassOutput(
 
 
 def test_classwise_outlier_rate_names_the_worst_class_and_counts_those_over() -> None:
-    config = ClasswiseOutliersConfig(input="c", total=10.0)
+    config = ClasswiseOutliersConfig(input="c", warning=10.0)
     (finding,) = ClasswiseOutliersCheck().run(config, {"input": _node(_PIVOT)}, _CONTEXT)
     assert (finding.severity, finding.title, finding.brief) == (
         "warning",
@@ -219,7 +219,7 @@ def test_classwise_outlier_rate_names_the_worst_class_and_counts_those_over() ->
 
 
 def test_classwise_outlier_rate_without_a_limit_names_the_worst_and_judges_nothing() -> None:
-    config = ClasswiseOutliersConfig(input="c", total=None)
+    config = ClasswiseOutliersConfig(input="c", warning=None)
     (finding,) = ClasswiseOutliersCheck().run(config, {"input": _node(_PIVOT)}, _CONTEXT)
     assert (finding.severity, finding.brief) == ("info", "worst: van (30.0%)")
 
@@ -267,7 +267,7 @@ def test_classwise_outliers_refuses_outliers_found_on_another_dataset() -> None:
 
 def test_a_threshold_is_a_percentage() -> None:
     with pytest.raises(ValidationError):
-        ImageOutliersConfig(input="o", image=101.0)
+        ImageOutliersConfig(input="o", warning=101.0)
 
 
 def test_classwise_outliers_refuses_detection_outliers_not_found_per_box() -> None:
@@ -318,7 +318,7 @@ def test_the_duplicate_and_label_checks_judge_nothing_where_their_limits_are_non
     steps = [
         *_ALL_STEPS[:-2],
         {"name": "duplicates", "check": "image-duplicates", "input": "dupes", "exact": None, "near": None},
-        {"name": "imbalance", "check": "class-imbalance", "input": "labels", "ratio": None},
+        {"name": "imbalance", "check": "class-imbalance", "input": "labels", "warning": None},
     ]
     _, chain = _both(steps, _DATASETS["detection"]())
     assert {f.title: f.severity for f in chain if f.title in {"Image Duplicates", "Class Imbalance"}} == {
@@ -414,7 +414,7 @@ def test_class_imbalance_warns_where_no_item_has_a_label_but_classes_are_declare
 
 def test_class_imbalance_warns_on_a_class_with_no_labels_even_without_a_ratio_limit() -> None:
     labels = _labels({"car": 4, "van": 0}, classes=2, items=4)
-    config = ClassImbalanceConfig(input="l", ratio=None)
+    config = ClassImbalanceConfig(input="l", warning=None)
     (finding,) = ClassImbalanceCheck().run(config, {"input": _node(labels)}, _CONTEXT)
     # the ratio is over the classes with labels; the empty class alone makes it a warning
     assert (finding.severity, finding.brief) == ("warning", "2 classes, 4 items, imbalance 1.0:1")

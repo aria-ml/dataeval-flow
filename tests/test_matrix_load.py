@@ -153,8 +153,8 @@ def test_a_step_setting_left_at_its_default_is_set_and_one_the_step_lacks_is_ref
             tasks=[{"name": "t", "workflow": "w", "sources": "src", "matrix": matrix}],
         )
 
-    runs = _runs(build({"steps.gate.image": [0.05, 0.2]}))
-    assert [run.pipeline.workflows[0].steps[1].config.image for run in runs] == [0.05, 0.2]
+    runs = _runs(build({"steps.gate.warning": [0.05, 0.2]}))
+    assert [run.pipeline.workflows[0].steps[1].config.warning for run in runs] == [0.05, 0.2]
     _refusal(lambda: build({"steps.gate.imag": [0.05]}), "workflow 'w' has no setting `steps.gate.imag`")
 
 

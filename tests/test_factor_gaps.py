@@ -84,7 +84,7 @@ def test_count_gaps_or_more_warn(n: int, severity: str) -> None:
 
 
 def test_a_null_count_judges_nothing() -> None:
-    assert _judge([_GAP] * 9, count=None).severity == "info"
+    assert _judge([_GAP] * 9, warning=None).severity == "info"
 
 
 def test_gaps_of_equal_deficit_come_in_value_order() -> None:

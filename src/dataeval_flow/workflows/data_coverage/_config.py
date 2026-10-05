@@ -78,36 +78,35 @@ class DataCoverageClassImbalanceLimits(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    ratio: float | None = Field(
+    warning: float | None = Field(
         default=5.0,
         ge=1.0,
         description=(
             "Largest class count over smallest, among the classes with labels, past which the Class Imbalance "
-            "finding warns; `null` judges nothing but an empty class, which always warns. Legacy "
-            "`class_imbalance_ratio`."
+            "finding warns; `null` judges nothing but an empty class, which always warns."
         ),
     )
     info: float | None = Field(
         default=2.0,
         ge=1.0,
         description=(
-            "The ratio at or under which the finding is ok, between which and `ratio` it informs; `null` makes every "
-            "ratio under `ratio` information. Must not exceed `ratio`. Legacy's hard-coded 2.0, or `ratio` where "
+            "The ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every "
+            "ratio under `warning` information. Must not exceed `warning`. Defaults to 2.0, or `warning` where "
             "that is lower and `info` is unset."
         ),
     )
 
     @model_validator(mode="after")
     def _info_under_ratio(self) -> Self:
-        """An unset `info` follows a `ratio` under it, as legacy's unreachable band did; two written bounds that cross
+        """An unset `info` follows a `warning` under it; two written bounds that cross
         are refused here, where the user wrote them."""
-        if self.ratio is None or self.info is None:
+        if self.warning is None or self.info is None:
             return self
         if "info" not in self.model_fields_set:
-            # derived, so still unset: a matrix varies `ratio` alone
-            object.__setattr__(self, "info", min(self.info, self.ratio))
-        elif self.info > self.ratio:
-            raise ValueError(f"`info` ({self.info}) must not exceed `ratio` ({self.ratio}).")
+            # derived, so still unset: a matrix varies `warning` alone
+            object.__setattr__(self, "info", min(self.info, self.warning))
+        elif self.info > self.warning:
+            raise ValueError(f"`info` ({self.info}) must not exceed `warning` ({self.warning}).")
         return self
 
 
@@ -116,12 +115,12 @@ class CoverageGapsLimits(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    count: int | None = Field(
+    warning: int | None = Field(
         default=3,
         ge=0,
         description=(
             "The number of under-represented class-factor-value combinations at which the Factor Coverage Gaps "
-            "finding warns, this many or more; fewer inform, and `null` never warns. Legacy `gap_count`."
+            "finding warns, this many or more; fewer inform, and `null` never warns."
         ),
     )
 
@@ -164,13 +163,13 @@ class DataCoverageUncoveredRateLimits(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    rate: float | None = Field(
+    warning: float | None = Field(
         default=10.0,
         ge=0.0,
         le=100.0,
         description=(
             "The percent of the items uncovered past which the Uncovered Items finding warns, under `naive` coverage "
-            "only; `null` judges nothing. Legacy `uncovered_rate`."
+            "only; `null` judges nothing."
         ),
     )
 
@@ -277,16 +276,16 @@ _MOVED: dict[str, str] = {
 }
 
 _THRESHOLDS_MOVED: dict[str, str] = {
-    "class_imbalance_ratio": "`health_thresholds.class-imbalance.ratio`",
-    "gap_count": "`health_thresholds.factor-coverage-gaps.count`",
+    "class_imbalance_ratio": "`health_thresholds.class-imbalance.warning`",
+    "gap_count": "`health_thresholds.factor-coverage-gaps.warning`",
     "min_dispersion": "`health_thresholds.class-coverage.dispersion`",
     "min_isotropy": "`health_thresholds.class-coverage.isotropy`",
     "max_near_duplicate_fraction": "`health_thresholds.class-coverage.near_duplicates`",
-    "uncovered_rate": "`health_thresholds.uncovered-items.rate`",
+    "uncovered_rate": "`health_thresholds.uncovered-items.warning`",
     "completeness_score": "`health_thresholds.dimensional-completeness.warning`",
     "leaf_coverage": "`label-space`'s `health_thresholds.leaf-coverage.coverage`",
     "dark_branch_count": "`label-space`'s `health_thresholds.leaf-coverage.empty_branches`",
-    "unmatched_class_count": "`label-space`'s `health_thresholds.label-conformance.unmatched`",
+    "unmatched_class_count": "`label-space`'s `health_thresholds.label-conformance.warning`",
 }
 
 

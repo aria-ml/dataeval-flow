@@ -282,12 +282,12 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
     assert (labels.name, labels.metadata) == ("labels", "policy")
     steps: dict[str, Any] = {step["name"]: step for step in chain.steps}  # type: ignore[index]
     assert (
-        steps["image-outliers"]["image"],
-        steps["target-outliers"]["target"],
-        steps["classwise"]["total"],
+        steps["image-outliers"]["warning"],
+        steps["target-outliers"]["warning"],
+        steps["classwise"]["warning"],
         steps["duplicates"]["exact"],
         steps["duplicates"]["near"],
-        steps["imbalance"]["ratio"],
+        steps["imbalance"]["warning"],
     ) == (6.0, 7.0, 8.0, 1.0, 9.0, None)
 
 

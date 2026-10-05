@@ -97,7 +97,7 @@ def test_a_dumped_config_reloads() -> None:
 @pytest.mark.parametrize(
     ("limits", "message"),
     [
-        ({"class-imbalance": {"ratio": 2.0, "info": 3.0}}, "`info` (3.0) must not exceed `ratio` (2.0)."),
+        ({"class-imbalance": {"warning": 2.0, "info": 3.0}}, "`info` (3.0) must not exceed `warning` (2.0)."),
         ({"dimensional-completeness": {"warning": 0.9, "info": 0.7}}, "`warning` (0.9) must not exceed `info` (0.7)."),
     ],
 )
@@ -108,9 +108,11 @@ def test_explicitly_crossed_bands_are_refused_where_they_were_written(limits: di
 
 
 def test_a_ratio_under_the_fixed_band_moves_the_band_as_legacy_did() -> None:
-    config = DataCoverageConfig.model_validate({"name": "w", "health_thresholds": {"class-imbalance": {"ratio": 1.5}}})
+    config = DataCoverageConfig.model_validate(
+        {"name": "w", "health_thresholds": {"class-imbalance": {"warning": 1.5}}}
+    )
     assert config.health_thresholds.class_imbalance.info == 1.5
-    result = _run({"health_thresholds": {"class-imbalance": {"ratio": 1.5}}}, CoverageDetections())
+    result = _run({"health_thresholds": {"class-imbalance": {"warning": 1.5}}}, CoverageDetections())
     assert result.success, result.errors
     assert next(f.severity for f in result.findings if f.title == "Class Imbalance") == "warning"
 

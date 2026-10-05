@@ -19,18 +19,15 @@ class FactorCoverageGapsConfig(CheckConfig):
     """A `factor-coverage-gaps` step's input, and how many gaps make a warning."""
 
     input: str = Field(description="A `factor-gaps` Output.")
-    count: int | None = Field(
+    warning: int | None = Field(
         default=3,
         ge=0,
-        description=(
-            "The number of gaps at which the finding warns: this many or more (legacy's `>=`); `null` judges "
-            "nothing. Legacy `gap_count`."
-        ),
+        description=("The number of gaps at which the finding warns: this many or more (`>=`); `null` judges nothing."),
     )
 
 
 class FactorCoverageGapsCheck(Check[FactorCoverageGapsConfig]):
-    """``factor-coverage-gaps``: warns at `count` gaps or more, informs with fewer, and is ok with none."""
+    """``factor-coverage-gaps``: warns at `warning` gaps or more, informs with fewer, and is ok with none."""
 
     name: ClassVar[str] = "factor-coverage-gaps"
     description: ClassVar[str] = "Warns when enough class-factor-value combinations are under-represented."
@@ -38,7 +35,7 @@ class FactorCoverageGapsCheck(Check[FactorCoverageGapsConfig]):
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(FactorGapsOutput,)),)
 
     def run(self, config: FactorCoverageGapsConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
-        """The gaps' count against `count`, with the gaps as a table."""
+        """The gaps' count against `warning`, with the gaps as a table."""
         gaps = inputs["input"].value.gaps
         if not gaps:
             return [
@@ -49,7 +46,7 @@ class FactorCoverageGapsCheck(Check[FactorCoverageGapsConfig]):
                     description="No class-factor-value combinations are significantly under-represented.",
                 )
             ]
-        severity: Severity = "warning" if config.count is not None and len(gaps) >= config.count else "info"
+        severity: Severity = "warning" if config.warning is not None and len(gaps) >= config.warning else "info"
         rows: list[dict[str, Cell]] = [
             {
                 "class": gap.class_name,

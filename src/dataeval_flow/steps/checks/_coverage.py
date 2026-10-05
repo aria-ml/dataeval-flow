@@ -27,23 +27,22 @@ class UncoveredItemsConfig(CheckConfig):
     """An `uncovered-items` step's input, and the share uncovered that may hold."""
 
     input: str = Field(description="A `coverage` Output.")
-    rate: float | None = Field(
+    warning: float | None = Field(
         default=10.0,
         ge=0.0,
         le=100.0,
         description=(
             "The percent of the Dataset's items uncovered past which the finding warns; `null` judges nothing. Judge "
-            "only `naive` coverage: adaptive coverage marks `percent` of the items uncovered by construction. "
-            "data-coverage's `health_thresholds.uncovered-items.rate`, legacy `health_thresholds.uncovered_rate`."
+            "only `naive` coverage: adaptive coverage marks `percent` of the items uncovered by construction."
         ),
     )
 
 
 class UncoveredItemsCheck(Check[UncoveredItemsConfig]):
-    """``uncovered-items``: warns when more than ``rate`` percent of a Dataset's items are uncovered."""
+    """``uncovered-items``: warns when more than ``warning`` percent of a Dataset's items are uncovered."""
 
     name: ClassVar[str] = "uncovered-items"
-    description: ClassVar[str] = "Warns when more than `rate` percent of a Dataset's items are uncovered."
+    description: ClassVar[str] = "Warns when more than `warning` percent of a Dataset's items are uncovered."
     title: ClassVar[str] = "Uncovered Items"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(CoverageOutput,)),)
 
@@ -55,7 +54,7 @@ class UncoveredItemsCheck(Check[UncoveredItemsConfig]):
         percent = uncovered / total * 100 if total else 0.0
         return [
             Finding(
-                severity="warning" if exceeds(percent, config.rate) else "info",
+                severity="warning" if exceeds(percent, config.warning) else "info",
                 title=self.title,
                 brief=f"{uncovered} of {total} uncovered ({round(percent, 1)}%)",
             )

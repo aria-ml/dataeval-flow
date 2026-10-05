@@ -113,14 +113,14 @@ def test_an_unmatched_or_ambiguous_name_warns() -> None:
 
 def test_unmatched_names_within_the_limit_are_ok() -> None:
     data = {"conforms": False, "matched": {}, "unmatched": ["truk"], "ambiguous": {}}
-    assert _conformance(data, unmatched=1).severity == "ok"
+    assert _conformance(data, warning=1).severity == "ok"
 
 
 def test_unmatched_with_no_threshold_is_still_judged_for_ambiguity() -> None:
-    """A criterion without a threshold keeps judging: `unmatched=None` lifts only the unmatched limit."""
-    unmatched = _conformance({"conforms": False, "matched": {}, "unmatched": ["truk"], "ambiguous": {}}, unmatched=None)
+    """A criterion without a threshold keeps judging: `warning=None` lifts only the unmatched limit."""
+    unmatched = _conformance({"conforms": False, "matched": {}, "unmatched": ["truk"], "ambiguous": {}}, warning=None)
     ambiguous = _conformance(
-        {"conforms": False, "matched": {}, "unmatched": ["truk"], "ambiguous": {"car": ["c1", "c2"]}}, unmatched=None
+        {"conforms": False, "matched": {}, "unmatched": ["truk"], "ambiguous": {"car": ["c1", "c2"]}}, warning=None
     )
     assert unmatched.severity == "ok"
     assert ambiguous.severity == "warning"

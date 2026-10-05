@@ -53,7 +53,7 @@ class DataSplittingWorkflow(Preset, Workflow[DataSplittingConfig, ChainResult]):
         """The whole set's steps, the split, and each part's."""
         limits = config.health_thresholds
         naive = config.coverage.method == "naive"
-        rate = limits.uncovered_rate.rate
+        rate = limits.uncovered_rate.warning
         evaluators: list[Any] = [
             LabelHealthConfig(name="labels", metadata=config.metadata),
             BalanceConfig(name="balance", metadata=config.metadata),
@@ -66,7 +66,7 @@ class DataSplittingWorkflow(Preset, Workflow[DataSplittingConfig, ChainResult]):
                 "name": "labels-check",
                 "check": "class-imbalance",
                 "input": "labels",
-                "ratio": limits.class_imbalance.ratio,
+                "warning": limits.class_imbalance.warning,
             },
             {"name": "balance", "evaluator": "balance", "input": "data", "optional": True},
             {"name": "diversity", "evaluator": "diversity", "input": "data", "optional": True},
@@ -130,5 +130,5 @@ def _coverage(name: str, source: str, check: str, naive: bool, rate: float | Non
     """A coverage step, optional, and under `naive` coverage the check judging it."""
     steps: list[dict[str, Any]] = [{"name": name, "evaluator": "coverage", "input": source, "optional": True}]
     if naive:
-        steps.append({"name": check, "check": "uncovered-items", "input": name, "rate": rate})
+        steps.append({"name": check, "check": "uncovered-items", "input": name, "warning": rate})
     return steps

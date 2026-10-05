@@ -148,12 +148,12 @@ class LabelConformanceConfig(CheckConfig):
     """A `label-conformance` step's input, and how many class names may fail to resolve."""
 
     input: str = Field(description="A `label-reconciliation` Output.")
-    unmatched: int | None = Field(
+    warning: int | None = Field(
         default=0,
         ge=0,
         description=(
             "Class names that may resolve to no concept; more warn. An ambiguous name always warns. `null` turns "
-            "the unmatched criterion off. Legacy data-coverage's `health_thresholds.unmatched_class_count`."
+            "the unmatched criterion off."
         ),
     )
 
@@ -170,7 +170,7 @@ class LabelConformanceCheck(Check[LabelConformanceConfig]):
         """The matched, unmatched and ambiguous names."""
         data = inputs["input"].value.data()
         matched, unmatched, ambiguous = data["matched"], data["unmatched"], data["ambiguous"]
-        warns = (config.unmatched is not None and len(unmatched) > config.unmatched) or bool(ambiguous)
+        warns = (config.warning is not None and len(unmatched) > config.warning) or bool(ambiguous)
         notes: list[str] = []
         if data["conforms"]:
             brief = "conforms"

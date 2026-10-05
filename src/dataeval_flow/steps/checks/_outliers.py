@@ -29,22 +29,22 @@ class ImageOutliersConfig(CheckConfig):
     """An `image-outliers` step's input, and the share of images that may be outliers."""
 
     input: str = Field(description="An `outliers` Output.")
-    image: float | None = Field(
+    warning: float | None = Field(
         default=3.0,
         ge=0.0,
         le=100.0,
         description=(
             "Most images, as a percentage of the Dataset, that may be flagged before the finding warns; `null` "
-            "judges nothing. data-cleaning's `health_thresholds.image_outliers`."
+            "judges nothing."
         ),
     )
 
 
 class ImageOutliersCheck(Check[ImageOutliersConfig]):
-    """``image-outliers``: warns when more than ``image`` percent of a Dataset's images are outliers."""
+    """``image-outliers``: warns when more than ``warning`` percent of a Dataset's images are outliers."""
 
     name: ClassVar[str] = "image-outliers"
-    description: ClassVar[str] = "Warns when more than `image` percent of a Dataset's images are outliers."
+    description: ClassVar[str] = "Warns when more than `warning` percent of a Dataset's images are outliers."
     title: ClassVar[str] = "Image Outliers"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OutliersOutput,)),)
 
@@ -57,9 +57,9 @@ class ImageOutliersCheck(Check[ImageOutliersConfig]):
         pct = count / size * 100 if size else 0
         brief = f"{count} images ({round(pct, 1)}%)"
         if count == 0:
-            severity = unjudged(config.image, "ok")
+            severity = unjudged(config.warning, "ok")
             return [Finding(severity=severity, title=self.title, brief=brief)]
-        severity = "warning" if exceeds(pct, config.image) else "info"
+        severity = "warning" if exceeds(pct, config.warning) else "info"
         return [Finding(severity=severity, title=self.title, brief=brief)]
 
 
@@ -70,25 +70,24 @@ class TargetOutliersConfig(CheckConfig):
     labels: str = Field(
         description="A `label-health` Output on the same Dataset: its label count is the number of targets."
     )
-    target: float | None = Field(
+    warning: float | None = Field(
         default=3.0,
         ge=0.0,
         le=100.0,
         description=(
-            "Most targets, as a percentage of all, that may be flagged before the finding warns; `null` judges "
-            "nothing. data-cleaning's `health_thresholds.target_outliers`."
+            "Most targets, as a percentage of all, that may be flagged before the finding warns; `null` judges nothing."
         ),
     )
 
 
 class TargetOutliersCheck(Check[TargetOutliersConfig]):
-    """``target-outliers``: warns when more than ``target`` percent of the boxes are outliers.
+    """``target-outliers``: warns when more than ``warning`` percent of the boxes are outliers.
 
     Makes no finding where nothing was flagged per target, as a classification Dataset never is.
     """
 
     name: ClassVar[str] = "target-outliers"
-    description: ClassVar[str] = "Warns when more than `target` percent of the boxes are outliers."
+    description: ClassVar[str] = "Warns when more than `warning` percent of the boxes are outliers."
     title: ClassVar[str] = "Target Outliers"
     inputs: ClassVar[tuple[Port, ...]] = (
         Port("input", DataType.OUTPUT, classes=(OutliersOutput,)),
@@ -103,7 +102,7 @@ class TargetOutliersCheck(Check[TargetOutliersConfig]):
         count = target_issues.select("item_index", "target_index").n_unique()
         total = int(inputs["labels"].value.data()["label_count"])
         pct = round(count / total * 100, 1) if total > 0 else 0.0
-        severity = "warning" if exceeds(pct, config.target) else "info"
+        severity = "warning" if exceeds(pct, config.warning) else "info"
         return [
             Finding(
                 severity=severity,
@@ -117,24 +116,23 @@ class ClasswiseOutliersConfig(CheckConfig):
     """A `classwise-outliers` step's input, and the share of a class that may be outliers."""
 
     input: str = Field(description="A `outliers-by-class` Output.")
-    total: float | None = Field(
+    warning: float | None = Field(
         default=3.0,
         ge=0.0,
         le=100.0,
         description=(
             "Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each "
-            "class is counted against it too. `null` judges nothing. data-cleaning's "
-            "`health_thresholds.classwise_outliers`."
+            "class is counted against it too. `null` judges nothing."
         ),
     )
 
 
 class ClasswiseOutliersCheck(Check[ClasswiseOutliersConfig]):
-    """``classwise-outliers``: warns when outliers take up more than ``total`` percent across classes, naming
+    """``classwise-outliers``: warns when outliers take up more than ``warning`` percent across classes, naming
     the worst class and how many classes pass the limit."""
 
     name: ClassVar[str] = "classwise-outliers"
-    description: ClassVar[str] = "Warns when outliers pass `total` percent across classes; names the worst class."
+    description: ClassVar[str] = "Warns when outliers pass `warning` percent across classes; names the worst class."
     title: ClassVar[str] = "Classwise Outliers"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OutliersByClassOutput,)),)
 
@@ -146,7 +144,7 @@ class ClasswiseOutliersCheck(Check[ClasswiseOutliersConfig]):
     ) -> list[Finding]:
         """The worst class, how many classes pass the limit, and whether the total does."""
         pivot: OutliersByClassOutput = inputs["input"].value
-        limit = config.total
+        limit = config.warning
         if not pivot.rows or pivot.total is None:
             return [
                 Finding(

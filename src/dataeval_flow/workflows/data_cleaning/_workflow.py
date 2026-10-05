@@ -71,19 +71,24 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
             {"name": "labels", "evaluator": "labels", "input": "data"},
             {"name": "by-class", "combine": "outliers-by-class", "input": "data", "outliers": "outliers"},
             {"name": "dupes", "evaluator": "dupes", "input": "data"},
-            {"name": "image-outliers", "check": "image-outliers", "input": "outliers", "image": limits.image_outliers},
+            {
+                "name": "image-outliers",
+                "check": "image-outliers",
+                "input": "outliers",
+                "warning": limits.image_outliers,
+            },
             {
                 "name": "target-outliers",
                 "check": "target-outliers",
                 "input": "outliers",
                 "labels": "labels",
-                "target": limits.target_outliers,
+                "warning": limits.target_outliers,
             },
             {
                 "name": "classwise",
                 "check": "classwise-outliers",
                 "input": "by-class",
-                "total": limits.classwise_outliers,
+                "warning": limits.classwise_outliers,
             },
             {
                 "name": "duplicates",
@@ -92,7 +97,12 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
                 "exact": limits.exact_duplicates,
                 "near": limits.near_duplicates,
             },
-            {"name": "imbalance", "check": "class-imbalance", "input": "labels", "ratio": limits.class_label_imbalance},
+            {
+                "name": "imbalance",
+                "check": "class-imbalance",
+                "input": "labels",
+                "warning": limits.class_label_imbalance,
+            },
             {
                 "name": "clean",
                 "transform": "remove",

@@ -35,7 +35,7 @@
 - `label-space` preset: a dataset's labels judged against a declared ontology, as legacy data-coverage judged them
   with `ontology:` set: leaf coverage and the worklist, conformance, alignment with the `Relabel` stanza, and the
   ontology's structure. Its `health_thresholds` are keyed by check type: `leaf-coverage` (`coverage`,
-  `empty_branches`) and `label-conformance` (`unmatched`)
+  `empty_branches`) and `label-conformance` (`warning`)
 - `label-reconciliation` evaluator: which class names resolve to exactly one ontology concept
 - `ontology-validation` evaluator: an ontology's structural and naming facts
 - `leaf-coverage`, `label-conformance`, `mergeability` and `ontology-structure` checks, which make `label-space`'s
@@ -180,7 +180,7 @@
   `run-<n>/`
 - `stratification` check: each part's class shares against the whole's, warning past `warning` percentage points of
   deviation and informing past `info`
-- `uncovered-items` check: the share of a Dataset a coverage run left uncovered, warning past `rate` percent
+- `uncovered-items` check: the share of a Dataset a coverage run left uncovered, warning past `warning` percent
 - `split`, `kfold` and `view` steps record each output's indices, into the dataset at the bottom of its views, in their
   `details`, and `split` and `kfold` have a report section of each part's size
 - A preset's declared outputs read any address in its chain, lists included, so `data-splitting`'s `<step>.train` is
@@ -395,16 +395,16 @@
   - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source`
     are refused: name a policy under `metadata:`
   - `value_range` is refused: set it on the dataset. `stats` is refused, since no step of data-coverage reads statistics
-  - in `health_thresholds`, `class_imbalance_ratio` is `class-imbalance.ratio`, and legacy's fixed band at 2.0 is
-    `class-imbalance.info`; `gap_count` is `factor-coverage-gaps.count`; `min_dispersion`, `min_isotropy` and
+  - in `health_thresholds`, `class_imbalance_ratio` is `class-imbalance.warning`, and legacy's fixed band at 2.0 is
+    `class-imbalance.info`; `gap_count` is `factor-coverage-gaps.warning`; `min_dispersion`, `min_isotropy` and
     `max_near_duplicate_fraction` are `class-coverage.dispersion`, `.isotropy` and `.near_duplicates`;
-    `uncovered_rate` is `uncovered-items.rate`; and `completeness_score` is `dimensional-completeness.warning`,
-    and legacy's fixed band at 0.8 is `dimensional-completeness.info`. An unset `info` follows `ratio` or `warning` as
-    legacy's band did, so `ratio: 1.5` or `warning: 0.9` alone loads; two written bounds that cross are refused
+    `uncovered_rate` is `uncovered-items.warning`; and `completeness_score` is `dimensional-completeness.warning`,
+    and legacy's fixed band at 0.8 is `dimensional-completeness.info`. An unset `info` follows `warning` as
+    legacy's band did, so `warning: 1.5` or `warning: 0.9` alone loads; two written bounds that cross are refused
   - an ImageFolder source's label finding is titled "Class Imbalance", where it was "Label
     Distribution"
   - `health_thresholds.leaf_coverage`, `dark_branch_count` and `unmatched_class_count` are `label-space`'s
-    `health_thresholds.leaf-coverage.coverage`, `leaf-coverage.empty_branches` and `label-conformance.unmatched`
+    `health_thresholds.leaf-coverage.coverage`, `leaf-coverage.empty_branches` and `label-conformance.warning`
   - `output.raw` and `metadata.has_extractor` are gone: `coverage`, `completeness` and `metadata_gaps` are the
     `coverage`, `completeness` and `gaps` steps' outputs, `label_distribution` is `labels`', `metadata_distribution`
     is `summary`'s, a skipped step's reason is its `reason`, and `coverage.dropped_detections` is

@@ -327,8 +327,8 @@ workflows:
     coverage: {method: adaptive}     # adaptive | naive; embeds only when the task names an extractor
     gaps: {mi_threshold: 0.1, min_representation: 5}   # null leaves out the gap analysis
     health_thresholds:
-      class-imbalance: {ratio: 5.0}
-      factor-coverage-gaps: {count: 3}
+      class-imbalance: {warning: 5.0}
+      factor-coverage-gaps: {warning: 3}
 ```
 ````
 
@@ -343,7 +343,7 @@ workflows:
     ontology: config/taxonomy.ttl    # an ontologies: entry, an RDF file, or an inline hierarchy
     health_thresholds:
       leaf-coverage: {coverage: 0.9, empty_branches: 0}
-      label-conformance: {unmatched: 0}
+      label-conformance: {warning: 0}
 ```
 ````
 

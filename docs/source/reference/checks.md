@@ -84,7 +84,7 @@ The share of a Dataset's images with at least one image-level outlier flag. Conf
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | An `outliers` Output |
-| `image` | a percentage, or `null` | `3.0` | Most images, as a percentage of the Dataset, that may be flagged before the finding warns |
+| `warning` | a percentage, or `null` | `3.0` | Most images, as a percentage of the Dataset, that may be flagged before the finding warns |
 
 With nothing flagged, the finding is `ok`.
 
@@ -98,7 +98,7 @@ box, as on a classification Dataset.
 | --- | --- | --- | --- |
 | `input` | an address | required | An `outliers` Output run with `per_target: true` |
 | `labels` | an address | required | A `label-health` Output on the same Dataset: its label count is the number of boxes |
-| `target` | a percentage, or `null` | `3.0` | Most boxes, as a percentage of all, that may be flagged before the finding warns |
+| `warning` | a percentage, or `null` | `3.0` | Most boxes, as a percentage of all, that may be flagged before the finding warns |
 
 ### `classwise-outliers`
 
@@ -108,18 +108,18 @@ Configured by {py:class}`~dataeval_flow.steps.checks.ClasswiseOutliersConfig`. I
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `outliers-by-class` Output |
-| `total` | a percentage, or `null` | `3.0` | Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too |
+| `warning` | a percentage, or `null` | `3.0` | Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too |
 
 ### `factor-coverage-gaps`
 
-Whether class-factor-value combinations are under-represented: a warning at `count` gaps or more, `info` with fewer,
+Whether class-factor-value combinations are under-represented: a warning at `warning` gaps or more, `info` with fewer,
 `ok` with none, and the gaps as a table, largest deficit first. Configured by
 {py:class}`~dataeval_flow.steps.checks.FactorCoverageGapsConfig`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `factor-gaps` Output |
-| `count` | a count, or `null` | `3` | The number of gaps at which the finding warns, this many or more; `null` judges nothing |
+| `warning` | a count, or `null` | `3` | The number of gaps at which the finding warns, this many or more; `null` judges nothing |
 
 ### `image-duplicates`
 
@@ -144,8 +144,8 @@ the labels come from file paths.
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-health` Output |
-| `ratio` | a ratio of at least 1, or `null` | `5.0` | Largest class count over smallest that may hold before the finding warns; an empty class warns unless `empty` is `false` |
-| `info` | a ratio, or `null` | `null` | A ratio at or under which the finding is ok; must not exceed `ratio` |
+| `warning` | a ratio of at least 1, or `null` | `5.0` | Largest class count over smallest that may hold before the finding warns; an empty class warns unless `empty` is `false` |
+| `info` | a ratio, or `null` | `null` | A ratio at or under which the finding is ok; must not exceed `warning` |
 | `empty` | `true` or `false` | `true` | Whether a declared class with no labels warns; `false` leaves it to `untrained-classes` and `class-sufficiency` |
 
 ### `stratification`
@@ -174,7 +174,7 @@ OverflowError". Configured by {py:class}`~dataeval_flow.steps.checks.UncoveredIt
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `coverage` Output |
-| `rate` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
+| `warning` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
 
 ### `dimensional-completeness`
 
@@ -228,13 +228,13 @@ acquire; ok otherwise. Configured by {py:class}`~dataeval_flow.steps.checks.Leaf
 
 ### `label-conformance`
 
-Which class names resolve to exactly one ontology concept. Warns on more unmatched names than `unmatched`, or on any
+Which class names resolve to exactly one ontology concept. Warns on more unmatched names than `warning`, or on any
 ambiguous name; ok otherwise. Configured by {py:class}`~dataeval_flow.steps.checks.LabelConformanceConfig`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-reconciliation` Output |
-| `unmatched` | a count, or `null` | `0` | Unmatched names tolerated; `null` turns it off |
+| `warning` | a count, or `null` | `0` | Unmatched names tolerated; `null` turns it off |
 
 ### `mergeability`
 
@@ -342,14 +342,14 @@ holds a labelled class, it is not assessed (`no evaluation split holds a labelle
 
 Whether a metadata factor tells much about the class, which a model could learn instead of the task. Configured by
 {py:class}`~dataeval_flow.steps.checks.ShortcutRiskConfig`. It makes one finding, which warns where a factor's mutual
-information with the class is past `mutual_information`, and lists the three most informative; a table ranks every
+information with the class is past `warning`, and lists the three most informative; a table ranks every
 factor. `balance`'s own `class_label` row is not a factor, and where no factor is left it is not assessed
-(`no factor to score`). With `mutual_information: null` the finding is `info`.
+(`no factor to score`). With `warning: null` the finding is `info`.
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `balance` Output |
-| `mutual_information` | 0 to 1, or `null` | `0.1` | The mutual information with the class past which a factor warns; `null` judges nothing |
+| `warning` | 0 to 1, or `null` | `0.1` | The mutual information with the class past which a factor warns; `null` judges nothing |
 
 ### `eval-coverage`
 

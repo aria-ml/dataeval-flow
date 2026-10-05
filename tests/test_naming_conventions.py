@@ -3,8 +3,10 @@ rules are written out for plugin authors in reference/naming.md."""
 
 import re
 from collections import Counter
+from typing import Any, get_args
 
 import pytest
+from pydantic.fields import FieldInfo
 
 from dataeval_flow.evaluators._registry import EVALUATORS
 from dataeval_flow.steps._registry import CHECKS, COMBINES, TRANSFORMS
@@ -88,3 +90,34 @@ def test_an_old_check_type_is_refused_at_load() -> None:
             evaluators=[{"name": "o", "type": "outliers", "flags": ["pixel"]}],
             tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}],
         )
+
+
+# Settings that only shape what a finding shows, and bound nothing.
+_DISPLAY = {"max_examples"}
+_STATISTIC = re.compile(r"^(rate|count|ratio|total)$|_rate$")
+
+
+def _settings(cls: type) -> dict[str, FieldInfo]:
+    """A step's settings: its config's fields, less its ports and its entry's `name` and `type`."""
+    ports = {port.name for port in cls.input_ports()}
+    return {
+        name: field
+        for name, field in cls.config_type.model_fields.items()
+        if name not in ports and name not in ("name", "type")
+    }
+
+
+def _numeric(annotation: Any) -> bool:
+    kinds = set(get_args(annotation)) or {annotation}
+    return bool(kinds & {int, float}) and bool not in kinds
+
+
+@pytest.mark.parametrize("cls", CHECKS.list(plugins=False), ids=_id)
+def test_a_check_names_its_bounds_by_what_they_bound(cls: type) -> None:
+    settings = _settings(cls)
+    bounds = sorted(name for name, field in settings.items() if _numeric(field.annotation) and name not in _DISPLAY)
+    assert [name for name in settings if _STATISTIC.search(name)] == [], "a bound is named for what it bounds"
+    if "info" in settings:
+        assert "warning" in settings, "`info` comes with `warning`"
+    if len(bounds) == 1:
+        assert bounds == ["warning"], f"one bound is called `warning`, not `{bounds[0]}`"

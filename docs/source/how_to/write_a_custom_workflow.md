@@ -293,7 +293,7 @@ workflows:
       - {name: train_balance, evaluator: balance, input: split.train}
       - {name: labels, evaluator: labels, input: clean}
       - {name: merged_duplicates, check: image-duplicates, input: dupes}
-      - {name: imbalance, check: class-imbalance, input: labels, ratio: 3.0}
+      - {name: imbalance, check: class-imbalance, input: labels, warning: 3.0}
 ```
 
 `merged_duplicates` judges the duplicates in the merged dataset, before `remove`. It warns where more than 0% of the

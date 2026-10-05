@@ -481,7 +481,7 @@
           "title": "Input",
           "type": "string"
         },
-        "ratio": {
+        "warning": {
           "anyOf": [
             {
               "minimum": 1.0,
@@ -492,8 +492,8 @@
             }
           ],
           "default": 5.0,
-          "description": "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` judges nothing but an empty class, which warns unless `empty` is false. data-cleaning's `health_thresholds.class_label_imbalance`.",
-          "title": "Ratio"
+          "description": "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` judges nothing but an empty class, which warns unless `empty` is false.",
+          "title": "Warning"
         },
         "info": {
           "anyOf": [
@@ -506,7 +506,7 @@
             }
           ],
           "default": null,
-          "description": "A ratio at or under which the finding is ok, between which and `ratio` it informs; `null` makes every ratio under `ratio` information. Must not exceed `ratio`.",
+          "description": "A ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every ratio under `warning` information. Must not exceed `warning`.",
           "title": "Info"
         },
         "empty": {
@@ -517,7 +517,7 @@
         },
         "check": {
           "const": "class-imbalance",
-          "description": "`class-imbalance`: Warns when the largest class outnumbers the smallest by more than `ratio`.",
+          "description": "`class-imbalance`: Warns when the largest class outnumbers the smallest by more than `warning`.",
           "title": "Check",
           "type": "string"
         },
@@ -730,7 +730,7 @@
           "title": "Input",
           "type": "string"
         },
-        "total": {
+        "warning": {
           "anyOf": [
             {
               "maximum": 100.0,
@@ -742,12 +742,12 @@
             }
           ],
           "default": 3.0,
-          "description": "Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too. `null` judges nothing. data-cleaning's `health_thresholds.classwise_outliers`.",
-          "title": "Total"
+          "description": "Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too. `null` judges nothing.",
+          "title": "Warning"
         },
         "check": {
           "const": "classwise-outliers",
-          "description": "`classwise-outliers`: Warns when outliers pass `total` percent across classes; names the worst class.",
+          "description": "`classwise-outliers`: Warns when outliers pass `warning` percent across classes; names the worst class.",
           "title": "Check",
           "type": "string"
         },
@@ -1173,7 +1173,7 @@
           "title": "Input",
           "type": "string"
         },
-        "count": {
+        "warning": {
           "anyOf": [
             {
               "minimum": 0,
@@ -1184,8 +1184,8 @@
             }
           ],
           "default": 3,
-          "description": "The number of gaps at which the finding warns: this many or more (legacy's `>=`); `null` judges nothing. Legacy `gap_count`.",
-          "title": "Count"
+          "description": "The number of gaps at which the finding warns: this many or more (`>=`); `null` judges nothing.",
+          "title": "Warning"
         },
         "check": {
           "const": "factor-coverage-gaps",
@@ -1333,7 +1333,7 @@
           "title": "Input",
           "type": "string"
         },
-        "image": {
+        "warning": {
           "anyOf": [
             {
               "maximum": 100.0,
@@ -1345,12 +1345,12 @@
             }
           ],
           "default": 3.0,
-          "description": "Most images, as a percentage of the Dataset, that may be flagged before the finding warns; `null` judges nothing. data-cleaning's `health_thresholds.image_outliers`.",
-          "title": "Image"
+          "description": "Most images, as a percentage of the Dataset, that may be flagged before the finding warns; `null` judges nothing.",
+          "title": "Warning"
         },
         "check": {
           "const": "image-outliers",
-          "description": "`image-outliers`: Warns when more than `image` percent of a Dataset's images are outliers.",
+          "description": "`image-outliers`: Warns when more than `warning` percent of a Dataset's images are outliers.",
           "title": "Check",
           "type": "string"
         },
@@ -1406,7 +1406,7 @@
           "title": "Input",
           "type": "string"
         },
-        "unmatched": {
+        "warning": {
           "anyOf": [
             {
               "minimum": 0,
@@ -1417,8 +1417,8 @@
             }
           ],
           "default": 0,
-          "description": "Class names that may resolve to no concept; more warn. An ambiguous name always warns. `null` turns the unmatched criterion off. Legacy data-coverage's `health_thresholds.unmatched_class_count`.",
-          "title": "Unmatched"
+          "description": "Class names that may resolve to no concept; more warn. An ambiguous name always warns. `null` turns the unmatched criterion off.",
+          "title": "Warning"
         },
         "check": {
           "const": "label-conformance",
@@ -2064,7 +2064,7 @@
           "title": "Input",
           "type": "string"
         },
-        "mutual_information": {
+        "warning": {
           "anyOf": [
             {
               "maximum": 1.0,
@@ -2076,8 +2076,8 @@
             }
           ],
           "default": 0.1,
-          "description": "The mutual information with the class, from 0 to 1, past which a factor warns; `null` judges nothing. Legacy data-analysis's 0.1.",
-          "title": "Mutual Information"
+          "description": "The mutual information with the class, from 0 to 1, past which a factor warns; `null` judges nothing.",
+          "title": "Warning"
         },
         "check": {
           "const": "shortcut-risk",
@@ -2265,7 +2265,7 @@
           "title": "Labels",
           "type": "string"
         },
-        "target": {
+        "warning": {
           "anyOf": [
             {
               "maximum": 100.0,
@@ -2277,12 +2277,12 @@
             }
           ],
           "default": 3.0,
-          "description": "Most targets, as a percentage of all, that may be flagged before the finding warns; `null` judges nothing. data-cleaning's `health_thresholds.target_outliers`.",
-          "title": "Target"
+          "description": "Most targets, as a percentage of all, that may be flagged before the finding warns; `null` judges nothing.",
+          "title": "Warning"
         },
         "check": {
           "const": "target-outliers",
-          "description": "`target-outliers`: Warns when more than `target` percent of the boxes are outliers.",
+          "description": "`target-outliers`: Warns when more than `warning` percent of the boxes are outliers.",
           "title": "Check",
           "type": "string"
         },
@@ -2339,7 +2339,7 @@
           "title": "Input",
           "type": "string"
         },
-        "rate": {
+        "warning": {
           "anyOf": [
             {
               "maximum": 100.0,
@@ -2351,12 +2351,12 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of the Dataset's items uncovered past which the finding warns; `null` judges nothing. Judge only `naive` coverage: adaptive coverage marks `percent` of the items uncovered by construction. data-coverage's `health_thresholds.uncovered-items.rate`, legacy `health_thresholds.uncovered_rate`.",
-          "title": "Rate"
+          "description": "The percent of the Dataset's items uncovered past which the finding warns; `null` judges nothing. Judge only `naive` coverage: adaptive coverage marks `percent` of the items uncovered by construction.",
+          "title": "Warning"
         },
         "check": {
           "const": "uncovered-items",
-          "description": "`uncovered-items`: Warns when more than `rate` percent of a Dataset's items are uncovered.",
+          "description": "`uncovered-items`: Warns when more than `warning` percent of a Dataset's items are uncovered.",
           "title": "Check",
           "type": "string"
         },
@@ -2825,7 +2825,7 @@
       "additionalProperties": false,
       "description": "The `class-imbalance` check's field, with legacy data-splitting's default.",
       "properties": {
-        "ratio": {
+        "warning": {
           "anyOf": [
             {
               "minimum": 1.0,
@@ -2836,8 +2836,8 @@
             }
           ],
           "default": 10.0,
-          "description": "Largest class count over smallest that may hold before the whole set's Class Imbalance finding warns; `null` judges nothing but an empty class. Legacy data-splitting's 10.",
-          "title": "Ratio"
+          "description": "Largest class count over smallest that may hold before the whole set's Class Imbalance finding warns; `null` judges nothing but an empty class.",
+          "title": "Warning"
         }
       },
       "title": "ClassImbalanceLimits",
@@ -3544,7 +3544,7 @@
       "additionalProperties": false,
       "description": "The `factor-coverage-gaps` check's field, with legacy data-coverage's default.",
       "properties": {
-        "count": {
+        "warning": {
           "anyOf": [
             {
               "minimum": 0,
@@ -3555,8 +3555,8 @@
             }
           ],
           "default": 3,
-          "description": "The number of under-represented class-factor-value combinations at which the Factor Coverage Gaps finding warns, this many or more; fewer inform, and `null` never warns. Legacy `gap_count`.",
-          "title": "Count"
+          "description": "The number of under-represented class-factor-value combinations at which the Factor Coverage Gaps finding warns, this many or more; fewer inform, and `null` never warns.",
+          "title": "Warning"
         }
       },
       "title": "CoverageGapsLimits",
@@ -4438,7 +4438,7 @@
       "additionalProperties": false,
       "description": "The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset: the schema\ngives data-splitting's limits the short name.",
       "properties": {
-        "ratio": {
+        "warning": {
           "anyOf": [
             {
               "minimum": 1.0,
@@ -4449,8 +4449,8 @@
             }
           ],
           "default": 5.0,
-          "description": "Largest class count over smallest, among the classes with labels, past which the Class Imbalance finding warns; `null` judges nothing but an empty class, which always warns. Legacy `class_imbalance_ratio`.",
-          "title": "Ratio"
+          "description": "Largest class count over smallest, among the classes with labels, past which the Class Imbalance finding warns; `null` judges nothing but an empty class, which always warns.",
+          "title": "Warning"
         },
         "info": {
           "anyOf": [
@@ -4463,7 +4463,7 @@
             }
           ],
           "default": 2.0,
-          "description": "The ratio at or under which the finding is ok, between which and `ratio` it informs; `null` makes every ratio under `ratio` information. Must not exceed `ratio`. Legacy's hard-coded 2.0, or `ratio` where that is lower and `info` is unset.",
+          "description": "The ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every ratio under `warning` information. Must not exceed `warning`. Defaults to 2.0, or `warning` where that is lower and `info` is unset.",
           "title": "Info"
         }
       },
@@ -4608,7 +4608,7 @@
       "additionalProperties": false,
       "description": "The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.\nNamed for the preset, as `DataCoverageClassImbalanceLimits` is.",
       "properties": {
-        "rate": {
+        "warning": {
           "anyOf": [
             {
               "maximum": 100.0,
@@ -4620,8 +4620,8 @@
             }
           ],
           "default": 10.0,
-          "description": "The percent of the items uncovered past which the Uncovered Items finding warns, under `naive` coverage only; `null` judges nothing. Legacy `uncovered_rate`.",
-          "title": "Rate"
+          "description": "The percent of the items uncovered past which the Uncovered Items finding warns, under `naive` coverage only; `null` judges nothing.",
+          "title": "Warning"
         }
       },
       "title": "DataCoverageUncoveredRateLimits",
@@ -7205,7 +7205,7 @@
       "additionalProperties": false,
       "description": "The `label-conformance` check's field, with legacy data-coverage's default.",
       "properties": {
-        "unmatched": {
+        "warning": {
           "anyOf": [
             {
               "minimum": 0,
@@ -7216,8 +7216,8 @@
             }
           ],
           "default": 0,
-          "description": "Class names that may resolve to no concept; `null` turns it off. Legacy `unmatched_class_count`.",
-          "title": "Unmatched"
+          "description": "Class names that may resolve to no concept; `null` turns it off.",
+          "title": "Warning"
         }
       },
       "title": "LabelConformanceLimits",
@@ -11513,7 +11513,7 @@
       "additionalProperties": false,
       "description": "The `uncovered-items` check's field, with legacy data-splitting's default.",
       "properties": {
-        "rate": {
+        "warning": {
           "anyOf": [
             {
               "maximum": 100.0,
@@ -11525,8 +11525,8 @@
             }
           ],
           "default": 5.0,
-          "description": "The percent of a Dataset's items uncovered past which its Uncovered Items finding warns, under `naive` coverage only; `null` judges nothing. Legacy data-splitting's 5.",
-          "title": "Rate"
+          "description": "The percent of a Dataset's items uncovered past which its Uncovered Items finding warns, under `naive` coverage only; `null` judges nothing.",
+          "title": "Warning"
         }
       },
       "title": "UncoveredRateLimits",

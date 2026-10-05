@@ -37,10 +37,10 @@ class LabelConformanceLimits(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    unmatched: int | None = Field(
+    warning: int | None = Field(
         default=0,
         ge=0,
-        description="Class names that may resolve to no concept; `null` turns it off. Legacy `unmatched_class_count`.",
+        description="Class names that may resolve to no concept; `null` turns it off.",
     )
 
 

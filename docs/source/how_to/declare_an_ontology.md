@@ -160,14 +160,14 @@ off. The values below are the defaults:
 ```yaml
     health_thresholds:
       leaf-coverage: {coverage: 0.9, empty_branches: 0}
-      label-conformance: {unmatched: 0}
+      label-conformance: {warning: 0}
 ```
 
 | Check | Threshold | Default | Meaning |
 | --- | --- | --- | --- |
 | `leaf-coverage` | `coverage` | `0.9` | Minimum fraction of sanctioned leaf concepts with any examples |
 | `leaf-coverage` | `empty_branches` | `0` | Wholly unpopulated branches tolerated before warning |
-| `label-conformance` | `unmatched` | `0` | Class names that may fail to resolve to a concept |
+| `label-conformance` | `warning` | `0` | Class names that may fail to resolve to a concept |
 
 Leaf coverage and empty branches catch the class you never collected. Unmatched names catch the opposite problem — a
 label in the data that the sanctioned vocabulary does not contain, which is usually a typo, a stale name, or a class

@@ -115,8 +115,8 @@ CASES: dict[str, Case] = {
         },
         {
             "health_thresholds": {
-                "class-imbalance": {"ratio": 2.0},
-                "factor-coverage-gaps": {"count": 1},
+                "class-imbalance": {"warning": 2.0},
+                "factor-coverage-gaps": {"warning": 1},
                 "dimensional-completeness": {"warning": 0.9, "info": 0.9},
                 "class-coverage": {"dispersion": 1.5},
             }

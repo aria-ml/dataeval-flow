@@ -52,12 +52,12 @@ class ClassImbalanceLimits(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    ratio: float | None = Field(
+    warning: float | None = Field(
         default=10.0,
         ge=1.0,
         description=(
             "Largest class count over smallest that may hold before the whole set's Class Imbalance finding warns; "
-            "`null` judges nothing but an empty class. Legacy data-splitting's 10."
+            "`null` judges nothing but an empty class."
         ),
     )
 
@@ -67,13 +67,13 @@ class UncoveredRateLimits(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    rate: float | None = Field(
+    warning: float | None = Field(
         default=5.0,
         ge=0.0,
         le=100.0,
         description=(
             "The percent of a Dataset's items uncovered past which its Uncovered Items finding warns, under `naive` "
-            "coverage only; `null` judges nothing. Legacy data-splitting's 5."
+            "coverage only; `null` judges nothing."
         ),
     )
 
