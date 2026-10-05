@@ -47,7 +47,7 @@ workflows:
     metadata: standard
   - name: release_audit
     type: audit
-    metadata: standard        # same policy — and the digests prove it
+    metadata: standard        # same policy — and the encoding digests prove it
     outliers: {flags: [dimension, pixel, visual], outlier_threshold: adaptive}
 ```
 

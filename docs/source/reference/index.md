@@ -6,6 +6,12 @@ several questions. A last bullet names the steps on the question that no listed 
 [workflow of your own](../how_to/write_a_custom_workflow.md). Each name links its catalog entry. With no preset, chain
 the steps in a workflow of your own.
 
+To ask whether a set of splits is ready to train on, run [`audit`](presets.md#audit). One task answers
+[Is the data clean?](#is-the-data-clean), [Are the labels sound?](#are-the-labels-sound),
+[Does the data cover what the model must handle?](#does-the-data-cover-what-the-model-must-handle),
+[Could the model learn a shortcut?](#could-the-model-learn-a-shortcut) and
+[Are the splits fit to evaluate on?](#are-the-splits-fit-to-evaluate-on), and gives a verdict over them.
+
 ## Is the data clean?
 
 Finds outlier and duplicate images and boxes, judges class imbalance, and removes the outliers and duplicates. `audit`
@@ -142,7 +148,7 @@ Reports the metadata factors a run could not read as configured, and a policy th
 
 Records SHA-256 digests of every item's image and labels, and of its metadata.
 
-- **Preset:** none yet; [`audit`](presets.md#audit) records each split's content and metadata digests in its record of
+- **Preset:** [`audit`](presets.md#audit), which records each split's content and metadata digests in its record of
   what was audited
 - **Evaluators:** [`content-digest`](evaluators.md#content-digest)
 

@@ -46,7 +46,8 @@ built-in evaluation workflows, published to PyPI through v0.1.2. See
 
 - [x] Workflow orchestration framework — registry, task runner, pipeline configuration
 - [x] Data cleaning workflow (outlier + duplicate detection)
-- [x] Data analysis workflow (statistical summaries)
+- [x] Data analysis workflow (statistical summaries); replaced by `audit`, which judges train and its evaluation
+  splits before training and gives a verdict
 - [x] Dataset splitting workflow (stratified and random strategies)
 - [x] Drift detection workflow (classwise drift)
 - [x] Out-of-distribution (OOD) detection workflow
@@ -162,11 +163,11 @@ code per format.
 
 ### Existing — supported and maintained
 
-The seven shipped workflows continue to receive bug fixes and minor enhancements
+The nine shipped workflows continue to receive bug fixes and minor enhancements
 throughout the v0.x line, and a task matrix runs any of them across a grid of settings:
 
 - Data Cleaning, Audit, Data Coverage, Dataset Splitting, Drift Detection
-  (including classwise), OOD Detection, Prioritization
+  (including classwise), OOD Detection, Prioritization, Label Space, Metadata Triage
 
 ### Planned additions — TBD
 

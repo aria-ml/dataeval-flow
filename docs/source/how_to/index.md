@@ -129,7 +129,7 @@ containerized_workflows
 :header-rows: 0
 
 - - {doc}`Run a single evaluator <run_a_single_evaluator>`
-  - Run one DataEval evaluator, such as finding duplicates, and read its output with no health verdict.
+  - Run one DataEval evaluator, such as finding duplicates, and read its output with no health status.
 - - {doc}`Evaluator recipes <evaluator_recipes>`
   - One worked example per question, each answered by evaluators: bias, representation, coverage, prioritization,
     drift and out-of-distribution.

@@ -187,7 +187,8 @@ Run as a task, a preset returns a `ChainResult` under its own type id, such as `
 its chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the
 `basic_clean` entry above, its steps run in your chain as `cleaning/outliers`, `cleaning/duplicates` and so on. The step's
 `optional:` holds for each of them, and its `extractor:` for each that reads embeddings. Its checks' findings are your
-chain's, listed at the top of the JSON, each naming its step, such as `cleaning/image-outliers`.
+chain's, listed at the top of the JSON, each naming its step, such as `cleaning/image-outliers`. Only a task's result
+carries a preset's verdict, record and questions, so run `audit` as a task: as a step it gives none of them.
 
 Only a preset's declared outputs can be addressed, and always by name: `cleaning.clean` reads the cleaned Dataset,
 while `cleaning` alone, `cleaning.duplicates` and `cleaning/duplicates` are refused. Handed a list, a preset runs its whole
@@ -257,11 +258,12 @@ A step that read `split.train` reads
 `` `split.train` ← `clean` ← `merged` ← `street_conformed` ← `street` (street_2024) ``. A step run once per element
 of a list reads the list, walked back through its elements to the source of each: `` `cameras` (cam1, cam2) ``.
 
-The digest is what lets two results be compared. Two results that give a Dataset the same digest read the same data:
-the same sources, through the same steps and settings, to the same content. The content is what a step resolved from
-the data: the plan `remove` applied, the indices `select`, `split` and `kfold` chose, and the remap `conform` applied.
-So two `remove` steps whose different plan arguments remove the same items give the same digest, and removing one
-detection changes the digest though the number of items stays the same.
+The digest tells runs apart cheaply. It is computed from each source's cache key and from what each step resolved
+from the data: the plan `remove` applied, the indices `select`, `split` and `kfold` chose, and the remap `conform`
+applied. So two `remove` steps whose different plan arguments remove the same items give the same digest, and removing
+one detection changes the digest though the number of items stays the same. A source's cache key samples only some of
+its items, so the same digest doesn't prove the same content. The `content-digest` evaluator reads every item, and its
+digest does; see [Provenance](Provenance.md#pinning-the-data-a-result-read).
 
 An `export` step writes into the dataset's `provenance.json` each source the Dataset descends from, with the dataset and
 view it read; the lineage of the Dataset it wrote; and a `label_space` list shaped as a top-level export's. The list

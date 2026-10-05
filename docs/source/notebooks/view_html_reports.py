@@ -174,7 +174,7 @@ show(clean.to_html())
 #
 # Try each of these on the page above:
 #
-# - **The header.** The header names what ran, with the entry and type id below it, and gives the report's verdict:
+# - **The header.** The header names what ran, with the entry and type id below it, and gives the report's health:
 #   the number of warnings, `passed`, or `failed` and the steps that failed where a required step did.
 # - **The findings.** `data-cleaning` runs as a chain of steps. Under the header come how many steps ran, then a card
 #   per finding, badged with its severity, so the cards read as the report's summary. Each card holds the steps its
@@ -219,7 +219,7 @@ show(drift.to_html())
 # ## A short page
 #
 # `to_html(detailed=False)` gives the summary page, as `report(detailed=False)` gives the summary text. For the drift
-# report, it keeps the header's verdict and the summary table, without the card:
+# report, it keeps the header's health and the summary table, without the card:
 
 # %% tags=["remove_input"]
 show(drift.to_html(detailed=False))

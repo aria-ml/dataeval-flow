@@ -32,6 +32,32 @@ Audits one or more splits before training: a verdict, a record of what was audit
   may be empty.
 - **Makes:** no Dataset; its verdict and findings are its result.
 
+The verdict is one of three levels, worst first:
+
+| Verdict | `level` | When |
+| --- | --- | --- |
+| Not ready | `not-ready` | A check that `blocking` names warned, and `accepted` doesn't name it. |
+| Ready with caveats | `ready-with-caveats` | Any other check warned and isn't accepted, an accepted check warned, or a check was not assessed. |
+| Ready | `ready` | No check warned, and every check was assessed. |
+
+A blocking check that could not run is a caveat, not a block. An acceptance covers its check type on every split, on
+this run and later ones; the accepted finding keeps its severity and its evidence, and health still counts it. A
+`blocking` entry or an `accepted` key that names a check the chain does not run is refused as the config loads:
+`label-conformance` without `ontology`, `uncovered-items` unless `coverage: {method: naive}`, and
+`factor-coverage-gaps` with `factor-gaps: false`.
+
+The result's `verdict`, `result.verdict` in Python and `verdict` in the JSON, holds:
+
+- `level`: `not-ready`, `ready-with-caveats` or `ready`;
+- `blocking` and `warnings`: each unaccepted warning, of a blocking check and of any other, as
+  `{check, step, title, brief}`;
+- `accepted`: each acceptance, as `{check, reason, state}`, where `state` is `warned`, `did-not-warn` or
+  `not-assessed`;
+- `not_assessed`: each check, or element of one, that judged nothing, as `{check, step, reason}`.
+
+A task that fails has no verdict: `result.verdict` is `None`, and the JSON has no `verdict`. Run as a step of a custom
+workflow, audit gives no verdict, record or questions, so run it as a task.
+
 **Chain**, from `outliers: {flags: [pixel], outlier_threshold: zscore}`, `ontology: {animal: {cat: null}}`,
 `factor-leakage: {factors: [site]}` and `coverage: {method: naive}`, with an extractor for `ood-kneighbors`,
 `divergence`, `coverage` and `completeness`. A step reading `evals` runs once per evaluation split, one reading `train`
@@ -98,7 +124,7 @@ splits. `crops` crops detection data and passes other Datasets through:
 | `coverage` | a block | `method: adaptive`, `num_observations: 50` where the step's own default is DataEval's 20, and the step's other defaults | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples` and `near_duplicate_factor`; the step runs on train when the task names an extractor |
 | `wrap` | a block | `params: {padding: 0.0, min_size: 1}` | [`wrap`](transforms.md#wrap)'s `params`, used on detection data only; the preset fixes the wrapper |
 | `factor-gaps` | a block, or `false` | `mi_threshold: 0.1`, `min_representation: 5` | [`factor-gaps`](combines.md#factor-gaps)'s `mi_threshold` and `min_representation`; `false` leaves out the gap analysis and its check |
-| `factor-leakage` | a block, or `null` | `null` | [`factor-leakage`](evaluators.md#factor-leakage)'s `factors`, at least one: the group factors, such as a scene or site, whose values must not sit in two splits; unset leaves group leakage out |
+| `factor-leakage` | a block, or `null` | `null` | [`factor-leakage`](evaluators.md#factor-leakage)'s `factors`, at least one: the group factors, such as a scene or site, whose values must not sit in two splits; unset leaves group leakage out. A factor a split's metadata lacks fails the task, which then has no verdict |
 | `diversity` | a block | `method: simpson` | [`diversity`](evaluators.md#diversity)'s `method` |
 | `divergence` | a block | `method: mst` | [`divergence`](evaluators.md#divergence)'s `method`; the step runs when the task names an extractor |
 | `ood-kneighbors` | a block | `threshold_perc: 99.0`, and the step's own defaults otherwise | [`ood-kneighbors`](evaluators.md#ood-kneighbors)'s `k`, `distance_metric` and `threshold_perc`, where the step's own default is DataEval's 95; the step is fitted on train and runs on each evaluation split when the task names an extractor |
@@ -116,36 +142,36 @@ splits. `crops` crops detection data and passes other Datasets through:
 | [`class-imbalance`](checks.md#class-imbalance) | `warning: 5.0`, `info: null`, `empty: false` |
 | [`class-sufficiency`](checks.md#class-sufficiency) | `train: 20`, `eval: 30` |
 | [`untrained-classes`](checks.md#untrained-classes) | `declared: false` |
-| [`label-conformance`](checks.md#label-conformance) | `warning: 0` |
+| [`label-conformance`](checks.md#label-conformance) | `warning: 0`; run only where `ontology` is set |
 | [`class-coverage`](checks.md#class-coverage) | `dispersion: 0.5`, `isotropy: 0.5`, `near_duplicates: 0.1` |
-| [`uncovered-items`](checks.md#uncovered-items) | `warning: 10.0` |
+| [`uncovered-items`](checks.md#uncovered-items) | `warning: 10.0`; run only under `coverage: {method: naive}` |
 | [`dimensional-completeness`](checks.md#dimensional-completeness) | `warning: 0.5`, `info: 0.8` |
-| [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `warning: 2` |
+| [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `warning: 2`; run unless `factor-gaps: false` |
 | [`shortcut-risk`](checks.md#shortcut-risk) | `warning: 0.1` |
 | [`leakage`](checks.md#leakage) | `exact: 0`, `near: 0`, `groups: 0` |
 | [`eval-coverage`](checks.md#eval-coverage) | `warning: 10.0`, `info: 2.0` |
 | [`stratification`](checks.md#stratification) | `info: 2.0`, `warning: 10.0` |
 | [`distribution-shift`](checks.md#distribution-shift) | `warning: 0.5`, and `info` 0.4 times `warning` |
 
-A check over each split applies its settings to every split. `coverage`, `completeness`, `divergence` and
+A check over each split applies its settings to every split. The settings of a check the chain does not run, such as
+`checks.uncovered-items` under adaptive coverage, are unused. `coverage`, `completeness`, `divergence` and
 `ood-kneighbors` are optional: with no extractor they are skipped with "requires an extractor", and their checks are
 not assessed. `balance`, `diversity` and `factor-gaps` are optional too, since DataEval refuses them on metadata with
 no factors. Any other step that fails fails the task, which then has no verdict. With one source, `evals` is empty,
-and a check over it is not assessed, with "no evaluation split given"; `class-sufficiency` and `untrained-classes`
-still judge train.
-
-The verdict is "Not ready" when a check that `blocking` names warned and `accepted` does not name it. It is "Ready
-with caveats" when any other check warned and is not accepted, when an accepted check warned, or when a check was not
-assessed, and "Ready" otherwise. A blocking check that could not run is a caveat, not a block. An acceptance covers
-its check type on every split, on this run and later ones; the accepted finding keeps its severity and its evidence.
-A `blocking` entry or an `accepted` key that names a check the chain does not run is refused as the config loads,
-`label-conformance` without `ontology` among them.
+and every check of *Are the splits fit to evaluate on?* is not assessed, with "no evaluation split given", so a
+one-split audit is at best Ready with caveats. A check over each split then judges train alone, and its check over
+`evals`, which judged nothing, is left out of the verdict and the questions. `class-sufficiency` and
+`untrained-classes` still judge train.
 
 The report gives the verdict, then a record of what was audited: a column per split, with its items, labels, classes,
-metadata factors and the digests of its content and metadata, then the run and the criteria, each check's settings as
-applied. The findings follow under the five questions, then next steps: what to do about each check that warned, and
-about each check left unassessed. See [Dataset Splitting](../concepts/DatasetSplitting.md) for why leakage and
-unrepresentative splits make a test score untrustworthy.
+metadata factors and the digests of its content and metadata, then the run and the criteria: the settings of each
+check the chain ran, the blocking checks and the acceptances. The findings follow under the five questions, then next
+steps: what to do about each check that warned, and about each check left unassessed. The console's short report
+leaves out the evidence and the next steps; `-v` prints them, and `result.txt` and `result.html` hold them unless
+`result: detail: summary`. {doc}`Audit a set of splits before training <../notebooks/audit>` walks through a run, and
+[Gate training on an audit](../how_to/gate_training_on_an_audit.md) reads the verdict in a training job. See
+[Dataset Splitting](../concepts/DatasetSplitting.md) for why leakage and unrepresentative splits make a test score
+untrustworthy.
 
 ```yaml
 workflows:

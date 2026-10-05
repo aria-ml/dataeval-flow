@@ -9,8 +9,9 @@ that make Datasets.
 
 Each entry's **Used in** names the presets that run the check; where it names none, chain the check in a [workflow of
 your own](../how_to/write_a_custom_workflow.md). See the [Preset Catalog](presets.md) for each preset's chain.
-[`audit`](presets.md#audit) runs `class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage`
-and `distribution-shift`, to audit a set of splits before training. [Check a set of
+[`audit`](presets.md#audit) runs up to sixteen of these checks to audit a set of splits before training, among them
+`class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage` and `distribution-shift`; its
+chain table lists them all. [Check a set of
 splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) chains `leakage`, `distribution-shift` and
 `eval-coverage` after `data-splitting`, in a workflow of your own. Each example assumes the pipeline defines
 `datasets:`, the sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor
@@ -687,7 +688,8 @@ workflows:
 Judges how far each part's class shares stray from the whole's.
 
 For each class and part, the gap between the class's share of the part's labels and of the whole's is taken in
-percentage points. The largest, rounded to one place, is judged. Run once per fold over `kfold`'s lists.
+percentage points. The largest, rounded to one place, is judged. Run once per fold over `kfold`'s lists. `audit`
+passes train as `input` and the evaluation splits as `parts`, so each evaluation split is judged against train.
 
 - **Reads:** `input`, a `label-health` Output over the whole Dataset the parts were split from; `parts`, the parts'
   `label-health` Outputs, each judged; `shown`, more `label-health` Outputs shown but not judged.

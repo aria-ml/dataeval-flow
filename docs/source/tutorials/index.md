@@ -37,9 +37,9 @@ Assessing and conditioning a dataset before it is used to train or evaluate.
 
 ../notebooks/metadata_triage
 ../notebooks/data_cleaning
-../notebooks/audit
 ../notebooks/data_coverage
 ../notebooks/dataset_splitting
+../notebooks/audit
 ```
 
 :::{list-table}
@@ -50,12 +50,13 @@ Assessing and conditioning a dataset before it is used to train or evaluate.
   - Find the metadata columns a run silently failed to read, and get a config change for each.
 - - {doc}`Clean a dataset <../notebooks/data_cleaning>`
   - Flag outliers, duplicates, and label problems before the data is used downstream.
-- - {doc}`Audit a set of splits before training <../notebooks/audit>`
-  - Get a verdict on train and evaluation splits, accept a risk in writing, and keep a record of what was audited.
 - - {doc}`Assess dataset coverage <../notebooks/data_coverage>`
   - Find class imbalance, metadata gaps, missing label-space regions, and embedding blind spots.
 - - {doc}`Split a dataset <../notebooks/dataset_splitting>`
   - Build defensible, leakage-free train/validation/test splits.
+- - {doc}`Audit a set of splits before training <../notebooks/audit>`
+  - The gate before training: get a verdict on train and evaluation splits, accept a risk in writing, and keep a
+    record of what was audited.
 
 :::
 

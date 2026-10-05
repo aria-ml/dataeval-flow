@@ -206,15 +206,9 @@ assert result.success
 # %% [markdown]
 # ## Step 3: Read the verdict
 #
-# The verdict has three levels:
-#
-# | Level | When |
-# |---|---|
-# | `not-ready` | A blocking check warned, and no acceptance covers it. |
-# | `ready-with-caveats` | Any other warning that isn't accepted, any accepted warning, or any check not assessed. |
-# | `ready` | No warnings, accepted or not, and every check assessed. |
-#
-# The blocking checks are `leakage` and `untrained-classes` unless the entry's `blocking:` says otherwise.
+# The verdict is `not-ready` when a blocking check warned unaccepted, `ready-with-caveats` when anything else warned or
+# a check was not assessed, and `ready` otherwise. The [Preset Catalog](../reference/presets.md#audit) gives the rule
+# in full. The blocking checks are `leakage` and `untrained-classes` unless the entry's `blocking:` says otherwise.
 # `result.verdict` lists each warning by check and step, and each check that could not be assessed with its reason.
 
 # %%

@@ -210,9 +210,9 @@ Path("report.html").write_text(result.to_html(), encoding="utf-8")
 {doc}`View a report as HTML <../notebooks/view_html_reports>` shows the page rendered, so you can try it. The page
 holds everything the text report holds, laid out for reading on screen:
 
-- The header gives the report's title and verdict, with the entry and type id under them. The verdict is the
-  number of warnings, `passed`, or `failed` and the required steps that failed. A page holding several tasks'
-  reports lists them first.
+- The header gives the report's title and its health, with the entry and type id under them. The health is the
+  number of warnings, `passed`, or `failed` and the required steps that failed. An audit's header shows its verdict
+  in its place: the verdict's label, then its reasons. A page holding several tasks' reports lists them first.
 - Each finding is a card that opens and closes, headed by its title, its value and its severity, so the cards read
   as the report's summary. A warning starts open and the rest start closed.
 - The metadata factors, a chain's Steps table and the configuration close the report as panels of their own,

@@ -7,6 +7,12 @@ science, each entry links to the
 DataEval Flow [Explanation pages](../concepts/index.md).
 
 ```{glossary}
+Accepted Risk
+    A check type named under an `audit` entry's `accepted:`, with the reason its warning is accepted, on every split.
+    Its warning can't make the {term}`verdict<Verdict>` `not-ready`, but a warning it covers leaves the verdict
+    `ready-with-caveats`, keeps its severity and evidence, and still counts toward health. See
+    [Preset Catalog](presets.md#audit).
+
 Bag-of-Visual-Words (BoVW)
     A model-free {term}`feature extractor<Extractor>` that builds an
     {term}`embedding<Embedding>` from a histogram of quantized local image
@@ -19,6 +25,12 @@ Binning
     numbers they report. A categorical factor is *digitized*: mapped to
     ordinals, one code per distinct value. See
     [Configure metadata binning](../how_to/configure_metadata_binning.md).
+
+Blocking Check
+    A check type named in an `audit` entry's `blocking:` list, `leakage` and `untrained-classes` unless the entry says
+    otherwise. Its warning makes the {term}`verdict<Verdict>` `not-ready` unless an
+    {term}`acceptance<Accepted Risk>` covers it. A blocking check that could not run is a caveat, not a block. See
+    [Preset Catalog](presets.md#audit).
 
 Brief
     A {term}`finding's<Finding>` one-line summary: the value on its line in the report, such as `3 items`, `ok` or
@@ -52,6 +64,13 @@ Combine
     for a {term}`check<Check>` to read, such as `outliers-by-class` or `ood-union`. See the
     [Combine Catalog](combines.md).
 
+Content Digest
+    A SHA-256 digest over every item's image and labels, and the class names, whatever the items' order, which
+    `audit`'s `content-digest` step records for each split. A training job recomputes it with
+    `dataeval_flow.dataset_digest()` and refuses data whose digest differs. The metadata digest, recorded beside it,
+    covers each item's metadata, so a loader that yields no metadata still matches the content digest. See
+    [Preset Catalog](presets.md#audit) and [Gate training on an audit](../how_to/gate_training_on_an_audit.md).
+
 Coverage
     How completely a dataset spans the conditions a model will meet in operation,
     measured along two axes: which categories are present (labels checked against
@@ -83,7 +102,7 @@ Dataset
 Determination
     What an {term}`evaluator<Evaluator>` reports: a flag, a group or a p-value
     that DataEval's threshold produced. A determination says what was found;
-    the verdict of whether it is a problem belongs to a {term}`check<Check>`.
+    the judgment of whether it is a problem belongs to a {term}`check<Check>`.
 
 Domain Classifier
     A drift/OOD method that trains a classifier to distinguish reference data
@@ -117,8 +136,8 @@ Embeddings
     [DataEval Embeddings explanation](https://dataeval.readthedocs.io/en/latest/concepts/Embeddings.html).
 
 Evaluation Split
-    A `val` or `test` split whose labels or coverage are judged against `train`'s, which `data-splitting` makes and
-    `class-sufficiency` and `untrained-classes` read. It is not a {term}`test source<Test Source>`, which is tested
+    A `val` or `test` split whose labels or coverage are judged against `train`'s: a split `data-splitting` makes, or
+    a source after the first that `audit` names. `class-sufficiency` and `untrained-classes` read them. It is not a {term}`test source<Test Source>`, which is tested
     against a {term}`reference<Reference Dataset>`, the data a detector fits on. See
     [Are the splits fit to evaluate on?](index.md#are-the-splits-fit-to-evaluate-on).
 
@@ -266,7 +285,7 @@ Result Envelope
     that satisfies JATIC interoperability requirements.
 
 Severity
-    A {term}`finding's<Finding>` verdict, one of three. `ok`: its check judged it, and it is within every bound.
+    A {term}`finding's<Finding>` judgment, one of three. `ok`: its check judged it, and it is within every bound.
     `info`: it falls in an `info` band or meets a criterion its check informs on, its check had nothing to judge (it is
     briefed `not assessed`), or no bound was set to judge it by. `warning`: it passes a {term}`threshold<Threshold>`
     or meets another criterion its check warns on. Warnings count toward the result's health and `--fail-on-warning`.
@@ -310,6 +329,11 @@ Threshold
 Transform
     A {term}`step<Step>` that makes Datasets from a Dataset, or writes one to disk: `split`, `remove`, `export` and the
     others. See the [Transform Catalog](transforms.md).
+
+Verdict
+    The level an `audit` gives the data: `not-ready`, `ready-with-caveats` or `ready`, from its checks' warnings, its
+    {term}`blocking checks<Blocking Check>` and its {term}`accepted risks<Accepted Risk>`, and the checks
+    {term}`not assessed<Not Assessed>`. Health still counts every warning. See [Preset Catalog](presets.md#audit).
 
 View
     A named, ordered pipeline of dataset operations (`Limit`, `ClassFilter`,

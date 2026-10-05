@@ -137,7 +137,8 @@ can't hide from it.
 call it on the data it is about to train on and refuse to start when the content digest
 differs from the one a run recorded. Images are hashed as decoded pixels, which a
 different decoder can change slightly, so compare digests made with the same
-`library_versions`.
+`library_versions`. [Gate training on an audit](../how_to/gate_training_on_an_audit.md)
+shows the check, and the data a recorded digest matches.
 
 ## Provenance enables interoperability
 
