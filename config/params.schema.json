@@ -10933,7 +10933,7 @@
     },
     "SourceConfig": {
       "additionalProperties": false,
-      "description": "Named source definition \u2014 bundles a dataset with an optional view.\n\nName a `dataset` to read one dataset, or `merge` to concatenate other sources\ninto one dataset.\n\nYAML example::\n\n    sources:\n      - name: cifar_train_subset\n        dataset: cifar10_train\n        view: first_5k\n      - name: merged\n        merge: [m3fd_conformed, drone_conformed]\n\nThe legacy ``selection`` key is accepted as a deprecated alias for ``view``.",
+      "description": "Named source definition \u2014 bundles a dataset with an optional view.\n\nName a `dataset` to read one dataset, or `merge` to concatenate other sources\ninto one dataset.\n\nYAML example::\n\n    sources:\n      - name: cifar_train_subset\n        dataset: cifar10_train\n        view: first_5k\n      - name: merged\n        merge: [m3fd_conformed, drone_conformed]",
       "properties": {
         "name": {
           "description": "Identifier for the source",
@@ -12110,7 +12110,7 @@
     },
     "ViewConfig": {
       "additionalProperties": false,
-      "description": "Named view pipeline configuration.\n\nDefines a reusable pipeline of dataset operations, referenced by name from\nsources. Similar to PreprocessorConfig.\n\nFor backward compatibility the legacy ``steps`` key is accepted on input as\nan alias for ``operations`` (with a :class:`DeprecationWarning`).",
+      "description": "Named view pipeline configuration.\n\nDefines a reusable pipeline of dataset operations, referenced by name from\nsources. Similar to PreprocessorConfig.",
       "properties": {
         "name": {
           "description": "Identifier for the view, referenced by sources.",
@@ -12410,7 +12410,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Top-level pipeline configuration.\n\nAll sections use a define-once, reference-by-name pattern.\nSources compose datasets with optional views; extractors\ncompose model type/params with optional preprocessors.\nTasks reference workflows, sources, and extractors by name.\n\nThe legacy ``selections`` key is accepted as a deprecated alias for\n``views`` (with a :class:`DeprecationWarning`).\n\nA key that is none of these sections is refused, naming the section it most resembles: a misspelled section\nwould otherwise be dropped, and the run go ahead without it.",
+  "description": "Top-level pipeline configuration.\n\nAll sections use a define-once, reference-by-name pattern.\nSources compose datasets with optional views; extractors\ncompose model type/params with optional preprocessors.\nTasks reference workflows, sources, and extractors by name.\n\nA key that is none of these sections is refused, naming the section it most resembles: a misspelled section\nwould otherwise be dropped, and the run go ahead without it.",
   "properties": {
     "logging": {
       "anyOf": [

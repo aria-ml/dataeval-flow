@@ -490,6 +490,8 @@
 
 ### Removed
 
+- The `selections:` and `selection:` aliases for `views:` and `view:`, and a `views:` entry's `steps:` alias for
+  `operations:`, deprecated since v0.2.0
 - `parameter-sweep`, with `ParameterSweepConfig`, `ParameterSweepResult` and `ParameterSweepWorkflow`: write a
   data-cleaning entry and a `matrix:` on its task (see Sweep settings with a matrix)
 - The `torch` and `uncertainty` extractors' `device`, and drift-monitoring MMD's; Flow chooses the device for every tool

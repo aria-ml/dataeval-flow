@@ -244,16 +244,6 @@ class TestSourceConfig:
         src = SourceConfig(name="train_src", dataset="train_ds")
         assert src.view is None
 
-    def test_source_config_legacy_selection_alias(self):
-        """The deprecated ``selection`` key is still accepted and maps to ``view``."""
-        from dataeval_flow import PipelineConfig
-
-        payload = {"sources": [{"name": "s", "dataset": "d", "selection": "first_5k"}]}
-        with pytest.warns(DeprecationWarning, match="'selection' key"):
-            cfg = PipelineConfig.model_validate(payload)
-        assert cfg.sources is not None
-        assert cfg.sources[0].view == "first_5k"
-
     def test_source_config_neither_dataset_nor_merge_raises(self):
         """A source naming neither `dataset` nor `merge` is refused."""
         with pytest.raises(ValidationError, match="names neither"):
@@ -509,15 +499,6 @@ class TestP1SchemaClasses:
         assert len(config.operations) == 2
         assert config.operations[0].type == "Limit"
         assert config.operations[1].type == "ClassFilter"
-
-    def test_view_config_legacy_steps_alias(self):
-        """The deprecated ``steps`` key still populates ``operations`` with a warning."""
-        from dataeval_flow.config import ViewConfig
-
-        payload = {"name": "subset", "steps": [{"type": "Limit", "params": {"size": 10}}]}
-        with pytest.warns(DeprecationWarning, match="'steps' key"):
-            config = ViewConfig.model_validate(payload)
-        assert config.operations[0].type == "Limit"
 
     def test_selection_step_indices_range_shorthand(self):
         """ViewOperation expands indices range dict into a list."""

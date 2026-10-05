@@ -103,9 +103,6 @@ reference-by-name** pattern with these sections:
 | `deterministic` | No | Force PyTorch deterministic algorithms (only meaningful alongside `seed`) |
 | `logging` | No | App and library log levels |
 
-The legacy `selections` / `selection` / `steps` keys are still accepted as deprecated
-aliases for `views` / `view` / `operations`; new configs should use the current names.
-
 (dataset-formats)=
 
 ### Dataset formats

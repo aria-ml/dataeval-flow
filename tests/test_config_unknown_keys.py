@@ -57,11 +57,17 @@ class TestTopLevelKeys:
 
         assert "did you mean" not in str(info.value)
 
-    def test_the_legacy_selections_key_is_still_read_as_views(self) -> None:
-        with pytest.warns(DeprecationWarning, match="selections"):
-            config = PipelineConfig.model_validate({"selections": [{"name": "first", "operations": []}]})
+    def test_selections_is_refused_as_an_unknown_section(self) -> None:
+        with pytest.raises(ValidationError, match="selections"):
+            PipelineConfig.model_validate({"selections": []})
 
-        assert [view.name for view in config.views or ()] == ["first"]
+    def test_a_source_selection_key_is_refused(self) -> None:
+        with pytest.raises(ValidationError, match="selection"):
+            PipelineConfig.model_validate({"sources": [{"name": "s", "dataset": "d", "selection": "v"}]})
+
+    def test_a_views_steps_key_is_refused(self) -> None:
+        with pytest.raises(ValidationError, match="steps"):
+            ViewConfig.model_validate({"name": "v", "steps": []})
 
     def test_the_schema_lets_an_editor_flag_a_misspelled_section(self) -> None:
         # What an editor validating a file against params.schema.json reads to underline an unknown key.

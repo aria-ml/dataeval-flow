@@ -7,7 +7,6 @@ __all__ = [
 ]
 
 import difflib
-import warnings
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal
 
@@ -70,8 +69,6 @@ class SourceConfig(BaseModel):
             view: first_5k
           - name: merged
             merge: [m3fd_conformed, drone_conformed]
-
-    The legacy ``selection`` key is accepted as a deprecated alias for ``view``.
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, extra="forbid")
@@ -93,7 +90,6 @@ class SourceConfig(BaseModel):
     )
     view: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("view", "selection"),
         description="Reference to a view name (optional)",
     )
 
@@ -317,9 +313,6 @@ class PipelineConfig(BaseModel):
     compose model type/params with optional preprocessors.
     Tasks reference workflows, sources, and extractors by name.
 
-    The legacy ``selections`` key is accepted as a deprecated alias for
-    ``views`` (with a :class:`DeprecationWarning`).
-
     A key that is none of these sections is refused, naming the section it most resembles: a misspelled section
     would otherwise be dropped, and the run go ahead without it.
     """
@@ -367,7 +360,6 @@ class PipelineConfig(BaseModel):
     )
     views: Sequence[ViewConfig] | None = Field(
         default=None,
-        validation_alias=AliasChoices("views", "selections"),
         description="Named view pipeline definitions (dataset operations), referenced by sources",
     )
 
@@ -448,26 +440,6 @@ class PipelineConfig(BaseModel):
             problem = unknown_keys_problem(data)
             if problem is not None:
                 raise ValueError(problem)
-        return data
-
-    @model_validator(mode="before")
-    @classmethod
-    def _warn_legacy_selection_keys(cls, data: Any) -> Any:
-        """Emit deprecation warnings for the legacy ``selections``/``selection`` keys."""
-        if isinstance(data, Mapping):
-            if "selections" in data and "views" not in data:
-                warnings.warn(
-                    "The 'selections' key is deprecated; use 'views' instead.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-            for source in data.get("sources") or []:
-                if isinstance(source, Mapping) and "selection" in source and "view" not in source:
-                    warnings.warn(
-                        "The 'selection' key in a source is deprecated; use 'view' instead.",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
         return data
 
     @model_validator(mode="after")
@@ -571,7 +543,7 @@ class PipelineConfig(BaseModel):
 
 
 def top_level_keys() -> frozenset[str]:
-    """Every key a pipeline config's top level may hold: its sections, and their legacy aliases."""
+    """Every key a pipeline config's top level may hold: its sections, and any alias of one."""
     keys = set(PipelineConfig.model_fields)
     for field in PipelineConfig.model_fields.values():
         alias = field.validation_alias
@@ -585,7 +557,7 @@ def top_level_keys() -> frozenset[str]:
 def unknown_keys_problem(keys: Iterable[Any]) -> str | None:
     """Name each of `keys` that is no top-level section, with the section it most resembles; ``None`` if none is.
 
-    A guess is offered only among the current section names, never a legacy alias.
+    A guess is offered only among the current section names, never an alias.
     """
     known = top_level_keys()
     unknown = [key for key in keys if key not in known]

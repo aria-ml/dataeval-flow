@@ -215,7 +215,6 @@ View
     A named, ordered pipeline of dataset operations (`Limit`, `ClassFilter`,
     `Shuffle`, …) applied to a dataset before evaluation, referenced by name from
     a {term}`source<Source>`. The config-layer counterpart of `dataeval.data.View`.
-    The legacy key `selection` is a deprecated alias.
 
 Workflow
     A built-in evaluation that combines DataEval evaluators and judges their
