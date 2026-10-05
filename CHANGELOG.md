@@ -236,8 +236,8 @@
   list form is refused
 - An `unbinned` finding says a declared bin count fixes how many bins there are, not their edges; the recommended
   policy pins the edges
-- `MetadataConfigMixin` holds only `metadata:`, the policy name, as `StatsConfigMixin` holds only `stats:`; the
-  older `metadata_*` fields stay on the workflows that took them
+- `MetadataConfigMixin` holds only `metadata:`, the policy name, as `StatsConfigMixin` holds only `stats:`; no
+  workflow takes the older `metadata_*` fields
 - The text report is 80 columns wide by default (was 90), and wraps long prose, labels and values to fit
 - A run that fails only on health warnings exits `3` (was `1`), so CI can tell a data-quality gate from a crash or a
   mistyped flag, which exits `2`
@@ -530,6 +530,13 @@
   - `health_thresholds` is `checks:`. Its `image_outliers` is `checks.image-outliers.warning`, `exact_duplicates`
     and `near_duplicates` are `checks.image-duplicates.exact` and `.near`, `class_label_imbalance` is
     `checks.class-imbalance.warning`, and `distribution_shift` is `checks.distribution-shift.warning`
+- The settings only `data-analysis` still took, which no workflow takes now:
+  - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source`:
+    name a policy under `metadata:`, which takes `auto_bin_method`, `exclude`, `continuous_factor_bins` and
+    `factor_source`
+  - `value_range` on a workflow entry: set `value_range` on the dataset
+  - `include_image_stats`: set the metadata policy's `intrinsic_factors`
+  - `attach_binning` and the outlier report's `limits_sentence` and `warn_if_unrecorded`, with no caller
 - The `torch` and `uncertainty` extractors' `device`, and drift-monitoring MMD's; Flow chooses the device for every tool
 - Poetry packaging support; install with uv, pip, or conda instead
 - Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`

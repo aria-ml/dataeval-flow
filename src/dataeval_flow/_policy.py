@@ -17,14 +17,11 @@ __all__ = ["ResolvedPolicy", "build_correction", "policy_for", "policy_key", "re
 
 import json
 import logging
-import warnings
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-from dataeval_flow.workflows._base import raw_field
 
 if TYPE_CHECKING:
     from dataeval_flow._stats import ResolvedStatsPolicy
@@ -33,16 +30,6 @@ if TYPE_CHECKING:
     from dataeval_flow.config._schemas._mixins import MetadataConfigMixin
 
 _logger: logging.Logger = logging.getLogger(__name__)
-
-# The legacy per-workflow spelling. Kept working, and refused alongside a `metadata:`
-# reference: two sources disagreeing about one factor has no good resolution, and
-# picking one silently is exactly the failure a named policy removes.
-_LEGACY_FIELDS: tuple[str, ...] = (
-    "metadata_auto_bin_method",
-    "metadata_exclude",
-    "metadata_continuous_factor_bins",
-    "metadata_factor_source",
-)
 
 # dataeval's row levels: the prefixes a level-split statistic's name can carry (see
 # metadata.expand_declared_bins, which is what actually produces a name like
@@ -624,34 +611,11 @@ def _check_strict_is_earned(
         )
 
 
-def _named_policy(params: "MetadataConfigMixin", name: str, config: "PipelineConfig") -> "MetadataPolicyConfig":
-    """Look up the referenced policy, refusing a config that also sets the old fields."""
+def _named_policy(name: str, config: "PipelineConfig") -> "MetadataPolicyConfig":
+    """Look up the referenced policy."""
     from dataeval_flow._orchestrator import _resolve_by_name
 
-    if set_legacy := [field for field in _LEGACY_FIELDS if _is_set(params, field)]:
-        raise ValueError(
-            f"This workflow references metadata policy {name!r} and also sets "
-            f"{set_legacy}. The `metadata_*` fields are the older spelling of the same "
-            "settings; move them into the policy and remove them here.",
-        )
     return _resolve_by_name(config.metadata, name, "metadata policy")
-
-
-def _warn_deprecated_include_image_stats() -> None:
-    """Name the field that replaces the flag, not just the fact that it is going away."""
-    warnings.warn(
-        "`include_image_stats` is deprecated and will be removed in the next minor "
-        "version. Declare `intrinsic_factors: [visual, pixel]` on the metadata policy "
-        "instead, where every workflow sharing that policy can see it.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-
-
-def _is_set(params: "MetadataConfigMixin", name: str) -> bool:
-    """Whether a legacy field carries something, treating an empty list as unset."""
-    value = getattr(params, name, None)
-    return value is not None and value != [] and value != {}
 
 
 def _resolve_corrections(
@@ -705,8 +669,7 @@ def resolve_policy(
     Parameters
     ----------
     params : MetadataConfigMixin
-        The entry's parameters, which either name a policy or, on a workflow config, carry the older
-        ``metadata_*`` fields (``_LegacyMetadataMixin``).
+        The entry's parameters, which either name a policy or leave DataEval's defaults.
     config : PipelineConfig | None
         The pipeline the policy pool lives on.  Required only when a policy is named.
     data_dir : Path | None
@@ -719,9 +682,8 @@ def resolve_policy(
     Raises
     ------
     ValueError
-        When the reference names no policy, when the policy and the older fields are both
-        set, when the descriptor is missing or unreadable, when a factor is declared twice,
-        or when ``strict`` would close a vocabulary nobody reviewed.
+        When the reference names no policy, when the descriptor is missing or unreadable, when a factor is declared
+        twice, or when ``strict`` would close a vocabulary nobody reviewed.
     """
     from dataeval_flow.config._loader import resolve_path
 
@@ -731,7 +693,7 @@ def resolve_policy(
                 f"This workflow references metadata policy {params.metadata!r}, which can only "
                 "be resolved against a pipeline config.",
             )
-        named = _named_policy(params, params.metadata, config)
+        named = _named_policy(params.metadata, config)
         source = f"Metadata policy {named.name!r}"
         auto_bin_method, exclude = named.auto_bin_method, tuple(named.exclude or ())
         bins = dict(named.continuous_factor_bins or {})
@@ -744,14 +706,14 @@ def resolve_policy(
         descriptor_path = named.encoding
     else:
         source = "This workflow"
-        auto_bin_method = getattr(params, "metadata_auto_bin_method", None)
-        exclude = tuple(getattr(params, "metadata_exclude", None) or ())
-        bins = dict(getattr(params, "metadata_continuous_factor_bins", None) or {})
+        auto_bin_method = None
+        exclude = ()
+        bins = {}
         factor_levels, strict = None, False
         partial_factors = False
         declared_corrections = ()
         declared_aggregations = ()
-        factor_source, reference_split = getattr(params, "metadata_factor_source", None), None
+        factor_source, reference_split = None, None
         intrinsic_factors = ()
         descriptor_path = None
 
@@ -770,22 +732,6 @@ def resolve_policy(
 
     corrections, correction_specs = _resolve_corrections(declared_corrections, corrections, source)
     aggregations, aggregation_specs = _resolve_aggregations(declared_aggregations, source)
-
-    # The legacy flag, folded in before the families are validated so that both spellings
-    # meet the same check. Read out of the instance dict rather than off the attribute:
-    # the field is marked deprecated, and pydantic warns on every read including this one,
-    # which would warn every caller rather than the ones that set it.
-    if raw_field(params, "include_image_stats", False):
-        legacy = ("visual", "pixel")
-        if intrinsic_factors and tuple(intrinsic_factors) != legacy:
-            raise ValueError(
-                f"{source} declares intrinsic_factors={list(intrinsic_factors)} and this "
-                "workflow also sets `include_image_stats: true`, which means "
-                f"{list(legacy)}. They are two spellings of one decision and they disagree "
-                "— drop `include_image_stats` and keep the policy field.",
-            )
-        _warn_deprecated_include_image_stats()
-        intrinsic_factors = legacy
 
     # Resolved before the double-declaration check, not after: that check needs to know
     # which bare names injection could actually turn into a level-prefixed descriptor
@@ -835,10 +781,8 @@ def policy_for(context: Any, params: "MetadataConfigMixin") -> ResolvedPolicy:
     root — neither of which a workflow has.  But ``execute(context, params)`` is also a
     supported entry point on its own, and a context built by hand carries no policy.
 
-    Falling back to the parameters keeps that path honest: reading only the
-    context would silently drop a caller's configured bins and report numbers computed
-    against cuts they did not choose — the same silent discard fixed once already for
-    ``metadata_*`` fields reaching ``Metadata`` directly.
+    Falling back to the parameters keeps that path honest: a policy the parameters name is resolved, not
+    dropped.
     """
     resolved = getattr(context, "metadata_policy", None)
     if resolved is not None:

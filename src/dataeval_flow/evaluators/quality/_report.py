@@ -12,15 +12,12 @@ __all__ = [
     "flagged_table",
     "groups_table",
     "label_health_section",
-    "limits_sentence",
     "limits_table",
     "outlier_section",
-    "warn_if_unrecorded",
 ]
 
-import logging
 import math
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Literal, NotRequired
 
 from typing_extensions import TypedDict
@@ -29,16 +26,6 @@ from dataeval_flow._blocks import Block, Cell, Column, Fields, Flag, ItemRef, Pa
 from dataeval_flow._blocks._table import fair_shares
 from dataeval_flow._tables import group_cells, table_limits
 from dataeval_flow.workflows._base import render_label_source
-
-_logger = logging.getLogger(__name__)
-
-# DataEval's threshold methods: the multiplier each uses by default, and how its limits read.
-_METHODS: dict[str, tuple[float, str]] = {
-    "zscore": (3.0, "Limits: the mean ± {t} standard deviations (z-score)."),
-    "modzscore": (3.5, "Limits: a modified z-score of {t}, measured from the median by the MAD."),
-    "iqr": (1.5, "Limits: {t} × the IQR beyond the quartiles."),
-    "adaptive": (3.5, "Limits: {t} × the MAD on each side of the median, widened where a tail is heavy (adaptive)."),
-}
 
 
 class OutlierIssueRecord(TypedDict):
@@ -88,17 +75,6 @@ def flag_of(issue: Mapping[str, Any]) -> Flag:
         mean=_number(issue, "population_mean"),
         std=_number(issue, "population_std"),
     )
-
-
-def warn_if_unrecorded(issues: Iterable[Mapping[str, Any]]) -> None:
-    """Warn, once for all of *issues*, where any came without the limit it crossed: an older DataEval's record."""
-    unrecorded = sum(not math.isfinite(_number(issue, "bound")) for issue in issues)
-    if unrecorded:
-        _logger.warning(
-            "%d outlier flag(s) came without the limits they crossed, so the report shows their values alone. "
-            "Upgrade DataEval to one that records each flag's limit, percentile and population.",
-            unrecorded,
-        )
 
 
 def flagged_table(
@@ -211,14 +187,6 @@ def limits_table(issues: Sequence[Mapping[str, Any]], *, key: Callable[[Mapping[
         ],
         rows=rows,
     )
-
-
-def limits_sentence(method: str | None, threshold: float | None) -> str | None:
-    """How the method's limits read, with its multiplier or DataEval's default; ``None`` for an unknown method."""
-    if method not in _METHODS:
-        return None
-    default, sentence = _METHODS[method]
-    return sentence.format(t=f"{default if threshold is None else threshold:g}")
 
 
 def groups_table(

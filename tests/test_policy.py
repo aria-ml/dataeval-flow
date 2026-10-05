@@ -14,11 +14,6 @@ import pytest
 
 from dataeval_flow._policy import ResolvedPolicy, policy_for, policy_key, resolve_policy
 from dataeval_flow.config import MetadataConfigMixin, PipelineConfig
-from dataeval_flow.config._schemas._mixins import _LegacyMetadataMixin
-
-
-class _Legacy(MetadataConfigMixin, _LegacyMetadataMixin):
-    """A workflow config's metadata fields: the policy reference and the older spelling."""
 
 
 def _descriptor(tmp_path: Path, factors: dict, name: str = "policy.json", corrections: Any = None) -> Path:
@@ -44,23 +39,7 @@ def _config(**policy) -> PipelineConfig:
     return PipelineConfig.model_validate({"metadata": [{"name": "standard", **policy}]})
 
 
-class TestResolvingTheOlderSpelling:
-    """The per-workflow `metadata_*` fields keep working."""
-
-    def test_reads_them_when_no_policy_is_named(self):
-        params = _Legacy(
-            metadata_auto_bin_method="clusters",
-            metadata_exclude=["id"],
-            metadata_continuous_factor_bins={"temp_c": [0.0, 1.0]},
-            metadata_factor_source="coded",
-        )
-        policy = resolve_policy(params)
-
-        assert policy.auto_bin_method == "clusters"
-        assert policy.exclude == ("id",)
-        assert policy.continuous_factor_bins == {"temp_c": [0.0, 1.0]}
-        assert policy.factor_source == "coded"
-
+class TestResolvingNoPolicy:
     def test_an_empty_workflow_resolves_to_defaults(self):
         assert resolve_policy(MetadataConfigMixin()) == ResolvedPolicy()
 
@@ -86,17 +65,6 @@ class TestResolvingANamedPolicy:
     def test_a_reference_needs_a_config_to_resolve_against(self):
         with pytest.raises(ValueError, match="can only be resolved against a pipeline config"):
             resolve_policy(MetadataConfigMixin(metadata="standard"))
-
-    def test_naming_a_policy_and_the_older_fields_is_refused(self):
-        """Two sources disagreeing about one factor has no good resolution."""
-        params = _Legacy(metadata="standard", metadata_auto_bin_method="clusters")
-        with pytest.raises(ValueError, match="also sets"):
-            resolve_policy(params, _config())
-
-    def test_an_untouched_legacy_field_does_not_trip_the_check(self):
-        """`metadata_exclude` defaults to an empty list, which is not somebody setting it."""
-        policy = resolve_policy(MetadataConfigMixin(metadata="standard"), _config(exclude=["id"]))
-        assert policy.exclude == ("id",)
 
 
 class TestApplyingADescriptor:
@@ -400,21 +368,19 @@ class TestPolicyKey:
 
 
 class TestPolicyFor:
-    """A workflow invoked directly still honours its own configured cuts."""
+    """A workflow invoked directly with no context policy resolves its own parameters."""
 
     def test_prefers_the_resolved_policy_on_the_context(self):
         class _Ctx:
             metadata_policy = ResolvedPolicy(auto_bin_method="clusters")
 
-        params = _Legacy(metadata_auto_bin_method="uniform_count")
-        assert policy_for(_Ctx(), params).auto_bin_method == "clusters"
+        assert policy_for(_Ctx(), MetadataConfigMixin()).auto_bin_method == "clusters"
 
     def test_falls_back_to_the_parameters(self):
         class _Ctx:
             metadata_policy = None
 
-        params = _Legacy(metadata_auto_bin_method="uniform_count")
-        assert policy_for(_Ctx(), params).auto_bin_method == "uniform_count"
+        assert policy_for(_Ctx(), MetadataConfigMixin()) == ResolvedPolicy()
 
 
 class TestDeriveFrom:
