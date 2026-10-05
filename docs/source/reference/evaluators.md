@@ -808,7 +808,7 @@ Test items a classifier tells apart from the reference (DataEval OODDomainClassi
 
 The classifier is trained to tell each test item from the reference under repeated cross-validation, and the items it
 separates well are flagged. It runs `dataeval.shift.OODDomainClassifier`. `eval-coverage` judges the share of its
-Output flagged, with no percentile of the reference to relate it to.
+Output flagged; it relates the share to a percentile of train only for `ood-kneighbors`.
 
 - **Reads:** `input`: two Datasets, the reference then the data to test; Flow derives their embeddings through the
   task's extractor.

@@ -51,11 +51,10 @@ recipes](../how_to/evaluator_recipes.md) does.
 A check's thresholds are written beside it, in the step entry, like a transform's settings. Each is in the unit its
 row names: a percentage, a ratio, a count, a fraction, a score, percentage points or mutual information. A finding
 warns where the measured value passes it, and the glossary's {term}`Severity` entry defines `ok`, `info` and
-`warning`. A value equal to a bound does not warn: the bound is the
-last value that does not. `null` switches a threshold off: the finding is still made, as `info`. Each preset's `checks:`
-defaults are in the [Preset Catalog](presets.md). A check with a criterion that has no threshold, such as an unmet
-share, an ambiguous name or an empty class, keeps judging it, so its finding can still be `ok` or `warning` when its
-thresholds are `null`.
+`warning`. A value equal to a bound does not warn: the bound is the last value that does not. `null` switches a
+threshold off: the finding is still made, as `info`. Each preset's `checks:` defaults are in the
+[Preset Catalog](presets.md). A check with a criterion that has no threshold, such as an unmet share, an ambiguous name
+or an empty class, keeps judging it, so its finding can still be `ok` or `warning` when its thresholds are `null`.
 
 A check is never skipped because an input produced nothing. Where a step it reads failed or was skipped, it makes one
 `info` finding briefed `not assessed`, titled with its `subject` where it takes one and with its own title otherwise,
@@ -737,8 +736,8 @@ holds an element, as there is then no pair of splits; an empty or failed `factor
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `duplicates` | an address, or a list | required | `duplicates` Outputs over two sources: train with each evaluation split, and evaluation pairs |
-| `factors` | an address, a list, or `null` | `null` | `factor-leakage` Outputs over the same pairs; unset judges duplicates alone |
+| `duplicates` | an address of a list of Outputs | required | `duplicates` Outputs over two sources: train with each evaluation split, and evaluation pairs |
+| `factors` | an address of a list of Outputs, or `null` | `null` | `factor-leakage` Outputs over the same pairs; unset judges duplicates alone |
 | `exact` | an integer of at least 0, or `null` | `0` | Most items in exact-duplicate groups spanning two splits before the finding warns |
 | `near` | an integer of at least 0, or `null` | `0` | The same for near-duplicate groups |
 | `groups` | an integer of at least 0, or `null` | `0` | Most group values held by both splits of a pair before the finding warns |

@@ -40,7 +40,8 @@ Dataset onto the ontology.
   [`ontology-validation`](evaluators.md#ontology-validation)
 - **Checks:** [`leaf-coverage`](checks.md#leaf-coverage), [`label-conformance`](checks.md#label-conformance),
   [`mergeability`](checks.md#mergeability), [`ontology-structure`](checks.md#ontology-structure)
-- **In a workflow of your own:** [`conform`](transforms.md#conform); see the [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **In a workflow of your own:** [`conform`](transforms.md#conform); see the
+  [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ## Does the data cover what the model must handle?
 
@@ -96,9 +97,11 @@ needs a validation set as a third source, which the preset does not take, so it 
 
 - **Preset:** [`drift-monitoring`](presets.md#drift-monitoring)
 - **Evaluators:** [`drift-univariate`](evaluators.md#drift-univariate), [`drift-mmd`](evaluators.md#drift-mmd),
-  [`drift-kneighbors`](evaluators.md#drift-kneighbors), [`drift-domain-classifier`](evaluators.md#drift-domain-classifier)
+  [`drift-kneighbors`](evaluators.md#drift-kneighbors),
+  [`drift-domain-classifier`](evaluators.md#drift-domain-classifier)
 - **Checks:** [`drift`](checks.md#drift)
-- **In a workflow of your own:** [`drift-wasserstein`](evaluators.md#drift-wasserstein); see the [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **In a workflow of your own:** [`drift-wasserstein`](evaluators.md#drift-wasserstein); see
+  [Drift in a model's uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty)
 
 ## Which items are out of distribution?
 

@@ -585,11 +585,11 @@ Notice:
   values two parts share, and `leakage` warns on any.
 - `knn` is fitted on each fold's train and run on its val and on test. `threshold_perc: 99` suits `eval-coverage`'s
   default `info: 2.0`.
-- `class-sufficiency` and `untrained-classes` take train's `label-health` and the evaluation splits' as one list, val
-  and test together, which the preset's outputs do not make. To run them, bind the parts as sources, with a list
-  input, as their
-  [Check Catalog](../reference/checks.md#class-sufficiency) examples do. `pairs: true` then runs one `duplicates` step
-  over every pair of that list, as the [`leakage`](../reference/checks.md#leakage) example does.
+- `class-sufficiency` and `untrained-classes` read train's `label-health` on `input` and the evaluation splits' on
+  `evals` as one list, val and test together, which the preset's outputs do not make. To run them, bind the parts as
+  sources, with a list input, as their [Check Catalog](../reference/checks.md#class-sufficiency) examples do.
+  `pairs: true` then runs one `duplicates` step over every pair of that list, as the
+  [`leakage`](../reference/checks.md#leakage) example does.
 
 ## See also
 

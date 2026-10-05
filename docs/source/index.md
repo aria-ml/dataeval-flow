@@ -62,7 +62,7 @@ reproducible orchestration layer with native MAITE interoperability.
 | Profile dataset quality across splits | `data-analysis`, the one workflow type that is not a preset; see its [tutorial](notebooks/data_analysis.py) | Statistical summaries and quality metrics |
 | Check labels against a declared ontology | [`label-space`](reference/presets.md#label-space) | Leaf coverage, conformance, alignment and structure findings |
 | Find gaps in dataset coverage before training | [`data-coverage`](reference/presets.md#data-coverage) | Class and metadata gaps, embedding blind spots, what to acquire per class |
-| Build stratified or grouped train/val/test splits | [`data-splitting`](reference/presets.md#data-splitting) | Stratified or random splits, with their balance and coverage judged |
+| Build stratified or grouped train/val/test splits | [`data-splitting`](reference/presets.md#data-splitting) | Train, val and test splits, stratified or grouped, or k folds, with their balance and coverage judged |
 | Monitor operational data for population drift | [`drift-monitoring`](reference/presets.md#drift-monitoring) | Per-batch drift flags and p-values |
 | Flag anomalous individual samples | [`ood-detection`](reference/presets.md#ood-detection) | Per-sample out-of-distribution scores |
 | Rank abundant/unlabeled data for labeling | [`data-prioritization`](reference/presets.md#data-prioritization) | Ranked sample ordering |
