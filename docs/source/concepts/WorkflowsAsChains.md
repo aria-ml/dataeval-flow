@@ -214,8 +214,10 @@ task's `extractor:`, or from a step's own `extractor:`, which overrides the task
 ## Failures
 
 A step ends `ok`, `failed` or `skipped`. A failed step skips every step that reads it, directly or through other
-steps, and the reason names what failed: "needs `clean`, which failed". Steps that do not depend on it still run. In a
-list, each element has its own status, and a failed element skips only the elements that read it.
+steps, and the reason names what failed and why: "needs `clean`, which failed: ValueError: …". A step that reads a
+skipped step carries that step's reason on: "needs `merged`, which was skipped: needs `clean`, which failed: …". Steps
+that do not depend on it still run. In a list, each element has its own status, and a failed element skips only the
+elements that read it.
 
 `optional: true` records a step's failure as a skip that carries the error, and the task does not fail because of it.
 The steps that read it are still skipped.

@@ -104,7 +104,11 @@ banner and above its configuration:
                              `allow: lossy` to accept it, or settle classes with
                              `class_remap:`.
 
-  merged            skipped  needs `aerial_conformed`, which failed
+  merged            skipped  needs `aerial_conformed`, which failed: ValueError:
+                             The alignment is lossy, beyond `allow: lossless`:
+                             car, truck collapse onto Vehicle. Set `allow:
+                             lossy` to accept it, or settle classes with
+                             `class_remap:`.
 ```
 
 The note is too long for its column, so the table wraps its cells and leaves a blank line between rows.
@@ -123,7 +127,9 @@ its type's title and its name:
 ================================================================================
   MERGE · MERGED                                                         skipped
 ================================================================================
-  Skipped: needs `aerial_conformed`, which failed
+  Skipped: needs `aerial_conformed`, which failed: ValueError: The alignment is
+  lossy, beyond `allow: lossless`: car, truck collapse onto Vehicle. Set `allow:
+  lossy` to accept it, or settle classes with `class_remap:`.
 ```
 
 `drone_2025` names `car` and `truck`, and both align to `Vehicle`. Merging them loses a distinction, so `conform`

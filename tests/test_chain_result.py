@@ -70,7 +70,7 @@ def test_the_json_keys_each_step_by_name_with_what_it_made() -> None:
     assert payload["steps"]["dupes"]["output"]["shape"] == "table"
     assert payload["steps"]["dupes"]["dataeval"]["version"]
     assert payload["steps"]["boom"]["errors"] == ["RuntimeError: boom on few"]
-    assert payload["steps"]["after"]["reason"] == "needs `boom`, which failed"
+    assert payload["steps"]["after"]["reason"] == "needs `boom`, which failed: RuntimeError: boom on few"
     assert [record["name"] for record in payload["metadata"]["lineage"]] == ["a", "few"]
     assert payload["health"]["failed_steps"] == ["boom"]
     assert payload["findings"] == []

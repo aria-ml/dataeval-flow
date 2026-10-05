@@ -58,7 +58,7 @@ def test_an_optional_step_with_no_extractor_is_skipped_with_the_reason() -> None
 
 def test_a_transform_reading_it_is_skipped_with_it() -> None:
     record = _run(_config(optional=True)).steps["kept"]
-    assert (record.status, record.reason) == ("skipped", "needs `outliers`, which was skipped")
+    assert (record.status, record.reason) == ("skipped", "needs `outliers`, which was skipped: requires an extractor")
 
 
 def test_a_check_reading_it_is_not_assessed() -> None:

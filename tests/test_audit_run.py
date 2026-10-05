@@ -123,7 +123,8 @@ def test_an_audit_over_data_with_no_factors_still_gives_a_verdict() -> None:
     shortcut = _section(_top(result), "Could the model learn a shortcut?")
     assert shortcut.brief == "not assessed: no factors found in provided metadata"
     advice = "Name a metadata policy, or add metadata factors, to assess these checks."
-    assert f"{advice} Not assessed: Shortcut Risk (shortcut-risk)." in _next_steps(result)
+    gaps = "Factor Coverage Gaps (factor-coverage-gaps)"
+    assert f"{advice} Not assessed: Shortcut Risk (shortcut-risk), {gaps}." in _next_steps(result)
 
 
 def test_two_splits_sharing_an_image_are_not_ready() -> None:
