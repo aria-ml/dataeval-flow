@@ -16,7 +16,7 @@ from dataeval_flow.workflows._base import Finding
 
 
 class ImageDuplicatesConfig(CheckConfig):
-    """A `image-duplicates` step's input, and the shares of a Dataset that may be exact and near duplicates."""
+    """An `image-duplicates` step's input, and the shares of a Dataset that may be exact and near duplicates."""
 
     input: str = Field(description="A `duplicates` Output.")
     exact: float | None = Field(

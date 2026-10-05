@@ -152,7 +152,7 @@ class ClassCoverageConfig(CheckConfig):
 
 
 class ClassCoverageCheck(Check[ClassCoverageConfig]):
-    """``class-coverage``: legacy data-coverage's Class Coverage finding. Warns where an assessable class is
+    """``class-coverage``: legacy data-coverage's Embedding Coverage finding. Warns where an assessable class is
     clustered, one-dimensional or duplicate-padded; informs where any item is uncovered. The uncovered rate itself is
     `uncovered-items`'s (coverage spec §6.2)."""
 

@@ -1,4 +1,4 @@
-"""The `factor-coverage-gaps` check: legacy data-coverage's Factor Coverage Gaps finding (coverage spec §6.2)."""
+"""The `factor-coverage-gaps` check: legacy data-coverage's Metadata Coverage Gaps finding (coverage spec §6.2)."""
 
 __all__ = ["FactorCoverageGapsCheck", "FactorCoverageGapsConfig"]
 

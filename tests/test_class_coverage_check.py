@@ -1,4 +1,4 @@
-"""`class-coverage`: legacy data-coverage's Class Coverage finding, judged per class (coverage spec §6.2, §17)."""
+"""`class-coverage`: legacy data-coverage's Embedding Coverage finding, judged per class (coverage spec §6.2, §17)."""
 
 from types import SimpleNamespace
 from typing import Any

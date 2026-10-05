@@ -113,8 +113,8 @@ class DataCoverageRepresentationSettings(BaseModel):
 
 
 class DataCoverageClassImbalanceSettings(BaseModel):
-    """The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset: the schema
-    gives data-splitting's limits the short name."""
+    """The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset, so it
+    reaches the schema `$defs` apart from data-splitting's and data-cleaning's limits."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 

@@ -726,7 +726,7 @@
       "additionalProperties": false,
       "properties": {
         "input": {
-          "description": "A `outliers-by-class` Output.",
+          "description": "An `outliers-by-class` Output.",
           "title": "Input",
           "type": "string"
         },
@@ -4185,7 +4185,7 @@
     },
     "DataCoverageClassImbalanceSettings": {
       "additionalProperties": false,
-      "description": "The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset: the schema\ngives data-splitting's limits the short name.",
+      "description": "The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset, so it\nreaches the schema `$defs` apart from data-splitting's and data-cleaning's limits.",
       "properties": {
         "warning": {
           "anyOf": [

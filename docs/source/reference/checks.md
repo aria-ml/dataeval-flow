@@ -22,7 +22,7 @@ audit. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 | `image-outliers` | check | `input`: an `outliers` Output | Image Outliers |
 | `target-outliers` | check | `input`: an `outliers` Output run with `per_target: true`; `labels`: a `label-health` Output | Target Outliers |
 | `classwise-outliers` | check | `input`: a `outliers-by-class` Output | Classwise Outliers |
-| `image-duplicates` | check | `input`: a `duplicates` Output | Duplicates |
+| `image-duplicates` | check | `input`: a `duplicates` Output | Image Duplicates |
 | `class-imbalance` | check | `input`: a `label-health` Output | Class Imbalance |
 | `class-sufficiency` | check | `input`: a `label-health` Output over train; `evals`: the evaluation splits' | Class Sufficiency |
 | `untrained-classes` | check | `input`: a `label-health` Output over train; `evals`: the evaluation splits' | Untrained Classes |
@@ -34,7 +34,7 @@ audit. See [data-cleaning is this chain](#data-cleaning-is-this-chain).
 | `class-shortfall` | check | `input`: a `representation` Output with no ontology | Class Shortfall |
 | `leaf-coverage` | check | `input`: a `representation` Output against a declared ontology | Leaf Coverage |
 | `label-conformance` | check | `input`: a `label-reconciliation` Output | Label Conformance |
-| `mergeability` | check | `input`: a `label-alignment` Output | Label Alignment |
+| `mergeability` | check | `input`: a `label-alignment` Output | Mergeability |
 | `ontology-structure` | check | `input`: an `ontology-validation` Output | Ontology Structure |
 | `distribution-shift` | check | `input`: a `divergence` Output | Distribution Shift |
 | `shortcut-risk` | check | `input`: a `balance` Output | Shortcut Risk |
@@ -533,7 +533,7 @@ that judges it. `clean` removes each image and box with at least one outlier fla
 but the first of its group.
 
 Its report gives each finding a section, with the evaluators it judged below it: the flagged images and boxes under
-Image Outliers, and the duplicate groups under Duplicates. The class counts sit under the first finding that read
+Image Outliers, and the duplicate groups under Image Duplicates. The class counts sit under the first finding that read
 `label-health`: Target Outliers where any box was flagged, else Class Imbalance. A finding that read a step shown already
 names the finding it is under, as Classwise Outliers names Image Outliers for the outliers `outliers-by-class` counted.
 `clean`'s section follows, saying how many images it kept and what each plan named. On MILCO's reference campaigns,

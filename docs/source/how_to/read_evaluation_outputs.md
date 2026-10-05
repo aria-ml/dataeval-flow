@@ -110,13 +110,13 @@ MILCO's two campaigns, `reference` and `operational`:
     Image Outliers .................................... 11 images (4.2%)  [!!]
     Target Outliers .................................. 32 targets (6.5%)  [!!]
     Classwise Outliers ...... worst: NOMBO (7.5%), 2/2 classes over 3.0%  [!!]
-    Duplicates ........................ 0 exact (0.0%), 150 near (57.5%)  [!!]
+    Image Duplicates .................. 0 exact (0.0%), 150 near (57.5%)  [!!]
     Class Imbalance ........... 2 classes, 261 items, imbalance 1.8:1  [..]
   operational
     Image Outliers .................................... 22 images (2.4%)  [..]
     Target Outliers ................................... 6 targets (3.4%)  [!!]
     Classwise Outliers ...... worst: NOMBO (5.2%), 1/2 classes over 3.0%  [!!]
-    Duplicates ........................ 0 exact (0.0%), 787 near (86.6%)  [!!]
+    Image Duplicates .................. 0 exact (0.0%), 787 near (86.6%)  [!!]
     Class Imbalance ........... 2 classes, 909 items, imbalance 2.0:1  [..]
 
   Health: 7 warning(s) [!!] — review flagged findings
@@ -135,7 +135,7 @@ banner and configuration:
   Image Outliers ...................................... 11 images (4.2%)  [!!]
   Target Outliers .................................... 32 targets (6.5%)  [!!]
   Classwise Outliers ........ worst: NOMBO (7.5%), 2/2 classes over 3.0%  [!!]
-  Duplicates .......................... 0 exact (0.0%), 150 near (57.5%)  [!!]
+  Image Duplicates .................... 0 exact (0.0%), 150 near (57.5%)  [!!]
   Class Imbalance ............. 2 classes, 261 items, imbalance 1.8:1  [..]
 
   Health: 4 warning(s) [!!] — review flagged findings
@@ -231,8 +231,9 @@ holds everything the text report holds, laid out for reading on screen:
 - Histograms and sparklines are drawn as SVG, and the page follows the system's dark mode.
 
 A chain's report, `data-cleaning`'s among them, draws each finding as a card too, and holds in it the evidence the
-finding judged, each step headed *From* and the step's heading: data cleaning's Duplicates card holds the `duplicates`
-step's duplicate groups. A step two findings judged is shown in the first one's card, and the second names that card.
+finding judged, each step headed *From* and the step's heading: data cleaning's Image Duplicates card holds the
+`duplicates` step's duplicate groups. A step two findings judged is shown in the first one's card, and the second
+names that card.
 Findings grouped by key sit under a heading per key, each still a card. The chain's other steps, such as `clean`,
 follow as sections, then the Steps table and the configuration as panels. The Steps table gives each step's title,
 type and status, what it read, and why it made nothing where it did not. The short page, `to_html(detailed=False)`,

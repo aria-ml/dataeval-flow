@@ -45,7 +45,7 @@ class OutliersByClassOutput(BaseModel):
 
 
 class OutliersByClassConfig(CombineConfig):
-    """A `outliers-by-class` step's inputs: the Dataset, and the Outliers Output computed on it."""
+    """An `outliers-by-class` step's inputs: the Dataset, and the Outliers Output computed on it."""
 
     input: str = Field(description="The Dataset the outliers were found in; its labels name each item's class.")
     outliers: str = Field(

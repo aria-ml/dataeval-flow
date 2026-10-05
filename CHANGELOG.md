@@ -200,6 +200,10 @@
 
 ### Changed
 
+- The findings that data-cleaning and data-coverage shipped are retitled, so anything that matches a title must
+  follow: "Duplicates" is "Image Duplicates"; "Label Distribution", and "Label/Directory_Name Distribution" on an
+  ImageFolder source, are "Class Imbalance"; "Embedding Coverage" is "Class Coverage"; "Metadata Coverage Gaps" is
+  "Factor Coverage Gaps"; "Label Space Coverage" is "Leaf Coverage"; and "Class Balance Worklist" is "Class Shortfall"
 - Names follow one rule per kind (see Naming conventions): a step type and its title name one thing, as
   `class-imbalance` and "Class Imbalance"; checks are named for what they judge (`image-outliers`);
   a check's one bound is `warning`; a preset's settings for a step sit under that step's type in the
@@ -281,19 +285,18 @@
   `drift-domain-classifier`, `drift-kneighbors`, `drift-mmd`, `drift-univariate`, `drift-wasserstein`,
   `ood-domain-classifier` and `ood-kneighbors` (were `shift.*`)
 - `data-cleaning` is a preset: its evaluators find outliers, duplicates and label counts, and its checks judge them
-  against `checks`, keyed by check type. It returns a `ChainResult`, whose `steps` and `findings` replace `raw` and `report`,
-  and `run()` on a `DataCleaningConfig` is typed to `ChainResult`. Its steps are named in kebab case, as ids are:
-  `outliers`, `label-health`, `outliers-by-class`, `duplicates`, `image-outliers`, `target-outliers`,
+  against `checks`, keyed by check type. It returns a `ChainResult`, whose `steps` and `findings` replace `raw` and
+  `report`, and `run()` on a `DataCleaningConfig` is typed to `ChainResult`. Its steps are named in kebab case, as ids
+  are: `outliers`, `label-health`, `outliers-by-class`, `duplicates`, `image-outliers`, `target-outliers`,
   `classwise-outliers`, `image-duplicates`, `class-imbalance` and `clean`. Legacy `health_thresholds` is refused:
-  `image_outliers`, `target_outliers` and
-  `classwise_outliers` are `checks.image-outliers.warning`, `checks.target-outliers.warning` and
-  `checks.classwise-outliers.warning`; `exact_duplicates` and `near_duplicates` are `checks.image-duplicates.exact` and
-  `.near`; and `class_label_imbalance` is `checks.class-imbalance.warning`. The `outlier_*` and `duplicate_*` settings
-  are `outliers:` and `duplicates:` blocks, spelled as the `outliers` and `duplicates` steps spell them: `outlier_method`
-  and `outlier_threshold` are `outliers.outlier_threshold` (`zscore`, or `[zscore, 3.0]`), `outlier_flags` is
-  `outliers.flags`, `outlier_cluster_threshold`, `outlier_cluster_algorithm` and `outlier_n_clusters` are
-  `outliers.cluster_threshold`, `.cluster_algorithm` and `.n_clusters`, `duplicate_flags` is `duplicates.flags`,
-  `duplicate_merge_near` is `duplicates.merge_near_duplicates`, and `duplicate_cluster_sensitivity`,
+  `image_outliers`, `target_outliers` and `classwise_outliers` are `checks.image-outliers.warning`,
+  `checks.target-outliers.warning` and `checks.classwise-outliers.warning`; `exact_duplicates` and `near_duplicates`
+  are `checks.image-duplicates.exact` and `.near`; and `class_label_imbalance` is `checks.class-imbalance.warning`. The
+  `outlier_*` and `duplicate_*` settings are `outliers:` and `duplicates:` blocks, spelled as the `outliers` and
+  `duplicates` steps spell them: `outlier_method` and `outlier_threshold` are `outliers.outlier_threshold` (`zscore`, or
+  `[zscore, 3.0]`), `outlier_flags` is `outliers.flags`, `outlier_cluster_threshold`, `outlier_cluster_algorithm` and
+  `outlier_n_clusters` are `outliers.cluster_threshold`, `.cluster_algorithm` and `.n_clusters`, `duplicate_flags` is
+  `duplicates.flags`, `duplicate_merge_near` is `duplicates.merge_near_duplicates`, and `duplicate_cluster_sensitivity`,
   `duplicate_cluster_algorithm` and `duplicate_n_clusters` are `duplicates.cluster_sensitivity`, `.cluster_algorithm`
   and `.n_clusters`
 - `data-prioritization` is a preset: `cleaning:` runs as `outliers`, `duplicates` and `remove` steps on the reference
@@ -318,7 +321,8 @@
     `type: drift-univariate|drift-mmd|drift-kneighbors|drift-domain-classifier`, and the univariate `test` is `method`
   - a detector's `classwise: true` is its name in `classwise: [...]`
   - `any_drift_is_warning` and `classwise_any_drift_is_warning` are `checks.drift.warn_on_drift`;
-    `chunk_drift_pct_warning` is `chunk_percent`, and `consecutive_chunks_warning` is `consecutive_chunks`
+    `chunk_drift_pct_warning` is `chunk_percent`, and `consecutive_chunks_warning: N` is
+    `consecutive_chunks: N-1`, since legacy warned at N drifted chunks in a row and this warns past the bound
   - `chunking.threshold_multiplier: k` is `chunking.threshold: [zscore, k]`. Legacy chunked every detector with a
     z-score threshold of 3, while an unset `threshold` now uses DataEval's default for the detector, a constant AUROC
     band for `drift-domain-classifier`, so `threshold: [zscore, 3.0]` restores legacy's judgment
@@ -396,7 +400,7 @@
   the embedding steps are skipped, and their findings say "not assessed". It returns a `ChainResult`, whose numbers
   are each step's output in `result.steps`, such as `result.steps["coverage"].output`. Metadata Distribution, balance
   and diversity are report sections, where Metadata Distribution was a finding. Under `naive` coverage, legacy's
-  Class Coverage finding is two, Class Coverage and Uncovered Items; under `adaptive` the uncovered rate is not
+  Embedding Coverage finding is two, Class Coverage and Uncovered Items; under `adaptive` the uncovered rate is not
   judged. Naive coverage that overflows is skipped, where legacy re-ran it as adaptive. On detection data, coverage's
   uncovered items index the `crops` Dataset, one item per box, where legacy named each one's image and box. It no
   longer judges an ontology: a `label-space` entry on the same source does, and a data-coverage run on a conformed
@@ -421,13 +425,15 @@
     are refused: name a policy under `metadata:`
   - `value_range` is refused: set it on the dataset. `stats` is refused, since no step of data-coverage reads statistics
   - in `health_thresholds`, which is now `checks`, `class_imbalance_ratio` is `class-imbalance.warning`, and
-    legacy's fixed band at 2.0 is `class-imbalance.info`; `gap_count` is `factor-coverage-gaps.warning`;
+    legacy's fixed band at 2.0 is `class-imbalance.info`; `gap_count: N` is
+    `factor-coverage-gaps.warning: N-1`, since legacy warned at N gaps and this warns past the bound;
     `min_dispersion`, `min_isotropy` and `max_near_duplicate_fraction` are `class-coverage.dispersion`,
-    `.isotropy` and `.near_duplicates`; `uncovered_rate` is `uncovered-items.warning`; and `completeness_score` is `dimensional-completeness.warning`,
-    and legacy's fixed band at 0.8 is `dimensional-completeness.info`. An unset `info` follows `warning` as
-    legacy's band did, so `warning: 1.5` or `warning: 0.9` alone loads; two written bounds that cross are refused
-  - an ImageFolder source's label finding is titled "Class Imbalance", where it was "Label
-    Distribution"
+    `.isotropy` and `.near_duplicates`; `uncovered_rate` is `uncovered-items.warning`; and `completeness_score` is
+    `dimensional-completeness.warning`, and legacy's fixed band at 0.8 is `dimensional-completeness.info`. An unset
+    `info` follows `warning` as legacy's band did, so `class-imbalance.warning: 1.5` or
+    `dimensional-completeness.warning: 0.9` alone loads; two written bounds that cross are refused
+  - the label finding of every source is titled "Class Imbalance", where it was "Label Distribution", or
+    "Label/Directory_Name Distribution" on an ImageFolder source
   - `health_thresholds.leaf_coverage`, `dark_branch_count` and `unmatched_class_count` are `label-space`'s
     `checks.leaf-coverage.coverage`, `leaf-coverage.empty_branches` and `label-conformance.warning`
   - `output.raw` and `metadata.has_extractor` are gone: `coverage`, `completeness` and `metadata_gaps` are the

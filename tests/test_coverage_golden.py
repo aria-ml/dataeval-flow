@@ -12,7 +12,7 @@ Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), e
   finding: `balance` is skipped there, and the gaps read it.
 - **Gaps of equal deficit come in value order,** where legacy's order among them was Polars' chance, so the gaps are
   compared with those ties in one order.
-- **Legacy's one "Class Coverage" finding is two under `naive`:** `class-coverage`'s, with legacy's brief and
+- **Legacy's one "Embedding Coverage" finding is two under `naive`:** `class-coverage`'s, with legacy's brief and
   description, and `uncovered-items`'s. Legacy's severity is the worse of the two. Under `adaptive` the uncovered rate
   is not judged, so legacy's note saying so goes.
 - **Naive coverage that overflows is skipped** with "failed: OverflowError", where legacy re-ran it as adaptive; the

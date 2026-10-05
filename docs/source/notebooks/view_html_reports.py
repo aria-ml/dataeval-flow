@@ -179,7 +179,7 @@ show(clean.to_html())
 #   per finding, badged with its severity, so the cards read as the report's summary. Each card holds the steps its
 #   finding judged, each headed *From* and the step's title, with its name where that differs from its type:
 #   *From Duplicates*. The Image Outliers card lists the `outliers` step's flagged images and boxes, and the
-#   Duplicates card the `duplicates` step's duplicate groups. A finding that judged a step another card already holds
+#   Image Duplicates card the `duplicates` step's duplicate groups. A finding that judged a step another card already holds
 #   names that card. The `clean` section after the cards says how many images it kept, and what each plan named.
 # - **Reference.** The Steps table and the configuration close the report as panels, closed until opened. The Steps
 #   table gives each step's title, type and status, what it read, and why it made nothing where it did not.

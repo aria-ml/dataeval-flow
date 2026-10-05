@@ -3,7 +3,7 @@
 
 Deliberate differences, each with its reason:
 
-- **The metadata insights are sections, not findings.** Legacy's "Factor Predictors" and "OOD Sample Metadata
+- **The metadata insights are sections, not findings.** Legacy's "OOD Factor Predictors" and "OOD Sample Metadata
   Deviations" were `info` findings that judged nothing. The `factor-` steps' sections show them.
 - **A detector's finding is titled by its evaluator entry,** "OOD (K-Neighbors)", not legacy's display name, which
   listed non-default settings ("K-Neighbors (k=5, distance_metric=euclidean)").

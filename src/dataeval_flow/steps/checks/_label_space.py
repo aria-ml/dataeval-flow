@@ -1,5 +1,5 @@
-"""The label-space checks: legacy data-coverage's Leaf Coverage, Label Conformance and Ontology Structure
-findings, as steps (coverage spec §3.4)."""
+"""The label-space checks: legacy data-coverage's Label Space Coverage (now Leaf Coverage), Label Conformance and
+Ontology Structure findings, as steps (coverage spec §3.4)."""
 
 __all__ = [
     "ClassShortfallCheck",
@@ -280,7 +280,7 @@ class ClassShortfallConfig(CheckConfig):
 
 
 class ClassShortfallCheck(Check[ClassShortfallConfig]):
-    """``class-shortfall``: legacy data-coverage's Class Shortfall, the classes short of an even spread over
+    """``class-shortfall``: legacy data-coverage's Class Balance Worklist, the classes short of an even spread over
     the classes the dataset declares (coverage spec §6.2)."""
 
     name: ClassVar[str] = "class-shortfall"

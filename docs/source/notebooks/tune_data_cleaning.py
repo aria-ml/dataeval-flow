@@ -188,7 +188,7 @@ print(result.report(detailed=False, width=160))
 # ### Reading the table
 #
 # Every run warns, with 3 warnings each and 27 in all: Image Outliers, Classwise Outliers
-# and Duplicates are past their thresholds in every run, and Class Imbalance is `info`.
+# and Image Duplicates are past their thresholds in every run, and Class Imbalance is `info`.
 #
 # **`outliers.outlier_threshold` changes the outlier findings.** The adaptive method flags 157
 # images (15.7%) at 2.5, 112 (11.2%) at 3.5 and 96 (9.6%) at 4.5. The count falls by 45
@@ -222,7 +222,7 @@ for finding in run.result.findings:
 # %% [markdown]
 # Its findings are row 4 of the table. Its steps hold each step's output, as a lone
 # `data-cleaning` run's do. The `duplicates` step's output is DataEval's duplicates output, and
-# its `data()` lists the groups behind the Duplicates finding, with the methods that found
+# its `data()` lists the groups behind the Image Duplicates finding, with the methods that found
 # each:
 
 # %%

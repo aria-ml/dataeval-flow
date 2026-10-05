@@ -1,5 +1,5 @@
 """`factor-gaps` and `factor-coverage-gaps`: class-factor-value combinations under-represented among factors balance
-ties to the class, as legacy data-coverage's Factor Coverage Gaps (coverage spec §6.1, §6.2)."""
+ties to the class, as legacy data-coverage's Metadata Coverage Gaps (coverage spec §6.1, §6.2)."""
 
 from types import SimpleNamespace
 from typing import Any

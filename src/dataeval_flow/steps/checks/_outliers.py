@@ -115,7 +115,7 @@ class TargetOutliersCheck(Check[TargetOutliersConfig]):
 class ClasswiseOutliersConfig(CheckConfig):
     """A `classwise-outliers` step's input, and the share of a class that may be outliers."""
 
-    input: str = Field(description="A `outliers-by-class` Output.")
+    input: str = Field(description="An `outliers-by-class` Output.")
     warning: float | None = Field(
         default=3.0,
         ge=0.0,

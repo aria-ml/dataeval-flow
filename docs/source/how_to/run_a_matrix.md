@@ -55,23 +55,23 @@ The console prints the matrix's report. Below its banner, on a 1,000-image sampl
 ```text
   Health: 9 warnings [!!] across 3 runs — review flagged findings
 
-  #  outliers.outlier_threshold  Health  Image Outliers  Classwise Outliers  Duplicates  Class Imbalance
-  -  --------------------------  ------  --------------  ------------------  ----------  ------------------
-  1  [adaptive, 2.5]         [!!]    [!!] 157        [!!] worst: 2S19    [!!] 4      [..] 24 classes,
-                                         images (15.7%)  MSTA (25.0%),       exact       1000 items,
-                                                         23/24 classes over  (0.4%), 2   imbalance 3.0:1
+  #  outliers.outlier_threshold  Health  Image Outliers  Classwise Outliers  Image Duplicates  Class Imbalance
+  -  --------------------------  ------  --------------  ------------------  ----------------  ------------------
+  1  [adaptive, 2.5]         [!!]    [!!] 157        [!!] worst: 2S19    [!!] 4            [..] 24 classes,
+                                         images (15.7%)  MSTA (25.0%),       exact             1000 items,
+                                                         23/24 classes over  (0.4%), 2         imbalance 3.0:1
                                                          3.0%                near
                                                                              (0.2%)
 
-  2  [adaptive, 3.5]         [!!]    [!!] 112        [!!] worst:         [!!] 4      [..] 24 classes,
-                                         images (11.2%)  Tornado (20.4%),    exact       1000 items,
-                                                         23/24 classes over  (0.4%), 2   imbalance 3.0:1
+  2  [adaptive, 3.5]         [!!]    [!!] 112        [!!] worst:         [!!] 4            [..] 24 classes,
+                                         images (11.2%)  Tornado (20.4%),    exact             1000 items,
+                                                         23/24 classes over  (0.4%), 2         imbalance 3.0:1
                                                          3.0%                near
                                                                              (0.2%)
 
-  3  [adaptive, 4.5]         [!!]    [!!] 96 images  [!!] worst:         [!!] 4      [..] 24 classes,
-                                         (9.6%)          Tornado (16.3%),    exact       1000 items,
-                                                         23/24 classes over  (0.4%), 2   imbalance 3.0:1
+  3  [adaptive, 4.5]         [!!]    [!!] 96 images  [!!] worst:         [!!] 4            [..] 24 classes,
+                                         (9.6%)          Tornado (16.3%),    exact             1000 items,
+                                                         23/24 classes over  (0.4%), 2         imbalance 3.0:1
                                                          3.0%                near
                                                                              (0.2%)
 ```
