@@ -81,7 +81,7 @@ requirements:
     test_cases: ["9-1"]
 
   FR-10:
-    name: Data Analysis Workflow
+    name: Audit Workflow
     origin: DR-1.5
     origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions
     file: FR-10-analysis-workflow.md
@@ -364,17 +364,17 @@ test_cases:
       - result.report() returns a non-empty string
 
   "10-1":
-    name: Data Analysis Workflow & Type Safety
+    name: Audit Workflow & Type Safety
     test_type: Core Functionality
     business_case: >-
-      Verify that DataAnalysisWorkflow executes end-to-end on synthetic
-      data and that the package ships PEP 561 typing infrastructure.
+      Verify that the audit preset runs end-to-end on synthetic train and test
+      splits and gives a verdict, and that the package ships PEP 561 typing infrastructure.
     initial_conditions:
       - dataeval-flow installed
-      - Synthetic dataset configured
+      - Two synthetic datasets (train, test) and FlattenExtractor configured
     expected_results:
-      - DataAnalysisWorkflow.run returns success=True
-      - result.output exposes analysis outputs (bias, quality, etc.)
+      - The audit task returns a ChainResult with success=True
+      - result.verdict holds one of not-ready, ready-with-caveats or ready, and result.findings its checks' findings
       - py.typed marker is present in the installed package
       - dataeval_flow.__all__ is defined and non-empty
 

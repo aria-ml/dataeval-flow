@@ -1,6 +1,6 @@
 """The quality evaluators' report tables: flagged items with their flags, each metric's limits, and duplicate groups.
 
-data-cleaning and data-analysis report with them too.
+data-cleaning reports with them too.
 """
 
 __all__ = [

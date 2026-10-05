@@ -557,7 +557,7 @@ class TestEnvelopeRecordsInjection:
         assert record["bin_expansion"] == {}
 
     def test_multi_split_records_expansion_and_injection_per_split(self):
-        """`data-analysis` binds per split; each split's record must be its own, not shared."""
+        """A record bound per split keeps each split's own expansion and injection, not a shared one."""
         from dataeval_flow._metadata import build_metadata
         from tests.test_metadata_injection import _ODDataset
 

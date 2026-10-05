@@ -20,7 +20,6 @@ from tests.example_plugin import BrightnessConfig, CountConfig, CountResult, Cou
 
 BUILTIN_WORKFLOWS = [
     "audit",
-    "data-analysis",
     "data-cleaning",
     "data-coverage",
     "data-prioritization",

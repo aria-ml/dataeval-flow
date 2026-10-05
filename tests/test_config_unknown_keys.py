@@ -19,7 +19,7 @@ from dataeval_flow.config._schemas import (
 )
 from dataeval_flow.config._schemas._preprocessor import PreprocessingStep
 from dataeval_flow.config._schemas._view import ViewOperation
-from dataeval_flow.workflows.data_analysis._config import DataAnalysisHealthThresholds
+from dataeval_flow.workflows.audit import AuditChecks
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningChecks
 from dataeval_flow.workflows.data_coverage._config import (
@@ -89,7 +89,7 @@ _NESTED = [
     pytest.param(DatasetProtocolConfig, {"name": "d", "format": "maite", "dataset": []}, id="maite"),
     pytest.param(DataCoverageConfig, {}, id="workflow"),
     pytest.param(MetadataTriageConfig, {}, id="another-workflow"),
-    pytest.param(DataAnalysisHealthThresholds, {}, id="analysis-thresholds"),
+    pytest.param(AuditChecks, {}, id="audit-thresholds"),
     pytest.param(DataCleaningChecks, {}, id="cleaning-thresholds"),
     pytest.param(DataCoverageChecks, {}, id="coverage-thresholds"),
     pytest.param(DataCoverageClassImbalanceSettings, {}, id="coverage-class-imbalance"),

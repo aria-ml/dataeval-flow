@@ -138,11 +138,11 @@ class TestExampleCleaningWorkflowCanReadItsOwnPolicy:
 
 
 @pytest.mark.required
-class TestExamplePolicyAlsoSatisfiesADataAnalysisStyleConsumer:
-    """`data-analysis` is not in the example, but the guide's advice covers it.
+class TestExamplePolicyAlsoSatisfiesAnAuditStyleConsumer:
+    """`audit` is not in the example, but the guide's advice covers it.
 
-    `measure_band_groups.md` says a policy used by `data-analysis` must give `~` the full
-    `hash` family, because analysis always runs duplicate detection over the whole image.
+    `measure_band_groups.md` says a policy used by `audit` must give `~` the full
+    `hash` family, because an audit always runs duplicate detection over the whole image.
     This test checks that claim against the shipped policy.
     """
 
@@ -158,7 +158,7 @@ class TestExamplePolicyAlsoSatisfiesADataAnalysisStyleConsumer:
         assert resolved is not None
 
         # Duplicate detection always reads the whole image, unconditionally, on
-        # `data-analysis`; there is no field to name in the error, hence the override.
+        # `audit`; there is no field to name in the error, hence the override.
         check_consumers(
             resolved,
             outlier_flags=ImageStats.NONE,

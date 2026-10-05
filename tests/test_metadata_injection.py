@@ -1,14 +1,22 @@
 """Family resolution and bin expansion — the pure half of intrinsic factor injection."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+from dataeval.core import StatsResult
 from dataeval.flags import ImageStats
 from dataeval.protocols import DatasetMetadata
 
-from dataeval_flow._metadata import build_metadata, expand_declared_bins, resolve_families, stat_names_for
+from dataeval_flow._metadata import (
+    build_metadata,
+    expand_declared_bins,
+    inject_intrinsic_factors,
+    resolve_families,
+    stat_names_for,
+)
 from dataeval_flow._policy import ResolvedPolicy
+from dataeval_flow.workflows._common import compute_metadata_summary
 
 
 class TestResolvingFamilies:
@@ -331,3 +339,191 @@ class TestBuildMetadataInjects:
         with patch("dataeval_flow._cache.get_or_compute_stats", wraps=real_get_or_compute_stats) as mock_stats:
             build_metadata(_ICDataset(), policy)
         assert mock_stats.call_args.kwargs["per_target"] is False
+
+
+def _make_cr(stats: dict) -> StatsResult:
+    return StatsResult(stats=stats)  # type: ignore[call-overload]
+
+
+class TestInjectImageStats:
+    """Placement is delegated to ``add_factors(source_index=...)``.
+
+    What this layer still owns is *which* arrays are handed over, so the unit
+    tests cover the filter and the round-trip test covers the placement.
+    """
+
+    def test_passes_source_index_not_level(self):
+        metadata = MagicMock()
+        calc_result = _make_cr(stats={"brightness": np.array([1.0, 2.0, 3.0])})
+        calc_result["source_index"] = ["si0", "si1", "si2"]  # type: ignore[typeddict-unknown-key]
+
+        inject_intrinsic_factors(metadata, calc_result)
+
+        metadata.add_factors.assert_called_once()
+        _, kwargs = metadata.add_factors.call_args
+        assert kwargs["source_index"] == ["si0", "si1", "si2"]
+        # `level` and `source_index` are mutually exclusive in dataeval 1.1.
+        assert "level" not in kwargs
+
+    def test_drops_non_numeric_hashes(self):
+        """Hashes arrive with the stats result and must not become factors.
+
+        They are near-unique per image; digitizing them yields one category per
+        item — a factor that correlates with everything and means nothing.
+        """
+        metadata = MagicMock()
+        calc_result = _make_cr(
+            stats={
+                "brightness": np.array([1.0, 2.0]),
+                "xxhash": np.array(["abc", "def"]),
+            }
+        )
+        calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
+
+        inject_intrinsic_factors(metadata, calc_result)
+
+        factors, _ = metadata.add_factors.call_args
+        assert set(factors[0]) == {"brightness"}
+
+    def test_forwards_multidimensional_to_be_recorded(self):
+        """Vector stats pass through unfiltered so ``add_factors`` records them
+        in ``dropped_factors``, where the metadata summary can report them.
+        """
+        metadata = MagicMock()
+        calc_result = _make_cr(stats={"histogram": np.array([[1, 2], [3, 4]])})
+        calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
+
+        inject_intrinsic_factors(metadata, calc_result)
+
+        factors, _ = metadata.add_factors.call_args
+        assert "histogram" in factors[0]
+
+    def test_keeps_boolean_factors(self):
+        """Bool digitizes to a two-value category, which is usable."""
+        metadata = MagicMock()
+        calc_result = _make_cr(stats={"invalid_box": np.array([True, False])})
+        calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
+
+        inject_intrinsic_factors(metadata, calc_result)
+
+        factors, _ = metadata.add_factors.call_args
+        assert "invalid_box" in factors[0]
+
+    def test_no_usable_factors_skips(self):
+        metadata = MagicMock()
+        calc_result = _make_cr(stats={"xxhash": np.array(["a", "b"])})
+        calc_result["source_index"] = ["si0", "si1"]  # type: ignore[typeddict-unknown-key]
+
+        produced = inject_intrinsic_factors(metadata, calc_result)
+        metadata.add_factors.assert_not_called()
+        # The early return is unconditional here — no mock configuration needed
+        # to make this assertion meaningful.
+        assert produced == set()
+
+
+class TestInjectImageStatsRoundTrip:
+    """Against a real dataset and a real ``Metadata`` — no mocks."""
+
+    def test_od_stats_split_by_level(self):
+        from dataeval import Metadata
+        from dataeval.core import compute_stats
+        from dataeval.flags import ImageStats
+
+        dataset = _ODDataset(6)
+        metadata = Metadata(dataset)  # type: ignore[arg-type]  # a duck-typed target, not DatumMetadata
+        calc_result = compute_stats(
+            dataset,
+            stats=ImageStats.VISUAL_BRIGHTNESS,
+            per_image=True,
+            per_target=True,
+            normalize_pixel_values=False,
+        )
+
+        produced = inject_intrinsic_factors(metadata, calc_result)
+
+        # One factor per level, each named for the level it was measured at.
+        assert "unit_brightness" in metadata.factor_names
+        assert "instance_brightness" in metadata.factor_names
+        assert produced == {"unit_brightness", "instance_brightness"}
+
+        info = metadata.factor_info
+        assert info["unit_brightness"].level == "unit"
+        assert info["instance_brightness"].level == "instance"
+
+    def test_unit_factor_binned_over_images_not_detections(self):
+        """The level a factor is stored at is the level it is binned at.
+
+        Each image carries two boxes here, so binning a per-image factor over
+        the instance rows would score it on a doubled population.
+        """
+        from dataeval import Metadata
+        from dataeval.core import compute_stats
+        from dataeval.flags import ImageStats
+
+        dataset = _ODDataset(6)
+        metadata = Metadata(dataset)  # type: ignore[arg-type]  # a duck-typed target, not DatumMetadata
+        calc_result = compute_stats(
+            dataset,
+            stats=ImageStats.VISUAL_BRIGHTNESS,
+            per_image=True,
+            per_target=True,
+            normalize_pixel_values=False,
+        )
+        inject_intrinsic_factors(metadata, calc_result)
+
+        unit_rows = metadata.rows_at("unit")
+        instance_rows = metadata.rows_at("instance")
+
+        assert len(unit_rows) == 6
+        assert len(instance_rows) == 12
+        # The unit factor holds one value per image at its own level...
+        assert unit_rows["unit_brightness"].null_count() == 0
+        # ...and propagates down to every detection of that image.
+        assert instance_rows["unit_brightness"].null_count() == 0
+
+    def test_hashes_never_reach_factors(self):
+        from dataeval import Metadata
+        from dataeval.core import compute_stats
+        from dataeval.flags import ImageStats
+
+        dataset = _ODDataset(6)
+        metadata = Metadata(dataset)  # type: ignore[arg-type]  # a duck-typed target, not DatumMetadata
+        calc_result = compute_stats(
+            dataset,
+            stats=ImageStats.VISUAL_BRIGHTNESS | ImageStats.HASH,
+            per_image=True,
+            per_target=True,
+            normalize_pixel_values=False,
+        )
+
+        produced = inject_intrinsic_factors(metadata, calc_result)
+
+        assert not [n for n in metadata.factor_names if "hash" in n]
+        # The returned set is what the caller trusts to find the new columns —
+        # confirm no hash name is hiding in it either.
+        assert produced == {"unit_brightness", "instance_brightness"}
+
+    def test_vector_stats_reach_the_summary_as_dropped(self):
+        """End to end: a vector stat is recorded and surfaces in the summary."""
+        from dataeval import Metadata
+        from dataeval.core import compute_stats
+        from dataeval.flags import ImageStats
+
+        dataset = _ODDataset(6)
+        metadata = Metadata(dataset)  # type: ignore[arg-type]  # a duck-typed target, not DatumMetadata
+        calc_result = compute_stats(
+            dataset,
+            stats=ImageStats.DIMENSION_CENTER,
+            per_image=True,
+            per_target=True,
+            normalize_pixel_values=False,
+        )
+
+        produced = inject_intrinsic_factors(metadata, calc_result)
+
+        assert "center" in metadata.dropped_factors
+        summary = compute_metadata_summary(metadata)
+        assert summary["center"]["type"] == "dropped"
+        # Dropped, not added: nothing reached factor_names, so the returned
+        # set — which diffs factor_names before/after — is empty.
+        assert produced == set()

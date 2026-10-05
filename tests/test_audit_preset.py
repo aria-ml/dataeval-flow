@@ -17,6 +17,7 @@ from dataeval_flow.config import PipelineConfig
 from dataeval_flow.config._loader import load_config
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.steps._result import ChainMetadata, ChainOutput
+from dataeval_flow.workflows._registry import get_workflow, list_workflows
 from dataeval_flow.workflows.audit import AuditConfig, AuditWorkflow
 from dataeval_flow.workflows.audit._config import CHECKS_MOVED, MOVED
 from tests.chain_toys import chain_pipeline
@@ -231,6 +232,27 @@ def test_blocking_and_accepted_round_trip_through_load_and_save() -> None:
     assert result.success, result.errors
     recorded = result.metadata.resolved_config["workflow"]
     assert (recorded["blocking"], recorded["accepted"]) == (entry["blocking"], entry["accepted"])
+
+
+def test_a_data_analysis_entry_is_refused_naming_audit_and_each_moved_key() -> None:
+    pipeline = _pipeline({})
+    pipeline["workflows"] = [{"name": "w", "type": "data-analysis", "outlier_method": "zscore"}]
+    with pytest.raises(ValidationError) as caught:
+        PipelineConfig.model_validate(pipeline)
+    message = caught.value.errors()[0]["msg"].removeprefix("Value error, ")
+    assert message.startswith("`data-analysis` is now `audit`. ")
+    for key in [*MOVED, *(f"health_thresholds.{key}" for key in CHECKS_MOVED)]:
+        assert f"`{key}` → " in message
+    assert "`health_thresholds.image_outliers` → `checks.image-outliers.warning`" in message
+    assert "`health_thresholds` → `checks:`" in message
+    assert "`balance` → refused: `balance` always runs, and is skipped on metadata with no factors" in message
+    assert "`outlier_flags` → `outliers.flags`;" in message
+
+
+def test_data_analysis_is_no_workflow_type() -> None:
+    assert "data-analysis" not in {workflow.name for workflow in list_workflows()}
+    with pytest.raises(ValueError, match="Unknown workflow: 'data-analysis'"):
+        get_workflow("data-analysis")
 
 
 @pytest.mark.parametrize("suffix", [".json", ".yaml"])

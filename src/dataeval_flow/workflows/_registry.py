@@ -10,7 +10,6 @@ __all__ = ["WORKFLOWS", "get_workflow", "list_workflows"]
 
 _BUILTINS = {
     "audit": "dataeval_flow.workflows.audit._workflow:AuditWorkflow",
-    "data-analysis": "dataeval_flow.workflows.data_analysis._workflow:DataAnalysisWorkflow",
     "data-cleaning": "dataeval_flow.workflows.data_cleaning._workflow:DataCleaningWorkflow",
     "data-coverage": "dataeval_flow.workflows.data_coverage._workflow:DataCoverageWorkflow",
     "data-prioritization": "dataeval_flow.workflows.data_prioritization._workflow:DataPrioritizationWorkflow",

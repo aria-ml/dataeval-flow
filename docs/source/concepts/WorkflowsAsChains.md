@@ -176,12 +176,12 @@ pair, and it leaves one record saying so.
 
 ## Workflow types as presets
 
-A workflow type can be a **preset**: its settings expand to a chain of steps. `data-cleaning`, `data-prioritization`,
-`metadata-triage`, `drift-monitoring`, `ood-detection`, `data-splitting`, `label-space` and `data-coverage` are presets.
-Data-cleaning's evaluators find outliers and duplicates, its checks judge them against `checks`, and its
-`clean` step removes what they flagged. The [Preset Catalog](../reference/presets.md#data-cleaning)
-lists the chain. `data-analysis` is the one built-in workflow type that is not a preset: it runs as one step that makes
-its result, and its findings stay in that step, as does a plugin workflow type that is not a preset.
+A workflow type can be a **preset**: its settings expand to a chain of steps. Every built-in workflow type is a preset:
+`audit`, `data-cleaning`, `data-prioritization`, `metadata-triage`, `drift-monitoring`, `ood-detection`,
+`data-splitting`, `label-space` and `data-coverage`. Data-cleaning's evaluators find outliers and duplicates, its checks
+judge them against `checks`, and its `clean` step removes what they flagged. The
+[Preset Catalog](../reference/presets.md#data-cleaning) lists the chain. A plugin workflow type that is not a preset
+runs as one step that makes its result, and its findings stay in that step.
 
 Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of
 its chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the

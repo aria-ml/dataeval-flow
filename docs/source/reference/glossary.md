@@ -231,8 +231,8 @@ Preprocessor
 Preset
     A {term}`workflow<Workflow>` type whose settings expand to a chain of steps:
     evaluators, the combines that join their Outputs, the checks that judge what
-    they found, and the transforms that make Datasets. `data-cleaning` is one. See the
-    [Preset Catalog](presets.md) and
+    they found, and the transforms that make Datasets. Every built-in workflow
+    type, such as `data-cleaning`, is one. See the [Preset Catalog](presets.md) and
     [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md).
 
 Prioritization
@@ -319,7 +319,7 @@ View
 Workflow
     A {term}`chain<Chain>` of {term}`steps<Step>`: either a custom workflow, which
     you write, or a built-in workflow type, which expands to a chain. Every
-    built-in type but `data-analysis` is a {term}`preset<Preset>`. Each has its own
+    built-in type is a {term}`preset<Preset>`. Each has its own
     configuration schema, defaults, and {term}`caching<Caching>` contract.
 
 Workflow Configuration

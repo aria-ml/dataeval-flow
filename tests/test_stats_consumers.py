@@ -218,37 +218,24 @@ class TestDuplicateColumnsAreDeclared:
 
 
 @pytest.mark.required
-class TestAnalysisDuplicateColumnsAreDeclared:
-    """The analysis workflow's duplicate-side entry points restrict too.
+class TestCrossSplitDuplicateColumnsAreDeclared:
+    """Duplicates found across two splits restrict each split's statistics too.
 
-    `_assess_redundancy` restricts to `columns_for([None], ImageStats.HASH)`, already the
-    full hash family superset: the analysis workflow always asks for every hash family, and
-    there is no per-config `duplicate_flags` knob here. The restriction is a no-op for
-    `_assess_redundancy`'s own near/exact group counts. Nothing can widen a cache entry
-    past the ceiling it already requested, and `Duplicates.from_stats` only reads the five
-    hash columns by bare name. A cold/warm group-count comparison through
-    `_assess_redundancy` alone cannot fail at HEAD; the task report records the empirical
-    check.
-
-    `_assess_cross_redundancy` is where the defect is real: it combines two stats results
-    before detecting, and `dataeval`'s combine step refuses two results computed over
-    different statistics. Two splits share one dataset but not necessarily one cache
-    scope, so an unrelated consumer can widen one split's entry with a family the other
-    split's entry never got. The unrestricted call then raises instead of running.
-    Restricting both operands to the same declared set keeps them combinable regardless of
-    what else shares either scope.
+    audit's `duplicates-cross` step runs the `duplicates` evaluator over train and the
+    evaluation splits, so `find_duplicates` combines two stats results before detecting,
+    and `dataeval`'s combine step refuses two results computed over different statistics.
+    Two splits share one dataset but not necessarily one cache scope, so an unrelated
+    consumer can widen one split's entry with a family the other split's entry never got.
+    The unrestricted call then raises instead of running. Restricting each operand to the
+    same declared set keeps them combinable regardless of what else shares either scope.
 
     The two tests below cover one operand each: each widens only *one* split's scope, so
-    each is sensitive to a revert of exactly one of the two `restrict_columns` calls in
-    `_assess_cross_redundancy` and blind to a revert of the other. A test that widened both
-    splits together would not tell the two calls apart.
+    each fails when that split's statistics reach the combine unrestricted.
     """
 
     def _leakage(self, calc_a, calc_b):
-        from dataeval_flow.workflows.data_analysis._workflow import _assess_cross_redundancy
-
-        result = _assess_cross_redundancy(calc_a, calc_b, "train", "test")
-        return result.duplicate_leakage["exact_count"], result.duplicate_leakage["near_count"]
+        inputs = [EvaluatorInputs(source="train", stats=calc_a), EvaluatorInputs(source="test", stats=calc_b)]
+        return _duplicate_group_counts(find_duplicates(DuplicatesConfig(name="dupes"), inputs))
 
     def _calc_pair(self, dataset):
         """A fresh (calc_a, calc_b) pair, each computed under its own scope.
@@ -270,14 +257,14 @@ class TestAnalysisDuplicateColumnsAreDeclared:
         """The defect this fixes: combining two splits raises once their cache entries
         diverge on anything other than the hash columns `Duplicates.from_stats` reads.
 
-        Only `train`'s scope is widened here, so this is sensitive to a revert of the
-        `calc_a` restriction and blind to a revert of the `calc_b` one.
+        Only `train`'s scope is widened here, so this fails when train's statistics reach
+        the combine unrestricted.
         """
         cache, calc_a, calc_b = self._calc_pair(toy_images)
         baseline = self._leakage(calc_a, calc_b)
 
         with active_cache(cache, "train"):
-            # A consumer sharing train's scope asks for a family cross-redundancy never did.
+            # A consumer sharing train's scope asks for a family duplicate detection never did.
             widened = get_or_compute_stats(ResolvedStatsPolicy.of_flags(ImageStats.VISUAL), dataset=toy_images)
             calc_a_widened = get_or_compute_stats(ResolvedStatsPolicy.of_flags(ImageStats.HASH), dataset=toy_images)
 
@@ -285,14 +272,14 @@ class TestAnalysisDuplicateColumnsAreDeclared:
         assert self._leakage(calc_a_widened, calc_b) == baseline
 
     def test_widening_the_test_split_does_not_change_the_cross_split_result(self, toy_images):
-        """The symmetric case: only `test`'s scope is widened here, so this is sensitive to
-        a revert of the `calc_b` restriction and blind to a revert of the `calc_a` one.
+        """The symmetric case: only `test`'s scope is widened here, so this fails when
+        test's statistics reach the combine unrestricted.
         """
         cache, calc_a, calc_b = self._calc_pair(toy_images)
         baseline = self._leakage(calc_a, calc_b)
 
         with active_cache(cache, "test"):
-            # A consumer sharing test's scope asks for a family cross-redundancy never did.
+            # A consumer sharing test's scope asks for a family duplicate detection never did.
             widened = get_or_compute_stats(ResolvedStatsPolicy.of_flags(ImageStats.VISUAL), dataset=toy_images)
             calc_b_widened = get_or_compute_stats(ResolvedStatsPolicy.of_flags(ImageStats.HASH), dataset=toy_images)
 

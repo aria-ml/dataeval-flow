@@ -7,7 +7,6 @@ asked. Catching them at config time costs a message instead of an hour.
 """
 
 import json
-import warnings
 from pathlib import Path
 from typing import Any
 
@@ -645,46 +644,6 @@ class TestStatsPolicyInPolicyKey:
         assert json.loads(policy_key(self._policy()))["stats"]["background"] is False
 
 
-class TestDeprecatedIncludeImageStats:
-    """The old spelling keeps working for one minor version, and says so."""
-
-    @staticmethod
-    def _params(**overrides):
-        """The analysis params, where `include_image_stats` lives.
-
-        `MetadataConfigMixin` cannot carry it: pydantic refuses an undeclared attribute.
-        `DataAnalysisConfig` is a `MetadataConfigMixin`, so `resolve_policy` takes the
-        value unchanged.
-        """
-        from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
-
-        base = {"outlier_method": "adaptive", "outlier_flags": ["pixel"]}
-        base.update(overrides)
-        return DataAnalysisConfig(**base)
-
-    def test_true_contributes_visual_and_pixel(self):
-        with pytest.warns(DeprecationWarning, match="intrinsic_factors"):
-            resolved = resolve_policy(self._params(include_image_stats=True))
-        assert resolved.intrinsic_factors == ("visual", "pixel")
-
-    def test_false_contributes_nothing_and_does_not_warn(self):
-        with warnings.catch_warnings(action="error"):
-            assert resolve_policy(self._params(include_image_stats=False)).intrinsic_factors == ()
-
-    def test_set_alongside_a_disagreeing_policy_is_an_error(self):
-        config = _config(intrinsic_factors=["dimension"])
-        params = self._params(metadata="standard", include_image_stats=True)
-        with pytest.raises(ValueError, match="include_image_stats"):
-            resolve_policy(params, config)
-
-    def test_the_field_is_marked_deprecated_for_config_authors(self):
-        """The schema marker is what reaches docs and editors; it must not be dropped."""
-        from dataeval_flow.workflows.data_analysis import DataAnalysisConfig
-
-        schema = DataAnalysisConfig.model_json_schema()
-        assert schema["properties"]["include_image_stats"].get("deprecated") is True
-
-
 class TestDeclaringCorrectionsInYaml:
     """DataEval's own types validate themselves on construction, so `resolve_policy`
     builds them. A mistake carries DataEval's wording.
@@ -1098,15 +1057,8 @@ class TestDeriveFromCarriesTheReading:
 
 class TestTheMixins:
     def test_the_metadata_mixin_is_one_policy_name_like_the_stats_mixin(self):
-        """Each mixin names one policy; the older metadata fields live on the workflows that took them."""
+        """Each mixin names one policy."""
         from dataeval_flow.config import StatsConfigMixin
 
         assert set(MetadataConfigMixin.model_fields) == {"metadata"}
         assert set(StatsConfigMixin.model_fields) == {"stats"}
-
-    @pytest.mark.parametrize("workflow", ["data-analysis"])
-    def test_the_workflows_that_took_the_older_fields_still_do(self, workflow: str):
-        from dataeval_flow.workflows import get_workflow
-
-        fields = set(get_workflow(workflow).config_type.model_fields)
-        assert {"metadata", *_LegacyMetadataMixin.model_fields} <= fields

@@ -139,7 +139,7 @@ class DistributionShiftConfig(CheckConfig):
 
 
 class DistributionShiftCheck(Check[DistributionShiftConfig]):
-    """``distribution-shift``: legacy data-analysis's Distribution Shift finding, judging one `divergence` Output."""
+    """``distribution-shift``: whether two sources' embeddings sit too far apart, judging one `divergence` Output."""
 
     name: ClassVar[str] = "distribution-shift"
     description: ClassVar[str] = "Warns when two sources' embeddings sit too far apart."

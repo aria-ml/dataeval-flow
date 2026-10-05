@@ -221,7 +221,7 @@ def test_a_sibling_task_is_not_checked_against_the_matrix_s_overrides() -> None:
         ({"evaluators.nope.k": [1]}, "`evaluators:` has no entry named `nope`"),
         ({"steps.few.n": [1]}, "runs no custom workflow"),
         ({"name": ["other"]}, "a matrix varies settings, not identities"),
-        ({"type": ["data-analysis"]}, "a matrix varies settings, not identities"),
+        ({"type": ["audit"]}, "a matrix varies settings, not identities"),
         ({"sources": ["missing"]}, "names no source `missing`"),
         ({"extractor": ["missing"]}, "names no extractor `missing`"),
         ({"outliers.cluster_algorithm": ["bogus"]}, "run 1 (outliers.cluster_algorithm=bogus)"),

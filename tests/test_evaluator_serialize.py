@@ -12,6 +12,7 @@ import pytest
 from dataeval.types import DataFrameOutput, DictOutput, Output
 
 from dataeval_flow.evaluators._serialize import serialize_output
+from dataeval_flow.workflows._common import to_serializable
 
 
 class _Dict(DictOutput):
@@ -189,3 +190,49 @@ def test_extras_are_written_beside_the_shape():
 
 def test_without_extras_nothing_is_added():
     assert "extras" not in serialize_output(_WithExtras())
+
+
+class TestToSerializable:
+    def test_plain_types_pass_through(self):
+        assert to_serializable(42) == 42
+        assert to_serializable("hello") == "hello"
+        assert to_serializable(3.14) == 3.14
+        assert to_serializable(None) is None
+
+    def test_numpy_integer(self):
+        assert to_serializable(np.int64(7)) == 7
+        assert isinstance(to_serializable(np.int32(3)), int)
+
+    def test_numpy_float(self):
+        result = to_serializable(np.float64(2.5))
+        assert result == 2.5
+        assert isinstance(result, float)
+
+    def test_numpy_bool(self):
+        assert to_serializable(np.bool_(True)) is True
+        assert to_serializable(np.bool_(False)) is False
+
+    def test_numpy_array(self):
+        arr = np.array([1, 2, 3])
+        assert to_serializable(arr) == [1, 2, 3]
+
+    def test_nested_dict(self):
+        data = {"a": np.int64(1), "b": {"c": np.float64(2.5)}}
+        result = to_serializable(data)
+        assert result == {"a": 1, "b": {"c": 2.5}}
+
+    def test_tuple_to_list(self):
+        assert to_serializable((1, 2, 3)) == [1, 2, 3]
+
+    def test_set_sorted_strings(self):
+        result = to_serializable({3, 1, 2})
+        assert result == ["1", "2", "3"]
+
+    def test_frozenset_sorted_strings(self):
+        result = to_serializable(frozenset(["b", "a"]))
+        assert result == ["a", "b"]
+
+    def test_list_with_numpy(self):
+        data = [np.int64(1), np.float64(2.0), "three"]
+        result = to_serializable(data)
+        assert result == [1, 2.0, "three"]

@@ -16,8 +16,6 @@ from dataeval_flow.workflows._registry import WORKFLOWS
 _STEPS = [
     cls for registry in (EVALUATORS, TRANSFORMS, COMBINES, CHECKS, WORKFLOWS) for cls in registry.list(plugins=False)
 ]
-# data-analysis is deleted by audit MR 3; until then it keeps its legacy surface (naming spec §9.1).
-_LEGACY = {"data-analysis"}
 # The two step configs whose `<Type>Config` name a pipeline pool entry already holds (`views:`, `exports:`).
 _POOL_NAMED = {"view": "ViewTransformConfig", "export": "ExportTransformConfig"}
 
@@ -48,7 +46,7 @@ def test_a_step_class_is_named_for_its_type_and_kind(cls: type) -> None:
     assert cls.__name__.lower() == _squashed(cls.name) + cls.kind, f"`{cls.__name__}` is not `<Type><Kind>`"
 
 
-@pytest.mark.parametrize("cls", [cls for cls in _STEPS if cls.name not in _LEGACY], ids=_id)
+@pytest.mark.parametrize("cls", _STEPS, ids=_id)
 def test_a_step_config_is_named_for_its_type(cls: type) -> None:
     expected = _POOL_NAMED.get(cls.name)
     if expected is not None:
@@ -63,8 +61,6 @@ def _own_outputs() -> dict[type, list[str]]:
     """Each output class Flow defines, and the types whose output ports carry it."""
     found: dict[type, list[str]] = {}
     for cls in _STEPS:
-        if cls.name in _LEGACY:
-            continue
         for port in cls.output_ports():
             for output in port.classes:
                 if output.__module__.startswith("dataeval_flow"):
@@ -124,7 +120,7 @@ def test_a_check_names_its_bounds_by_what_they_bound(cls: type) -> None:
         assert bounds == ["warning"], f"one bound is called `warning`, not `{bounds[0]}`"
 
 
-_PRESETS = [cls for cls in WORKFLOWS.list(plugins=False) if cls.name not in _LEGACY]
+_PRESETS = WORKFLOWS.list(plugins=False)
 
 
 def _models(annotation: Any) -> list[type[BaseModel]]:
@@ -264,13 +260,13 @@ def _fields(model: type[BaseModel], seen: set[type] | None = None) -> list[tuple
     return found
 
 
-@pytest.mark.parametrize("cls", [cls for cls in _STEPS if cls.name not in _LEGACY], ids=_id)
+@pytest.mark.parametrize("cls", _STEPS, ids=_id)
 def test_a_setting_says_what_it_does_not_what_it_was_called(cls: type) -> None:
     stale = [path for path, text in _fields(cls.config_type) if _LEGACY_NOTE.search(text)]
     assert stale == [], f"{stale} cite a legacy name: the CHANGELOG carries the migration (naming spec §7.5)"
 
 
-@pytest.mark.parametrize("cls", [cls for cls in _STEPS if cls.name not in _LEGACY], ids=_id)
+@pytest.mark.parametrize("cls", _STEPS, ids=_id)
 def test_a_step_description_is_one_sentence(cls: type) -> None:
     description: str = cls.description
     error_msg = (

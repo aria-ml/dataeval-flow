@@ -30,7 +30,7 @@ Discovery helpers live with each kind, and list every installed type, plugins in
 
     >>> from dataeval_flow.workflows import list_workflows
     >>> [cls.name for cls in list_workflows()]
-    ['audit', 'data-analysis', ...]
+    ['audit', 'data-cleaning', ...]
 
     >>> from dataeval_flow.evaluators import list_evaluators
     >>> [cls.name for cls in list_evaluators()]

@@ -100,7 +100,7 @@
 - `--no-report-images`, `DATAEVAL_REPORT_IMAGES=0` or `report_images=False` on `run()` turn a run's thumbnails off, as
   `result: max_images: 0` does
 - `image` table columns, each cell an item reference or a group of them
-- Data analysis, coverage, prioritization, splitting and metadata triage picture the items their findings name
+- Coverage, prioritization, splitting and metadata triage picture the items their findings name
 - `uncovered_classes` in `coverage`'s `extras`: each uncovered item's class. Its report section, "Uncovered items",
   gives each item's class and distance
 - A pipeline's `result: max_images:` sets how many thumbnails each result embeds (200), shared evenly between findings
@@ -241,7 +241,6 @@
 - The text report is 80 columns wide by default (was 90), and wraps long prose, labels and values to fit
 - A run that fails only on health warnings exits `3` (was `1`), so CI can tell a data-quality gate from a crash or a
   mistyped flag, which exits `2`
-- Data analysis lists each split's unlabelled images in a table naming up to eight, where it wrote a sentence
 - `PipelineConfig.tasks` and `run_tasks` now carry evaluator tasks and results as well as workflow ones
 - `run_task` returns a `Result`, a workflow's or an evaluator's; `isinstance` narrows it to the type's `<X>Result`
 - A failed workflow's report shows `FAILED` and its errors, as a failed evaluator's does
@@ -282,7 +281,6 @@
 - A failed result's `to_dict()` is `{kind, metadata, errors}`; a failed workflow's `health.status` is `failed`
 - `Finding` drops `report_type` and `data`, and rejects unknown fields; `brief` and typed report `blocks` hold the evidence
 - Data cleaning lists each flagged image and box with every metric that flagged it, then each metric's limits
-- Data analysis keeps its flagged values in `image_quality.outliers` and lists every flagged image by split
 - The HTML report draws a bar chart's thresholds across its bars, labelled on a scale, instead of in a caption
 - The TUI draws each finding's evidence natively: data tables as tables, the rest as text at the window's width
 - Data cleaning lists its duplicate groups with their items, largest first, and duplicate boxes on their own
@@ -518,6 +516,20 @@
   `operations:`, deprecated since v0.2.0
 - `parameter-sweep`, with `ParameterSweepConfig`, `ParameterSweepResult` and `ParameterSweepWorkflow`: write a
   data-cleaning entry and a `matrix:` on its task (see Sweep settings with a matrix)
+- `data-analysis`, with `DataAnalysisConfig`, `DataAnalysisHealthThresholds`, `DataAnalysisResult` and
+  `DataAnalysisWorkflow`: write an `audit` entry. A `type: data-analysis` entry fails to load, naming `audit` and
+  where each of its settings went, and an `audit` entry refuses each of them by name:
+  - `outlier_method` and `outlier_threshold` are `outliers.outlier_threshold`: the method, or `[method, threshold]`
+  - `outlier_flags` is `outliers.flags`, `diversity_method` is `diversity.method`, and `divergence_method` is
+    `divergence.method`
+  - `balance` is refused: balance always runs, and is skipped on metadata with no factors
+  - `include_image_stats` is the metadata policy's `intrinsic_factors`
+  - `value_range` is refused: set it on the dataset
+  - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source`
+    are refused: name a policy under `metadata:`
+  - `health_thresholds` is `checks:`. Its `image_outliers` is `checks.image-outliers.warning`, `exact_duplicates`
+    and `near_duplicates` are `checks.image-duplicates.exact` and `.near`, `class_label_imbalance` is
+    `checks.class-imbalance.warning`, and `distribution_shift` is `checks.distribution-shift.warning`
 - The `torch` and `uncertainty` extractors' `device`, and drift-monitoring MMD's; Flow chooses the device for every tool
 - Poetry packaging support; install with uv, pip, or conda instead
 - Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`
@@ -543,7 +555,7 @@
 - `mode`, from every workflow config and from every result's metadata; a config that still writes it fails to load,
   naming it
 - Data-prioritization's `per_source_clean_indices` and `per_source_prioritized_indices`
-- The "Preparatory Mode" findings that data-analysis and data-cleaning made
+- The "Preparatory Mode" findings that data-cleaning made
 - `MetadataTriageResult`, with its metadata's `blocking` and `verified`; a metadata-triage result is a `ChainResult`
 - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source` on
   `metadata-triage`, which refuses them: declare the binning in a `metadata:` policy

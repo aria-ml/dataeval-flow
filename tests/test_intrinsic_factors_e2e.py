@@ -5,55 +5,49 @@ nothing asserted that a policy's declaration reached a workflow's result. Each t
 runs a real workflow over a real dataset and reads the envelope a user would read.
 """
 
+from typing import Any
+
 import pytest
 
 from tests.test_metadata_injection import _ICDataset, _ODDataset
 
 pytestmark = pytest.mark.required
 
-WORKFLOWS = ["data-analysis"]
+WORKFLOWS = ["audit"]
 
 
 # Minimal valid params per workflow: only the fields with no default.
 _PARAMS = {
-    "data-analysis": {"outlier_method": "adaptive", "outlier_flags": ["pixel"]},
+    "audit": {"outliers": {"flags": ["pixel"], "outlier_threshold": "adaptive"}},
 }
 
 
-def _run(workflow_type: str, dataset, policy_fields: dict, value_range=(0.0, 1.0), cache=None):
+def _run(workflow_type: str, dataset, policy_fields: dict) -> Any:
     """Run *workflow_type* over *dataset* under a policy, returning its ResultMetadata.
 
-    Goes through ``WorkflowContext`` + ``run``, the same path every other workflow test in
-    this suite uses. The policy is placed on the context directly, standing in for the
-    orchestrator's stamping; the workflow reads it through ``policy_for`` either way.
+    Goes through ``run_tasks``, as a user does: a preset refuses a direct ``run``.
     """
-    from dataeval_flow._policy import ResolvedPolicy
-    from dataeval_flow.workflows import DatasetContext, WorkflowContext, get_workflow
+    from dataeval_flow import run_tasks
+    from dataeval_flow._cache import DatasetCache
+    from tests.chain_toys import chain_pipeline
 
-    workflow = get_workflow(workflow_type)()
-    params = workflow.config_type(**_PARAMS[workflow_type])
-
-    context = WorkflowContext(
-        dataset_contexts={
-            "default": DatasetContext(name="default", dataset=dataset, value_range=value_range, cache=cache),
-        },
-        metadata_policy=ResolvedPolicy(value_range=value_range, **policy_fields),
+    DatasetCache.clear_instances()
+    config = chain_pipeline(
+        workflows=[{"name": "w", "type": workflow_type, "metadata": "p", **_PARAMS[workflow_type]}],
+        tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}],
+        datasets={"src": dataset},
+        extra={"metadata": [{"name": "p", **policy_fields}]},
     )
-    result = workflow.run(params, context)
-    assert result.success, f"{workflow_type} failed: {result}"
+    result = run_tasks(config)["t"]
+    assert result.success, f"{workflow_type} failed: {result.errors}"
     return result.metadata
 
 
-def _binning(result_metadata, split: str = "default") -> dict:
-    """The binning record, whichever envelope shape the workflow reports.
-
-    `data-analysis` is multi-split and reports a record per split; a workflow reporting one
-    dataset's record flat is unwrapped the same way. (The chain's flat record is covered by
-    `tests/test_chain_binning.py`, since a preset refuses a direct `run`.)
-    """
+def _binning(result_metadata) -> dict:
+    """The binning record of a run over one dataset."""
     record = result_metadata.metadata_binning
-    per_split = record.get("per_split")
-    return per_split[split] if per_split is not None else record
+    assert record is not None
+    return record
 
 
 @pytest.mark.parametrize("workflow_type", WORKFLOWS)
@@ -103,6 +97,7 @@ def test_a_misspelled_factor_stays_unmatched(workflow_type):
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "The injection pass asks per_target=False on a classification dataset while the "
         "workflow's own pass asks per_target=True. `scope_key` includes per_target, so the "
@@ -110,30 +105,27 @@ def test_a_misspelled_factor_stays_unmatched(workflow_type):
         "Same failure mode the design named for value_range, on an axis no task closed."
     ),
 )
-def test_no_statistic_is_computed_twice(monkeypatch, tmp_path):
+def test_no_statistic_is_computed_twice(monkeypatch):
     """The Cost section's promise, which nothing else checks.
 
-    Measured with a cache active, on the flags themselves, not on a call count. A workflow
-    computing statistics anyway pays for one pass over each statistic; `load_or_compute_stats`
-    may make a second *call* for metrics the first did not cover. It may not compute the
-    same metric twice.
+    Measured on the flags themselves, not on a call count. A workflow computing statistics
+    anyway pays for one pass over each statistic; `load_or_compute_stats` may make a second
+    *call* for metrics the first did not cover. It may not compute the same metric twice.
     """
     from dataeval_flow import _cache as cache_module
-    from dataeval_flow._cache import DatasetCache
 
     calls = []
     original = cache_module._do_compute_stats
 
-    def _spy(dataset, desired_flags, per_image=True, per_target=True, value_range=None):
-        calls.append(desired_flags)
-        return original(dataset, desired_flags, per_image, per_target, value_range)
+    def _spy(dataset, policy, per_image=True, per_target=True, value_range=None):
+        calls.append(policy.families_of(None))
+        return original(dataset, policy, per_image, per_target, value_range)
 
     monkeypatch.setattr(cache_module, "_do_compute_stats", _spy)
     _run(
-        "data-analysis",
+        "audit",
         _ICDataset(),
         {"intrinsic_factors": ("visual", "pixel"), "continuous_factor_bins": {"brightness": 4}},
-        cache=DatasetCache(cache_dir=tmp_path, dataset_name="ds"),
     )
 
     recomputed = [a & b for i, a in enumerate(calls) for b in calls[i + 1 :] if a & b]
@@ -142,8 +134,8 @@ def test_no_statistic_is_computed_twice(monkeypatch, tmp_path):
 
 def test_injection_and_no_injection_do_not_share_a_cache_entry():
     """Keyed by the factor set, or a warmed cache reintroduces the bug it closed."""
-    with_stats = _run("data-analysis", _ICDataset(), {"intrinsic_factors": ("visual",)})
-    without = _run("data-analysis", _ICDataset(), {})
+    with_stats = _run("audit", _ICDataset(), {"intrinsic_factors": ("visual",)})
+    without = _run("audit", _ICDataset(), {})
     assert "brightness" in _binning(with_stats)["factors"]
     assert "brightness" not in _binning(without)["factors"]
 
@@ -152,18 +144,25 @@ def test_value_range_keys_the_metadata_cache():
     """Two ranges produce different injected values, so they must not share an entry.
 
     Asserted on the values, not on `policy_key`'s output: a differing key string proves the
-    mechanism, not that the mechanism is wired to the cache.
+    mechanism, not that the mechanism is wired to the cache. A dataset given in memory
+    declares no `value_range`, so the two reads go through one active cache directly.
     """
-    policy_fields = {"intrinsic_factors": ("visual",), "continuous_factor_bins": {"brightness": 4}}
-    unit = _run("data-analysis", _ICDataset(), policy_fields, value_range=(0.0, 1.0))
-    byte = _run("data-analysis", _ICDataset(), policy_fields, value_range=(0.0, 255.0))
+    from dataeval_flow._binning import describe_binning
+    from dataeval_flow._cache import DatasetCache, active_cache, get_or_compute_metadata
+    from dataeval_flow._policy import ResolvedPolicy
 
-    unit_edges = _binning(unit)["factors"]["brightness"]["encoding"]["edges"]
-    byte_edges = _binning(byte)["factors"]["brightness"]["encoding"]["edges"]
-    assert unit_edges != byte_edges, "the second run was served the first run's cached metadata"
+    policy_fields: dict[str, Any] = {"intrinsic_factors": ("visual",), "continuous_factor_bins": {"brightness": 4}}
+    DatasetCache.clear_instances()
+    with active_cache(DatasetCache.get_or_create(None, "ic", "k"), "sel"):
+        unit = get_or_compute_metadata(_ICDataset(), ResolvedPolicy(value_range=(0.0, 1.0), **policy_fields))
+        byte = get_or_compute_metadata(_ICDataset(), ResolvedPolicy(value_range=(0.0, 255.0), **policy_fields))
+
+    unit_edges = describe_binning(unit)["factors"]["brightness"]["encoding"]["edges"]
+    byte_edges = describe_binning(byte)["factors"]["brightness"]["encoding"]["edges"]
+    assert unit_edges != byte_edges, "the second read was served the first read's cached metadata"
 
 
 def test_hashes_are_never_injected():
-    result = _run("data-analysis", _ICDataset(), {"intrinsic_factors": ("hash",)})
+    result = _run("audit", _ICDataset(), {"intrinsic_factors": ("hash",)})
     factors = set(_binning(result)["factors"])
     assert not factors & {"xxhash", "phash", "dhash", "phash_d4", "dhash_d4"}

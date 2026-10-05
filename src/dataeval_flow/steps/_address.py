@@ -49,7 +49,7 @@ def parse_address(text: str) -> Address:
 
 
 def pair_key(first: str, second: str) -> str:
-    """The key of a pairwise run over two elements of a list: ``a_vs_b``, data-analysis's cross-split key."""
+    """The key of a pairwise run over two elements of a list: ``a_vs_b``."""
     return f"{first}_vs_{second}"
 
 

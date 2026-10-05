@@ -1,30 +1,30 @@
-"""Each evaluator gives the same answer as the workflow that makes the same DataEval call on the same data.
+"""Each bias evaluator gives the same answer as DataEval's own call on the same metadata.
 
-The workflow and the evaluator run as two tasks of one pipeline, over the same sources, with settings that mean the
-same call. DataEval and torch are seeded before each run, so the random detectors agree too.
+The evaluator runs as a task. DataEval's class then evaluates the metadata Flow builds for that source, under the
+policy Flow resolves for the evaluator, with settings that mean the same call. DataEval and torch are seeded before
+each, so a random estimate agrees too.
 """
 
 import json
+from collections.abc import Callable
 from typing import Any
 
 import pytest
 import torch
+from dataeval.bias import Balance, Diversity
 from dataeval.config import set_seed
 
-from dataeval_flow import Result, run_task
-from dataeval_flow.config import PipelineConfig, TaskConfig
+from dataeval_flow import run_task
+from dataeval_flow._metadata import build_metadata
+from dataeval_flow._orchestrator import _resolve_metadata_policy
+from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.bias import BalanceConfig, DiversityConfig
-from dataeval_flow.workflows.data_analysis import DataAnalysisConfig, DataAnalysisResult
 from tests.evaluator_toys import ToyFactors, output_json, toy_pipeline
 
 
-def _run(config: PipelineConfig, task: TaskConfig) -> "Result[Any, Any]":
-    """`task`'s result, with DataEval and torch seeded first."""
+def _seeded() -> None:
     set_seed(0)
     torch.manual_seed(0)
-    result = run_task(config, task)
-    assert result.success, result.errors
-    return result
 
 
 def _json(value: Any) -> Any:
@@ -32,31 +32,26 @@ def _json(value: Any) -> Any:
     return json.loads(json.dumps(value, default=float))
 
 
-def _tasks(workflow: str, evaluator: str, sources: list[str], *, extractor: bool) -> list[TaskConfig]:
-    """The workflow's task and the evaluator's, over the same sources and extractor."""
-    named = "flat" if extractor else None
-    return [
-        TaskConfig(name="workflow", workflow=workflow, sources=sources, extractor=named),
-        TaskConfig(name="evaluator", workflow=evaluator, sources=sources, kind="evaluator", extractor=named),
-    ]
-
-
 @pytest.mark.parametrize(
-    ("evaluator", "summary", "tables"),
+    ("evaluator", "dataeval_call", "tables"),
     [
-        (BalanceConfig(name="ev"), "balance_summary", ("balance", "factors", "classwise")),
-        (DiversityConfig(name="ev", method="shannon"), "diversity_summary", ("factors", "classwise")),
+        (BalanceConfig(name="ev"), Balance, ("balance", "factors", "classwise")),
+        (DiversityConfig(name="ev", method="shannon"), lambda: Diversity(method="shannon"), ("factors", "classwise")),
     ],
+    ids=["balance", "diversity"],
 )
-def test_bias_agrees_with_data_analysis(evaluator: Any, summary: str, tables: tuple[str, ...]):
-    workflow = DataAnalysisConfig(
-        name="wf", outlier_method="zscore", outlier_flags=["pixel"], balance=True, diversity_method="shannon"
-    )
-    tasks = _tasks("wf", "ev", ["src"], extractor=False)
-    config = toy_pipeline(workflows=[workflow], evaluators=[evaluator], tasks=tasks, dataset=ToyFactors())
-    workflow_result, evaluator_result = _run(config, tasks[0]), _run(config, tasks[1])
-    assert isinstance(workflow_result, DataAnalysisResult)
-    expected = getattr(workflow_result.output.raw.splits["src"].bias, summary)
-    data = output_json(evaluator_result)["data"]
+def test_a_bias_evaluator_agrees_with_dataeval(
+    evaluator: Any, dataeval_call: Callable[[], Any], tables: tuple[str, ...]
+) -> None:
+    task = TaskConfig(name="evaluator", workflow="ev", sources=["src"], kind="evaluator")
+    config = toy_pipeline(evaluators=[evaluator], tasks=[task], dataset=ToyFactors())
+    _seeded()
+    result = run_task(config, task)
+    assert result.success, result.errors
+
+    metadata = build_metadata(ToyFactors(), _resolve_metadata_policy(evaluator, config, None))
+    _seeded()
+    expected = dataeval_call().evaluate(metadata)
+    data = output_json(result)["data"]
     for table in tables:
-        assert data[table]["rows"] == _json(expected[table]), table
+        assert data[table]["rows"] == _json(getattr(expected, table).to_dicts()), table
