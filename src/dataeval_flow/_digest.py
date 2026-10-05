@@ -43,7 +43,7 @@ def dataset_digest(dataset: Any) -> DatasetDigest:
     """Digest every item of `dataset`, as the ``content-digest`` evaluator does.
 
     A training job calls it on the data it is about to train on and compares the result with the digests a run
-    recorded, so it can refuse data that is not what was audited. It reads each item once, never through a cache.
+    recorded, so it can refuse data that is not what the run recorded. It reads each item once, never through a cache.
 
     Each item's image is hashed as its dtype, shape and bytes. Its target is hashed the same way: the array for
     classification, and the ``boxes`` and ``labels`` arrays for detection (``scores`` don't count). Its metadata is
@@ -61,7 +61,7 @@ def dataset_digest(dataset: Any) -> DatasetDigest:
     dataset : AnnotatedDataset
         Any dataset Flow reads: ``len()`` and indexing, each item an ``(image, target, metadata)`` tuple, and its class
         names in ``dataset.metadata["index2label"]`` where it declares them. Pass the data as it will be trained on:
-        read through the same views the audited source applied.
+        read through the same views the recorded source applied.
 
     Returns
     -------
@@ -72,7 +72,7 @@ def dataset_digest(dataset: Any) -> DatasetDigest:
     --------
     >>> from dataeval_flow import dataset_digest
     >>> digest = dataset_digest(train)  # doctest: +SKIP
-    >>> assert digest.content == recorded["content"], "not the data that was audited"  # doctest: +SKIP
+    >>> assert digest.content == recorded["content"], "not the data the run recorded"  # doctest: +SKIP
     """
     contents: list[str] = []
     metadata: list[str] = []

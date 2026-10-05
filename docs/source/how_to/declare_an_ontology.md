@@ -95,10 +95,10 @@ ontologies:
         parents: [http://example.org/cv#LandVehicle]
 
 workflows:
-  - name: audit
+  - name: vehicle-labels
     type: label-space
     ontology: vehicles
-  - name: audit_holdout
+  - name: vehicle-holdout
     type: label-space
     ontology: vehicles        # same pool entry, same vocabulary
 ```

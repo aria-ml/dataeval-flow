@@ -242,8 +242,8 @@ for finding in result.findings:
 # | `image-duplicates.exact` | 0% | Raise above 0 only if your pipeline intentionally repeats images |
 # | `image-duplicates.near` | 5% | Lower to 1–2% for curated benchmarks; raise to 10–15% for web-scraped data |
 # | `image-outliers.warning` | 3% | Lower to 1% for safety-critical data; raise to 5–10% for visually diverse collections |
-# | `target-outliers.warning` | 3% | Lower to 1% for annotation audits; raise to 5–10% for dense object detection |
-# | `classwise-outliers.warning` | 3% | Lower to 1% for label-quality audits; raise to 5–10% for diverse classes |
+# | `target-outliers.warning` | 3% | Lower to 1% for annotation reviews; raise to 5–10% for dense object detection |
+# | `classwise-outliers.warning` | 3% | Lower to 1% for label-quality reviews; raise to 5–10% for diverse classes |
 # | `class-imbalance.warning` | 5:1 | Lower to 3:1 for binary; raise to 10–20:1 for large hierarchies (25+ classes) |
 #
 # In this tutorial, thresholds are relaxed because SkySeaLand includes four distinct

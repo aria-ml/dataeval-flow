@@ -147,7 +147,7 @@ class DistributionShiftCheck(Check[DistributionShiftConfig]):
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(DivergenceOutput,)),)
 
     def run(self, config: DistributionShiftConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
-        """The divergence, banded high, moderate or low, as legacy banded it."""
+        """The divergence, banded high, moderate or low."""
         data = inputs["input"].value.data()
         value, method = float(data["divergence"]), data["method"]
         if config.warning is None and config.info is None:

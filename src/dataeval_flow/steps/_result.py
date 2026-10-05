@@ -128,7 +128,7 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
     Examples
     --------
     >>> from dataeval_flow import load_config, run_tasks
-    >>> result = run_tasks(load_config("pipeline.yaml"))["audit"]  # doctest: +SKIP
+    >>> result = run_tasks(load_config("pipeline.yaml"))["clean"]  # doctest: +SKIP
     >>> result.steps["clean"].output  # the cleaned Dataset, a DataEval View  # doctest: +SKIP
     """
 

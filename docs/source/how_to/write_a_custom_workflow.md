@@ -529,7 +529,7 @@ Notice:
 
 [Monitor drift with steps](monitor_drift.md) uses `by:` with drift detectors, and compares one group against another.
 
-## 11. Audit a set of splits
+## 11. Check a set of splits
 
 `data-splitting` judges each part's class shares and coverage, not leakage, shift or how much of each evaluation
 split train covers. Run it as a step, and chain the steps that judge the parts against each other:
@@ -547,7 +547,7 @@ workflows:
     folds: 5
     split_on: [scene]
 
-  - name: split_audit
+  - name: split_check
     inputs: [data]
     steps:
       - {name: splits, workflow: splitting, input: data}
@@ -571,7 +571,7 @@ workflows:
       - {name: coverage-test, check: eval-coverage, input: knn-test}
 
 tasks:
-  - {name: audit-splits, workflow: split_audit, sources: [train], extractor: bovw_ext}
+  - {name: split-check, workflow: split_check, sources: [train], extractor: bovw_ext}
 ```
 
 Notice:

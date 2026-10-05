@@ -36,7 +36,7 @@ interpret the findings, including:
 - the **dataset identifier(s)** evaluated, and where relevant the label source,
 - the **label space** the labels were read under, recorded as a digest when a dataset
   was conformed to a reference vocabulary. The same digest appears on the alignment
-  audit, so a result can be matched to the audit that produced its vocabulary,
+  result, so a result can be matched to the label-space run that produced its vocabulary,
 - the **model**, **preprocessor**, and **selection** identifiers that defined the
   representation,
 - human-readable **source descriptions**,
@@ -91,13 +91,13 @@ over the three.
 
 There is one record per operand: a merge applies a different remapping per
 operand against one shared target. A single record would have to union those
-mappings, and a union hashes to a value no audit ever produced.
+mappings, and a union hashes to a value no run ever produced.
 
 Any workflow can declare an ontology, not only `label-space`; `data-coverage`
-alone refuses one. That is the join. A `label-space` audit computes the digest
+alone refuses one. That is the join. A `label-space` run computes the digest
 from its own alignment; any other workflow computes the same digest from the
 `Relabel` parameters in its source's view. Declare the same ontology on both and
-the downstream result's digest equals the digest of the audit that justified its
+the downstream result's digest equals the digest of the label-space run that justified its
 vocabulary, so matching the two is a comparison of one value. An exported dataset
 carries the same digest in its provenance sidecar, which extends the join to the
 dataset itself.

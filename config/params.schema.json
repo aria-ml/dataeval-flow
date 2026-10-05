@@ -6627,7 +6627,7 @@
             }
           ],
           "default": null,
-          "description": "Label space the emitted dataset's labels are read under, by name under the top-level `ontologies:` key or as a path. Written into the dataset's provenance so the emitted dataset carries the same digest as the run and the audit. An export names no workflow, so it cannot inherit one.",
+          "description": "Label space the emitted dataset's labels are read under, by name under the top-level `ontologies:` key or as a path. Written into the dataset's provenance so the emitted dataset carries the same digest as the run and the label-space run. An export names no workflow, so it cannot inherit one.",
           "title": "Ontology"
         }
       },
@@ -8661,7 +8661,7 @@
     },
     "OntologyConfig": {
       "additionalProperties": false,
-      "description": "A named label space, referenced by the workflows that share it.\n\nDefine an ontology once here and reference it by name so workflows meant to be compared\nread the same vocabulary. Two tasks reading different ontologies produce worklists you\ncannot compare.\n\nYAML example::\n\n    ontologies:\n      - name: vehicles\n        source: config/label_ontology.jsonld\n        concepts:\n          - id: http://example.org/cv#FreightCar\n            label: Freight Car\n            synonyms: [freight_car, freight car]\n            parents: [http://example.org/cv#LandVehicle]\n\n    workflows:\n      - name: audit\n        type: label-space\n        ontology: vehicles",
+      "description": "A named label space, referenced by the workflows that share it.\n\nDefine an ontology once here and reference it by name so workflows meant to be compared\nread the same vocabulary. Two tasks reading different ontologies produce worklists you\ncannot compare.\n\nYAML example::\n\n    ontologies:\n      - name: vehicles\n        source: config/label_ontology.jsonld\n        concepts:\n          - id: http://example.org/cv#FreightCar\n            label: Freight Car\n            synonyms: [freight_car, freight car]\n            parents: [http://example.org/cv#LandVehicle]\n\n    workflows:\n      - name: vehicle-labels\n        type: label-space\n        ontology: vehicles",
       "properties": {
         "name": {
           "description": "Identifier for this ontology",
@@ -11010,7 +11010,7 @@
     },
     "ResultConfig": {
       "additionalProperties": false,
-      "description": "What each task's result carries, and the files the ``dataeval-flow`` command writes it to, under ``result:``.\n\n``name``, ``formats``, ``detail``, ``per_task`` and ``width`` shape what the command writes to ``--output`` and\nprints; :func:`~dataeval_flow.run_tasks` and :func:`~dataeval_flow.run` return results and write nothing.\n\nYAML example::\n\n    result:\n      name: audit\n      formats: [text, html]\n      detail: summary\n      per_task: true\n      max_images: 100",
+      "description": "What each task's result carries, and the files the ``dataeval-flow`` command writes it to, under ``result:``.\n\n``name``, ``formats``, ``detail``, ``per_task`` and ``width`` shape what the command writes to ``--output`` and\nprints; :func:`~dataeval_flow.run_tasks` and :func:`~dataeval_flow.run` return results and write nothing.\n\nYAML example::\n\n    result:\n      name: results\n      formats: [text, html]\n      detail: summary\n      per_task: true\n      max_images: 100",
       "properties": {
         "name": {
           "default": "result",
@@ -11373,7 +11373,7 @@
             }
           ],
           "default": 3.0,
-          "description": "Most targets (boxes), as a percentage of all, that may be flagged as outliers (unusual box sizes, aspect ratios, or annotation counts) before the finding warns; `null` judges nothing. Lower to 1% for annotation-quality audits; raise to 5-10% for dense object detection.",
+          "description": "Most targets (boxes), as a percentage of all, that may be flagged as outliers (unusual box sizes, aspect ratios, or annotation counts) before the finding warns; `null` judges nothing. Lower to 1% for annotation-quality reviews; raise to 5-10% for dense object detection.",
           "title": "Warning"
         }
       },

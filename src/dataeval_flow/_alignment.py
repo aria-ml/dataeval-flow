@@ -108,7 +108,7 @@ class LabelAlignment(BaseModel):
         description=(
             "Identity of the vocabulary this alignment defines, computed over the ontology, the "
             "paste_remap and the target_vocabulary. A downstream result conformed under this "
-            "alignment carries the same value, which is how it is matched to this audit."
+            "alignment carries the same value, which is how it is matched to this run."
         ),
     )
 
@@ -152,8 +152,8 @@ class PastedRemap:
 def pasted_remap(ontology: "Ontology", class_remap: "Mapping[str, str]") -> PastedRemap:
     """`class_remap`, by concept id, pasted onto `ontology`'s labels, with the vocabulary and digests that go with it.
 
-    ``align_labels`` and ``conform`` both paste a remap this way, so an audit and a conform that apply one rewrite
-    carry one digest.
+    ``align_labels`` and ``conform`` both paste a remap this way, so a label-space run and a conform that apply one
+    rewrite carry one digest.
     """
     from dataeval_flow._label_space import label_space_digest, ontology_digest
 

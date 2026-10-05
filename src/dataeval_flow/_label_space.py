@@ -6,9 +6,9 @@ and nothing else in the envelope distinguishes them. This is the vocabulary equi
 ``encoding_digest``, which serves the same purpose for binning.
 
 The functions take plain data and import nothing from ``dataeval``, so the digest can be
-computed from a config's ``Relabel`` parameters as well as from an alignment result. An
-audit and a downstream workflow therefore produce the same value from different inputs,
-which is what lets a result be matched to its audit.
+computed from a config's ``Relabel`` parameters as well as from an alignment result. A
+label-space run and a downstream workflow therefore produce the same value from different inputs,
+which is what lets a result be matched to its label-space run.
 """
 
 __all__ = ["label_space_digest", "ontology_digest"]

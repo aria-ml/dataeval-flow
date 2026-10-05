@@ -669,10 +669,10 @@ A pipeline's `result:` block shapes these files. Every key is optional:
 
 ```yaml
 result:
-  name: audit               # audit.json, audit.txt, audit.html (default: result)
+  name: release             # release.json, release.txt, release.html (default: result)
   formats: [json, html]     # json, text, html, junit (.xml), markdown (.md) (default: json, text, html)
   detail: summary           # the text and HTML files' detail: full or summary (default: full)
-  per_task: true            # one set of files per task: audit-<task>.json, … (default: false)
+  per_task: true            # one set of files per task: release-<task>.json, … (default: false)
   fail_on: warning          # what fails the job: failure, warning or never (default: failure)
   width: 100                # the text report's width, at least 40 (default: 80)
   max_images: 100           # thumbnails per task's result; 0: none, -1: every item named (default: 200)

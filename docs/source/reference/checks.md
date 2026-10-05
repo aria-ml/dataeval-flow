@@ -10,8 +10,8 @@ that make Datasets.
 Each entry's **Used in** names the presets that run the check; where it names none, chain the check in a [workflow of
 your own](../how_to/write_a_custom_workflow.md). See the [Preset Catalog](presets.md) for each preset's chain.
 [`audit`](presets.md#audit) runs `class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage`
-and `distribution-shift`, to audit a set of splits before training. [Audit a set of
-splits](../how_to/write_a_custom_workflow.md#11-audit-a-set-of-splits) chains `leakage`, `distribution-shift` and
+and `distribution-shift`, to audit a set of splits before training. [Check a set of
+splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) chains `leakage`, `distribution-shift` and
 `eval-coverage` after `data-splitting`, in a workflow of your own. Each example assumes the pipeline defines
 `datasets:`, the sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor
 `bovw_ext`, as [Evaluator recipes](../how_to/evaluator_recipes.md) does.

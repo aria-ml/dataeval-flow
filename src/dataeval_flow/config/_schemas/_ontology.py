@@ -69,7 +69,7 @@ class OntologyConfig(BaseModel):
                 parents: [http://example.org/cv#LandVehicle]
 
         workflows:
-          - name: audit
+          - name: vehicle-labels
             type: label-space
             ontology: vehicles
     """

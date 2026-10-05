@@ -95,9 +95,9 @@ Only the COCO writer also embeds the same mapping in its own `info` block. The o
 sidecar is written for every format.
 
 The `label_space` digests are the values the {term}`result envelope <Result Envelope>` carries and a `label-space`
-audit stamps from its alignment, whose `Relabel` stanza conforms the source. Declare the same ontology on the audit, on
-the workflows, and on the export, and one digest match ties an emitted dataset to the run that produced it and to the
-audit that justified its vocabulary.
+run stamps from its alignment, whose `Relabel` stanza conforms the source. Declare the same ontology on the label-space
+run, on the workflows, and on the export, and one digest match ties an emitted dataset to the run that produced it and
+to the label-space run that justified its vocabulary.
 
 ## Know what an export drops
 
@@ -178,5 +178,5 @@ steps, such as an evaluator, but `export` does not yet write them.
 
 - {doc}`build_dataset_views` — the views that conform and merge a dataset before it is exported
 - {doc}`declare_an_ontology` — declaring the label space an export records
-- [Provenance](../concepts/Provenance.md) — the label-space digest that joins an export, a run, and an audit
+- [Provenance](../concepts/Provenance.md) — the label-space digest that joins an export, a run, and a label-space run
 - {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field on `ExportConfig`

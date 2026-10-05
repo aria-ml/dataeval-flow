@@ -154,7 +154,7 @@ class ResultConfig(BaseModel):
     YAML example::
 
         result:
-          name: audit
+          name: results
           formats: [text, html]
           detail: summary
           per_task: true
