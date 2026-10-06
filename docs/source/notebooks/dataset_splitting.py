@@ -103,8 +103,8 @@ print(f"Reading from {data_path}")
 # Each fold receives a distinct train and validation split while preserving the
 # shared test set. Exact counts may vary slightly due to per-class rounding.
 #
-# The split runs on labels and metadata, so it needs no extractor. Coverage embeds the
-# items, so it runs only when the task names one; this tutorial leaves it out.
+# The split reads labels and metadata only, so it needs no extractor, and it judges
+# class shares.
 
 # %%
 from dataeval_flow import run_task
@@ -175,9 +175,8 @@ print(result.report())
 # - **Diversity**: how evenly each factor's values spread.
 # - **K-Fold**: the sizes of each fold's train and val, and of the shared test.
 #
-# `coverage` is skipped, as are its per-part runs, because this task names no extractor.
-# Coverage embeds the items, so name an extractor on the task to run it. The Steps
-# table lists each step and why it was skipped.
+# The split reads labels and metadata only and judges class shares. The Steps table
+# lists each step and why it was skipped.
 
 # %% [markdown]
 # ### Split indices

@@ -227,8 +227,8 @@ def test_a_chain_reading_labels_through_representation_records_no_encoding() -> 
     assert result.metadata.metadata_binning is None
 
 
-def test_data_splitting_with_an_extractor_records_the_whole_set_once() -> None:
-    """Its coverage steps read each part's labels; only the whole set's factors are read (coverage spec §6.3)."""
+def test_data_splitting_records_the_whole_set_once() -> None:
+    """Each part's steps read its labels; only the whole set's factors are read (coverage spec §6.3)."""
     from tests.golden.splitting import pipeline
 
     result = run_tasks(pipeline("coverage", legacy=False))["t"]

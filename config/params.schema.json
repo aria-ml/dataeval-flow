@@ -4435,10 +4435,6 @@
         "stratification": {
           "$ref": "#/$defs/StratificationThresholds",
           "description": "The `stratification` check's thresholds, on each fold."
-        },
-        "uncovered-items": {
-          "$ref": "#/$defs/DataSplittingUncoveredItemsSettings",
-          "description": "The `uncovered-items` check's thresholds, on the whole set and each part, under `naive` coverage."
         }
       },
       "title": "DataSplittingChecks",
@@ -4468,7 +4464,7 @@
     },
     "DataSplittingConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``data-splitting`` entry: the split or folds, rebalancing, coverage, and when a finding\nwarns.\n\nExample YAML::\n\n    workflows:\n      - name: splits\n        type: data-splitting\n        folds: 3\n        test_frac: 0.2\n        rebalance: interclass",
+      "description": "The settings of one ``data-splitting`` entry: the split or folds, rebalancing, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: splits\n        type: data-splitting\n        folds: 3\n        test_frac: 0.2\n        rebalance: interclass",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -4581,79 +4577,12 @@
           "description": "DataEval's `ClassBalance` method applied to each train; unset rebalances nothing.",
           "title": "Rebalance"
         },
-        "coverage": {
-          "$ref": "#/$defs/DataSplittingCoverageSettings",
-          "description": "The `coverage` steps' settings, run on the whole set and each part when the task names an extractor."
-        },
         "checks": {
           "$ref": "#/$defs/DataSplittingChecks",
           "description": "When findings warn, keyed by check type."
         }
       },
       "title": "DataSplittingConfig",
-      "type": "object"
-    },
-    "DataSplittingCoverageSettings": {
-      "additionalProperties": false,
-      "description": "The `coverage` steps' settings, as a `coverage` evaluator entry reads them, with legacy data-splitting's\ndefaults; each keeps its default when `coverage:` is written partly.",
-      "properties": {
-        "method": {
-          "anyOf": [
-            {
-              "enum": [
-                "naive",
-                "adaptive"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How the coverage radius is set: `naive`, a fixed analytic radius, or `adaptive`, a cutoff on the `percent` most sparsely neighbored items. Unset uses DataEval's default (`adaptive`). Only `naive` coverage is judged, by `uncovered-items` steps. DataEval's naive radius overflows past about 340 embedding dimensions, so `naive` suits low-dimensional embeddings; with a wide extractor its coverage steps are skipped with `failed: OverflowError`.",
-          "title": "Method"
-        },
-        "num_observations": {
-          "default": 50,
-          "description": "Neighbors an item needs within the radius to count as covered, fewer than the smallest part's items.",
-          "exclusiveMinimum": 0,
-          "title": "Num Observations",
-          "type": "integer"
-        },
-        "percent": {
-          "default": 0.01,
-          "description": "Fraction of each part's items flagged as uncovered, for `adaptive` only.",
-          "exclusiveMaximum": 1.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Percent",
-          "type": "number"
-        }
-      },
-      "title": "DataSplittingCoverageSettings",
-      "type": "object"
-    },
-    "DataSplittingUncoveredItemsSettings": {
-      "additionalProperties": false,
-      "description": "The `uncovered-items` check's field, with legacy data-splitting's default.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 5.0,
-          "description": "The percent of a Dataset's items uncovered past which its Uncovered Items finding warns, under `naive` coverage only; `null` judges nothing.",
-          "title": "Warning"
-        }
-      },
-      "title": "DataSplittingUncoveredItemsSettings",
       "type": "object"
     },
     "DatasetProtocolConfig": {

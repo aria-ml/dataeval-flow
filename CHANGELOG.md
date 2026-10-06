@@ -537,6 +537,9 @@
 
 ### Removed
 
+- data-splitting's coverage: its whole-set and per-part `coverage` steps and `uncovered-items` checks, its `coverage:`
+  setting, `checks.uncovered-items`, and `extractor:` on a data-splitting task or step. Judge the parts with an
+  `audit` step after the split (see Check a set of splits)
 - data-prioritization's `cleaning:` and `stats:`, with `CleaningSettings`: run the preset as a step of a custom
   workflow after a `data-cleaning` step on the reference and one on the pools, or after `outliers`, `duplicates` and
   `remove` steps to keep near duplicates (see the Preset Catalog)

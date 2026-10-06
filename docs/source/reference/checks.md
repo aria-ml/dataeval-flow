@@ -534,8 +534,7 @@ skipped with "failed: OverflowError".
 | `warning` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
 
 - **Judges:** [`coverage`](evaluators.md#coverage)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage),
-  [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
 
 ```yaml
 evaluators:
