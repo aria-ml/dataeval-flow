@@ -1,6 +1,9 @@
 dataeval_flow:DatasetDigest
+dataeval_flow:DatasetManifest
 dataeval_flow:InputKind
 dataeval_flow:InputSpec
+dataeval_flow:ManifestDiff
+dataeval_flow:ManifestEntry
 dataeval_flow:MatrixResult
 dataeval_flow:MatrixRun
 dataeval_flow:Result
@@ -8,6 +11,7 @@ dataeval_flow:ResultMetadata
 dataeval_flow:SourceCount
 dataeval_flow:__version__
 dataeval_flow:dataset_digest
+dataeval_flow:dataset_manifest
 dataeval_flow:load_config
 dataeval_flow:load_dataset
 dataeval_flow:load_source

@@ -136,7 +136,8 @@ containerized_workflows
 - - {doc}`Read evaluation outputs <read_evaluation_outputs>`
   - Interpret the report and its severities, export the result envelope, and reach the raw numbers behind a finding.
 - - {doc}`Gate training on an audit <gate_training_on_an_audit>`
-  - Read an audit's verdict in a training job, and refuse data whose content digest doesn't match the record.
+  - Gate a run on an audit's verdict with `--require`, refuse data whose content digest doesn't match the record, and
+    find which items changed.
 - - {doc}`View a report as HTML <../notebooks/view_html_reports>`
   - Render a result as one self-contained page with cards, sortable and filterable tables, and each flag's
     measurements on hover.

@@ -667,6 +667,9 @@ to review and commit — see
 a task records an encoding, as `audit`, `data-coverage` and `ood-detection` do, so
 the `data-cleaning` run above writes none. It is also omitted when a run's tasks encoded
 their factors differently, since no single descriptor describes it.
+`manifests/` holds each `content-digest` step's manifest, one hash per item, under
+`manifests/<task>/`. It is written only where a task digests a split, as `audit` does; see
+[Gate training on an audit](gate_training_on_an_audit.md#find-what-changed).
 
 A pipeline's `result:` block shapes these files. Every key is optional:
 

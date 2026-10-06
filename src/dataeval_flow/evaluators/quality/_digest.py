@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any, ClassVar
 
-from dataeval_flow._digest import dataset_digest
+from dataeval_flow._digest import dataset_digest, dataset_manifest
 from dataeval_flow._input_spec import InputKind
 from dataeval_flow.evaluators._core import execution
 from dataeval_flow.evaluators._evaluator import Evaluator
@@ -31,9 +31,11 @@ class ContentDigestEvaluator(Evaluator[ContentDigestConfig, ContentDigestOutput]
         (source,) = inputs
         dataset = require(source.dataset, "its dataset", source.source)
         started, clock = datetime.now(UTC), time.monotonic()
-        digest = dataset_digest(dataset)
+        manifest = dataset_manifest(dataset)
         meta = execution("dataeval_flow.dataset_digest", started, time.monotonic() - clock, {})
+        digest = manifest.digest
         return ContentDigestOutput(
             {"content": digest.content, "metadata": digest.metadata, "items": digest.items, "scheme": digest.scheme},
             meta,
+            manifest,
         )

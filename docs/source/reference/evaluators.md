@@ -942,6 +942,12 @@ Every item is read from the Dataset itself and never through a cache. A content 
 labels and the class names, and a metadata digest covers each item's metadata, as attached to that item. Neither depends
 on the items' order. {py:func}`~dataeval_flow.dataset_digest` computes the same values in Python.
 
+The Output also keeps each item's hash, as a manifest, `output.manifest()`, in memory only. With `--output`, the
+command writes it under `results/manifests/<task>/`: as `<step>.json` for a step of a chain, `<step>/<key>.json` for
+each run of a step run once per element, and `content-digest.json` for a task that runs the evaluator alone.
+`dataeval-flow verify` checks a source against it; see
+[Gate training on an audit](../how_to/gate_training_on_an_audit.md#find-what-changed).
+
 - **Reads:** `input`: one Dataset; Flow reads every item from it directly, and derives nothing.
 - **Makes:** a `content-digest` Output: a mapping of `content` and `metadata`, each 64 hex characters, `items`, how many
   items were read, and `scheme`, the version of the digest scheme.

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json as json_mod
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH
 
 if TYPE_CHECKING:
+    from dataeval_flow._digest import DatasetManifest
     from dataeval_flow._result import Result
     from dataeval_flow.config._models import PipelineConfig, ResultConfig
 
@@ -259,6 +260,68 @@ def _requirement(
     return requirement, judged
 
 
+def _write_manifests(results: Mapping[str, Result[Any, Any]], results_dir: Path) -> int:
+    """Save each ``content-digest`` run's manifest under ``results_dir/manifests/<task>/``; return how many."""
+    from dataeval_flow.config._schemas._export import one_directory_segment
+
+    written = 0
+    for task, result in results.items():
+        try:
+            one_directory_segment(task, what="task name")
+        except ValueError as error:
+            _logger.warning("  Skipped task '%s' manifests: %s", task, error)
+            continue
+        for relative, manifest in _manifests(result, task):
+            manifest.save(results_dir / "manifests" / task / relative)
+            written += 1
+    return written
+
+
+def _safe_segments(task: str, step: str, key: Any) -> bool:
+    """Whether `step` and `key` each name one directory; where not, warn and say no."""
+    from dataeval_flow.config._schemas._export import one_directory_segment
+
+    try:
+        one_directory_segment(step, what="step name")
+        if key is not None:
+            one_directory_segment(str(key), what="source name")
+    except ValueError as error:
+        _logger.warning("  Skipped manifest of task '%s' step '%s': %s", task, step, error)
+        return False
+    return True
+
+
+def _manifests(result: Result[Any, Any], task: str = "") -> Iterator[tuple[Path, DatasetManifest]]:
+    """`result`'s content digests' manifests, each with its path under the task's directory: ``<step>.json``, or
+    ``<step>/<key>.json`` for a step run once per element, under ``run-<n>/`` for a matrix run; a ``content-digest``
+    evaluator task's is ``content-digest.json``. A failed chain's completed ``content-digest`` steps still give
+    their manifests, as ``result.json`` keeps a failed chain's steps. A segment that isn't one directory name (a step
+    or source name with a separator, say) skips its manifest with a warning, never the run."""
+    from dataeval_flow._matrix._result import MatrixResult
+    from dataeval_flow.evaluators.quality._result import ContentDigestOutput
+    from dataeval_flow.steps._result import ChainResult
+
+    if isinstance(result, MatrixResult):
+        for matrix_run in result.runs:
+            for relative, manifest in _manifests(matrix_run.result, task):
+                yield Path(f"run-{matrix_run.number}") / relative, manifest
+        return
+    if isinstance(result, ChainResult):
+        for name, record in result.steps.items():
+            runs = record.elements.items() if record.elements is not None else [(None, record)]
+            for key, step in runs:
+                kept = step.output.manifest() if isinstance(step.output, ContentDigestOutput) else None
+                if kept is None:
+                    continue
+                if not _safe_segments(task, name, key):
+                    continue
+                yield (Path(name) / f"{key}.json" if key is not None else Path(f"{name}.json")), kept
+        return
+    output = result.output if result.success else None
+    if isinstance(output, ContentDigestOutput) and (kept := output.manifest()) is not None:
+        yield Path("content-digest.json"), kept
+
+
 def run(
     config_arg: Path | str | None,
     output_dir: Path | None = None,
@@ -359,6 +422,8 @@ def run(
         results_dir = output_dir / "results"
         if written := _write_results(collected, results_dir, config.result, width):
             _logger.info("  Wrote %s to %s", ", ".join(written), results_dir)
+        if count := _write_manifests(collected.reported, results_dir):
+            _logger.info("  Wrote %d manifest(s) to %s", count, results_dir / "manifests")
         if collected.merged and not collected.disagreeing:
             _write_encoding_descriptor(collected.binning, results_dir)
 

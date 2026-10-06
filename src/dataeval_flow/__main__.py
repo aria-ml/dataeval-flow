@@ -293,6 +293,25 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to an existing config file or folder to load on startup",
     )
 
+    verify_parser = subparsers.add_parser(
+        "verify",
+        help="Check that a source still holds the items a run's manifest records.",
+        description=(
+            "Load SOURCE from the pipeline config as a run reads it, and compare its items with MANIFEST, which a run "
+            "wrote under results/manifests/. Exits 0 when they match, and 1 when they don't, naming the items that "
+            "changed, are missing or were added."
+        ),
+    )
+    verify_parser.add_argument("manifest", type=Path, help="The manifest a run wrote.")
+    verify_parser.add_argument("--config", type=Path, required=True, help="The pipeline config holding the source.")
+    verify_parser.add_argument("--source", required=True, help="The sources: entry to check.")
+    verify_parser.add_argument(
+        "--data",
+        type=Path,
+        default=argparse.SUPPRESS,  # the top-level --data, set before `verify`, or $DATAEVAL_DATA, stands
+        help="Root a relative dataset path resolves against (default: $DATAEVAL_DATA, else the current directory).",
+    )
+
     return parser
 
 
@@ -425,7 +444,7 @@ def parse_args() -> argparse.Namespace:
     return apply_env_defaults(parser.parse_args())
 
 
-def main() -> NoReturn:
+def main() -> NoReturn:  # noqa: C901 - one branch per subcommand
     """CLI entry point."""
     try:
         args = parse_args()
@@ -460,6 +479,11 @@ def main() -> NoReturn:
         # it went.
         setup_logging(verbosity=max(args.verbose, 2), log_format=args.log_format)
         sys.exit(write_encoding(args.result, args.output, args.task))
+
+    if args.command == "verify":
+        from dataeval_flow._verify_cli import verify
+
+        sys.exit(verify(args.manifest, args.config, args.source, args.data))
 
     if args.command == "workflows":
         sys.exit(_list_workflows(args.name, as_json=args.json))

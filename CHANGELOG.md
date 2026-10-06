@@ -4,6 +4,11 @@
 
 ### Added
 
+- `dataset_manifest()` and `DatasetManifest`: a dataset's digest with each item's hash, saved and loaded as JSON, and
+  compared to name the items that changed. The `dataeval-flow` command writes each `content-digest` run's manifest
+  under `results/manifests/`
+- `dataeval-flow verify`: whether a configured source still holds the items a manifest records, naming those that
+  changed, are missing or were added
 - `load_source()`: a configured source as a run reads it, its view applied and its merge merged, so a training job
   can digest a viewed split. It refuses a view that would draw different items on each load
 - `result: require:`, `--require` and `DATAEVAL_REQUIRE`: the worst verdict a task may have, `ready-with-caveats`,

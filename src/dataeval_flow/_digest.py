@@ -1,14 +1,16 @@
 """A dataset's identity as SHA-256 digests over every item: what a model trains on, and the metadata beside it."""
 
-__all__ = ["DatasetDigest", "dataset_digest"]
+__all__ = ["DatasetDigest", "DatasetManifest", "ManifestDiff", "ManifestEntry", "dataset_digest", "dataset_manifest"]
 
 import hashlib
 import json
 import math
 import os
+from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -37,6 +39,95 @@ class DatasetDigest:
     """How many items the dataset held."""
     scheme: int
     """The version of the digest scheme, so a change of scheme can't be mistaken for changed data."""
+
+
+@dataclass(frozen=True)
+class ManifestEntry:
+    """One item of a manifest: where it sat, its metadata ``id`` where it has one, and its content hash."""
+
+    index: int
+    """The item's position in the dataset it was read from."""
+    id: str | int | None
+    """The item's metadata ``id``, or ``None`` where it has none."""
+    content: str
+    """The SHA-256 of the item's image and labels, which the content digest sorts and hashes."""
+
+
+@dataclass(frozen=True)
+class ManifestDiff:
+    """What a dataset changed against a manifest: items by ``id`` where every item on both sides has a unique one,
+    else by index. Falsy when nothing differs."""
+
+    changed: tuple[str | int, ...] = ()
+    """The ids of items on both sides whose image or labels differ."""
+    missing: tuple[str | int, ...] = ()
+    """The manifest's items the dataset doesn't hold: by id, or by their index in the manifest."""
+    added: tuple[str | int, ...] = ()
+    """The dataset's items the manifest doesn't hold: by id, or by their index in the dataset."""
+    classes: bool = False
+    """Whether the class names differ."""
+
+    def __bool__(self) -> bool:
+        """Whether anything differs."""
+        return bool(self.changed or self.missing or self.added or self.classes)
+
+
+@dataclass(frozen=True)
+class DatasetManifest:
+    """A dataset's digest with each item's content hash and its class names, so a mismatch can name what changed."""
+
+    digest: DatasetDigest
+    """The digest :func:`dataset_digest` gives."""
+    entries: tuple[ManifestEntry, ...]
+    """One entry per item, in the dataset's order."""
+    classes: dict[int, str]
+    """The class names by index, which the content digest covers."""
+
+    def save(self, path: str | os.PathLike[str]) -> None:
+        """Write the manifest to `path` as JSON, making its directory."""
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "scheme": self.digest.scheme,
+            "content": self.digest.content,
+            "metadata": self.digest.metadata,
+            "items": self.digest.items,
+            "classes": {str(index): name for index, name in self.classes.items()},
+            "entries": [{"index": entry.index, "id": entry.id, "content": entry.content} for entry in self.entries],
+        }
+        target.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
+
+    @classmethod
+    def load(cls, path: str | os.PathLike[str]) -> "DatasetManifest":
+        """Read a manifest :meth:`save` wrote. One written by another digest scheme is refused."""
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        if data.get("scheme") != SCHEME:
+            raise ValueError(f"{path} is a scheme {data.get('scheme')} manifest; this Flow reads scheme {SCHEME}.")
+        digest = DatasetDigest(content=data["content"], metadata=data["metadata"], items=data["items"], scheme=SCHEME)
+        entries = tuple(ManifestEntry(entry["index"], entry["id"], entry["content"]) for entry in data["entries"])
+        return cls(digest, entries, {int(index): name for index, name in data["classes"].items()})
+
+    def compare(self, other: "DatasetManifest") -> ManifestDiff:
+        """What `other`, the data as it is now, changed against this manifest, the data as recorded. Content only:
+        the metadata digest covers metadata as stored, paths included, which differ between machines."""
+        if self.digest.content == other.digest.content:
+            return ManifestDiff()
+        classes = self.classes != other.classes
+        mine, theirs = _by_id(self.entries), _by_id(other.entries)
+        if mine is not None and theirs is not None:
+            return ManifestDiff(
+                changed=tuple(key for key in mine if key in theirs and mine[key] != theirs[key]),
+                missing=tuple(key for key in mine if key not in theirs),
+                added=tuple(key for key in theirs if key not in mine),
+                classes=classes,
+            )
+        recorded = Counter(entry.content for entry in self.entries)
+        current = Counter(entry.content for entry in other.entries)
+        return ManifestDiff(
+            missing=_unmatched(self.entries, recorded - current),
+            added=_unmatched(other.entries, current - recorded),
+            classes=classes,
+        )
 
 
 def dataset_digest(dataset: Any) -> DatasetDigest:
@@ -78,24 +169,75 @@ def dataset_digest(dataset: Any) -> DatasetDigest:
     >>> digest = dataset_digest(train)  # doctest: +SKIP
     >>> assert digest.content == recorded["content"], "not the data the run recorded"  # doctest: +SKIP
     """
-    contents: list[str] = []
+    return dataset_manifest(dataset).digest
+
+
+def dataset_manifest(dataset: Any) -> DatasetManifest:
+    """Digest every item of `dataset` as :func:`dataset_digest` does, keeping each item's content hash, so a later
+    mismatch can name the items that changed (see :meth:`DatasetManifest.compare`).
+
+    Parameters
+    ----------
+    dataset : AnnotatedDataset
+        As :func:`dataset_digest` takes it.
+
+    Returns
+    -------
+    DatasetManifest
+        The digest, one entry per item in the dataset's order, and the class names.
+    """
+    entries: list[ManifestEntry] = []
     metadata: list[str] = []
     for index in range(len(dataset)):
         datum = dataset[index]
         parts = datum if isinstance(datum, tuple) else (datum,)
         image = parts[0]  # before the len() checks below, which narrow `parts` to include tuple[()]
         target = parts[1] if len(parts) > 1 else None
+        meta = parts[2] if len(parts) > 2 else None
         content = _hash([*_array_parts(image), *_target_parts(target)])
-        contents.append(content)
-        metadata.append(_hash([content.encode(), _canonical_json(parts[2] if len(parts) > 2 else None)]))
-    count = len(contents).to_bytes(8, "little")
-    names = _canonical_json(sorted(_index2label(dataset).items()))
-    return DatasetDigest(
-        content=_hash([_CONTENT_SCHEME, count, names, *(item.encode() for item in sorted(contents))]),
+        entries.append(ManifestEntry(index=index, id=_item_id(meta), content=content))
+        metadata.append(_hash([content.encode(), _canonical_json(meta)]))
+    count = len(entries).to_bytes(8, "little")
+    classes = _index2label(dataset)
+    names = _canonical_json(sorted(classes.items()))
+    digest = DatasetDigest(
+        content=_hash([_CONTENT_SCHEME, count, names, *(item.encode() for item in sorted(e.content for e in entries))]),
         metadata=_hash([_METADATA_SCHEME, count, *(item.encode() for item in sorted(metadata))]),
-        items=len(contents),
+        items=len(entries),
         scheme=SCHEME,
     )
+    return DatasetManifest(digest=digest, entries=tuple(entries), classes=classes)
+
+
+def _item_id(meta: Any) -> str | int | None:
+    """An item's metadata ``id`` as JSON holds it, or ``None`` where it has none."""
+    value = meta.get("id") if isinstance(meta, Mapping) else None
+    if isinstance(value, np.generic):
+        value = value.item()
+    if value is None or (isinstance(value, (int, str)) and not isinstance(value, bool)):
+        return value
+    return str(value)
+
+
+def _by_id(entries: tuple[ManifestEntry, ...]) -> dict[str | int, str] | None:
+    """Each entry's content by its id, or ``None`` where an entry has no id or two share one."""
+    by_id: dict[str | int, str] = {}
+    for entry in entries:
+        if entry.id is None or entry.id in by_id:
+            return None
+        by_id[entry.id] = entry.content
+    return by_id
+
+
+def _unmatched(entries: tuple[ManifestEntry, ...], surplus: "Counter[str]") -> tuple[int, ...]:
+    """The indices of `entries` whose content `surplus` counts, as many of each as it counts."""
+    left = Counter(surplus)
+    found: list[int] = []
+    for entry in entries:
+        if left[entry.content] > 0:
+            left[entry.content] -= 1
+            found.append(entry.index)
+    return tuple(found)
 
 
 def _hash(parts: Iterable[bytes]) -> str:

@@ -353,7 +353,7 @@ docker run \
 
 ## CLI Modes
 
-DataEval Flow has seven modes:
+DataEval Flow has eight modes:
 
 | Command                    | Purpose                                                              |
 | -------------------------- | -------------------------------------------------------------------- |
@@ -361,6 +361,7 @@ DataEval Flow has seven modes:
 | `dataeval-flow app`        | Interactive TUI dashboard — configure, execute, and view results     |
 | `dataeval-flow config`     | Simple CLI config builder — create/edit configs without the TUI      |
 | `dataeval-flow encoding`   | Write the metadata encoding descriptor a result was computed under   |
+| `dataeval-flow verify`     | Check that a source still holds the items a run's manifest records   |
 | `dataeval-flow workflows`  | List the available workflow types, or print one's parameter schema   |
 | `dataeval-flow evaluators` | List the available evaluator types, or print one's parameter schema  |
 | `dataeval-flow steps`      | List every step a custom workflow can chain, or describe one         |

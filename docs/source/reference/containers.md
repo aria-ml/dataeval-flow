@@ -135,10 +135,16 @@ Optional sub-commands (default is the headless pipeline):
 | `app`      | Interactive TUI dashboard (requires the `app` extra)                 |
 | `config`   | Simple CLI config builder                                            |
 | `encoding` | Write the metadata encoding descriptor a result was computed under   |
+| `verify`   | Check that a source still holds the items a run's manifest records   |
 
 `encoding` takes the path to a `result.json` written by a run, plus an optional
 `-o`/`--output` for where to write the descriptor (default: print it) and
 `--task` to pick one task's encoding when a result holds several that differ.
+
+`verify` takes the path to a manifest a run wrote under `results/manifests/`, plus
+`--config` and `--source` for the source to check and `--data` for the data root,
+which must be the run's. It exits `0` when the source holds the recorded items and `1`
+otherwise, including when the manifest can't be read or the source can't be loaded.
 
 ## Input precedence
 

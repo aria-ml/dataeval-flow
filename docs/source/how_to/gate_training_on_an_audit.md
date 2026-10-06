@@ -2,8 +2,8 @@
 
 An `audit` run says whether a dataset is ready to train on, and records a content digest of each split it judged. A
 training job can check both before it starts: that the verdict allows training, and that the data it is about to read
-is the data that was audited. This guide covers running the audit, reading its verdict, and refusing data whose digest
-doesn't match.
+is the data that was audited. This guide covers running the audit, gating on its verdict with `--require` or by
+reading it, refusing data whose digest doesn't match, and finding which items changed.
 
 ## Used in these tutorials
 
@@ -135,6 +135,26 @@ Notice:
   export. `export` writes object-detection Datasets only.
 - The digest hashes decoded pixels and targets as Flow reads them. Compare digests made with the same image libraries,
   which the result records in `metadata.library_versions`.
+
+## Find what changed
+
+A digest mismatch says the data changed, not where. With `--output`, the command writes each split's manifest, one
+hash per item, under `output/results/manifests/<task>/`: `content-digest-train.json`, and
+`content-digest-evals/<split>.json` for each evaluation split, under `run-<n>/` for each run of a matrix. From Python,
+`result.steps["content-digest-train"].output.manifest()` gives a run's own manifest, and `.save(path)` writes it.
+Check a source against one with `verify`:
+
+```bash
+dataeval-flow verify output/results/manifests/audit-splits/content-digest-train.json --config pipeline.yaml --source train
+```
+
+It loads the source as `load_source` does, so pass the run's data root with `--data` where the config's paths are
+relative. It exits 0 when the source holds the recorded items. It exits 1 when it doesn't, printing `MISMATCH:` and
+the items that changed, are missing or were added, and also when the manifest can't be read or the source can't be
+loaded, printing `ERROR:` to standard error. Items are named by `id` where every item has a unique one. Otherwise they
+are named by index, and an edited item shows as one missing, at the manifest's index, and one added, at the dataset's.
+From Python, `dataset_manifest(dataset)` computes a manifest, `DatasetManifest.load(path)` reads one, and
+`recorded.compare(current)` gives the difference.
 
 ## See also
 

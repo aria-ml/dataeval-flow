@@ -178,6 +178,12 @@ MAITE
     AI/ML datasets, models, and components. MAITE-compliant inputs give DataEval
     Flow native interoperability with the rest of the JATIC suite.
 
+Manifest
+    A {term}`content digest<Content Digest>` with each item's hash, so it names the items that changed where the digest
+    says only that something did. With `--output`, the command writes one for each `content-digest` run under
+    `results/manifests/`, and `dataeval-flow verify` checks a source against it. See
+    [Gate training on an audit](../how_to/gate_training_on_an_audit.md#find-what-changed).
+
 Matrix
     A task's `matrix:`: it runs the task's entry once per combination of the
     values it lists, and compares the runs in one result. See

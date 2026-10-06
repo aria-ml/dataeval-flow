@@ -1,7 +1,7 @@
 """The quality evaluators' results: DataEval's own output objects, typed per evaluator."""
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dataeval.quality import DuplicatesOutput, OutliersOutput
 from pydantic import BaseModel, Field
@@ -9,6 +9,9 @@ from pydantic import BaseModel, Field
 from dataeval_flow._blocks import Block
 from dataeval_flow.evaluators._core import CoreOutput
 from dataeval_flow.evaluators._result import EvaluatorResult
+
+if TYPE_CHECKING:
+    from dataeval_flow._digest import DatasetManifest
 
 __all__ = [
     "ContentDigestOutput",
@@ -143,6 +146,15 @@ class ContentDigestOutput(CoreOutput):
     SHA-256 over each item's metadata, as attached to that item; ``items``, how many items were read; and ``scheme``,
     the version of the digest scheme. Both digests are 64 hex characters, and neither depends on the items' order.
     """
+
+    def __init__(self, data: Mapping[str, Any], meta: Any, manifest: "DatasetManifest | None" = None) -> None:
+        super().__init__(data, meta)
+        self._manifest = manifest
+
+    def manifest(self) -> "DatasetManifest | None":
+        """Each item's content hash, as :func:`~dataeval_flow.dataset_manifest` gives them, which the command writes
+        under ``results/manifests/``. In memory only, never in the JSON; ``None`` where none was kept."""
+        return self._manifest
 
 
 class ContentDigestResult(EvaluatorResult[ContentDigestOutput]):
