@@ -10,6 +10,7 @@ __all__ = [
     "build_graph",
     "one_step_graph",
     "task_problems",
+    "verdict_steps",
 ]
 
 import builtins
@@ -27,11 +28,11 @@ from dataeval_flow.steps._step import InlineStep, Step, StepKind, Transform, por
 from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepEntry
 
 if TYPE_CHECKING:
-    from dataeval_flow._chain._presets import Spliced
+    from dataeval_flow._chain._presets import Splice, Spliced
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.config._schemas import TaskConfig
     from dataeval_flow.evaluators._base import EvaluatorConfig
-    from dataeval_flow.workflows._preset import Preset
+    from dataeval_flow.workflows._preset import Preset, PresetChain
 
 _ARTICLE = {
     DataType.DATASET: "a Dataset",
@@ -108,6 +109,8 @@ class ChainGraph:
     aliases: Mapping[str, str] = field(default_factory=dict)
     """Each declared output of a preset step, such as `cleaning.clean`, to the output address in the spliced
     chain that holds it, `cleaning/clean` or `splits/split.train`."""
+    splices: tuple["Splice", ...] = ()
+    """Each preset step's splice, in run order (audit-as-a-step spec §4.1)."""
 
     def aliases_of(self, address: str) -> tuple[str, ...]:
         """The addresses that read what `address` holds: each declared output of a preset step made there."""
@@ -134,6 +137,13 @@ def build_graph(
     GraphError
         Naming the step and the address that does not connect.
     """
+    verdicts = verdict_steps(workflow, pipeline)
+    if len(verdicts) > 1:
+        named = ", ".join(f"`{name}`" for name in verdicts[:-1]) + f" and `{verdicts[-1]}`"
+        raise GraphError(
+            f"Workflow '{workflow.name}' runs {_count_word(len(verdicts))} steps that give a verdict, {named}; a "
+            "workflow gives one verdict."
+        )
     keys = slot_keys or {}
     given = slot_types or {}
     types: dict[str, ValueType] = {
@@ -144,6 +154,7 @@ def build_graph(
     specs: dict[str, StepSpec] = {}
     empty: dict[str, frozenset[str]] = {}
     aliases: dict[str, str] = {}
+    splices: list[Splice] = []
     for entry in workflow.steps:
         later.discard(entry.name)
         preset = _preset_step(entry, pipeline)
@@ -153,6 +164,7 @@ def build_graph(
             aliases.update(spliced.aliases)
             types.update(spliced.types)
             empty[entry.name] = spliced.empty
+            splices.append(spliced.splice)
             continue
         spec = _resolve(entry, workflow, pipeline, types, later, specs, empty, evaluators)
         specs[entry.name] = spec
@@ -170,7 +182,23 @@ def build_graph(
                 step=spec.name,
                 by=spec.by if spec.kind == "evaluator" else None,
             )
-    return ChainGraph(workflow.name, tuple(workflow.inputs), tuple(specs.values()), aliases=aliases)
+    return ChainGraph(
+        workflow.name, tuple(workflow.inputs), tuple(specs.values()), aliases=aliases, splices=tuple(splices)
+    )
+
+
+def verdict_steps(workflow: CustomWorkflowConfig, pipeline: "PipelineConfig") -> list[str]:
+    """The steps of `workflow` that run a preset whose chain gives a verdict, in order."""
+    found: list[str] = []
+    for entry in workflow.steps:
+        preset = _preset_step(entry, pipeline)
+        if preset is not None and preset[1].chain(preset[0]).blocking is not None:
+            found.append(entry.name)
+    return found
+
+
+def _count_word(count: int) -> str:
+    return {2: "two", 3: "three", 4: "four", 5: "five"}.get(count, str(count))
 
 
 def one_step_graph(task: "TaskConfig", instance: BaseModel, source_names: Sequence[str]) -> ChainGraph:
@@ -337,9 +365,11 @@ def _resolve(
     )
 
     if broadcast and any(port.is_list for port in impl.output_ports()):
+        address, value = _first_list(bindings, entry, workflow, types, later, empty)
+        element = f"{address}[{value.keys[0] if value.keys else '<key>'}]"
         raise GraphError(
-            f"Step '{entry.name}' reads a list on a port that takes one item, so it runs once per element; but it "
-            "outputs lists, and lists do not nest."
+            f"Step '{entry.name}' reads `{address}`, a list, on a port that takes one item, so it would run once per "
+            f"element; but it outputs lists, and lists do not nest: name one element, such as `{element}`."
         )
     if broadcast and issubclass(impl, Transform) and not impl.broadcasts:
         address, value = _first_list(bindings, entry, workflow, types, later, empty)
@@ -487,8 +517,80 @@ def _splice(
                 "is one Dataset."
             )
         bound.append((address, value))
+    by_slot = dict(zip(names, bound, strict=True))
+    chain = preset.chain(config)
+    _check_splice(entry, config, preset, chain, by_slot)
+    _check_reference(entry, config, preset, chain, pipeline, by_slot)
     _check_extractor(entry, "workflow", config.type, config, pipeline)
-    return splice_preset(entry, config, preset, pipeline, dict(zip(names, bound, strict=True)))
+    return splice_preset(entry, config, preset, pipeline, by_slot)
+
+
+def _check_splice(
+    entry: StepEntry,
+    config: Any,
+    preset: "type[Preset]",
+    chain: "PresetChain",
+    bound: Mapping[str, tuple[Address, ValueType]],
+) -> None:
+    """Refuse, on a preset step, `optional:` where its chain gives a verdict (audit-as-a-step spec D9); an `accepted`
+    key naming an element no list bound to a slot has, where its keys are known (§4.1); and, where its chain declares a
+    reference, a record or a verdict, an element of such a list keyed like one of its single slots, which the record's
+    columns and the preflight's names would confuse."""
+    if entry.optional and chain.blocking is not None:
+        raise GraphError(
+            f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), which gives a verdict, so it may not "
+            "be optional: a step of it that failed would read as not assessed, and the verdict would pass."
+        )
+    lists = [(address, value) for address, value in bound.values() if value.is_list and value.keys]
+    keys = [key for _, value in lists for key in value.keys or ()]
+    for accepted in chain.accepted if lists else ():
+        if "[" in accepted and (element := accepted[accepted.index("[") + 1 : -1]) not in keys:
+            raise GraphError(
+                f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), whose `accepted` names "
+                f"`{accepted}`, but `{lists[0][0]}` has no element `{element}`. Its elements: {', '.join(keys)}."
+            )
+    if chain.reference is None and chain.record is None and chain.blocking is None:
+        return
+    singles = {
+        name for slot, name in zip(preset.slots, bound, strict=True) if isinstance(slot, str) or not slot.is_list
+    }
+    for name, (address, value) in bound.items():
+        clash = next((key for key in value.keys or () if key in singles), None) if name not in singles else None
+        if clash is not None:
+            raise GraphError(
+                f"Step '{entry.name}' binds `{address}`, whose element `{clash}` has the name of its slot `{clash}`: "
+                "name the element otherwise with `keys:`."
+            )
+
+
+def _check_reference(
+    entry: StepEntry,
+    config: Any,
+    preset: "type[Preset]",
+    chain: "PresetChain",
+    pipeline: "PipelineConfig",
+    bound: Mapping[str, tuple[Address, ValueType]],
+) -> None:
+    """Refuse, on a preset step whose chain declares a reference or a verdict, a list bound to a slot taking one Dataset
+    (audit-as-a-step spec D3), and, under a reference, a metadata policy naming `reference_split` (D7)."""
+    if chain.reference is not None or chain.blocking is not None:
+        for slot, (name, (address, value)) in zip(preset.slots, bound.items(), strict=True):
+            single = isinstance(slot, str) or not slot.is_list
+            if single and value.is_list:
+                element = f"{address}[{value.keys[0] if value.keys else '<key>'}]"
+                raise GraphError(
+                    f"Step '{entry.name}' binds `{address}`, a list, to `{name}` of workflow '{entry.target}' "
+                    f"({config.type}), which takes one Dataset there: name one element, such as `{element}`."
+                )
+    if chain.reference is not None and (named := getattr(config, "metadata", None)) is not None:
+        policy = next((item for item in pipeline.metadata or () if item.name == named), None)
+        if policy is not None and policy.reference_split is not None:
+            raise GraphError(
+                f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), whose metadata policy "
+                f"'{named}' names reference_split={policy.reference_split!r}: run as a step, a preset encodes like "
+                f"the Dataset bound to `{chain.reference}`, and a reference_split, which names a task source, cannot "
+                "single out a split part. Remove reference_split from the policy, or run the preset as a task."
+            )
 
 
 def _bind_inputs(

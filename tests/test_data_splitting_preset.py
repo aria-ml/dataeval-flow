@@ -7,15 +7,12 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-import dataeval_flow._cache as cache_module
 from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows.data_splitting import DataSplittingConfig, DataSplittingWorkflow
 from tests.chain_toys import ToyDetections, chain_pipeline
 from tests.evaluator_toys import ToyFactors
-
-_NO_EXTRACTOR = "requires an extractor"
 
 
 @pytest.fixture(autouse=True)
@@ -33,7 +30,7 @@ def _names(**settings: Any) -> list[str]:
     return [step["name"] for step in _steps(**settings)]
 
 
-_WHOLE = ["label-health", "class-imbalance", "balance", "diversity", "coverage", "split"]
+_WHOLE = ["label-health", "class-imbalance", "balance", "diversity", "split"]
 
 
 def test_the_default_chain() -> None:
@@ -43,9 +40,6 @@ def test_the_default_chain() -> None:
         "label-health-val",
         "label-health-test",
         "stratification",
-        "coverage-train",
-        "coverage-val",
-        "coverage-test",
     ]
 
 
@@ -54,18 +48,7 @@ def test_rebalancing_adds_a_view_its_labels_and_a_shown_column() -> None:
     steps = {dict(step)["name"]: dict(step) for step in chain.steps}
     assert steps["rebalanced"]["operations"] == [{"type": "ClassBalance", "params": {"method": "interclass"}}]
     assert steps["stratification"]["shown"] == "label-health-rebalanced"
-    assert steps["coverage-train"]["input"] == "rebalanced"
     assert chain.outputs == {"train": "rebalanced", "val": "split.val", "test": "split.test"}
-
-
-def test_naive_coverage_adds_an_uncovered_check_per_coverage_step() -> None:
-    names = _names(coverage={"method": "naive"})
-    assert [name for name in names if name.startswith("uncovered")] == [
-        "uncovered-items",
-        "uncovered-items-train",
-        "uncovered-items-val",
-        "uncovered-items-test",
-    ]
 
 
 def test_two_folds_or_more_run_kfold() -> None:
@@ -77,7 +60,6 @@ def test_two_folds_or_more_run_kfold() -> None:
 def test_a_part_the_settings_leave_empty_gets_no_steps(settings: dict[str, Any], gone: str) -> None:
     names = _names(**settings)
     assert f"label-health-{gone}" not in names
-    assert f"coverage-{gone}" not in names
 
 
 def test_val_frac_with_folds_is_refused() -> None:
@@ -96,26 +78,17 @@ def test_a_whole_dump_of_a_kfold_entry_reloads() -> None:
 
 
 def test_thresholds_are_keyed_by_check_type() -> None:
-    entry = DataSplittingConfig.model_validate(
-        {"checks": {"class-imbalance": {"warning": 3}, "uncovered-items": {"warning": 1}}}
-    )
+    entry = DataSplittingConfig.model_validate({"checks": {"class-imbalance": {"warning": 3}}})
     dumped = entry.model_dump(mode="json")["checks"]
-    assert (dumped["class-imbalance"]["warning"], dumped["uncovered-items"]["warning"]) == (3, 1)
+    assert dumped["class-imbalance"]["warning"] == 3
 
 
-def test_a_partial_coverage_keeps_legacy_s_defaults() -> None:
-    assert DataSplittingConfig.model_validate({"coverage": {"method": "naive"}}).coverage.num_observations == 50
-
-
-def _task(dataset: Any, *, extractor: bool = False, **settings: Any) -> ChainResult:
+def _task(dataset: Any, **settings: Any) -> ChainResult:
     task: dict[str, Any] = {"name": "t", "workflow": "split", "sources": ["src"]}
-    if extractor:
-        task["extractor"] = "flat"
     config = chain_pipeline(
         workflows=[{"name": "split", "type": "data-splitting", **settings}],
         tasks=[task],
         datasets={"src": dataset},
-        extractor=extractor,
         extra={"seed": 0},
     )
     result = run_tasks(config)["t"]
@@ -129,7 +102,6 @@ def test_a_task_splits_and_records_the_parts() -> None:
     indices = (result.steps["split"].details or {})["indices"]
     assert sorted(i for part in indices.values() for i in part) == list(range(60))
     assert {"Class Imbalance", "Stratification"} <= {finding.title for finding in result.findings}
-    assert (result.steps["coverage"].status, result.steps["coverage"].reason) == ("skipped", _NO_EXTRACTOR)
 
 
 def test_kfold_judges_stratification_per_fold() -> None:
@@ -137,20 +109,6 @@ def test_kfold_judges_stratification_per_fold() -> None:
     assert result.success, result.errors
     judged = [finding.step for finding in result.findings if finding.title == "Stratification"]
     assert judged == ["stratification[0]", "stratification[1]", "stratification[2]"]
-
-
-def test_with_an_extractor_the_whole_set_is_embedded_once(monkeypatch: pytest.MonkeyPatch) -> None:
-    sizes: list[int] = []
-    original = cache_module.get_or_compute_embeddings
-
-    def counting(dataset: Any, *args: Any, **kwargs: Any) -> Any:
-        sizes.append(len(dataset))
-        return original(dataset, *args, **kwargs)
-
-    monkeypatch.setattr(cache_module, "get_or_compute_embeddings", counting)
-    result = _task(ToyFactors(count=90), extractor=True, folds=3, coverage={"num_observations": 3})
-    assert result.success, result.errors
-    assert sizes == [90]
 
 
 class _NoFactors:
@@ -195,16 +153,6 @@ def test_a_split_on_factor_the_metadata_lacks_fails_the_split() -> None:
     assert not result.success
     assert result.steps["split"].status == "failed"
     assert any("not among this metadata's factors" in error for error in result.steps["split"].errors)
-
-
-def test_a_coverage_step_that_raises_is_skipped_and_the_rest_runs() -> None:
-    # 20 neighbors fit in the whole set's 60 items and the train's, not in the val's 4 or the test's 12.
-    result = _task(ToyFactors(count=60), extractor=True, coverage={"num_observations": 20})
-    assert result.success, result.errors
-    assert [result.steps[step].status for step in ("coverage", "coverage-train")] == ["ok", "ok"]
-    for step in ("coverage-val", "coverage-test"):
-        assert result.steps[step].status == "skipped"
-        assert (result.steps[step].reason or "").startswith("failed:")
 
 
 def _outer(steps: list[dict[str, Any]], dataset: Any, **entry: Any) -> Any:
@@ -261,3 +209,32 @@ def test_each_fold_s_detection_train_is_exported(tmp_path: Any) -> None:
     assert [len(train) for train in trains.values()] == [12, 12, 12]
     assert list(result.steps["out"].elements or {}) == ["0", "1", "2"]
     assert result.steps["out"].status == "ok"
+
+
+@pytest.mark.parametrize(
+    ("settings", "key"),
+    [
+        ({"coverage": {"method": "naive"}}, "coverage"),
+        ({"checks": {"uncovered-items": {"warning": 1}}}, "uncovered-items"),
+    ],
+)
+def test_a_removed_coverage_setting_is_refused_as_unknown(settings: dict[str, Any], key: str) -> None:
+    with pytest.raises(ValidationError) as info:
+        DataSplittingConfig.model_validate(settings)
+    assert [error["type"] for error in info.value.errors()] == ["extra_forbidden"]
+    assert key in str(info.value)
+
+
+def test_the_chain_has_no_coverage_step() -> None:
+    names = _names(folds=3, rebalance="interclass")
+    assert not [name for name in names if "coverage" in name or "uncovered" in name]
+
+
+def test_an_extractor_on_a_data_splitting_task_is_refused() -> None:
+    with pytest.raises(ValidationError, match="does not use an extractor"):
+        chain_pipeline(
+            workflows=[{"name": "split", "type": "data-splitting"}],
+            tasks=[{"name": "t", "workflow": "split", "sources": ["src"], "extractor": "flat"}],
+            datasets={"src": ToyFactors(count=30)},
+            extractor=True,
+        )

@@ -356,8 +356,7 @@ logs a warning. Crop detections first with a `wrap` step, as `data-coverage` doe
 | `near_duplicate_factor` | `near_duplicate_factor` | DataEval's default (`0.5`) |
 
 - **Judged by:** [`class-coverage`](checks.md#class-coverage), [`uncovered-items`](checks.md#uncovered-items)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage),
-  [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
 
 ```yaml
 evaluators:

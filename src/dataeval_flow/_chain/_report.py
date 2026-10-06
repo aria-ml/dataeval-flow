@@ -114,45 +114,56 @@ def _findings(records: Iterable["StepResult"], evidence: "Evidence") -> list[Blo
 
 
 def _declared_blocks(result: "ChainResult", plan: "PresetChain", *, detailed: bool) -> list[Block]:
-    """A preset chain's report, as `plan` declares it.
+    """A preset chain's report, as `plan` declares it, over its steps: a splice's alone, or every step.
 
-    The verdict, and under it what it rests on, or the summary where the run gave no verdict, since it failed or
-    `plan` declares none; the record; a section per question, its brief the question's status, holding its checks'
-    findings beside their evidence and then its evidence steps; next steps; the findings of checks no question names;
-    the other steps, less those the record or a question shows; then the Steps table. Short (not *detailed*), the
-    verdict, the record, a Questions section with a line per question and its status, and the compact Steps table.
-    A question none of whose checks is in the chain is left out, as it judged nothing, and so are the findings of
-    :func:`~dataeval_flow._chain._verdict.moot_checks`, which the verdict leaves out too.
+    The verdict, and under it what it rests on, or the summary where the run gave no verdict; the record; a section per
+    question, its brief the question's status, holding its checks' findings beside their evidence and then its
+    evidence steps; next steps; the findings of its checks no question names; then, for a splice, the custom
+    workflow's own groups over the other steps and those steps' findings no group names; the other steps, less those
+    the record or a question shows; then the Steps table. Short (not *detailed*), the verdict, the record, a Questions
+    section with a line per question and per custom group, and the compact Steps table. A question none of whose
+    checks ran is left out, and so are the findings of :func:`~dataeval_flow._chain._verdict.moot_checks`.
     """
+    from dataeval_flow.workflows._preset import NextSteps
+
     verdict = result.verdict
-    records = list(result.steps.values())
-    head = [_verdict_block(verdict)] if verdict is not None else result._summary_blocks()  # noqa: SLF001 - as above
+    inside = result.declared_steps
+    outside = {name: record for name, record in result.steps.items() if name not in inside}
+    records = list(inside.values())
+    head = (
+        [_verdict_block(verdict)]
+        if verdict is not None
+        else [Paragraph(text=f"No verdict: {result.no_verdict}")]
+        if result.no_verdict
+        else result._summary_blocks()  # noqa: SLF001 - as above
+    )
     record = [_record_section(result, plan)] if plan.record is not None else []
     groups = [g for g in plan.groups if any(r.kind == "check" and r.type in g.checks for r in records)]
-    statuses = [(group, question_status(result.steps, group, plan.next_steps)) for group in groups]
+    statuses = [(group, question_status(inside, group, plan.next_steps)) for group in groups]
+    custom = [
+        g for g in result.custom_groups if any(r.kind == "check" and r.type in g.checks for r in outside.values())
+    ]
+    custom_statuses = [(group, question_status(outside, group, NextSteps())) for group in custom]
     steps = [_steps_table(result, compact=not detailed)] if result.steps else []
     if not detailed:
-        lines: list[tuple[str, Scalar]] = [(group.heading, status) for group, status in statuses]
+        lines: list[tuple[str, Scalar]] = [(group.heading, status) for group, status in [*statuses, *custom_statuses]]
         questions: list[Block] = [Section(title="Questions", blocks=[Fields(items=lines)])] if lines else []
         return [*head, *record, *questions, *steps]
     evidence = Evidence(result, detailed=detailed)
-    moot = _verdict.moot_checks(result.steps)
-    judged = [record for record in records if record.name not in moot]
-    sections = [
-        Section(
-            title=group.heading,
-            brief=status,
-            blocks=[
-                *_findings((record for record in judged if record.type in group.checks), evidence),
-                *_shown_under(group.heading, [record for record in records if record.type in group.evidence], evidence),
-            ],
-        )
-        for group, status in statuses
-    ]
+    moot = _verdict.moot_checks(inside)
+    judged = [r for r in records if r.name not in moot]
+    sections = [_question(group, status, judged, records, evidence) for group, status in statuses]
     named = {check for group in groups for check in group.checks}
-    loose = _findings((record for record in judged if record.type not in named), evidence)
+    loose = _findings((r for r in judged if r.type not in named), evidence)
+    beyond_moot = _verdict.moot_checks(outside)
+    beyond = [r for r in outside.values() if r.name not in beyond_moot]
+    custom_sections = [
+        _question(group, status, beyond, list(outside.values()), evidence) for group, status in custom_statuses
+    ]
+    custom_named = {check for group in custom for check in group.checks}
+    loose_beyond = _findings((r for r in beyond if r.type not in custom_named), evidence)
     shown = {*(plan.record.steps if plan.record is not None else ()), *(t for g in groups for t in g.evidence)}
-    others = _others((record for record in records if record.type not in shown), evidence)
+    others = _others((r for r in result.steps.values() if not (r.name in inside and r.type in shown)), evidence)
     advice = _verdict.next_step_lines(verdict, plan.next_steps) if verdict is not None else []
     return [
         *head,
@@ -161,9 +172,29 @@ def _declared_blocks(result: "ChainResult", plan: "PresetChain", *, detailed: bo
         *sections,
         *([Section(title="Next steps", blocks=[BulletList(items=advice)])] if advice else []),
         *loose,
+        *custom_sections,
+        *loose_beyond,
         *others,
         *steps,
     ]
+
+
+def _question(
+    group: "ReportGroup",
+    status: str,
+    judged: Sequence["StepResult"],
+    records: Sequence["StepResult"],
+    evidence: "Evidence",
+) -> Section:
+    """A question's section: its checks' findings among `judged`, then its evidence steps among `records`."""
+    return Section(
+        title=group.heading,
+        brief=status,
+        blocks=[
+            *_findings((record for record in judged if record.type in group.checks), evidence),
+            *_shown_under(group.heading, [record for record in records if record.type in group.evidence], evidence),
+        ],
+    )
 
 
 def _shown_under(heading: str, records: Sequence["StepResult"], evidence: "Evidence") -> list[Section]:
@@ -241,8 +272,10 @@ def _record_section(result: "ChainResult", plan: "PresetChain") -> Section:
         ("Seed", meta.resolved_config.get("seed")),
         ("Timestamp", meta.timestamp.isoformat() if meta.timestamp else None),
     ]
-    checks: dict[str, Any] = (meta.resolved_config.get("workflow") or {}).get("checks") or {}
-    ran = {step.type for step in result.steps.values() if step.kind == "check"}
+    resolved = meta.resolved_config
+    entry = (resolved.get("presets") or {}).get(result.splice) if result.splice else resolved.get("workflow")
+    checks: dict[str, Any] = (entry or {}).get("checks") or {}
+    ran = {step.type for step in result.declared_steps.values() if step.kind == "check"}
     criteria: list[tuple[str, Scalar]] = [(check, _settings(v)) for check, v in checks.items() if check in ran]
     if plan.blocking is not None:
         criteria.append(("Blocking", ", ".join(plan.blocking) or "none"))
@@ -259,45 +292,53 @@ def _record_section(result: "ChainResult", plan: "PresetChain") -> Section:
 
 
 def _record_table(result: "ChainResult", kinds: Sequence[str]) -> list[Block]:
-    """A column per source, in the task's order, and a row per fact any source has: its description and provenance;
-    what each result of the step types `kinds` records, the types in that order and each type's rows in its own; the
-    label space its labels were conformed to; its metadata factors and their encoding; and how the Dataset the
-    record's steps read was made. A digest too long for a cell shows its first characters there, and in full in the
-    fields under the table, a line each."""
+    """A column per Dataset the record describes, in order: each source a task binds, or each Dataset bound to a
+    splice's slots, by slot or element key. A row per fact any column has: the description and provenance of the source
+    it descends from; what each result of the step types `kinds` records, the types in that order and each type's rows
+    in its own; the label space its labels were conformed to; its metadata factors and their encoding; and how the
+    Dataset the record's steps read was made. A digest too long for a cell shows its first characters there, and in
+    full in the fields under the table, a line each."""
     meta = result.metadata
     lineage = {entry.name: entry for entry in meta.lineage}
-    inputs = {entry.source: entry.name for entry in meta.lineage if entry.step is None and entry.source is not None}
+    columns, owners = _columns(result)
     runs = [
         (kind, *run)
         for kind in kinds
-        for step in result.steps.values()
+        for step in result.declared_steps.values()
         if step.type == kind
-        for run in _runs(step, lineage)
+        for run in _runs(step, lineage, owners)
     ]
     reads: dict[str, str] = {}
     for _, split, run in runs:
         if split is not None and run.inputs:
             reads.setdefault(split, run.inputs[0])
-    made = {split: reads.get(split, address) for split, address in inputs.items()}
-    owners = {address: split for split, address in made.items()}
+    # A read `lineage` has no record of, such as a preset step's declared output `splits.train`, is the column's own.
+    made = {
+        split: read if (read := reads.get(split, address)) in lineage else address for split, address in columns.items()
+    }
+    spaces = {**owners, **{address: split for split, address in made.items()}}
+    source_of = {header: _walk(address, lineage)[1] for header, address in columns.items()}
     sources: list[dict[str, Any]] = meta.resolved_config.get("sources") or []
-    facts = [
+    described = [
         *(
             ("Source", source.get("name"), text)
             for source, text in zip(sources, meta.source_descriptions, strict=False)
         ),
         *(("Provenance", source.get("name"), _provenance(source)) for source in sources),
+    ]
+    facts = [
+        *((label, header, text) for label, name, text in described for header in columns if source_of[header] == name),
         *((label, split, value) for _, split, run in runs for label, value in _record_rows(run)),
         *(
-            ("Label space", space.source if space.source in inputs else owners.get(space.source), space.digest)
+            ("Label space", space.source if space.source in columns else spaces.get(space.source), space.digest)
             for space in meta.label_space
         ),
-        *_binning_facts(meta.metadata_binning, list(inputs), lineage),
+        *_binning_facts(_binning(result), list(columns), lineage, owners),
         *(("How it was made", split, lineage_line(address, meta.lineage)) for split, address in made.items()),
     ]
     cells: dict[str, dict[str, str]] = {}
     for label, split, value in facts:
-        if split in inputs and value:
+        if split in columns and value:
             cells.setdefault(label, {}).setdefault(split, value)
     order = [
         "Source",
@@ -311,17 +352,40 @@ def _record_table(result: "ChainResult", kinds: Sequence[str]) -> list[Block]:
     rows = [label for label in dict.fromkeys(order) if label in cells]
     if not rows:
         return []
-    columns = [Column(key="", header="", align="left"), *(Column(key=s, header=s, align="left") for s in inputs)]
+    table_columns = [Column(key="", header="", align="left"), *(Column(key=s, header=s, align="left") for s in columns)]
     table: list[dict[str, Cell]] = [
-        {"": label, **{s: _cell(cells[label].get(s, "")) for s in inputs}} for label in rows
+        {"": label, **{s: _cell(cells[label].get(s, "")) for s in columns}} for label in rows
     ]
     full: list[tuple[str, Scalar]] = [
         (f"{label} ({s})", value)
-        for s in inputs
+        for s in columns
         for label in rows
         if _DIGEST.fullmatch(value := cells[label].get(s, ""))
     ]
-    return [Table(columns=columns, rows=table), *([Fields(items=full)] if full else [])]
+    return [Table(columns=table_columns, rows=table), *([Fields(items=full)] if full else [])]
+
+
+def _columns(result: "ChainResult") -> tuple[dict[str, str], dict[str, str]]:
+    """The record's columns, each header to the address of the Dataset it describes, and each address that walks to a
+    column to its header: a splice's slot bindings, or the task's sources."""
+    if result.splice is not None:
+        started = result.splice_runs.get(result.splice)
+        return (dict(started.columns), dict(started.owners)) if started is not None else ({}, {})
+    columns = {
+        entry.source: entry.name for entry in result.metadata.lineage if entry.step is None and entry.source is not None
+    }
+    return columns, {address: header for header, address in columns.items()}
+
+
+def _binning(result: "ChainResult") -> Mapping[str, Any] | None:
+    """The binning record the record's encoding rows read: what a splice's own steps read, or the task's."""
+    return result.splice_binning.get(result.splice) if result.splice is not None else result.metadata.metadata_binning
+
+
+def _owner(address: str, lineage: Mapping[str, LineageRecord], owners: Mapping[str, str]) -> str | None:
+    """The column `address` walks back to through `lineage`: the first address on its way that `owners` names."""
+    parts, _ = _walk(address, lineage)
+    return next((owners[part] for part in parts if part in owners), None)
 
 
 # A digest a record cell has no room for: a hash of 32 hex characters or more, such as a content digest's 64.
@@ -346,12 +410,14 @@ def _row_order(runs: Sequence[tuple[str, str | None, "StepResult"]]) -> list[str
     return [label for order in orders.values() for label in order]
 
 
-def _runs(step: "StepResult", lineage: Mapping[str, LineageRecord]) -> list[tuple[str | None, "StepResult"]]:
-    """Each run of `step`, with the source it read: each element by its key, which names the source a list slot bound
-    it from; a step that ran once, by the source its input walks back to through `lineage`."""
+def _runs(
+    step: "StepResult", lineage: Mapping[str, LineageRecord], owners: Mapping[str, str]
+) -> list[tuple[str | None, "StepResult"]]:
+    """Each run of `step`, with the column it read: each element by its key, which names the column a list slot bound
+    it to; a step that ran once, by the column its input walks back to through `lineage`."""
     if step.elements is not None:
         return list(step.elements.items())
-    return [(_walk(step.inputs[0], lineage)[1] if step.inputs else None, step)]
+    return [(_owner(step.inputs[0], lineage, owners) if step.inputs else None, step)]
 
 
 def _record_rows(run: "StepResult") -> list[tuple[str, str]]:
@@ -361,15 +427,18 @@ def _record_rows(run: "StepResult") -> list[tuple[str, str]]:
 
 
 def _binning_facts(
-    binning: Mapping[str, Any] | None, splits: list[str], lineage: Mapping[str, LineageRecord]
+    binning: Mapping[str, Any] | None,
+    splits: list[str],
+    lineage: Mapping[str, LineageRecord],
+    owners: Mapping[str, str],
 ) -> list[tuple[str, str | None, str | None]]:
-    """Each source's metadata factors, counted and named, and the encoding they were read under: each Dataset's binning
-    record, by the source its address walks back to; one record alone, every source's."""
+    """Each column's metadata factors, counted and named, and the encoding they were read under: each Dataset's binning
+    record, by the column its address walks back to; one record alone, every column's."""
     records = (binning or {}).get("per_split") or ({None: binning} if binning else {})
     facts: list[tuple[str, str | None, str | None]] = []
     for key, encoded in records.items():
         names = list(encoded.get("factors") or {})
-        for split in splits if key is None else [_walk(key.partition(" (")[0], lineage)[1]]:
+        for split in splits if key is None else [_owner(key.partition(" (")[0], lineage, owners)]:
             facts.append(("Metadata factors", split, f"{len(names)}: {', '.join(names)}" if names else None))
             facts.append(("Encoding", split, encoded.get("encoding_digest")))
     return facts

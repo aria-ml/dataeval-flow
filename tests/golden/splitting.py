@@ -48,11 +48,7 @@ CASES: dict[str, tuple[dict[str, Any], dict[str, Any], bool]] = {
     "split_on": ({"split_on": ["site"]}, {"split_on": ["site"]}, False),
     "unstratified": ({"stratify": False}, {"stratify": False}, False),
     "kfold_no_test": ({"num_folds": 3, "test_frac": 0.0}, {"folds": 3, "test_frac": 0.0}, False),
-    "coverage": (
-        {"coverage_percent": 0.1, "num_observations": 3},
-        {"coverage": {"percent": 0.1, "num_observations": 3}},
-        True,
-    ),
+    "coverage": ({"coverage_percent": 0.1, "num_observations": 3}, {}, False),
 }
 
 

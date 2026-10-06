@@ -1,23 +1,19 @@
 """data-splitting agrees with what it produced before its port: each part's indices and label counts, the whole's
-balance and diversity rows, its class-imbalance verdict, the largest stratification deviation and its verdict, and
-each part's uncovered count (data-splitting spec §9).
+balance and diversity rows, its class-imbalance verdict, and the largest stratification deviation and its verdict
+(data-splitting spec §9).
 
 Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), each with its reason:
 
-- **Titles and briefs are the checks' own:** "Class Imbalance", "Stratification", "Uncovered Items".
+- **Titles and briefs are the checks' own:** "Class Imbalance", "Stratification".
 - **The split sizes are the split step's section, not findings.**
 - **Balance and diversity are sections, not findings,** and are skipped, not fatal, on a dataset with no factors.
 - **The cross-split class distribution is the stratification finding's evidence,** not a finding of its own.
 - **Stratification is one finding per fold,** not one for the worst fold.
 - **Stratification judges the split before rebalancing.** Legacy judged the rebalanced train, so its rebalanced cases
   are compared on indices and counts only.
-- **The whole set's coverage is reported,** which legacy did not do; it embeds the whole set once for every part.
-- **Adaptive coverage's uncovered count is not judged.** Adaptive coverage marks `int(max(n * percent, 1))` items by
-  construction; legacy's findings were `info`, or `warning` on a part under 20 items.
-- **Each part's uncovered items are not compared.** Legacy rescaled each embedding dimension over the whole set;
-  DataEval's `Coverage` rescales a part's array only when it falls outside the unit interval, so which items are the
-  sparsest can differ. The count does not.
-- **A coverage step that raises is skipped,** where legacy's whole run failed.
+- **Coverage is not computed,** where legacy judged each part's uncovered items: coverage before splitting is
+  data-coverage's question, and after it the audit's (audit-as-a-step spec D4). The "coverage" case's recorded
+  counts go unchecked.
 - **The class-imbalance ratio is judged rounded to one place,** as the check rounds it; legacy judged it unrounded.
 - **`folds: 1` with `val_frac: 0` runs,** holding out a test only; legacy raised.
 - **The task's `metadata:` policy governs** the split and the label, balance and diversity metadata; legacy used
@@ -131,16 +127,3 @@ def test_the_largest_stratification_deviation_and_its_verdict_agree(name: str) -
     worst = max(judged, key=lambda finding: (_deviation(finding.brief), _RANK[finding.severity]))
     golden = _GOLDEN[name]["stratification"]
     assert (_deviation(worst.brief), worst.severity) == (_deviation(golden["brief"]), golden["severity"])
-
-
-def test_each_part_s_uncovered_count_agrees() -> None:
-    result = run_tasks(pipeline("coverage", legacy=False))["t"]
-    assert isinstance(result, ChainResult)
-    golden = _GOLDEN["coverage"]
-    (fold,) = golden["folds"]
-    for step, uncovered in [
-        ("coverage-train", fold["train_uncovered"]),
-        ("coverage-val", fold["val_uncovered"]),
-        ("coverage-test", golden["test_uncovered"]),
-    ]:
-        assert len(result.steps[step].output.uncovered_indices) == len(uncovered), step

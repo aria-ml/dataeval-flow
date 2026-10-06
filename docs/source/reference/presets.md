@@ -63,7 +63,9 @@ The result's `verdict`, `result.verdict` in Python and `verdict` in the JSON, ho
 - `not_assessed`: each check, or element of one, that judged nothing, as `{check, step, reason}`.
 
 A task that fails has no verdict: `result.verdict` is `None`, and the JSON has no `verdict`. Run as a step of a custom
-workflow, audit gives no verdict, record or questions, so run it as a task.
+workflow, on splits a chain made, it gives the task the same verdict, record and questions. The verdict names its steps
+`audit/...`; write `accepted:` keys without the prefix. A workflow runs one such step, and it may not be `optional:`.
+See [Check a set of splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits).
 
 **Chain**, from `outliers: {flags: [pixel], outlier_threshold: zscore}`, `ontology: {animal: {cat: null}}`,
 `factor-leakage: {factors: [site]}` and `coverage: {method: naive}`, with an extractor for `ood-kneighbors`,
@@ -400,14 +402,14 @@ tasks:
 
 ## `data-splitting`
 
-Splits a Dataset into train, val and test, or k folds, and judges its balance, stratification and coverage; with `folds`
-of 2 or more, `train` and `val` are lists keyed by fold.
+Splits a Dataset into train, val and test, or k folds, and judges its balance and stratification; with `folds` of 2 or
+more, `train` and `val` are lists keyed by fold.
 
 - **Answers:** [Are the splits fit to evaluate on?](index.md#are-the-splits-fit-to-evaluate-on)
 - **Reads:** `data`, the task's one source.
 - **Makes:** `train`, `val` and `test`.
 
-**Chain**, from `rebalance: interclass` and `coverage: {method: naive}`, with an extractor for the `coverage` steps:
+**Chain**, from `rebalance: interclass`:
 
 | Step | Kind | Type | Reads |
 | --- | --- | --- | --- |
@@ -415,8 +417,6 @@ of 2 or more, `train` and `val` are lists keyed by fold.
 | `class-imbalance` | check | [`class-imbalance`](checks.md#class-imbalance) | `input`: `label-health` |
 | `balance` | evaluator | [`balance`](evaluators.md#balance) | `input`: `data` |
 | `diversity` | evaluator | [`diversity`](evaluators.md#diversity) | `input`: `data` |
-| `coverage` | evaluator | [`coverage`](evaluators.md#coverage) | `input`: `data` |
-| `uncovered-items` | check | [`uncovered-items`](checks.md#uncovered-items) | `input`: `coverage` |
 | `split` | transform | [`split`](transforms.md#split) | `input`: `data` |
 | `rebalanced` | transform | [`view`](transforms.md#view) | `input`: `split.train` |
 | `label-health-train` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `split.train` |
@@ -424,12 +424,6 @@ of 2 or more, `train` and `val` are lists keyed by fold.
 | `label-health-test` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `split.test` |
 | `label-health-rebalanced` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `rebalanced` |
 | `stratification` | check | [`stratification`](checks.md#stratification) | `input`: `label-health`; `parts`: `label-health-train`, `label-health-val`, `label-health-test`; `shown`: `label-health-rebalanced` |
-| `coverage-train` | evaluator | [`coverage`](evaluators.md#coverage) | `input`: `rebalanced` |
-| `uncovered-items-train` | check | [`uncovered-items`](checks.md#uncovered-items) | `input`: `coverage-train` |
-| `coverage-val` | evaluator | [`coverage`](evaluators.md#coverage) | `input`: `split.val` |
-| `uncovered-items-val` | check | [`uncovered-items`](checks.md#uncovered-items) | `input`: `coverage-val` |
-| `coverage-test` | evaluator | [`coverage`](evaluators.md#coverage) | `input`: `split.test` |
-| `uncovered-items-test` | check | [`uncovered-items`](checks.md#uncovered-items) | `input`: `coverage-test` |
 
 **Settings** ({py:class}`~dataeval_flow.workflows.data_splitting.DataSplittingConfig`):
 
@@ -443,7 +437,6 @@ of 2 or more, `train` and `val` are lists keyed by fold.
 | `stratify` | `true` or `false` | `true` | Whether each part keeps the whole's class proportions. |
 | `split_on` | a list of metadata factors, or `null` | `null` | Metadata factors whose values never straddle parts, such as a scene or site. Classification data only: DataEval ignores it on detection data, with a warning in the log. |
 | `rebalance` | `global`, `interclass`, or `null` | `null` | DataEval's `ClassBalance` method applied to each train; unset rebalances nothing. |
-| `coverage` | a block | `method: adaptive`, `num_observations: 50`, `percent: 0.01` | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations` and `percent`; the steps run on the whole set and each part when the task names an extractor |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
 **Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.data_splitting.DataSplittingChecks`):
@@ -452,18 +445,16 @@ of 2 or more, `train` and `val` are lists keyed by fold.
 | --- | --- |
 | [`class-imbalance`](checks.md#class-imbalance) | `warning: 10.0` |
 | [`stratification`](checks.md#stratification) | `info: 2.0`, `warning: 10.0` |
-| [`uncovered-items`](checks.md#uncovered-items) | `warning: 5.0` |
 
 The chain judges the whole set's labels, balance and diversity, splits it (`folds: 1`) or cuts it into k folds
 (`folds` of 2 or more) with a shared test part, optionally rebalances each train, and judges each part's labels, its
-stratification against the whole, and, when the task names an extractor, its coverage. Its findings are Class
-Imbalance for the whole set, Stratification for each fold, and Uncovered Items under `naive` coverage; balance and
-diversity are report sections. The result is a `ChainResult`, and each part's indices into the source are in
-`result.steps["split"].details["indices"]`. Run as a step of a custom workflow, the entry hands on three Datasets:
-`<step>.train` (the rebalanced train, where the entry sets `rebalance:`), `<step>.val` and `<step>.test`. The preset
-does not judge leakage, shift or evaluation coverage. [`audit`](#audit) does, given the parts as sources, train first,
-and [Check a set of splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) chains the same steps
-after a split. See [Dataset Splitting](../concepts/DatasetSplitting.md).
+stratification against the whole. Its findings are Class Imbalance for the whole set and Stratification for each
+fold; balance and diversity are report sections. The result is a `ChainResult`, and each part's indices into the
+source are in `result.steps["split"].details["indices"]`. Run as a step of a custom workflow, the entry hands on three
+Datasets: `<step>.train` (the rebalanced train, where the entry sets `rebalance:`), `<step>.val` and `<step>.test`. The
+preset does not judge coverage, leakage or shift: run [`audit`](#audit) as a step after it, as
+[Check a set of splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) does, or give the parts to an
+`audit` task as sources, train first. See [Dataset Splitting](../concepts/DatasetSplitting.md).
 
 ```yaml
 workflows:

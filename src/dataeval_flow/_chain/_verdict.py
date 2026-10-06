@@ -92,11 +92,15 @@ class Verdict(BaseModel):
         return f"{self.label}: {', '.join(reasons)}" if reasons else self.label
 
 
-def judge(steps: "Mapping[str, StepResult]", *, blocking: Sequence[str], accepted: Mapping[str, str]) -> Verdict:
+def judge(
+    steps: "Mapping[str, StepResult]", *, blocking: Sequence[str], accepted: Mapping[str, str], prefix: str = ""
+) -> Verdict:
     """The verdict over `steps`' check records: an unaccepted warning of a `blocking` type makes it not ready; any
     other unaccepted warning, an acceptance that fired, or a check not assessed makes it ready with caveats. A check
     run that did not complete is not assessed, for its skip reason or its errors; :func:`moot_checks` are left out. An
-    acceptance keyed by a step covers that step's runs: all of them by its name, one by `name[element]`."""
+    acceptance keyed by a step covers that step's runs: all of them by its name, one by `name[element]`. A spliced
+    chain's steps carry `prefix` (`audit/`): an acceptance, written in the entry's own names, covers them with it
+    dropped."""
     blocked: list[VerdictItem] = []
     warnings: list[VerdictItem] = []
     warned: set[str] = set()
@@ -115,14 +119,16 @@ def judge(steps: "Mapping[str, StepResult]", *, blocking: Sequence[str], accepte
             for finding in (run.output or []) if run.status == "ok" else []:
                 if finding.severity != "warning":
                     continue
-                if covering := _covering(accepted, record, key):
+                if covering := _covering(accepted, record, key, prefix):
                     warned.update(covering)
                     continue
                 item = VerdictItem(
                     check=record.type, step=finding.step or record.name, title=finding.title, brief=finding.brief or ""
                 )
                 (blocked if record.type in blocking else warnings).append(item)
-    missed = {name for item in unassessed for name in (item.check, item.step, item.step.split("[", 1)[0])}
+    missed = {
+        name.removeprefix(prefix) for item in unassessed for name in (item.check, item.step, item.step.split("[", 1)[0])
+    }
     acceptances = [
         Acceptance(
             check=check,
@@ -135,10 +141,12 @@ def judge(steps: "Mapping[str, StepResult]", *, blocking: Sequence[str], accepte
     return Verdict(level=level, blocking=blocked, warnings=warnings, accepted=acceptances, not_assessed=unassessed)
 
 
-def _covering(accepted: Mapping[str, str], record: "StepResult", key: str | None) -> list[str]:
-    """The `accepted` keys covering `record`'s run `key`: its step as the verdict names it, its bare step, its type."""
-    step = record.name if key is None else f"{record.name}[{key}]"
-    return [candidate for candidate in dict.fromkeys((step, record.name, record.type)) if candidate in accepted]
+def _covering(accepted: Mapping[str, str], record: "StepResult", key: str | None, prefix: str) -> list[str]:
+    """The `accepted` keys covering `record`'s run `key`: its step as the verdict names it, its bare step, its type;
+    each step with `prefix` dropped."""
+    name = record.name.removeprefix(prefix)
+    step = name if key is None else f"{name}[{key}]"
+    return [candidate for candidate in dict.fromkeys((step, name, record.type)) if candidate in accepted]
 
 
 def moot_checks(steps: "Mapping[str, StepResult]") -> set[str]:

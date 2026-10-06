@@ -14,7 +14,7 @@ SPECS = {
     "data-cleaning": (SourceCount.ONE, {InputKind.STATS, InputKind.METADATA}, {InputKind.CLUSTERS}),
     "data-coverage": (SourceCount.ONE, {InputKind.METADATA}, {InputKind.EMBEDDINGS}),
     "data-prioritization": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, set()),
-    "data-splitting": (SourceCount.ONE, {InputKind.METADATA}, {InputKind.EMBEDDINGS}),
+    "data-splitting": (SourceCount.ONE, {InputKind.METADATA}, set()),
     "drift-monitoring": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.LABELS}),
     "label-space": (SourceCount.ONE, {InputKind.LABELS}, set()),
     "metadata-triage": (SourceCount.ONE, {InputKind.METADATA}, set()),

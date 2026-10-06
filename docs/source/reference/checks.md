@@ -12,8 +12,9 @@ your own](../how_to/write_a_custom_workflow.md). See the [Preset Catalog](preset
 [`audit`](presets.md#audit) runs up to sixteen of these checks to audit a set of splits before training, among them
 `class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage` and `distribution-shift`; its
 chain table lists them all. [Check a set of
-splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) chains `leakage`, `distribution-shift` and
-`eval-coverage` after `data-splitting`, in a workflow of your own. Each example assumes the pipeline defines
+splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) runs `audit` as a step after `data-splitting`
+and gives every one of these checks to the splits; chain the checks yourself only to audit one fold or a subset. Each
+example assumes the pipeline defines
 `datasets:`, the sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor
 `bovw_ext`, as [Evaluator recipes](../how_to/evaluator_recipes.md) does.
 
@@ -534,8 +535,7 @@ skipped with "failed: OverflowError".
 | `warning` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
 
 - **Judges:** [`coverage`](evaluators.md#coverage)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage),
-  [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
 
 ```yaml
 evaluators:

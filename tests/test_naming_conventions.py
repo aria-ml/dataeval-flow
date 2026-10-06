@@ -192,7 +192,7 @@ _MINIMAL = {
     "data-cleaning": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}},
     "data-coverage": {"coverage": {"method": "naive"}},
     "data-prioritization": {},
-    "data-splitting": {"rebalance": "interclass", "coverage": {"method": "naive"}},
+    "data-splitting": {"rebalance": "interclass"},
     "drift-monitoring": {
         "detectors": [{"name": "mmd", "type": "drift-mmd", "chunking": {"chunk_count": 5}}],
         "classwise": {"mmd": "class"},

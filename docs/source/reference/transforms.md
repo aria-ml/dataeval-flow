@@ -15,6 +15,7 @@ transform; where it names none, chain it in a workflow of your own. Each example
 | `view` | `input`: a Dataset | a Dataset | `dataeval.data` view operations |
 | `wrap` | `input`: an object-detection Dataset | a classification Dataset, one item per detection; with `other_kinds: pass`, another kind unchanged | `dataeval.data.DetectionCrops` |
 | `merge` | `input`: two or more Datasets | a Dataset | `dataeval.data.merge_datasets` |
+| `collect` | `input`: one or more Datasets | one list of them, keyed by name | nothing: each element is its input |
 | `split` | `input`: a Dataset | `train`, `val` and `test` | `dataeval.data.split_dataset` |
 | `kfold` | `input`: a Dataset | `train` and `val`, one per fold, and `test` | `dataeval.data.split_dataset` |
 | `select` | `input`: a Dataset; `ranking`: a `prioritization` Output | a Dataset | `dataeval.data.Indices` |
@@ -134,6 +135,36 @@ workflows:
     inputs: [street, aerial]
     steps:
       - {name: merged, transform: merge, input: [street, aerial]}
+```
+
+### `collect`
+
+Gathers Datasets into one list, keyed by name, each as it is.
+
+Each element is its input, unchanged: the same Dataset, cache and digest. A step reading the list runs once per element,
+and a preset's list input, such as [`audit`](presets.md#audit)'s `evals`, takes it whole. An input that is already a
+list, such as `kfold`'s `train`, is refused when the config loads: name one element, such as `splits.train[0]`. Inputs
+of different kinds are refused when the task starts.
+
+- **Reads:** `input`, one or more Datasets.
+- **Makes:** one list of Datasets, in `input`'s order.
+
+**Settings** ({py:class}`~dataeval_flow.steps.transforms.CollectConfig`):
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | a list of one or more addresses | required | The Datasets to gather, in order |
+| `keys` | a list of names, one per input | each address's `[key]`, else its output's name, else its step's | Each element's key; two inputs taking one key are refused |
+
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+
+```yaml
+workflows:
+  - name: example
+    inputs: [data]
+    steps:
+      - {name: splits, transform: split, input: data, test_frac: 0.2, val_frac: 0.1}
+      - {name: evals, transform: collect, input: [splits.val, splits.test]}
 ```
 
 ### `split`

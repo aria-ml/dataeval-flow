@@ -16,10 +16,11 @@ from dataeval_flow.workflows._base import Finding
 from dataeval_flow.workflows._result import WorkflowResult
 
 if TYPE_CHECKING:
+    from dataeval_flow._chain._presets import SpliceRun
     from dataeval_flow._chain._run import ChainRun
     from dataeval_flow._chain._verdict import Verdict
     from dataeval_flow._result import Result
-    from dataeval_flow.workflows._preset import PresetChain
+    from dataeval_flow.workflows._preset import PresetChain, ReportGroup
 
 StepStatus = Literal["ok", "failed", "skipped"]
 
@@ -159,6 +160,17 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         """What the preset entry expanded to, with the report's groups, record and next steps; ``None`` otherwise."""
         self.verdict: Verdict | None = None
         """Whether the data is ready, for a preset chain that declares `blocking` and succeeded; ``None`` otherwise."""
+        self.splice: str | None = None
+        """The spliced step whose chain `preset_chain` is, as `audit`; ``None`` where it is the task's own."""
+        self.custom_groups: tuple[ReportGroup, ...] = ()
+        """The custom workflow's own groups, reported after a splice's questions."""
+        self.splice_runs: dict[str, SpliceRun] = {}
+        """How each splice started, by step name; the Datasets its slots bound, or why it never started or failed."""
+        self.no_verdict: str | None = None
+        """Why a chain that declares a verdict gave none though the task succeeded; its splice never started, or
+        failed as it started."""
+        self.splice_binning: dict[str, dict[str, Any]] = {}
+        """By step name, the binning record of what each splice's own steps read; the encoding its record shows."""
 
     @classmethod
     def from_run(cls, name: str, run: "ChainRun", *, type_id: str | None = None, preset: bool = False) -> "ChainResult":
@@ -168,7 +180,7 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         failed = [step for step, record in run.steps.items() if record.status == "failed"]
         errors = [f"{step}: {'; '.join(_errors(run.steps[step]))}" for step in failed]
         metadata = ChainMetadata(workflow=name, lineage=list(run.lineage), label_space=list(run.label_space))
-        from dataeval_flow._chain._reads import attach_reads
+        from dataeval_flow._chain._reads import attach_reads, binning_record
 
         attach_reads(metadata, run.reads)
         result = cls(
@@ -180,15 +192,39 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
             steps=run.steps,
         )
         result._preset = preset
+        result.splice_runs = dict(run.splices)
+        result.splice_binning = {
+            name: record for name, reads in run.splice_reads.items() if (record := binning_record(reads)) is not None
+        }
         return result
 
-    def attach_preset(self, chain: "PresetChain") -> None:
-        """Keep `chain`, the preset entry's expansion, and judge the verdict it declares, if the task succeeded."""
+    @property
+    def declared_steps(self) -> dict[str, StepResult]:
+        """The steps preset_chain's verdict, record and questions read; its splice's alone, or every step."""
+        if self.splice is None:
+            return self.steps
+        prefix = f"{self.splice}/"
+        return {name: record for name, record in self.steps.items() if name.startswith(prefix)}
+
+    def attach_preset(
+        self, chain: "PresetChain", *, splice: str | None = None, groups: "Sequence[ReportGroup]" = ()
+    ) -> None:
+        """Keep `chain`, the preset entry's expansion or a spliced step's, and judge the verdict it declares over its
+        steps, if the task succeeded and the splice started."""
         from dataeval_flow._chain._verdict import judge
 
-        self.preset_chain = chain
-        if chain.blocking is not None and self.success:
-            self.verdict = judge(self.steps, blocking=chain.blocking, accepted=chain.accepted)
+        self.preset_chain, self.splice, self.custom_groups = chain, splice, tuple(groups)
+        if chain.blocking is None or not self.success:
+            return
+        started = self.splice_runs.get(splice) if splice is not None else None
+        if started is not None and started.skipped is not None:
+            self.no_verdict = f"step `{splice}` did not run: {started.skipped}"
+            return
+        if started is not None and started.failed is not None:
+            self.no_verdict = f"step `{splice}` failed as it started: {started.failed}"
+            return
+        prefix = f"{splice}/" if splice is not None else ""
+        self.verdict = judge(self.declared_steps, blocking=chain.blocking, accepted=chain.accepted, prefix=prefix)
 
     @property
     def failed_steps(self) -> list[str]:
@@ -237,6 +273,8 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
         }
         if self.verdict is not None:
             payload["verdict"] = self.verdict.model_dump(mode="json")
+        if self.no_verdict:
+            payload["no_verdict"] = self.no_verdict
         if self.errors:
             payload["errors"] = list(self.errors)
         if self.assets:
