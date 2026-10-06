@@ -621,8 +621,9 @@ Ranks each pool against a reference for labeling, and keeps the top.
 | `select` | a block | `n: null`, `fraction: null` | [`select`](transforms.md#select)'s `n` and `fraction`: how much of each pool's ranking `selected` keeps |
 
 The preset has no `checks:`. `prioritization` ranks each pool against the reference, `hard_first` putting novel or
-challenging items first. `selected` keeps the top of each pool's ranking: `select.n` items, or `select.fraction` of them. With neither, `selected` keeps every item (`fraction: 1.0`).
-The chain has no checks, so it makes no findings. See [Data Prioritization](../concepts/Prioritization.md).
+challenging items first. `selected` keeps the top of each pool's ranking: `select.n` items, or `select.fraction` of
+them. With neither, `selected` keeps every item (`fraction: 1.0`). The chain has no checks, so it makes no findings.
+See [Data Prioritization](../concepts/Prioritization.md).
 
 ```yaml
 workflows:
