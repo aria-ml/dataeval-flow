@@ -184,17 +184,21 @@ judge them against `checks`, and its `clean` step removes what they flagged. The
 [Preset Catalog](../reference/presets.md#data-cleaning) lists the chain. A plugin workflow type that is not a preset
 runs as one step that makes its result, and its findings stay in that step.
 
-Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of
-its chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the
-`basic_clean` entry above, its steps run in your chain as `cleaning/outliers`, `cleaning/duplicates` and so on. The step's
-`optional:` holds for each of them, and its `extractor:` for each that reads embeddings. Its checks' findings are your
-chain's, listed at the top of the JSON, each naming its step, such as `cleaning/image-outliers`. Only a task's result
-carries a preset's verdict, record and questions, so run `audit` as a task: as a step it gives none of them.
+Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of its
+chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the
+`basic_clean` entry above, its steps run in your chain as `cleaning/outliers`, `cleaning/duplicates` and so on. The
+step's `optional:` holds for each of them, and its `extractor:` for each that reads embeddings. Its checks' findings are
+your chain's, listed at the top of the JSON, each naming its step, such as `cleaning/image-outliers`. A preset keeps
+what its chain declares as a step too: its preflight runs on the Datasets the step binds, every split is encoded like
+its reference, and an `audit` step gives the task its verdict, record and questions. A workflow gives one verdict, so it
+runs one such step, which may not be `optional:` (see [Check a set of
+splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits)).
 
-Only a preset's declared outputs can be addressed, and always by name: `cleaning.clean` reads the cleaned Dataset,
-while `cleaning` alone, `cleaning.duplicates` and `cleaning/duplicates` are refused. Handed a list, a preset runs its whole
-chain once per element, so `cleaning.clean` is a list with the same keys. A preset's last input can be a list, as
-data-prioritization's `pools` is, and a step running it binds that input to a list, such as
+Only a preset's declared outputs can be addressed, and always by name: `cleaning.clean` reads the cleaned Dataset, while
+`cleaning` alone, `cleaning.duplicates` and `cleaning/duplicates` are refused. Handed a list, a preset runs its whole
+chain once per element, so `cleaning.clean` is a list with the same keys. A preset that declares a reference or a
+verdict, as `audit` does, refuses a list on a single input: name one element, such as `splits.train[0]`. A preset's last
+input can be a list, as data-prioritization's `pools` is, and a step running it binds that input to a list, such as
 `input: [ref, cleaning.clean]`.
 
 ## Derived data

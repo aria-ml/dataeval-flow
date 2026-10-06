@@ -141,10 +141,10 @@ workflows:
 
 Gathers Datasets into one list, keyed by name, each as it is.
 
-Each element is its input, unchanged: the same Dataset, cache and digest. A step reading the list runs once per
-element, and a preset's list input, such as `audit`'s `evals`, takes it whole. An input that is already a list, such
-as `kfold`'s `train`, is refused when the config loads: name one element, such as `splits.train[0]`. Inputs of
-different kinds are refused when the task starts.
+Each element is its input, unchanged: the same Dataset, cache and digest. A step reading the list runs once per element,
+and a preset's list input, such as [`audit`](presets.md#audit)'s `evals`, takes it whole. An input that is already a
+list, such as `kfold`'s `train`, is refused when the config loads: name one element, such as `splits.train[0]`. Inputs
+of different kinds are refused when the task starts.
 
 - **Reads:** `input`, one or more Datasets.
 - **Makes:** one list of Datasets, in `input`'s order.

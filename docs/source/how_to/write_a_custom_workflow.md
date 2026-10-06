@@ -537,70 +537,60 @@ Notice:
 
 ## 11. Check a set of splits
 
-`data-splitting` judges each part's class shares and coverage, not leakage, shift or how much of each evaluation
-split train covers. Run it as a step, and chain the steps that judge the parts against each other:
+`data-splitting` splits a Dataset and judges each part's class shares. To judge the parts as an audit does, for
+leakage, shift, coverage and each split's labels and cleanliness, gather the evaluation parts with `collect` and run
+`audit` as a step on them:
 
 ```yaml
-evaluators:
-  - {name: dupes, type: duplicates}
-  - {name: groups, type: factor-leakage, factors: [scene]}
-  - {name: div, type: divergence}
-  - {name: knn, type: ood-kneighbors, threshold_perc: 99}
-
 workflows:
   - name: splitting
     type: data-splitting
-    folds: 5
     split_on: [scene]
 
-  - name: split_check
+  - name: release-audit
+    type: audit
+    outliers: {flags: [pixel], outlier_threshold: zscore}
+    factor-leakage: {factors: [scene]}
+
+  - name: split_and_audit
     inputs: [data]
     steps:
       - {name: splits, workflow: splitting, input: data}
-      - {name: dupes-val, evaluator: dupes, input: [splits.train, splits.val]}
-      - {name: dupes-test, evaluator: dupes, input: [splits.train, splits.test]}
-      - {name: dupes-evals, evaluator: dupes, input: [splits.val, splits.test]}
-      - {name: groups-val, evaluator: groups, input: [splits.train, splits.val]}
-      - {name: groups-test, evaluator: groups, input: [splits.train, splits.test]}
-      - {name: groups-evals, evaluator: groups, input: [splits.val, splits.test]}
-      - name: leakage
-        check: leakage
-        duplicates: [dupes-val, dupes-test, dupes-evals]
-        factors: [groups-val, groups-test, groups-evals]
-      - {name: div-val, evaluator: div, input: [splits.train, splits.val]}
-      - {name: div-test, evaluator: div, input: [splits.train, splits.test]}
-      - {name: shift-val, check: distribution-shift, input: div-val}
-      - {name: shift-test, check: distribution-shift, input: div-test}
-      - {name: knn-val, evaluator: knn, input: [splits.train, splits.val]}
-      - {name: knn-test, evaluator: knn, input: [splits.train, splits.test]}
-      - {name: coverage-val, check: eval-coverage, input: knn-val}
-      - {name: coverage-test, check: eval-coverage, input: knn-test}
+      - {name: evals, transform: collect, input: [splits.val, splits.test]}
+      - {name: audit, workflow: release-audit, input: [splits.train, evals]}
 
 tasks:
-  - {name: split-check, workflow: split_check, sources: [train], extractor: bovw_ext}
+  - {name: split-and-audit, workflow: split_and_audit, sources: [train], extractor: bovw_ext}
 ```
 
 Notice:
 
-- With `folds: 5`, `splits.train` and `splits.val` are lists keyed by fold, and `splits.test` is one Dataset. A step
-  reading a list beside one Dataset runs once per fold, with the Dataset repeated, so `dupes-test` compares each
-  fold's train with test.
-- `leakage` takes whole lists of Outputs: train with each evaluation split, and the evaluation pair. With `folds: 1`
-  each output is one Dataset, and the load refuses `leakage` an Output that is not a list.
-- `split_on: [scene]` keeps each scene's items in one part, on classification data only. `groups` counts the scene
-  values two parts share, and `leakage` warns on any.
-- `knn` is fitted on each fold's train and run on its val and on test. `threshold_perc: 99` suits `eval-coverage`'s
-  default `info: 2.0`.
-- `class-sufficiency` and `untrained-classes` read train's `label-health` on `input` and the evaluation splits' on
-  `evals` as one list, val and test together, which the preset's outputs do not make. To run them, bind the parts as
-  sources, with a list input, as their [Check Catalog](../reference/checks.md#class-sufficiency) examples do.
-  `pairs: true` then runs one `duplicates` step over every pair of that list, as the
-  [`leakage`](../reference/checks.md#leakage) example does.
+- The task's result carries the audit's verdict, record and five questions, as an `audit` task's does, so
+  `dataeval-flow --require ready-with-caveats` gates it (see [Gate training on an audit](gate_training_on_an_audit.md)).
+  Its steps run as `audit/label-health-train`, `audit/leakage` and so on, and the verdict names them that way. In the
+  entry's `accepted:`, write a step without the prefix: `image-outliers-evals[test]` covers
+  `audit/image-outliers-evals[test]`.
+- `collect` keys each part by its output's name, so the evaluation splits are `val` and `test`. A train/test split
+  (`val_frac: 0`) collects `test` alone: `input: [splits.test]`.
+- The record has a column `train` and one per key of `evals`: `val` and `test` here. A key of `evals` that is also
+  the name of audit's single slot, `train`, is refused, so do not give `keys:` that name it.
+- If the `audit` step never starts, because a step before it failed or was skipped, the task gives no verdict. The
+  report and the JSON's `no_verdict` say so, and `--require` refuses the task and names the step that did not run.
+- Every part's metadata is encoded like train's, as in an `audit` task.
+- A workflow gives one verdict, so it runs one audit step, and the step may not be `optional:`.
+- With `folds` of 2 or more, `splits.train` and `splits.val` are lists keyed by fold, and the audit step refuses
+  them. Audit one fold by naming its elements, `splits.train[0]` with `collect: [splits.val[0], splits.test]`, or
+  chain the checks yourself, as the [Check Catalog](../reference/checks.md#leakage) examples do. That collect keys
+  the evaluation splits `0` and `test`, so the verdict reads `audit/...-evals[0]` and `accepted:` says `[0]`; give
+  `keys: [val, test]` to name them as above.
+- With `rebalance:`, `splits.train` is a rebalanced view that may repeat items, which the audit's duplicates check
+  then reports.
+- Don't embed `data` before the split with the extractor the audit uses: a stateful extractor such as BoVW is fitted
+  once per task, on the first Dataset that asks for embeddings, so it would have seen the evaluation items.
 
-Where the splits are already sources, the [`audit`](../reference/presets.md#audit) preset runs these steps for you,
-with train first: `sources: [train, val, test]`. It counts shared group values only where the entry names the group
-factors, as `factor-leakage: {factors: [scene]}`. It also judges each split's labels, cleanliness and coverage, and
-gives a verdict over them all.
+Where the splits are already on disk, give them to an [`audit`](../reference/presets.md#audit) task as sources, train
+first: `sources: [train, val, test]`. That is also the route when a training job will load exported splits, so its
+digests match the audit's; whether a part's digest survives export and reload is not yet checked.
 
 ## 12. Group the report's findings under headings
 
@@ -627,7 +617,7 @@ workflows:
 
 Each heading's status line counts its checks' warnings, and the findings of check types no heading names follow the
 groups. A group that names a check type no step runs is refused when the config loads. Groups change only the report:
-a custom workflow gives no verdict.
+a custom workflow gives a verdict only through an `audit` step (section 11).
 
 ## See also
 

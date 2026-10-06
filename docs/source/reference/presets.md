@@ -63,7 +63,9 @@ The result's `verdict`, `result.verdict` in Python and `verdict` in the JSON, ho
 - `not_assessed`: each check, or element of one, that judged nothing, as `{check, step, reason}`.
 
 A task that fails has no verdict: `result.verdict` is `None`, and the JSON has no `verdict`. Run as a step of a custom
-workflow, audit gives no verdict, record or questions, so run it as a task.
+workflow, on splits a chain made, it gives the task the same verdict, record and questions. The verdict names its steps
+`audit/...`; write `accepted:` keys without the prefix. A workflow runs one such step, and it may not be `optional:`.
+See [Check a set of splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits).
 
 **Chain**, from `outliers: {flags: [pixel], outlier_threshold: zscore}`, `ontology: {animal: {cat: null}}`,
 `factor-leakage: {factors: [site]}` and `coverage: {method: naive}`, with an extractor for `ood-kneighbors`,

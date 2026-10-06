@@ -68,8 +68,10 @@ not assessed, stops training until a person fixes the data, accepts the warning 
 what it needs. `ready` refuses those too, and an accepted warning as well: an acceptance whose check warns keeps the
 verdict at `ready-with-caveats`, so once a warning is accepted, this gate refuses until the data stops warning.
 
-A task whose workflow gives no verdict isn't judged. A task that failed has no verdict, and falls short; each `jq`
-expression refuses it too. A run in which no task gives a verdict is refused, and exits 1, before any task starts.
+A task whose workflow has no verdict-giving step isn't judged. A task that failed has no verdict, and falls short; so
+does one whose `audit` step never started, because a step before it failed or was skipped, and `--require` names the
+step that did not run; each `jq` expression refuses it too. A run in which no task gives a verdict is refused, and exits
+1, before any task starts.
 
 Exit codes take this order: 1, for a failed task or export, unless `result: fail_on: never`; then 4; then 3, which
 `fail_on: warning` gives for any warning, an accepted one included, since health counts the warnings the data has and
@@ -130,6 +132,10 @@ Notice:
 - Metadata has a digest of its own, so a loader that yields images and labels with no metadata still matches the
   content digest. Gate on the content digest across machines: the metadata digest covers metadata as stored, paths
   included, so metadata holding an absolute file path digests differently on each machine.
+- An `audit` step after the split judges chain-made parts in the same run (see [Check a set of
+  splits](write_a_custom_workflow.md#11-check-a-set-of-splits)), and its task is gated with `--require` like an
+  `audit` task. Its record's digests cannot be checked against a loaded source in a training job, because the parts
+  exist only in the chain.
 - A split made by a chain step, such as a `data-splitting` step's `split.train`, isn't a source: an audit task can't
   read it, and `load_source` can't rebuild it. [Export it](export_a_dataset.md#export-the-parts-of-a-split), add the
   export as a `datasets:` entry in the format it was written, audit that source, and train on the export. `export`

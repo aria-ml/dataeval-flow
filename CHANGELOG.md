@@ -9,7 +9,9 @@
 - `audit` runs as a step of a custom workflow, on splits a chain made: the task's result carries its verdict, record
   and five questions, and `--require` gates it. A spliced preset keeps its preflight and encodes every split like
   its reference. One step per workflow may give a verdict; it may not be `optional:`. The verdict names the splice's
-  steps as `audit/...`, and the entry's `accepted:` keys, written without the prefix, cover them
+  steps as `audit/...`, and the entry's `accepted:` keys, written without the prefix, cover them. `CollectConfig` and
+  `CollectTransform` are the new transform's types; a splice that never started or failed as it started gives no
+  verdict, and the result's `no_verdict` says why
 - An audit's `accepted:` takes a check step as the verdict names it: a check step alone, such as
   `image-outliers-evals`, covers all its runs, and `step[split]`, such as `image-outliers-evals[test]`, covers that run
   alone, on a step that runs once per evaluation split
@@ -545,7 +547,7 @@
 
 - data-splitting's coverage: its whole-set and per-part `coverage` steps and `uncovered-items` checks, its `coverage:`
   setting, `checks.uncovered-items`, and `extractor:` on a data-splitting task or step. Judge the parts with an
-  `audit` step after the split (see Check a set of splits)
+  `audit` step after the split (see Check a set of splits). `DataSplittingCoverageSettings` goes with it
 - data-prioritization's `cleaning:` and `stats:`, with `CleaningSettings`: run the preset as a step of a custom
   workflow after a `data-cleaning` step on the reference and one on the pools, or after `outliers`, `duplicates` and
   `remove` steps to keep near duplicates (see the Preset Catalog)

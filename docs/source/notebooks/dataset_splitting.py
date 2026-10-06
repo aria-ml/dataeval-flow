@@ -175,8 +175,7 @@ print(result.report())
 # - **Diversity**: how evenly each factor's values spread.
 # - **K-Fold**: the sizes of each fold's train and val, and of the shared test.
 #
-# The split reads labels and metadata only and judges class shares. The Steps table
-# lists each step and why it was skipped.
+# The Steps table lists each step and its status.
 
 # %% [markdown]
 # ### Split indices

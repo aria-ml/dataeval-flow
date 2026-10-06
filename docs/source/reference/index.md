@@ -83,10 +83,10 @@ warns when a factor tells much about the class.
 ## Are the splits fit to evaluate on?
 
 `data-splitting` splits a Dataset, or cuts it into k folds, and judges the whole set's class balance and each part's
-class shares against the whole's. `audit` judges splits already made: the items and group values two splits share, how
-far apart the splits sit, how much of each evaluation split lies beyond what train covers, each split's class shares
-against train's, whether each class train holds has enough labels in every split, and whether an evaluation split holds
-a class train lacks.
+class shares against the whole's. `audit` judges splits already made, as a task over sources or as a step after
+`data-splitting`: the items and group values two splits share, how far apart the splits sit, how much of each evaluation
+split lies beyond what train covers, each split's class shares against train's, whether each class train holds has
+enough labels in every split, and whether an evaluation split holds a class train lacks.
 
 - **Preset:** [`audit`](presets.md#audit) and [`data-splitting`](presets.md#data-splitting)
 - **Evaluators:** [`label-health`](evaluators.md#label-health), [`balance`](evaluators.md#balance),

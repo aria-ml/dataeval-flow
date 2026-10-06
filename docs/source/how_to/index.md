@@ -96,8 +96,8 @@ run_a_matrix
 :header-rows: 0
 
 - - {doc}`Chain steps into a workflow of your own <write_a_custom_workflow>`
-  - Conform and merge two datasets, remove their duplicates, export the result, and check and split what is left, as
-    one chain of steps.
+  - Conform and merge two datasets, remove their duplicates, export the result, and check, split and audit what is
+    left, as one chain of steps.
 - - {doc}`Monitor drift with steps <monitor_drift>`
   - Read what the drift preset makes for each test source, merge sources to test them as one, compare classes or
     groups, and drift on the crops of detection data.
