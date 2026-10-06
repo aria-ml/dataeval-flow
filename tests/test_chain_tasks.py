@@ -26,7 +26,6 @@ from dataeval_flow.steps import (
 from tests.chain_toys import chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages
 from tests.golden.rerouting import CASES, approximately, normalized
-from tests.workflow_toys import ToyCountConfig, register_count
 
 GOLDEN = Path(__file__).parent / "golden"
 
@@ -262,24 +261,14 @@ def test_a_one_step_task_makes_its_evaluator_once() -> None:
     assert made.call_count == 1
 
 
-@pytest.mark.parametrize(
-    ("kind", "entry"),
-    [
-        ("evaluator", DuplicatesConfig(name="target")),
-        ("workflow", ToyCountConfig(name="target")),
-    ],
-)
-def test_a_one_step_task_hands_its_runner_the_contexts_it_resolved_and_records_no_lineage(
-    kind: str, entry, plugins
-) -> None:
+def test_a_one_step_task_hands_its_runner_the_contexts_it_resolved_and_records_no_lineage() -> None:
     from unittest.mock import patch
-
-    register_count(plugins)
 
     from dataeval_flow import _orchestrator
     from dataeval_flow._chain import _run as engine
+    from dataeval_flow.evaluators import _execute
 
-    resolve, execute, chain = _orchestrator._source_contexts, _orchestrator._run_target, engine.run_chain
+    resolve, execute, chain = _orchestrator._source_contexts, _execute.execute, engine.run_chain
     resolved: list[Any] = []
     handed: list[Any] = []
     runs: list[Any] = []
@@ -288,20 +277,19 @@ def test_a_one_step_task_hands_its_runner_the_contexts_it_resolved_and_records_n
         resolved.append(resolve(*args, **kwargs))
         return resolved[-1]
 
-    def executing(target: Any, config: Any, context: Any) -> Any:
+    def executing(target: Any, context: Any, config: Any, **kwargs: Any) -> Any:
         handed.append(context)
-        return execute(target, config, context)
+        return execute(target, context, config, **kwargs)
 
     def chaining(*args: Any, **kwargs: Any) -> Any:
         runs.append(chain(*args, **kwargs))
         return runs[-1]
 
-    task = TaskConfig(name="t", workflow="target", kind=kind, sources="src")  # type: ignore[arg-type]
-    evaluators, workflows = ([entry], []) if kind == "evaluator" else ([], [entry])
-    config = chain_pipeline(evaluators=evaluators, workflows=workflows, tasks=[task.model_dump()])
+    task = TaskConfig(name="t", workflow="target", kind="evaluator", sources="src")
+    config = chain_pipeline(evaluators=[DuplicatesConfig(name="target")], tasks=[task.model_dump()])
     with (
         patch.object(_orchestrator, "_source_contexts", side_effect=resolving),
-        patch.object(_orchestrator, "_run_target", side_effect=executing),
+        patch.object(_execute, "execute", side_effect=executing),
         patch.object(engine, "run_chain", side_effect=chaining),
     ):
         result = run_task(config, task)
@@ -318,12 +306,12 @@ def test_a_one_step_task_hands_its_runner_the_contexts_it_resolved_and_records_n
 def test_a_one_step_task_whose_step_fails_before_its_evaluator_runs_returns_a_failed_result_of_its_class() -> None:
     from unittest.mock import patch
 
-    from dataeval_flow import _orchestrator
+    from dataeval_flow.evaluators import _execute
     from dataeval_flow.evaluators.quality import DuplicatesResult
 
     task = TaskConfig(name="t", workflow="dupes", kind="evaluator", sources="src")
     config = chain_pipeline(evaluators=[DuplicatesConfig(name="dupes")], tasks=[task.model_dump()])
-    with patch.object(_orchestrator, "_run_target", side_effect=RuntimeError("no context")):
+    with patch.object(_execute, "execute", side_effect=RuntimeError("no context")):
         result = run_task(config, task)
     assert isinstance(result, DuplicatesResult)
     assert (result.success, result.type, result.errors) == (False, "duplicates", ["RuntimeError: no context"])

@@ -13,7 +13,6 @@ from PIL import Image
 from dataeval_flow._blocks import Asset, Block, Column, ItemRef, Section, Table
 from dataeval_flow._blocks._items import refs_in
 from dataeval_flow._capture import capture, references
-from tests.workflow_toys import register_count
 
 pytestmark = pytest.mark.required
 
@@ -181,33 +180,22 @@ class TestCapture:
 class TestTheRun:
     """Flow captures once a run returns, from the post-view datasets it read, and never fails a run over it."""
 
-    @pytest.fixture(autouse=True)
-    def _count(self, plugins):
-        register_count(plugins)
-
     @staticmethod
     def _run(monkeypatch: pytest.MonkeyPatch, *, success: bool = True, max_images: int | None = None) -> Any:
-        import dataeval_flow._orchestrator as orchestrator
+        """An outliers task over the toy dataset, whose report names item 7, the one image it flags."""
         from dataeval_flow import run_tasks
         from dataeval_flow.config import ResultConfig, TaskConfig
-        from dataeval_flow.steps import Finding
-        from dataeval_flow.workflows import WorkflowReport
+        from dataeval_flow.evaluators.quality import OutliersConfig, OutliersEvaluator
         from tests.evaluator_toys import toy_pipeline
-        from tests.workflow_toys import ToyCountConfig, ToyCountMetadata, ToyCountOutput, ToyCountRaw, ToyCountResult
 
-        def naming_item_7(_runner: Any, _config: Any, _context: Any) -> ToyCountResult:
-            if not success:
-                return ToyCountResult.failed(type="test.count", errors=["boom"])
-            finding = Finding(title="Outliers", blocks=[_images(_ref(7, source="src"))])
-            output = ToyCountOutput(
-                raw=ToyCountRaw(dataset_size=12), report=WorkflowReport(summary="s", findings=[finding])
-            )
-            return ToyCountResult(type="test.count", success=True, output=output, metadata=ToyCountMetadata())
+        def boom(*_args: Any, **_kwargs: Any) -> Any:
+            raise RuntimeError("boom")
 
-        monkeypatch.setattr(orchestrator, "_run_target", naming_item_7)
+        if not success:
+            monkeypatch.setattr(OutliersEvaluator, "run", boom)
         config = toy_pipeline(
-            workflows=[ToyCountConfig(name="clean")],
-            tasks=[TaskConfig(name="t", workflow="clean", sources="src")],
+            evaluators=[OutliersConfig(name="clean", flags=["pixel", "visual"], outlier_threshold="zscore")],
+            tasks=[TaskConfig(name="t", workflow="clean", kind="evaluator", sources="src")],
         )
         if max_images is not None:
             config.result = ResultConfig(max_images=max_images)

@@ -9,7 +9,6 @@ from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators import EvaluatorResult
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows import WorkflowResult
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from tests.evaluator_toys import ToyImages, exact_groups, output_json, toy_pipeline
 
@@ -102,7 +101,7 @@ class TestAlongsideWorkflows:
         tasks = [TaskConfig(name="clean_task", workflow="clean", sources="src"), _dupes_task()]
         config = toy_pipeline(evaluators=[DuplicatesConfig(name="dupes")], workflows=[_CLEAN], tasks=tasks)
         results = run_tasks(config)
-        assert isinstance(results["clean_task"], WorkflowResult)
+        assert isinstance(results["clean_task"], ChainResult)
         assert isinstance(results["dupes_task"], EvaluatorResult)
         assert [r.to_dict()["kind"] for r in results.values()] == ["workflow", "evaluator"]
 

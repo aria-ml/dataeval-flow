@@ -98,22 +98,12 @@ class ResultMetadata(BaseModel):
     datasets, views, extractor and configuration the run read, and how its metadata was encoded. Once the run
     returns, Flow fills in ``dataset_id``, ``source_descriptions``, ``tool_version``, ``execution_time_s``, ``device``
     and ``resolved_config``, and, where they apply, the view, extractor, label and diagnostics fields. The encoding
-    fields are the workflow's to set. ``to_dict()`` and ``export()`` write the envelope under ``metadata``.
-
-    Subclassing
-    -----------
-    A workflow may subclass it to record facts about its run beside the envelope, as pydantic fields with
-    descriptions, and name the subclass as the metadata type argument of its
-    :class:`~dataeval_flow.workflows.WorkflowResult`. Every added field needs a default: Flow builds a failed
-    result's metadata with no arguments. Evaluator results carry an envelope of their own and take no subclass.
+    fields are Flow's to set. ``to_dict()`` and ``export()`` write the envelope under ``metadata``.
 
     Examples
     --------
-    >>> from pydantic import Field
     >>> from dataeval_flow import ResultMetadata
-    >>> class CountMetadata(ResultMetadata):
-    ...     smallest_source: str | None = Field(default=None, description="The source holding the fewest items.")
-    >>> CountMetadata().tool
+    >>> ResultMetadata().tool
     'dataeval-flow'
     """
 
@@ -341,9 +331,9 @@ def finite_json(value: Any) -> Any:
 class Result(ABC, Generic[TMetadata, TOutput]):
     """One task's result, whichever kind of task ran.
 
-    ``kind`` says which: ``"workflow"`` (a :class:`~dataeval_flow.workflows.WorkflowResult`, which judges
-    health), ``"evaluator"`` (an :class:`~dataeval_flow.evaluators.EvaluatorResult`, which reports DataEval's
-    determinations and judges nothing) or ``"matrix"`` (a :class:`~dataeval_flow.MatrixResult`, a task matrix's runs).
+    ``kind`` says which: ``"workflow"`` (a :class:`~dataeval_flow.steps.ChainResult`, which judges health),
+    ``"evaluator"`` (an :class:`~dataeval_flow.evaluators.EvaluatorResult`, which reports DataEval's determinations
+    and judges nothing) or ``"matrix"`` (a :class:`~dataeval_flow.MatrixResult`, a task matrix's runs).
 
     Read :attr:`output` only when ``success`` is true: on a failed run it raises, so a failure can never be read as
     a clean result. :meth:`report`, :meth:`to_dict` and :meth:`export` work either way.
@@ -386,10 +376,9 @@ class Result(ABC, Generic[TMetadata, TOutput]):
 
     Subclassing
     -----------
-    Do not subclass ``Result`` directly: subclass :class:`~dataeval_flow.workflows.WorkflowResult` for a workflow
-    or :class:`~dataeval_flow.evaluators.EvaluatorResult` for an evaluator. Each implements how its kind reports
-    and serializes a successful run, which is all a direct subclass would add. Flow builds those two kinds of
-    result, and a :class:`~dataeval_flow.MatrixResult` holding a task matrix's runs.
+    Do not subclass ``Result`` directly: subclass :class:`~dataeval_flow.evaluators.EvaluatorResult` for an
+    evaluator. Flow builds every other result: a :class:`~dataeval_flow.steps.ChainResult` for a workflow, and a
+    :class:`~dataeval_flow.MatrixResult` holding a task matrix's runs.
 
     Examples
     --------

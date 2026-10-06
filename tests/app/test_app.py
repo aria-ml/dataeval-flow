@@ -596,8 +596,6 @@ class TestViewResult:
             mock_result.metadata.model_id = None
             mock_result.metadata.preprocessor_id = None
             mock_result.metadata.source_descriptions = []
-            mock_result.output.report.findings = []
-            mock_result.output.report.summary = "ok"
             mock_result.to_dict.return_value = {"k": "v"}
             mock_result.report.return_value = "report"
             app._vm.mark_task_completed("t1", mock_result)

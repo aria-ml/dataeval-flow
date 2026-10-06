@@ -114,7 +114,7 @@ evaluator, though an evaluator that fails to run still fails it.
 ## 5. From Python
 
 The same run from Python returns an `EvaluatorResult`. Like a workflow's
-`WorkflowResult`, it is a `Result`: `report()`, `to_dict()` and `export()` work the
+`ChainResult`, it is a `Result`: `report()`, `to_dict()` and `export()` work the
 same way on both, and `output` holds what the run produced. `run_tasks` returns
 each task's result keyed by the task's name:
 

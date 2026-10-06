@@ -14,8 +14,6 @@ from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepE
 if TYPE_CHECKING:
     from dataeval_flow._chain._nodes import Node, NodeList
     from dataeval_flow.evaluators._base import EvaluatorConfig
-    from dataeval_flow.steps._result import ChainResult
-    from dataeval_flow.workflows._context import WorkflowContext
 
 
 @dataclass(frozen=True)
@@ -81,7 +79,8 @@ class PresetChain:
 
 
 class Preset:
-    """A workflow type whose settings expand to a chain of steps, which Flow runs as it runs a custom workflow's.
+    """A workflow type whose settings expand to a chain of steps, which Flow runs as it runs a custom workflow's. Every
+    workflow type is one.
 
     Mix it in ahead of the workflow base, with ``ChainResult`` as the result:
     ``class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult])``. The config class stays the
@@ -143,17 +142,9 @@ class Preset:
         """The Datasets a custom workflow may read when it runs this preset as a step."""
         return cls.outputs
 
-    def run(self, config: Any, context: "WorkflowContext") -> "ChainResult":  # noqa: ARG002
-        """Refused: Flow runs a preset's chain of steps, through ``run_task`` or ``run``."""
-        raise TypeError(
-            f"{type(self).__name__} is a preset: Flow runs its chain of steps, through `run_task` or `run`, not "
-            "through `Workflow.run`."
-        )
-
 
 def preset_of(config: object) -> "type[Preset] | None":
-    """The preset `config`'s workflow type is; ``None`` for a custom workflow, an evaluator, or a type with a ``run``
-    of its own."""
+    """The preset `config`'s workflow type is; ``None`` for a custom workflow, an evaluator, or an unknown type."""
     from dataeval_flow.workflows._base import WorkflowConfig
     from dataeval_flow.workflows._registry import get_workflow
 

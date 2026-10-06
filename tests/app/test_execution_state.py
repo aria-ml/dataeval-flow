@@ -19,7 +19,7 @@ pytestmark = pytest.mark.optional
 
 
 def _fake_result(**kwargs: Any) -> MagicMock:
-    """Return a mock standing in for WorkflowResult."""
+    """Return a mock standing in for a task's Result."""
     return MagicMock(**kwargs)
 
 

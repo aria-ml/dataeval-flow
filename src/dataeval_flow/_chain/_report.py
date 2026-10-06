@@ -681,16 +681,13 @@ def _step(record: "StepResult", *, detailed: bool, skip: Collection[str] = ()) -
 
 
 def _output_blocks(record: "StepResult", *, detailed: bool) -> list[Block]:
-    """What a completed step made: an evaluator's or workflow's report, or a transform's section. A check's findings
-    have sections of their own, and a combine shows its section where it draws one."""
+    """What a completed step made: an evaluator's report, or a transform's section. A check's findings have sections of
+    their own, and a combine shows its section where it draws one."""
     from dataeval_flow.evaluators._result import EvaluatorResult
     from dataeval_flow.steps._registry import TRANSFORMS
-    from dataeval_flow.workflows._result import WorkflowResult
 
     step_result = record.result
     if isinstance(step_result, EvaluatorResult):
-        return list(step_result._report_output(detailed=detailed))  # noqa: SLF001 - a step's own report has no public accessor
-    if isinstance(step_result, WorkflowResult):
         return list(step_result._report_output(detailed=detailed))  # noqa: SLF001 - a step's own report has no public accessor
     if record.kind == "transform":
         section = TRANSFORMS.get(record.type)().section(record) if record.type in TRANSFORMS.names() else []

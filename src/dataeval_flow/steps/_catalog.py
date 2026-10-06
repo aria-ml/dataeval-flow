@@ -17,9 +17,7 @@ class PortEntry(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
     port: str = Field(description="The config field that feeds an input, or an output's name.")
-    type: DataType = Field(
-        description="What flows along it: `dataset`, `output`, `export`, `workflow_result` or `findings`."
-    )
+    type: DataType = Field(description="What flows along it: `dataset`, `output`, `export` or `findings`.")
     kinds: list[str] | None = Field(
         default=None,
         description=(

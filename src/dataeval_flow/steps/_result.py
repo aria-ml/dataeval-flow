@@ -4,22 +4,21 @@ __all__ = ["ChainMetadata", "ChainOutput", "ChainResult", "StepResult"]
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
 from pydantic import Field
 
 from dataeval_flow._binning_report import binning_blocks
-from dataeval_flow._blocks import Block, Scalar
-from dataeval_flow._result import LineageRecord, ResultMetadata, failure_section, finite_json
+from dataeval_flow._blocks import Block, Paragraph, Scalar, Section, Summary, SummaryItem
+from dataeval_flow._result import LineageRecord, Result, ResultKind, ResultMetadata, failure_section, finite_json
 from dataeval_flow.steps._step import StepKind
 from dataeval_flow.workflows._base import Finding
-from dataeval_flow.workflows._result import WorkflowResult
+from dataeval_flow.workflows._result import element_key
 
 if TYPE_CHECKING:
     from dataeval_flow._chain._presets import SpliceRun
     from dataeval_flow._chain._run import ChainRun
     from dataeval_flow._chain._verdict import Verdict
-    from dataeval_flow._result import Result
     from dataeval_flow.workflows._preset import PresetChain, ReportGroup
 
 StepStatus = Literal["ok", "failed", "skipped"]
@@ -29,8 +28,8 @@ StepStatus = Literal["ok", "failed", "skipped"]
 class StepResult:
     """One step's outcome in a chain: its status, what it read, and what it made.
 
-    ``output`` is the live object: a Dataset (a DataEval ``View`` you can go on to use), DataEval's output, a
-    workflow's result, an export record, or a mapping of them for a step with several outputs. A step that ran once
+    ``output`` is the live object: a Dataset (a DataEval ``View`` you can go on to use), DataEval's output, an
+    export record, or a mapping of them for a step with several outputs. A step that ran once
     per element of a list has ``elements`` instead, one :class:`StepResult` per key.
     """
 
@@ -86,8 +85,6 @@ def _made(record: "StepResult") -> dict[str, Any]:
     result = record.result
     if isinstance(result, EvaluatorResult):
         return {"dataeval": result.metadata.dataeval.model_dump(mode="json"), "output": serialized_of(result)}
-    if isinstance(result, WorkflowResult):
-        return {"output": result._dict_body()}  # noqa: SLF001 - a step's own report has no public accessor
     return {"output": record.summary}
 
 
@@ -107,14 +104,14 @@ class ChainOutput:
     steps: dict[str, StepResult]
 
 
-class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[reportInvalidTypeArguments]
-    """A custom workflow's result: every step's outcome, in order, whether or not a step failed.
+class ChainResult(Result[ChainMetadata, ChainOutput]):
+    """A workflow's result, a custom workflow's or a workflow type's: every step's outcome, in order, whether or not a
+    step failed.
 
     A required step's failure fails the result (``success`` is false, and ``output`` raises, as for any result), and
     ``health["status"]`` is ``"failed"``, as it is for a task refused before any step ran, whose reason is in
-    ``errors``. The steps that ran stay readable in :attr:`steps`. Its findings are its check steps' and those of the
-    workflow-type steps it ran, all counted by :attr:`health`. The JSON lists the check findings at its top level,
-    while a workflow-type step's findings stay inside that step.
+    ``errors``. The steps that ran stay readable in :attr:`steps`. Its findings are its check steps', counted by
+    :attr:`health` and listed at the JSON's top level. ``kind`` is ``"workflow"``.
 
     Fields
     ------
@@ -132,6 +129,9 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
     >>> result = run_tasks(load_config("pipeline.yaml"))["clean"]  # doctest: +SKIP
     >>> result.steps["clean"].output  # the cleaned Dataset, a DataEval View  # doctest: +SKIP
     """
+
+    kind: ClassVar[ResultKind] = "workflow"
+    metadata_type: ClassVar[type[ResultMetadata]] = ChainMetadata
 
     def __init__(
         self,
@@ -233,19 +233,12 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
 
     @property
     def findings(self) -> list[Finding]:
-        """Every finding the health counts, in run order: each check's, and each completed workflow-type step's."""
+        """Every finding the health counts, in run order: each check's."""
         return [finding for record in self.steps.values() for finding in _step_findings(record)]
 
     def findings_by_step(self) -> list[tuple[str, Finding]]:
         """Every finding :attr:`findings` holds, beside the name of the step that made it, in run order."""
         return [(name, finding) for name, record in self.steps.items() for finding in _step_findings(record)]
-
-    @property
-    def check_findings(self) -> list[Finding]:
-        """The findings the check steps made, in run order: those the JSON lists at the top level (spec §7.3)."""
-        return [
-            finding for record in self.steps.values() if record.kind == "check" for finding in _step_findings(record)
-        ]
 
     @property
     def warning_count(self) -> int:
@@ -269,7 +262,7 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
             "metadata": self.metadata.model_dump(mode="json"),
             "health": self.health,
             "steps": {name: record.to_dict() for name, record in self.steps.items()},
-            "findings": [finding.model_dump(mode="json") for finding in self.check_findings],
+            "findings": [finding.model_dump(mode="json") for finding in self.findings],
         }
         if self.verdict is not None:
             payload["verdict"] = self.verdict.model_dump(mode="json")
@@ -303,15 +296,31 @@ class ChainResult(WorkflowResult[ChainMetadata, ChainOutput]):  # type: ignore[r
     def _dict_body(self) -> dict[str, object]:
         return {key: value for key, value in self.to_dict().items() if key not in ("kind", "metadata")}
 
+    def _summary_blocks(self) -> list[Block]:
+        """One summary line per finding, then the health verdict: failed, naming the required steps that failed, where
+        :attr:`health` says the run failed; else the warnings :attr:`warning_count` counted."""
+        findings = self.findings
+        health = self.health
+        failed = list(health.get("failed_steps") or []) if health["status"] == "failed" else []
+        if not findings and not failed:
+            return [Paragraph(text="No findings to report.")]
+        # A finding of a check that ran once per element sits under its element's key, after those that did not.
+        keys = list(dict.fromkeys(key for f in findings if (key := element_key(f)) is not None))
+        ordered = [f for group in [None, *keys] for f in findings if element_key(f) == group]
+        items = [
+            SummaryItem(label=f.title, value=f.brief or "", severity=f.severity, group=element_key(f) or "")
+            for f in ordered
+        ]
+        summary = Summary(items=items, warnings=self.warning_count, failed=failed)
+        lede: list[Block] = [] if findings else [Paragraph(text="No findings to report.")]
+        return [Section(title="Summary", blocks=[*lede, summary])]
+
 
 def _step_findings(record: StepResult) -> list[Finding]:
-    """The findings one step made: a check's own, or a completed workflow type's; each element's, in key order."""
+    """The findings one step made: a check's own; each element's, in key order."""
     if record.elements is not None:
         return [finding for element in record.elements.values() for finding in _step_findings(element)]
-    if record.kind == "check":
-        return list(record.output or []) if record.status == "ok" else []
-    result = record.result
-    return list(result.findings) if isinstance(result, WorkflowResult) and result.success else []
+    return list(record.output or []) if record.kind == "check" and record.status == "ok" else []
 
 
 def _errors(record: StepResult) -> list[str]:

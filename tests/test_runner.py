@@ -165,9 +165,9 @@ def _fake_result(*, warnings: int = 0):
     from unittest.mock import MagicMock
 
     from dataeval_flow._blocks import Section
-    from dataeval_flow.workflows import WorkflowResult
+    from dataeval_flow.steps import ChainResult
 
-    result = MagicMock(spec=WorkflowResult)
+    result = MagicMock(spec=ChainResult)
     result.success = True
     result.report.return_value = "report"
     result._html_reports.return_value = [(Section(title="report"), [])]
@@ -175,6 +175,11 @@ def _fake_result(*, warnings: int = 0):
     result.metadata = MagicMock(metadata_binning=None)
     result.warning_count = warnings
     result.assets = []
+    result.steps = {}
+    result.failed_steps = []
+    result.findings = []
+    result.verdict = None
+    result.health = {"status": "warning" if warnings else "ok"}
     return result
 
 
@@ -336,11 +341,8 @@ class TestNothingSucceeded:
         import dataeval_flow._orchestrator as orch
         from dataeval_flow._runner import run
 
-        failed = _fake_result()
-        failed.success = False
-        failed.errors = ["boom"]
         config = _write_config(tmp_path)
-        with patch.object(orch, "_run_single_task", return_value=failed):
+        with patch.object(orch, "_run_single_task", return_value=_failed_result()):
             assert run(config, tmp_path / "out", data_dir=tmp_path) == 1
 
         assert not (tmp_path / "out" / "results").exists()
@@ -526,10 +528,9 @@ def _findings_result(*, warnings: bool) -> object:
 
 
 def _failed_result() -> object:
-    result = _fake_result()
-    result.success = False
+    """A failed task, which no file but the CI reports holds."""
+    result = _fake_evaluator_result(success=False)
     result.errors = ["ValueError: boom", "and more"]
-    result.findings = []
     return result
 
 

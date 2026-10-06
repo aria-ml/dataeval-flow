@@ -7,7 +7,7 @@ import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast, runtime_checkable
 
 from pydantic import BaseModel
 
@@ -33,10 +33,9 @@ if TYPE_CHECKING:
     from dataeval_flow.config._schemas._task import TaskConfig
     from dataeval_flow.evaluators._base import EvaluatorConfig
     from dataeval_flow.evaluators._evaluator import Evaluator
-    from dataeval_flow.steps._by import ByConfig
     from dataeval_flow.steps._result import ChainResult, StepResult
     from dataeval_flow.workflows._base import Workflow, WorkflowConfig
-    from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology, WorkflowContext
+    from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology
     from dataeval_flow.workflows._preset import Preset, PresetChain, ReportGroup
 
 
@@ -493,15 +492,15 @@ def _run_resolved(
     from dataeval_flow._kind import input_problem, result_type_of
     from dataeval_flow._tables import TableLimits
     from dataeval_flow.evaluators._result import EvaluatorResult
+    from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._base import WorkflowConfig
     from dataeval_flow.workflows._preset import Preset, expand_preset
-    from dataeval_flow.workflows._result import WorkflowResult
 
     source_names = list(dataset_contexts)
     extractor_cfg = setup.config if setup is not None else None
 
-    # 4. Resolve the target → type + params. A task runs a workflow, an evaluator, or a custom workflow's chain;
-    #    the context, policies, timing and envelope below serve the first two.
+    # 4. Resolve the target → type + params. A task runs a workflow type's chain, an evaluator, or a custom
+    #    workflow's chain; the context, policies, timing and envelope below serve the evaluator.
     instance: WorkflowConfig[Any] | EvaluatorConfig[Any] | CustomWorkflowConfig
     if task.kind == "evaluator":
         instance = _resolve_evaluator(task.workflow, config)
@@ -540,12 +539,10 @@ def _run_resolved(
         model_extractor=task.extractor if runs_model(extractor) else None,
     )
     if problem is not None:
-        default = EvaluatorResult if task.kind == "evaluator" else WorkflowResult
+        default = EvaluatorResult if task.kind == "evaluator" else ChainResult
         result_type = result_type_of(runner, default)
         message = f"Task '{task.name}' runs {task.kind} '{instance.name}' ({instance.type}), which {problem}"
         refused = result_type.failed(type=runner.name, errors=[message])
-        from dataeval_flow.steps._result import ChainResult
-
         if isinstance(refused, ChainResult):
             refused._preset = isinstance(runner, Preset)  # noqa: SLF001 - a preset's refusal names its type
         # The envelope any other failed result carries. Nothing ran, so no time was spent running.
@@ -553,7 +550,8 @@ def _run_resolved(
         _populate_result_metadata(refused, resolved_sources, extractor_cfg, 0.0, instance, config, data_dir=data_dir)
         return refused
 
-    # A preset's settings expand to a chain of steps, which runs as a custom workflow's, under the preset's type id.
+    # A workflow type is a preset: its settings expand to a chain of steps, which runs as a custom workflow's, under
+    # its type id.
     if isinstance(runner, Preset) and isinstance(instance, WorkflowConfig):
         preset = type(runner)
         preset_chain = preset.chain(instance)
@@ -576,11 +574,11 @@ def _run_resolved(
             run=run,
         )
 
-    # 5-7. Resolve the step's policies and ontology, then run it as a one-step graph.
+    # 5-7. What is left is an evaluator: resolve its step's policies and ontology, then run it as a one-step graph.
     result, elapsed, ontology, drawn = _run_one_step(
         task,
-        instance,
-        runner,
+        cast("EvaluatorConfig[Any]", instance),
+        cast("Evaluator[Any, Any]", runner),
         config,
         dataset_contexts,
         resolved_sources,
@@ -593,7 +591,7 @@ def _run_resolved(
     )
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
 
-    # 8. Backfill the dataset(s) the step read when the workflow left them unset —
+    # 8. Backfill the dataset(s) the step read when the evaluator left them unset —
     # notably on failure paths, where callers still need the inputs to debug.
     _ensure_result_datasets(result, drawn)
 
@@ -705,7 +703,6 @@ def _refused(
     from dataeval_flow.evaluators._result import EvaluatorResult
     from dataeval_flow.steps._result import ChainResult
     from dataeval_flow.workflows._preset import Preset
-    from dataeval_flow.workflows._result import WorkflowResult
 
     instance = (
         _resolve_evaluator(task.workflow, config)
@@ -718,7 +715,7 @@ def _refused(
         refused.metadata.workflow = instance.name
     else:
         runner = _implementation(instance)
-        default = EvaluatorResult if task.kind == "evaluator" else WorkflowResult
+        default = EvaluatorResult if task.kind == "evaluator" else ChainResult
         refused = result_type_of(runner, default).failed(type=runner.name, errors=[message])
         if isinstance(refused, ChainResult):
             refused._preset = isinstance(runner, Preset)  # noqa: SLF001 - a preset's refusal names its type
@@ -730,8 +727,8 @@ def _refused(
 
 def _run_one_step(
     task: "TaskConfig",
-    instance: "WorkflowConfig[Any] | EvaluatorConfig[Any]",
-    runner: "Workflow[Any, Any] | Evaluator[Any, Any]",
+    instance: "EvaluatorConfig[Any]",
+    runner: "Evaluator[Any, Any]",
     config: "PipelineConfig",
     dataset_contexts: "dict[str, DatasetContext]",
     resolved_sources: "list[ResolvedSource]",
@@ -743,8 +740,8 @@ def _run_one_step(
     limits: "TableLimits",
     run: int | None = None,
 ) -> "tuple[Result[Any, Any], float, ResolvedOntology | None, dict[str, DatasetContext]]":
-    """Run an ``evaluator:`` or workflow-type task as a one-step graph: its result, unwrapped, the seconds it took,
-    the ontology its step resolved, and each source's context over the one draw of its view the step read.
+    """Run an ``evaluator:`` task as a one-step graph: its result, unwrapped, the seconds it took, the ontology its
+    step resolved, and each source's context over the one draw of its view the step read.
 
     The step's metadata policy, value range, stats policy and ontology resolve before anything reads the dataset,
     so a misspelled factor or a missing descriptor costs a config error, not an hour of walking images.
@@ -755,7 +752,6 @@ def _run_one_step(
     from dataeval_flow._kind import result_type_of
     from dataeval_flow._tables import limited_tables
     from dataeval_flow.evaluators._result import EvaluatorResult
-    from dataeval_flow.workflows._result import WorkflowResult
 
     source_names = list(dataset_contexts)
     graph = one_step_graph(task, instance, source_names)
@@ -785,9 +781,8 @@ def _run_one_step(
     elapsed = time.monotonic() - start
     record = chain.steps[task.name]
     result = record.result
-    if result is None:  # the step failed before its evaluator or workflow could build a result
-        default = EvaluatorResult if task.kind == "evaluator" else WorkflowResult
-        result = result_type_of(runner, default).failed(type=runner.name, errors=record.errors)
+    if result is None:  # the step failed before its evaluator could build a result
+        result = result_type_of(runner, EvaluatorResult).failed(type=runner.name, errors=record.errors)
     if diagnostics:
         result.metadata.diagnostics = list(diagnostics)
     try:
@@ -1012,55 +1007,14 @@ def _capture_chain_assets(result: "ChainResult", chain: "ChainRun", limit: int |
         _logger.warning("Could not capture thumbnails for task '%s'", result.type, exc_info=True)
 
 
-def _run_target(
-    target: "Workflow[Any, Any] | Evaluator[Any, Any]",
-    config: Any,
-    context: "WorkflowContext",
-    *,
-    stats_unions: "Mapping[str, ResolvedStatsPolicy] | None" = None,
-    by: "ByConfig | None" = None,
-) -> "Result[Any, Any]":
-    """Run a workflow or an evaluator on a resolved context. Never raises: a failure becomes a failed result.
-
-    The failed result is of the config's result class. Only the run itself is covered: resolving the task before it,
-    in :func:`_run_single_task`, raises on a config error, a transform's constructor included. `stats_unions` is what
-    a chain planned for an evaluator step's sources, and `by` such a step's ``by:``, both handed to
-    :func:`~dataeval_flow.evaluators._execute.execute`.
-    """
-    from dataeval_flow._kind import result_type_of
-    from dataeval_flow._result import failure_message
-    from dataeval_flow.evaluators._evaluator import Evaluator
-    from dataeval_flow.evaluators._execute import execute
-    from dataeval_flow.workflows._result import WorkflowResult
-
-    if isinstance(target, Evaluator):
-        return execute(target, context, config, stats_unions=stats_unions, by=by)
-    result_type: type[WorkflowResult[Any, Any]] = result_type_of(target, WorkflowResult)
-    if not isinstance(config, target.config_type):
-        return result_type.failed(
-            type=target.name, errors=[f"Expected {target.config_type.__name__}, got {type(config).__name__}"]
-        )
-    try:
-        result = target.run(config, context)
-    except Exception as error:  # every failure is reported as a failed result
-        _logger.exception("Workflow '%s' failed", target.name)
-        return result_type.failed(type=target.name, errors=[failure_message(error)])
-    if not isinstance(result, result_type):  # `run()` is typed by this class, so another one would lie
-        _logger.error("Workflow '%s' returned %s, not a %s", target.name, type(result).__name__, result_type.__name__)
-        return result_type.failed(
-            type=target.name, errors=[f"{target.name} returned {type(result).__name__}, not a {result_type.__name__}"]
-        )
-    return result
-
-
 def _ensure_result_datasets(
     result: "Result[Any, Any]",
     dataset_contexts: "Mapping[str, DatasetContext]",
 ) -> None:
-    """Fill in ``result.dataset`` / ``result.sources`` when the workflow did not.
+    """Fill in ``result.dataset`` / ``result.sources`` when the run did not.
 
-    Workflows attach the resolved, post-selection dataset to successful
-    results only — an early return or an exception leaves the fields unset,
+    A run attaches the resolved, post-selection dataset to a successful
+    result only — an early return or an exception leaves the fields unset,
     which prevents callers from inspecting the inputs that produced the failure.
     Fill them here from *dataset_contexts*: a run passes each source's context
     over the draw its step read; a refused task, which read nothing, its own,
@@ -1170,8 +1124,8 @@ def _populate_result_metadata(
     if records:
         result.metadata.label_space = records
         digests = {record.digest for record in records}
-        # Set the scalar only where the run read one vocabulary. A workflow that stamped
-        # its own, as `label-space` does with its alignment's, keeps it.
+        # Set the scalar only where the run read one vocabulary. A chain whose `label-alignment`
+        # step stamped the digest keeps it, as `label-space`'s does.
         if len(digests) == 1 and not result.metadata.label_space_digest:
             result.metadata.label_space_digest = records[0].digest
 

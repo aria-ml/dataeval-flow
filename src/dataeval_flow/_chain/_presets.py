@@ -175,6 +175,6 @@ def _moved(address: Address, bound: Mapping[str, tuple[Address, ValueType]], ren
 
 
 def _embeds(spec: StepSpec) -> bool:
-    """Whether `spec` runs an evaluator or workflow that takes an extractor."""
+    """Whether `spec` runs an evaluator that takes an extractor."""
     config: Any = spec.config
-    return spec.kind in ("evaluator", "workflow") and config.inputs.accepts_extractor
+    return spec.kind == "evaluator" and config.inputs.accepts_extractor

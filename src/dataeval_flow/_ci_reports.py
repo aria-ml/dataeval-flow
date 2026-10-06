@@ -52,7 +52,6 @@ def junit_report(results: Mapping[str, "Result[Any, Any]"]) -> str:
 def _suite(root: ET.Element, task: str, result: "Result[Any, Any]") -> None:
     """One result as a test suite named *task*, under *root*."""
     from dataeval_flow.steps._result import ChainResult
-    from dataeval_flow.workflows._result import WorkflowResult
 
     suite = ET.SubElement(root, "testsuite", name=task)
     if isinstance(result, ChainResult) and (result.success or result.failed_steps):
@@ -68,8 +67,6 @@ def _suite(root: ET.Element, task: str, result: "Result[Any, Any]") -> None:
         error = ET.SubElement(ET.SubElement(suite, "testcase", classname=task, name="run"), "error")
         error.set("message", result.errors[0] if result.errors else "failed")
         error.text = "\n".join(result.errors) or None
-    elif isinstance(result, WorkflowResult) and result.findings:
-        _finding_cases(suite, task, result.findings)
     else:
         ET.SubElement(suite, "testcase", classname=task, name="run")
     seconds = getattr(result.metadata, "execution_time_s", None)
@@ -104,7 +101,6 @@ def markdown_summary(results: Mapping[str, "Result[Any, Any]"]) -> str:
     result, and each failed task's errors."""
     from dataeval_flow._matrix._result import MatrixResult
     from dataeval_flow.steps._result import ChainResult
-    from dataeval_flow.workflows._result import WorkflowResult
 
     lines = ["# dataeval-flow results", ""]
     for task, result in results.items():
@@ -156,15 +152,7 @@ def markdown_summary(results: Mapping[str, "Result[Any, Any]"]) -> str:
         if not result.success:
             lines += [f"## {_inline(task)}: failed", "", *_fenced(result.errors), ""]
             continue
-        lines += [f"## {_inline(task)}", ""]
-        if isinstance(result, WorkflowResult):
-            warnings = result.warning_count
-            health = "passed" if not warnings else f"{warnings} warning{'s' if warnings != 1 else ''}"
-            lines += [f"**Health:** {health}", "", "| Severity | Finding | Result |", "| --- | --- | --- |"]
-            lines += [f"| {f.severity} | {_inline(f.title)} | {_inline(f.brief or '')} |" for f in result.findings]
-        else:
-            lines.append(f"`{result.type}` ran; an evaluator has no findings to list.")
-        lines.append("")
+        lines += [f"## {_inline(task)}", "", f"`{result.type}` ran; an evaluator has no findings to list.", ""]
     return "\n".join(lines)
 
 

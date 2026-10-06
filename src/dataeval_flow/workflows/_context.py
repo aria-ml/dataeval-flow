@@ -1,4 +1,4 @@
-"""Per-dataset and per-run context a workflow or evaluator executes with."""
+"""Per-dataset and per-run context an evaluator executes with."""
 
 __all__ = ["DatasetContext", "ResolvedOntology", "Subset", "WorkflowContext"]
 
@@ -93,12 +93,12 @@ class ResolvedOntology:
 
 @dataclass
 class WorkflowContext:
-    """What a workflow's ``run`` reads: the task's sources, and cached access to what each yields.
+    """What an evaluator step reads: its sources, and cached access to what each yields.
 
-    Flow builds one per task and hands it to :meth:`Workflow.run`. Read a source through :meth:`dataset`,
+    Flow builds one per evaluator step and derives the step's inputs from it. Read a source through :meth:`dataset`,
     :meth:`stats`, :meth:`embeddings`, :meth:`clusters`, :meth:`metadata` and :meth:`labels`, which apply the
-    source's view and the task's extractor and policies, and cache what they compute. The fields hold what Flow
-    resolved for the task; build a context by hand only to call a workflow's ``run`` directly.
+    source's view and the step's extractor and policies, and cache what they compute. The fields hold what Flow
+    resolved for the step.
     """
 
     dataset_contexts: "Mapping[str, DatasetContext]" = field(default_factory=dict)
@@ -110,7 +110,7 @@ class WorkflowContext:
 
     Carried on the context rather than read off the parameters, because resolving it
     needs the pipeline the policy pool lives on and the data root its descriptor is
-    relative to — neither of which a workflow has.  None where the caller built a context
+    relative to — neither of which an evaluator has.  None where the caller built a context
     directly, which takes DataEval's defaults.
     """
     metadata_policies: "Mapping[str, ResolvedPolicy]" = field(default_factory=dict)
@@ -119,18 +119,18 @@ class WorkflowContext:
     ontology: "ResolvedOntology | None" = None
     """The label space this task names, resolved before the dataset was read.
 
-    Set here rather than in the workflow, for the same reason as :attr:`metadata_policy`:
+    Set here rather than in the evaluator, for the same reason as :attr:`metadata_policy`:
     resolving a name needs the pipeline holding the pool, resolving a path needs the data
-    root, and a workflow has neither. ``None`` when the caller built a context directly or
-    configured no ontology. The workflow then reads its own parameters.
+    root, and an evaluator has neither. ``None`` when the caller built a context directly or
+    configured no ontology. The evaluator then reads its own parameters.
     """
     stats_policy: "ResolvedStatsPolicy | None" = None
     """What to measure and which views each consumer reads, resolved before the run.
 
-    Set here rather than in the workflow, for the same reason as :attr:`metadata_policy`:
+    Set here rather than in the evaluator, for the same reason as :attr:`metadata_policy`:
     resolving a name needs the pipeline holding the pool, and resolving its bands needs the
     datasets. ``None`` when the caller built a context directly or named no policy, in which
-    case a workflow measures the whole image with its own flags.
+    case an evaluator measures the whole image with its own flags.
     """
 
     @property

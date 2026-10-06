@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from dataeval_flow import MatrixResult, ResultMetadata, run_tasks
+from dataeval_flow import MatrixResult, run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow._ci_reports import markdown_summary
 from dataeval_flow._matrix._result import MatrixRun
@@ -83,20 +83,10 @@ def test_the_html_page_draws_the_table() -> None:
 
 
 def _fake(number: int, findings: list[Finding], *, success: bool = True) -> MatrixRun:
-    from dataeval_flow.workflows._base import WorkflowOutput, WorkflowRawOutput, WorkflowReport
-    from dataeval_flow.workflows._result import WorkflowResult
+    from dataeval_flow.steps import ChainResult
+    from tests.workflow_toys import count_result
 
-    class _Result(WorkflowResult[ResultMetadata, WorkflowOutput]):  # type: ignore[type-arg]
-        pass
-
-    output = WorkflowOutput(
-        raw=WorkflowRawOutput(dataset_size=1), report=WorkflowReport(summary="s", findings=findings)
-    )
-    result = (
-        _Result(type="toy", success=True, metadata=ResultMetadata(), output=output)
-        if success
-        else _Result.failed(type="toy", errors=["it broke"])
-    )
+    result = count_result(*findings) if success else ChainResult.failed(type="test.count", errors=["it broke"])
     return MatrixRun(number=number, label=f"k={number}", values={"k": number}, result=result)
 
 

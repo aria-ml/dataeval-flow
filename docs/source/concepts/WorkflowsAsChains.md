@@ -100,10 +100,10 @@ workflows:
       - {name: imbalance, check: class-imbalance, input: labels}
 ```
 
-A chain's health rolls up over its checks' findings, and over the findings of the workflow-type steps it runs. Its
-status is `warning` where any finding is a warning, and `failed` where a step that is not `optional` failed. The
-result's JSON lists the check findings at the top, each naming its step. A workflow-type step's findings stay in that
-step. A threshold of `null` judges nothing: the finding is still made, as `info`.
+A chain's health rolls up over its checks' findings, those a workflow-type step splices in included. Its status is
+`warning` where any finding is a warning, and `failed` where a step that is not `optional` failed. The result's JSON
+lists the findings at the top, each naming its step. A threshold of `null` judges nothing: the finding is still made,
+as `info`.
 
 A check is never skipped because an input produced nothing. It makes one `info` finding briefed `not assessed`,
 saying which input holds nothing and why, so the report shows what could not be judged. A check that has its inputs but
@@ -177,12 +177,11 @@ pair, and it leaves one record saying so.
 
 ## Workflow types as presets
 
-A workflow type can be a **preset**: its settings expand to a chain of steps. Every built-in workflow type is a preset:
-`audit`, `data-cleaning`, `data-prioritization`, `metadata-triage`, `drift-monitoring`, `ood-detection`,
-`data-splitting`, `label-space` and `data-coverage`. Data-cleaning's evaluators find outliers and duplicates, its checks
-judge them against `checks`, and its `clean` step removes what they flagged. The
-[Preset Catalog](../reference/presets.md#data-cleaning) lists the chain. A plugin workflow type that is not a preset
-runs as one step that makes its result, and its findings stay in that step.
+Every workflow type is a **preset**: its settings expand to a chain of steps. The built-in ones are `audit`,
+`data-cleaning`, `data-prioritization`, `metadata-triage`, `drift-monitoring`, `ood-detection`, `data-splitting`,
+`label-space`, `data-coverage` and `data-bias`, and a plugin's workflow type is a preset too. Data-cleaning's evaluators find
+outliers and duplicates, its checks judge them against `checks`, and its `clean` step removes what they flagged. The
+[Preset Catalog](../reference/presets.md#data-cleaning) lists the chain.
 
 Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of its
 chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the

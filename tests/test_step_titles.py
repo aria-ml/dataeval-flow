@@ -18,7 +18,6 @@ from dataeval_flow.workflows._registry import WORKFLOWS
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
-from tests.workflow_toys import register_count
 
 _TITLES = {
     "balance": "Balance",
@@ -170,19 +169,6 @@ def test_a_custom_workflow_is_headed_by_its_name() -> None:
     assert _banner(result.report()) == ["MINE"]
     assert _first_line(result.report()) == "Workflow: mine (custom workflow)"
     assert "<title>mine</title>" in result.to_html()
-
-
-def test_a_legacy_workflow_keeps_its_summary_in_the_body(plugins: dict[str, list[tuple[str, str]]]) -> None:
-    register_count(plugins)
-    config = chain_pipeline(
-        workflows=[{"name": "tc", "type": "test.count"}],
-        tasks=[{"name": "t", "workflow": "tc", "sources": ["src"]}],
-    )
-    result = _run(config)
-    lines = result.report().splitlines()
-    assert _banner(result.report()) == ["TEST.COUNT"]
-    assert _first_line(result.report()) == "Workflow: tc (test.count)"
-    assert lines[lines.index("  Source:    src (src_data)") + 2] == "  Items counted."
 
 
 def test_a_failed_result_is_headed_the_same_way() -> None:

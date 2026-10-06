@@ -96,7 +96,7 @@ async def _wait_for_result(pilot, results: list) -> None:  # type: ignore[type-a
 
 @pytest.fixture
 def chain_results(plugins: dict[str, list[tuple[str, str]]]) -> Iterator[dict[str, Any]]:
-    """Two custom workflows' results: `ok`, whose two steps both run, and `mixed`, whose test.count step
+    """Two custom workflows' results: `ok`, whose two steps both run, and `mixed`, whose test.count step's chain
     completes before its second step raises."""
     from dataeval_flow import run_tasks
     from dataeval_flow._cache import DatasetCache

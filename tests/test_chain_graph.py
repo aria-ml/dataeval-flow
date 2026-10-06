@@ -165,11 +165,11 @@ def test_a_valid_workflow_resolves_each_step_and_marks_broadcasts() -> None:
     )
     graph = build_graph(config.workflows[0], config)  # type: ignore[arg-type,index]
     spec = {s.name: s for s in graph.steps}
-    assert [s.kind for s in graph.steps] == ["transform", "evaluator", "transform", "workflow", "transform"]
+    assert [s.kind for s in graph.steps] == ["transform", "evaluator", "transform", "combine", "check", "transform"]
     assert spec["kept"].broadcast
     assert spec["dupes"].broadcast
     assert not spec["h"].broadcast
-    assert [str(a) for a in spec["clean"].addresses("input")] == ["h.head"]
+    assert [str(a) for a in spec["clean/items"].addresses("input")] == ["h.head"]
     assert spec["h"].output_address(spec["h"].outputs[0]) == "h.head"
     assert spec["v"].config.operations[0].type == "Limit"  # type: ignore[attr-defined]
 

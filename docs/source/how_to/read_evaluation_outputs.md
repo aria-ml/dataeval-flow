@@ -576,11 +576,6 @@ val = result.steps["content-digest-evals"].elements["val"].output.data()
 
 [Gate training on an audit](gate_training_on_an_audit.md) compares those digests with the data a training job reads.
 
-A workflow that is not a chain, as a plugin's may be, has no `steps`. Its `result.output.raw` holds its typed,
-workflow-specific outputs, which its result class in the {doc}`API Reference <../reference/autoapi/dataeval_flow/index>`
-lists under **Fields**. Narrow a result to that class with `isinstance`, and your editor and type checker know the
-fields too.
-
 ### How metadata factors were treated
 
 Bias, balance, diversity, and coverage analyses read factors as *codes* — a continuous factor cut into intervals, a

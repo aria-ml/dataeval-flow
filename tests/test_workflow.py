@@ -1,4 +1,4 @@
-"""Tests for workflow/__init__.py — WorkflowResult.report(), .export(), and discovery helpers."""
+"""Tests for workflow/__init__.py — a workflow result's report(), export(), and discovery helpers."""
 
 import json
 import warnings
@@ -13,17 +13,10 @@ from dataeval_flow._blocks import Fields, Paragraph, Section
 from dataeval_flow._blocks._text import Frame, render_text
 from dataeval_flow._result import _envelope_items
 from dataeval_flow.config import ViewOperation
-from dataeval_flow.steps import Finding
-from dataeval_flow.workflows import (
-    DatasetContext,
-    WorkflowOutput,
-    WorkflowRawOutput,
-    WorkflowReport,
-    WorkflowResult,
-    get_workflow,
-    list_workflows,
-)
+from dataeval_flow.steps import ChainMetadata, ChainResult, Finding
+from dataeval_flow.workflows import DatasetContext, get_workflow, list_workflows
 from dataeval_flow.workflows._result import finding_section
+from tests.workflow_toys import count_result
 
 pytestmark = pytest.mark.required
 
@@ -32,51 +25,24 @@ pytestmark = pytest.mark.required
 # ---------------------------------------------------------------------------
 
 
-class _DummyRawOutput(WorkflowRawOutput):
-    dataset_size: int = 1
-    value: int = 42
-
-
-class _DummyReport(WorkflowReport):
-    summary: str = "Test Summary"
-
-
-def _output(report: _DummyReport | None = None) -> WorkflowOutput[_DummyRawOutput, _DummyReport]:
-    return WorkflowOutput[_DummyRawOutput, _DummyReport](raw=_DummyRawOutput(), report=report or _DummyReport())
-
-
-def _make_result(
-    *,
-    output: WorkflowOutput[_DummyRawOutput, _DummyReport] | None = None,
-    metadata: ResultMetadata | None = None,
-) -> WorkflowResult:
-    return WorkflowResult(
-        type="test-workflow",
-        success=True,
-        output=output or _output(),
-        metadata=metadata or ResultMetadata(),
-    )
-
-
-def _make_failed() -> WorkflowResult:
-    return WorkflowResult(type="test-workflow", success=False, metadata=ResultMetadata(), errors=["boom"])
+def _make_failed() -> ChainResult:
+    return ChainResult.failed(type="test.count", errors=["boom"])
 
 
 # ---------------------------------------------------------------------------
-# WorkflowResult health — the roll-up an automated gate reads
+# A workflow result's health — the roll-up an automated gate reads
 # ---------------------------------------------------------------------------
 
 
 class TestResultHealth:
-    def _result(self, *severities: Literal["ok", "info", "warning"]) -> WorkflowResult:
-        findings = [Finding(severity=sev, title=f"f{i}") for i, sev in enumerate(severities)]
-        return _make_result(output=_output(_DummyReport(findings=findings)))
+    def _result(self, *severities: Literal["ok", "info", "warning"]) -> ChainResult:
+        return count_result(*(Finding(severity=sev, title=f"f{i}") for i, sev in enumerate(severities)))
 
     def test_warning_count_counts_only_warnings(self):
         assert self._result("warning", "info", "warning", "ok").warning_count == 2
 
     def test_warning_count_is_zero_without_findings(self):
-        assert _make_result().warning_count == 0
+        assert count_result().warning_count == 0
 
     def test_warning_count_is_zero_for_a_failed_run(self):
         """A run that did not complete has nothing to gate on."""
@@ -86,10 +52,11 @@ class TestResultHealth:
         assert _make_failed().findings == []
 
     def test_health_status_is_warning_when_any_finding_warns(self):
-        assert self._result("info", "warning").health == {"status": "warning", "warnings": 1, "findings": 2}
+        health = {"status": "warning", "warnings": 1, "findings": 2, "failed_steps": []}
+        assert self._result("info", "warning").health == health
 
     def test_health_status_is_ok_when_none_do(self):
-        assert self._result("info", "ok").health == {"status": "ok", "warnings": 0, "findings": 2}
+        assert self._result("info", "ok").health == {"status": "ok", "warnings": 0, "findings": 2, "failed_steps": []}
 
     def test_health_matches_the_rendered_health_line(self):
         """The roll-up and the text report must not be able to disagree."""
@@ -98,47 +65,48 @@ class TestResultHealth:
 
     def test_envelope_carries_health(self):
         payload = self._result("warning", "info").to_dict()
-        assert payload["health"] == {"status": "warning", "warnings": 1, "findings": 2}
+        assert payload["health"] == {"status": "warning", "warnings": 1, "findings": 2, "failed_steps": []}
 
     def test_envelope_still_carries_metadata_and_data(self):
         """health is additive — it must not displace what the envelope already held."""
-        payload = _make_result().to_dict()
+        result = count_result()
+        payload = result.to_dict()
         assert "metadata" in payload
-        assert payload["raw"] == {"dataset_size": 1, "value": 42}
+        assert payload["steps"] == {"at-least": result.steps["at-least"].to_dict()}
 
 
 # ---------------------------------------------------------------------------
-# WorkflowResult.report() — text output
+# A workflow result's report() — text output
 # ---------------------------------------------------------------------------
 
 
 class TestReportFormatDispatch:
     def test_report_returns_text(self):
-        result = _make_result()
+        result = count_result()
         out = result.report()
         assert isinstance(out, str)
 
     def test_report_detailed_false(self):
-        result = _make_result()
+        result = count_result()
         out = result.report(detailed=False)
         assert isinstance(out, str)
 
     def test_export_json_returns_string(self):
-        result = _make_result()
+        result = count_result()
         out = result.export()
         assert isinstance(out, str)
         parsed = json.loads(out)
         assert "metadata" in parsed
 
     def test_export_yaml_returns_string(self):
-        result = _make_result()
+        result = count_result()
         out = result.export(fmt="yaml")
         assert isinstance(out, str)
         assert "metadata:" in out
 
 
 # ---------------------------------------------------------------------------
-# WorkflowResult._report_text()
+# A workflow result's text report
 # ---------------------------------------------------------------------------
 
 
@@ -146,17 +114,16 @@ class TestReportText:
     def test_a_failed_run_reports_its_errors(self):
         """A failed workflow is titled by its type and shows FAILED and each error, as a failed evaluator does."""
         out = _make_failed().report()
-        assert "  TEST-WORKFLOW" in out
+        assert "  TEST.COUNT" in out
         lines = out.splitlines()
         assert lines[lines.index("  FAILED") + 2] == "  boom"
         assert "No findings to report." not in out
 
     def test_empty_findings(self):
         """Empty findings list shows 'No findings to report.'."""
-        result = _make_result()
+        result = count_result()
         out = result.report()
         assert "No findings to report." in out
-        assert "Test Summary" in out  # the summary opens the body, below the banner
 
     def test_findings_with_warnings(self):
         """Findings with warnings show count in health line."""
@@ -165,19 +132,16 @@ class TestReportText:
             Finding(severity="warning", title="Corrupt File", description=None),
             Finding(severity="ok", title="All Good", description="ok desc"),
         ]
-        report = _DummyReport(summary="Findings Test", findings=findings)
-        result = _make_result(output=_output(report))
+        result = count_result(*findings)
         out = result.report()
         assert "2 warning(s)" in out
-        assert "Findings Test" in out
 
     def test_findings_no_warnings(self):
         """Findings with no warnings show 'All checks passed' in health line."""
         findings = [
             Finding(severity="ok", title="All Good", description="fine"),
         ]
-        report = _DummyReport(summary="Clean Report", findings=findings)
-        result = _make_result(output=_output(report))
+        result = count_result(*findings)
         out = result.report()
         assert "All checks passed [ok]" in out
 
@@ -187,8 +151,7 @@ class TestReportText:
             Finding(severity="info", title="Check A", description="desc a"),
             Finding(severity="info", title="Check B", description="desc b"),
         ]
-        report = _DummyReport(summary="Summary Test", findings=findings)
-        result = _make_result(output=_output(report))
+        result = count_result(*findings)
         out = result.report()
         assert "SUMMARY" in out
         assert "Check A" in out
@@ -199,8 +162,7 @@ class TestReportText:
         findings = [
             Finding(severity="info", title="My Finding", description="some detail"),
         ]
-        report = _DummyReport(summary="S", findings=findings)
-        result = _make_result(output=_output(report))
+        result = count_result(*findings)
         out = result.report()
         assert "MY FINDING" in out
         assert "some detail" in out
@@ -210,8 +172,7 @@ class TestReportText:
         findings = [
             Finding(severity="info", title="NoDesc", description=None),
         ]
-        report = _DummyReport(summary="S", findings=findings)
-        result = _make_result(output=_output(report))
+        result = count_result(*findings)
         out = result.report()
         assert "NODESC" in out
 
@@ -220,8 +181,7 @@ class TestReportText:
         findings = [
             Finding(severity="warning", title="Issue", description="bad"),
         ]
-        report = _DummyReport(summary="S", findings=findings)
-        result = _make_result(output=_output(report))
+        result = count_result(*findings)
         out = result.report()
         assert "1 warning(s)" in out
 
@@ -230,8 +190,7 @@ class TestReportText:
         findings = [
             Finding(severity="info", title="Info", description="ok"),
         ]
-        report = _DummyReport(summary="S", findings=findings)
-        result = _make_result(output=_output(report))
+        result = count_result(*findings)
         out = result.report()
         assert "Health: All checks passed [ok]" in out
 
@@ -240,8 +199,7 @@ class TestReportText:
         findings = [
             Finding(severity="warning", title="Bad Thing", description="bad"),
         ]
-        report = _DummyReport(summary="S", findings=findings)
-        result = _make_result(output=_output(report))
+        result = count_result(*findings)
         out = result.report()
         assert "[!!]" in out
 
@@ -271,7 +229,7 @@ class TestFindingSection:
 
 
 # ---------------------------------------------------------------------------
-# WorkflowResult._metadata_text_lines()
+# A workflow result's metadata lines
 # ---------------------------------------------------------------------------
 
 
@@ -279,8 +237,8 @@ class TestMetadataTextLines:
     def test_all_metadata_fields(self):
         """All metadata fields present (lines 132-140)."""
         ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=UTC)
-        meta = ResultMetadata(timestamp=ts, execution_time_s=1.23, dataset_id="ds-1")
-        result = _make_result(metadata=meta)
+        meta = ChainMetadata(timestamp=ts, execution_time_s=1.23, dataset_id="ds-1")
+        result = count_result(metadata=meta)
         out = result.report()
         assert "2025-06-15" in out
         assert "1.23s" in out
@@ -298,8 +256,9 @@ class TestMetadataTextLines:
         meta.preprocessor_id = None
         meta.selection_id = None
         meta.resolved_config = {}
+        meta.workflow = ""
         meta.model_dump = MagicMock(return_value={})
-        result = _make_result(metadata=meta)
+        result = count_result(metadata=meta)
         out = result.report()
         assert "Timestamp" not in out
         assert "Duration" not in out
@@ -310,46 +269,46 @@ class TestMetadataTextLines:
 
     def test_metadata_with_model(self):
         """Model ID appears in metadata block."""
-        meta = ResultMetadata(model_id="resnet50")
-        result = _make_result(metadata=meta)
+        meta = ChainMetadata(model_id="resnet50")
+        result = count_result(metadata=meta)
         out = result.report()
         assert "Model:" in out
         assert "resnet50" in out
 
     def test_metadata_with_preprocessor(self):
         """Preprocessor ID appears in metadata block."""
-        meta = ResultMetadata(preprocessor_id="resnet50_preprocessor")
-        result = _make_result(metadata=meta)
+        meta = ChainMetadata(preprocessor_id="resnet50_preprocessor")
+        result = count_result(metadata=meta)
         out = result.report()
         assert "Preprocessor:" in out
         assert "resnet50_preprocessor" in out
 
     def test_metadata_with_selection(self):
         """Selection ID appears in metadata block."""
-        meta = ResultMetadata(selection_id="training_subset")
-        result = _make_result(metadata=meta)
+        meta = ChainMetadata(selection_id="training_subset")
+        result = count_result(metadata=meta)
         out = result.report()
         assert "Selection:" in out
         assert "training_subset" in out
 
     def test_metadata_dataset_line_includes_label_source(self):
         """Dataset line includes label_source in parentheses when present."""
-        meta = ResultMetadata(dataset_id="my-dataset", label_source="annotations")
-        result = _make_result(metadata=meta)
+        meta = ChainMetadata(dataset_id="my-dataset", label_source="annotations")
+        result = count_result(metadata=meta)
         out = result.report()
         assert "my-dataset" in out
         assert "(annotations)" in out
 
 
 # ---------------------------------------------------------------------------
-# WorkflowResult._report_serialized() — file paths
+# A workflow result's export() — file paths
 # ---------------------------------------------------------------------------
 
 
 class TestReportSerialized:
     def test_json_to_directory(self, tmp_path: Path):
         """JSON written to a directory creates results.json."""
-        result = _make_result()
+        result = count_result()
         out = result.export(tmp_path)
         assert isinstance(out, Path)
         assert out.name == "results.json"
@@ -360,7 +319,7 @@ class TestReportSerialized:
     def test_json_to_file_path(self, tmp_path: Path):
         """JSON written to a specific file path."""
         dest = tmp_path / "sub" / "output.json"
-        result = _make_result()
+        result = count_result()
         out = result.export(dest)
         assert isinstance(out, Path)
         assert out == dest
@@ -368,7 +327,7 @@ class TestReportSerialized:
 
     def test_yaml_to_directory(self, tmp_path: Path):
         """YAML written to a directory creates results.yaml."""
-        result = _make_result()
+        result = count_result()
         out = result.export(tmp_path, fmt="yaml")
         assert isinstance(out, Path)
         assert out.name == "results.yaml"
@@ -377,7 +336,7 @@ class TestReportSerialized:
     def test_yaml_to_file_path(self, tmp_path: Path):
         """YAML written to a specific file path."""
         dest = tmp_path / "deep" / "nested" / "out.yaml"
-        result = _make_result()
+        result = count_result()
         out = result.export(dest, fmt="yaml")
         assert isinstance(out, Path)
         assert out == dest
@@ -385,7 +344,7 @@ class TestReportSerialized:
 
     def test_json_no_path_returns_string(self):
         """path=None returns serialized string."""
-        result = _make_result()
+        result = count_result()
         out = result.export()
         assert isinstance(out, str)
         parsed = json.loads(out)
@@ -393,7 +352,7 @@ class TestReportSerialized:
 
     def test_yaml_no_path_returns_string(self):
         """path=None returns YAML string."""
-        result = _make_result()
+        result = count_result()
         out = result.export(fmt="yaml")
         assert isinstance(out, str)
         assert "metadata:" in out
@@ -401,7 +360,7 @@ class TestReportSerialized:
     def test_directory_without_suffix(self, tmp_path: Path):
         """Path without suffix treated as directory."""
         dest = tmp_path / "no_suffix_dir"
-        result = _make_result()
+        result = count_result()
         out = result.export(dest)
         assert isinstance(out, Path)
         assert out.name == "results.json"

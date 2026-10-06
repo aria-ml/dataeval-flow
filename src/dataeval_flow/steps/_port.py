@@ -24,7 +24,6 @@ class DataType(StrEnum):
     DATASET = "dataset"
     OUTPUT = "output"
     EXPORT = "export"
-    WORKFLOW_RESULT = "workflow_result"
     FINDINGS = "findings"
 
 

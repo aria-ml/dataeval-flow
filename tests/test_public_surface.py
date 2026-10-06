@@ -16,10 +16,6 @@ SNAPSHOT = Path(__file__).with_name("public_api.txt")
 EXTENSIBLE = [
     "dataeval_flow.workflows:Workflow",
     "dataeval_flow.workflows:WorkflowConfig",
-    "dataeval_flow.workflows:WorkflowOutput",
-    "dataeval_flow.workflows:WorkflowRawOutput",
-    "dataeval_flow.workflows:WorkflowReport",
-    "dataeval_flow.workflows:WorkflowResult",
     "dataeval_flow.evaluators:Evaluator",
     "dataeval_flow.evaluators:EvaluatorConfig",
     "dataeval_flow.evaluators:EvaluatorResult",
@@ -30,7 +26,6 @@ EXTENSIBLE = [
     "dataeval_flow.steps:Check",
     "dataeval_flow.steps:Combine",
     "dataeval_flow:Result",
-    "dataeval_flow:ResultMetadata",
 ]
 
 
@@ -99,33 +94,20 @@ def test_every_public_config_field_is_described(line: str) -> None:
 
 
 def _result_classes() -> list[str]:
-    """Every per-type result on the surface: each workflow's and each evaluator's ``<X>Result``."""
+    """Every result on the surface whose fields typed code reads: every workflow's ``ChainResult``, and each evaluator's
+    ``<X>Result``."""
     from dataeval_flow.evaluators import EvaluatorResult
-    from dataeval_flow.workflows import WorkflowResult
+    from dataeval_flow.steps import ChainResult
 
     lines = []
     for line in _surface():
         module_name, name = line.split(":")
         obj = getattr(importlib.import_module(module_name), name)
-        bases = (WorkflowResult, EvaluatorResult)
-        if inspect.isclass(obj) and issubclass(obj, bases) and obj not in bases:
+        if obj is ChainResult or (
+            inspect.isclass(obj) and issubclass(obj, EvaluatorResult) and obj is not EvaluatorResult
+        ):
             lines.append(line)
     return lines
-
-
-def _has_raw_report_output(result: type) -> bool:
-    """Whether `result`'s output type argument is a ``WorkflowOutput`` — the usual raw/report split.
-
-    :class:`~dataeval_flow.steps.ChainResult` is a ``WorkflowResult`` whose output is its steps, not a raw/report
-    split, so it documents its fields the way an :class:`~dataeval_flow.evaluators.EvaluatorResult` does instead.
-    """
-    from dataeval_flow._kind import type_arguments
-    from dataeval_flow.workflows import WorkflowOutput, WorkflowResult
-
-    if not issubclass(result, WorkflowResult):
-        return False
-    _, output = type_arguments(result, WorkflowResult) or (None, None)
-    return isinstance(output, type) and issubclass(output, WorkflowOutput)
 
 
 def _documented_fields(doc: str) -> dict[str, str]:
@@ -155,23 +137,10 @@ def _own_fields(model: type[BaseModel], base: type[BaseModel], prefix: str) -> d
 
 
 def _typed_fields(result: Any) -> dict[str, str]:
-    """What typed code reads beyond the bases: the output's and the metadata's own fields, as their models say."""
+    """What typed code reads beyond the bases: the metadata's own fields, as its model says."""
     from dataeval_flow import ResultMetadata
-    from dataeval_flow._kind import type_arguments
-    from dataeval_flow.evaluators import EvaluatorResult
-    from dataeval_flow.workflows import WorkflowRawOutput, WorkflowReport, WorkflowResult
 
-    if issubclass(result, EvaluatorResult):
-        return _own_fields(result.metadata_type, ResultMetadata, "metadata.")
-    metadata, output = type_arguments(result, WorkflowResult)
-    if not _has_raw_report_output(result):
-        return _own_fields(metadata, ResultMetadata, "metadata.")
-    raw, report = output.model_fields["raw"].annotation, output.model_fields["report"].annotation
-    return {
-        **_own_fields(raw, WorkflowRawOutput, "output.raw."),
-        **_own_fields(report, WorkflowReport, "output.report."),
-        **_own_fields(metadata, ResultMetadata, "metadata."),
-    }
+    return _own_fields(result.metadata_type, ResultMetadata, "metadata.")
 
 
 @pytest.mark.parametrize("line", _result_classes())
@@ -182,7 +151,7 @@ def test_each_result_documents_the_fields_typed_code_reads(line: str) -> None:
     finds them. Regenerate the section from the models' ``Field`` descriptions when this fails.
     """
     from dataeval_flow.evaluators import EvaluatorResult
-    from dataeval_flow.workflows import WorkflowResult
+    from dataeval_flow.steps import ChainResult
 
     module_name, name = line.split(":")
     result = getattr(importlib.import_module(module_name), name)
@@ -191,6 +160,6 @@ def test_each_result_documents_the_fields_typed_code_reads(line: str) -> None:
     assert all(expected.values()), f"{line}: give every field a description"
     if issubclass(result, EvaluatorResult):
         assert documented.pop("output", ""), f"{line}: document the DataEval output"
-    elif issubclass(result, WorkflowResult) and not _has_raw_report_output(result):
+    elif issubclass(result, ChainResult):
         assert documented.pop("steps", ""), f"{line}: document its steps"
     assert documented == expected, line

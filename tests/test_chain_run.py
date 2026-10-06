@@ -14,7 +14,7 @@ from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesEvaluat
 from dataeval_flow.steps import DataType, Port, Transform, TransformConfig, TransformContext
 from tests.chain_toys import chain_pipeline, register_toys, run_toy_chain
 from tests.evaluator_toys import ToyImages
-from tests.workflow_toys import ToyCountConfig, ToyCountResult, register_count
+from tests.workflow_toys import ToyCountConfig, register_count
 
 _DUPES = [DuplicatesConfig(name="dupes")]
 
@@ -198,8 +198,8 @@ def test_a_workflow_type_runs_as_a_step_on_an_intermediate_dataset() -> None:
         ],
         workflows=[clean],
     )
-    assert run.steps["cleaned"].status == "ok"
-    assert isinstance(run.steps["cleaned"].result, ToyCountResult)
+    assert run.steps["cleaned/items"].output.items == 8
+    assert run.steps["cleaned/at-least"].status == "ok"
 
 
 def test_lineage_records_each_dataset_with_where_it_came_from() -> None:

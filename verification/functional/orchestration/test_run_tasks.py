@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from dataeval_flow import run_tasks
-from dataeval_flow.workflows import Workflow, WorkflowResult, get_workflow, list_workflows
+from dataeval_flow.steps import ChainResult
+from dataeval_flow.workflows import Workflow, get_workflow, list_workflows
 
 pytestmark = pytest.mark.required
 
@@ -46,5 +47,5 @@ class TestOrchestration:
         cfg, data_dir = synthetic_pipeline_config
         results = run_tasks(cfg, data_dir=data_dir)
         assert list(results) == ["clean_task"]
-        assert isinstance(results["clean_task"], WorkflowResult)
+        assert isinstance(results["clean_task"], ChainResult)
         assert results["clean_task"].metadata.tool == "dataeval-flow"

@@ -22,7 +22,7 @@ from dataeval_flow.workflows import Workflow, WorkflowConfig
 from dataeval_flow.workflows._preset import Preset, PresetChain, preset_of
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
-from tests.preset_toys import ToyPreset, ToyPresetConfig, register_presets
+from tests.preset_toys import ToyPresetConfig, register_presets
 
 
 @pytest.fixture(autouse=True)
@@ -91,11 +91,6 @@ def test_a_preset_is_refused_the_sources_its_type_refuses() -> None:
 def test_a_preset_s_chain_is_checked_when_the_config_loads() -> None:
     with pytest.raises(ValidationError, match="reads `nowhere`"):
         chain_pipeline(workflows=[{"name": "broken", "type": "toy-broken-preset"}])
-
-
-def test_a_preset_s_own_run_is_refused() -> None:
-    with pytest.raises(TypeError, match="ToyPreset is a preset: Flow runs its chain of steps"):
-        ToyPreset().run(ToyPresetConfig(), None)  # type: ignore[arg-type]
 
 
 def test_the_catalog_lists_a_preset_s_declared_outputs() -> None:

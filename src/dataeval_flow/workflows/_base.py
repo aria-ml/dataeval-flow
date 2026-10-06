@@ -1,30 +1,21 @@
-"""The workflow framework: the bases a workflow, its config and its output subclass."""
+"""The workflow framework: the bases a workflow type and its config subclass."""
 
-__all__ = [
-    "Finding",
-    "Workflow",
-    "WorkflowConfig",
-    "WorkflowOutput",
-    "WorkflowRawOutput",
-    "WorkflowReport",
-    "render_label_source",
-]
+__all__ = ["Finding", "Workflow", "WorkflowConfig", "render_label_source"]
 
 import typing
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler, model_serializer
 
 from dataeval_flow._blocks import Block
-from dataeval_flow._kind import KindConfig, bind_implementation, bind_result_type, type_arguments
+from dataeval_flow._kind import KindConfig, bind_implementation, bind_result_type, is_abstract, type_arguments
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import Step, StepKind
 
 if TYPE_CHECKING:
-    from dataeval_flow.workflows._context import WorkflowContext
-    from dataeval_flow.workflows._result import WorkflowResult
+    from dataeval_flow.steps._result import ChainResult
 
 
 # --- Config ---
@@ -41,10 +32,9 @@ class WorkflowConfig(KindConfig, Generic[R]):
 
     Subclassing
     -----------
-    Parameterize ``WorkflowConfig`` with the workflow's result class. That binds ``result_type``: the class of
-    every result a run of this config returns, a failed run's included, and the type :func:`~dataeval_flow.run`
-    returns for it. A workflow whose config is not parameterized with a result class raises ``TypeError`` when
-    the workflow class is defined. Then define:
+    Parameterize ``WorkflowConfig`` with :class:`~dataeval_flow.steps.ChainResult`, the result every workflow type
+    returns. That binds ``result_type``, the type :func:`~dataeval_flow.run` returns for it. A workflow whose config
+    is not parameterized with a result class raises ``TypeError`` when the workflow class is defined. Then define:
 
     - ``type``: a ``str`` field whose default is the workflow's type id. A validator refuses any other value,
       and the JSON schema states it as a ``const``.
@@ -64,31 +54,28 @@ class WorkflowConfig(KindConfig, Generic[R]):
 
     Examples
     --------
-    The config of :class:`Workflow`'s example, with a stand-in for the ``CountResult`` defined there:
+    The config of :class:`Workflow`'s example:
 
     >>> from typing import ClassVar
     >>> from pydantic import Field
-    >>> from dataeval_flow import InputSpec, ResultMetadata, SourceCount
-    >>> from dataeval_flow.workflows import (
-    ...     WorkflowConfig, WorkflowOutput, WorkflowRawOutput, WorkflowReport, WorkflowResult,
-    ... )
-    >>> class CountResult(WorkflowResult[ResultMetadata, WorkflowOutput[WorkflowRawOutput, WorkflowReport]]):
-    ...     pass
-    >>> class CountConfig(WorkflowConfig[CountResult]):
-    ...     type: str = "example.count"
-    ...     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset(), sources=SourceCount.ONE_OR_MORE)
-    ...     minimum: int = Field(default=0, ge=0, description="Fewest items a source may hold before it warns.")
-    >>> CountConfig.result_type is CountResult, CountConfig(minimum=5).name
-    (True, 'example.count')
+    >>> from dataeval_flow import InputKind, InputSpec, SourceCount
+    >>> from dataeval_flow.steps import ChainResult
+    >>> from dataeval_flow.workflows import WorkflowConfig
+    >>> class DedupeConfig(WorkflowConfig[ChainResult]):
+    ...     type: str = "example.dedupe"
+    ...     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.STATS}), sources=SourceCount.ONE)
+    ...     exact: float = Field(default=0.0, ge=0, description="Share of exact duplicates that warns.")
+    >>> DedupeConfig.result_type is ChainResult, DedupeConfig(exact=0.01).name
+    (True, 'example.dedupe')
 
     A pipeline entry for it:
 
     .. code-block:: yaml
 
         workflows:
-          - name: count
-            type: example.count
-            minimum: 100
+          - name: dedupe
+            type: example.dedupe
+            exact: 0.01
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -128,17 +115,17 @@ def render_label_source(label_source: "str | Sequence[str] | None") -> str:
     return ", ".join(label_source)
 
 
-# --- Output bases ---
+# --- Findings ---
 
 
 class Finding(BaseModel):
-    """One item of a workflow's report: a titled piece of evidence, and whether it breached a health threshold.
+    """What a check step found: a titled piece of evidence, and whether it breached a health threshold.
 
     ``severity`` is the verdict: a ``"warning"`` finding counts toward the result's health and
     ``--fail-on-warning``. ``brief`` is the value on the finding's summary line, ``description`` the lede
     under its heading, and ``blocks`` the evidence: report blocks that the text report draws and
     ``results.json`` holds, one object per block with its ``type`` tag. A finding accepts no other field.
-    ``step`` names the check step that made it, in a custom workflow's result.
+    ``step`` names the check step that made it; Flow fills it in, so a check leaves it unset.
 
     Examples
     --------
@@ -169,104 +156,17 @@ class Finding(BaseModel):
         default=None,
         description=(
             "The check step that made it, with the element's key where the check ran once per element of a list, "
-            "such as `class-imbalance[train]`. Left out for a workflow type's own findings."
+            "such as `class-imbalance[train]`. Flow fills it in; left out until then."
         ),
     )
 
     @model_serializer(mode="wrap")
     def _without_defaults(self, handler: SerializerFunctionWrapHandler):  # noqa: ANN202 - an annotation would flatten the serialization schema
-        """Leave `step` out while it holds its default, so existing JSON is unchanged."""
+        """Leave `step` out while it holds its default."""
         data = handler(self)
         if self.step is None:
             data.pop("step", None)
         return data
-
-
-class WorkflowRawOutput(BaseModel):
-    """A workflow's machine-readable output: what the run measured, before it was judged.
-
-    Subclassing
-    -----------
-    Subclass it once per workflow and add what the workflow measured as pydantic fields, each with a description.
-    Flow reads none of the fields; ``to_dict()`` and ``export()`` write them under ``raw``, so each must
-    serialize in pydantic's JSON mode. Name the subclass as the raw type argument of the workflow's
-    :class:`WorkflowOutput`.
-
-    Examples
-    --------
-    >>> from pydantic import Field
-    >>> from dataeval_flow.workflows import WorkflowRawOutput
-    >>> class CountRaw(WorkflowRawOutput):
-    ...     counts: dict[str, int] = Field(default_factory=dict, description="Items in each source.")
-    >>> CountRaw(dataset_size=12, counts={"train": 12}).counts
-    {'train': 12}
-    """
-
-    dataset_size: int = Field(description="Number of items in dataset")
-
-
-class WorkflowReport(BaseModel):
-    """A workflow's human-readable report: a one-line summary, and findings judged against health thresholds.
-
-    Flow renders the report as text and rolls its findings up into the result's health: a finding whose severity
-    is ``"warning"`` counts toward :attr:`WorkflowResult.warning_count` and ``--fail-on-warning``.
-
-    Subclassing
-    -----------
-    Use it as it is when a summary and findings say everything. Otherwise subclass it once per workflow, add
-    report fields as pydantic fields with descriptions, and name the subclass as the report type argument of the
-    workflow's :class:`WorkflowOutput`. Flow reads only ``summary`` and ``findings``; ``to_dict()`` and
-    ``export()`` write every field under ``report``.
-
-    Examples
-    --------
-    >>> from pydantic import Field
-    >>> from dataeval_flow.steps import Finding
-    >>> from dataeval_flow.workflows import WorkflowReport
-    >>> class CountReport(WorkflowReport):
-    ...     smallest: str | None = Field(default=None, description="The source holding the fewest items.")
-    >>> finding = Finding(severity="warning", title="train items", brief="3 items")
-    >>> CountReport(summary="Item counts", findings=[finding], smallest="train").smallest
-    'train'
-    """
-
-    summary: str = Field(description="One line saying what the run found: the text report's banner.")
-    findings: list[Finding] = Field(
-        default_factory=list, description="What the run found, each judged against its health threshold."
-    )
-
-
-RawT = TypeVar("RawT", bound=WorkflowRawOutput)
-ReportT = TypeVar("ReportT", bound=WorkflowReport)
-
-
-class WorkflowOutput(BaseModel, Generic[RawT, ReportT]):
-    """Everything a workflow run produced: its raw output, and the report drawn from it.
-
-    A successful :class:`WorkflowResult`'s ``output``. ``to_dict()`` and ``export()`` write both fields, under
-    ``raw`` and ``report``.
-
-    Subclassing
-    -----------
-    Subclass it once per workflow, parameterized by the workflow's raw output and report classes, and name the
-    subclass as the output type argument of the workflow's :class:`WorkflowResult`. The parameters type the
-    result's ``output.raw`` and ``output.report``; the subclass needs no body.
-
-    Examples
-    --------
-    >>> from pydantic import Field
-    >>> from dataeval_flow.workflows import WorkflowOutput, WorkflowRawOutput, WorkflowReport
-    >>> class CountRaw(WorkflowRawOutput):
-    ...     counts: dict[str, int] = Field(default_factory=dict, description="Items in each source.")
-    >>> class CountOutput(WorkflowOutput[CountRaw, WorkflowReport]):
-    ...     pass
-    >>> output = CountOutput(raw=CountRaw(dataset_size=3, counts={"train": 3}), report=WorkflowReport(summary="3"))
-    >>> output.raw.counts
-    {'train': 3}
-    """
-
-    raw: RawT = Field(description="What the run measured.")
-    report: ReportT = Field(description="The summary and findings drawn from `raw`.")
 
 
 # --- Workflow ---
@@ -294,100 +194,78 @@ def _require_the_configs_result(cls: type) -> None:
 
 
 ConfigT = TypeVar("ConfigT", bound="WorkflowConfig[Any]")
-ResultT = TypeVar("ResultT", bound="WorkflowResult[Any, Any]")
+ResultT = TypeVar("ResultT", bound="ChainResult")
 
 
 class Workflow(Step, ABC, Generic[ConfigT, ResultT]):
-    """One analysis over a task's sources that ends in a verdict: findings judged against health thresholds.
+    """A workflow type: settings that expand to a chain of steps, whose checks judge findings against health
+    thresholds.
 
-    A workflow reads what its :class:`WorkflowContext` offers for each source (the dataset, its statistics,
-    embeddings, clusters, metadata and labels) and returns a :class:`WorkflowResult` whose findings say what is
-    healthy and what is not. Flow finds a workflow by its ``name``: a pipeline entry's ``type:``,
-    :func:`get_workflow` and ``dataeval-flow workflows`` all use it.
+    Every workflow type is a preset: Flow runs the chain its :class:`~dataeval_flow.workflows.Preset` mixin builds,
+    as it runs a custom workflow's, and returns a :class:`~dataeval_flow.steps.ChainResult`. Flow finds a workflow
+    type by its ``name``: a pipeline entry's ``type:``, :func:`get_workflow` and ``dataeval-flow workflows`` all
+    use it.
 
     Subclassing
     -----------
-    Parameterize ``Workflow`` with the workflow's config and result classes,
-    ``class CountWorkflow(Workflow[CountConfig, CountResult])``, which binds ``config_type`` when the class is
-    defined. The arguments must be given to ``Workflow`` itself: an abstract base of your own may take them for its
-    subclasses, but a generic one (``class Shared(Workflow[C, R])``, subclassed as
-    ``Shared[CountConfig, CountResult]``) is refused. Then define:
+    Mix in ``Preset`` ahead of ``Workflow``, and parameterize ``Workflow`` with the config class and ``ChainResult``,
+    ``class DedupeWorkflow(Preset, Workflow[DedupeConfig, ChainResult])``, which binds ``config_type`` when the class
+    is defined. The arguments must be given to ``Workflow`` itself: an abstract base of your own may take them for
+    its subclasses, but a generic one (``class Shared(Workflow[C, R])``, subclassed as
+    ``Shared[DedupeConfig, ChainResult]``) is refused. Then define:
 
     - ``name: ClassVar[str]``: the type id. It must equal the config's ``type`` default and the entry-point name.
     - ``description: ClassVar[str]``: one line, which ``dataeval-flow workflows`` prints.
-    - :meth:`run`: the analysis.
+    - What ``Preset`` asks for: ``slots``, ``outputs`` where a custom workflow may read a Dataset it makes, and
+      :meth:`~dataeval_flow.workflows.Preset.chain`. The steps may be built-in or registered by any plugin.
 
-    A concrete workflow without ``name`` or ``description``, not parameterized, whose config is not parameterized
-    with a result class, or whose result argument is neither that class nor a subclass of it, raises ``TypeError``
-    when the class is defined. Register the class under the
-    ``dataeval_flow.workflows`` entry-point group, named by ``name``. Flow loads it on the first registry lookup
-    and leaves it out, logging why, when it fails to import, is not a ``Workflow``, its entry-point name, ``name``
-    and the config's ``type`` default disagree, its config declares no ``inputs``, or another workflow has its
-    name.
-
-    For each task that runs the workflow, Flow builds an instance with no arguments and calls :meth:`run` once. It
-    guarantees that:
-
-    - ``config`` is an instance of ``config_type``, validated when it was built or loaded;
-    - the task meets ``config.inputs``: it names as many sources as the workflow takes, and an extractor where
-      one is needed;
-    - an exception raised in :meth:`run`, or a return value that is not an instance of the config's result class,
-      becomes a failed result of that class that records the error;
-    - once :meth:`run` returns, Flow fills in the result's envelope: the datasets and views read, the extractor,
-      the timing, the resolved configuration and any diagnostics DataEval raised.
+    A concrete workflow that is not a preset, has no ``name`` or ``description``, is not parameterized, whose config
+    is not parameterized with a result class, or whose result argument is neither that class nor a subclass of it,
+    raises ``TypeError`` when the class is defined. Register the class under the ``dataeval_flow.workflows``
+    entry-point group, named by ``name``. Flow loads it on the first registry lookup and leaves it out, logging why,
+    when it fails to import, is not a ``Workflow``, its entry-point name, ``name`` and the config's ``type`` default
+    disagree, its config declares no ``inputs``, or another workflow has its name.
 
     Examples
     --------
-    A workflow that counts each source's items, with the config and result classes it needs:
+    A workflow type that finds duplicates, judges how many are exact, and removes them, with the config defined in
+    :class:`WorkflowConfig`'s example:
 
     >>> from typing import ClassVar
-    >>> from pydantic import Field
-    >>> from dataeval_flow import InputSpec, ResultMetadata, SourceCount
-    >>> from dataeval_flow.workflows import (
-    ...     Finding, Workflow, WorkflowConfig, WorkflowContext, WorkflowOutput, WorkflowRawOutput, WorkflowReport,
-    ...     WorkflowResult,
-    ... )
-    >>> class CountRaw(WorkflowRawOutput):
-    ...     counts: dict[str, int] = Field(default_factory=dict, description="Items in each source.")
-    >>> class CountOutput(WorkflowOutput[CountRaw, WorkflowReport]):
-    ...     pass
-    >>> class CountResult(WorkflowResult[ResultMetadata, CountOutput]):
-    ...     pass
-    >>> class CountConfig(WorkflowConfig[CountResult]):
-    ...     type: str = "example.count"
-    ...     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset(), sources=SourceCount.ONE_OR_MORE)
-    ...     minimum: int = Field(default=0, ge=0, description="Fewest items a source may hold before it warns.")
-    >>> class CountWorkflow(Workflow[CountConfig, CountResult]):
-    ...     name: ClassVar[str] = "example.count"
-    ...     description: ClassVar[str] = "Counts the items in each source."
+    >>> from dataeval_flow.evaluators.quality import DuplicatesConfig
+    >>> from dataeval_flow.steps import ChainResult, InputSlot
+    >>> from dataeval_flow.steps._port import DataType, Port
+    >>> from dataeval_flow.workflows import Preset, PresetChain, Workflow
+    >>> class DedupeWorkflow(Preset, Workflow[DedupeConfig, ChainResult]):
+    ...     name: ClassVar[str] = "example.dedupe"
+    ...     description: ClassVar[str] = "Finds, judges and removes duplicates."
+    ...     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
+    ...     outputs: ClassVar[tuple[Port, ...]] = (Port("kept", DataType.DATASET),)
     ...
-    ...     def run(self, config: CountConfig, context: WorkflowContext) -> CountResult:
-    ...         counts = {source: len(context.dataset(source)) for source in context.sources}
-    ...         findings = [
-    ...             Finding(
-    ...                 severity="warning" if n < config.minimum else "ok",
-    ...                 title=f"{source} items",
-    ...                 brief=f"{n} items",
-    ...             )
-    ...             for source, n in counts.items()
-    ...         ]
-    ...         raw = CountRaw(dataset_size=sum(counts.values()), counts=counts)
-    ...         output = CountOutput(raw=raw, report=WorkflowReport(summary="Item counts", findings=findings))
-    ...         return CountResult(type=self.name, success=True, output=output, metadata=ResultMetadata())
+    ...     @classmethod
+    ...     def chain(cls, config: DedupeConfig) -> PresetChain:
+    ...         return PresetChain(
+    ...             steps=[
+    ...                 {"name": "duplicates", "evaluator": "duplicates", "input": "data"},
+    ...                 {"name": "image-duplicates", "check": "image-duplicates", "input": "duplicates",
+    ...                  "exact": config.exact},
+    ...                 {"name": "kept", "transform": "remove", "input": "data", "plans": {"duplicates": {}}},
+    ...             ],
+    ...             evaluators=[DuplicatesConfig(name="duplicates")],
+    ...         )
 
     Register it in the plugin's ``pyproject.toml``:
 
     .. code-block:: toml
 
         [project.entry-points."dataeval_flow.workflows"]
-        "example.count" = "my_package:CountWorkflow"
+        "example.dedupe" = "my_package:DedupeWorkflow"
 
     Once the plugin is installed, it runs like a built-in:
 
     >>> from dataeval_flow import run
-    >>> result = run(CountConfig(minimum=100), dataset)  # doctest: +SKIP
-    >>> result.warning_count  # doctest: +SKIP
-    1
+    >>> result = run(DedupeConfig(exact=0.01), dataset)  # doctest: +SKIP
+    >>> result.steps["kept"].output  # the Dataset without its duplicates  # doctest: +SKIP
     """
 
     name: ClassVar[str]
@@ -396,8 +274,16 @@ class Workflow(Step, ABC, Generic[ConfigT, ResultT]):
     config_type: ClassVar["type[WorkflowConfig[Any]]"]  # type: ignore[reportIncompatibleVariableOverride]
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        """Bind ``config_type`` from the type arguments, and require identity on a concrete workflow."""
+        """Bind ``config_type`` from the type arguments, and require identity and the preset mixin on a concrete
+        workflow."""
+        from dataeval_flow.workflows._preset import Preset
+
         super().__init_subclass__(**kwargs)
+        if not is_abstract(cls) and not issubclass(cls, Preset):
+            raise TypeError(
+                f"{cls.__name__} is a workflow type, and every workflow type is a preset: mix in `Preset` ahead of "
+                f"`Workflow`, `class {cls.__name__}(Preset, Workflow[...])`, and declare `slots` and `chain`."
+            )
         bind_implementation(cls, Workflow)
         _require_the_configs_result(cls)
 
@@ -406,30 +292,3 @@ class Workflow(Step, ABC, Generic[ConfigT, ResultT]):
         """One Dataset port, fed one address per source the workflow reads."""
         spec = cls.config_type.inputs
         return (Port("input", DataType.DATASET, kinds=spec.dataset_kinds, count=spec.sources, derives=spec.kinds),)
-
-    @classmethod
-    def output_ports(cls) -> tuple[Port, ...]:
-        """The workflow's own result."""
-        return (Port("output", DataType.WORKFLOW_RESULT, classes=(cls.config_type.result_type,)),)
-
-    @abstractmethod
-    def run(self, config: ConfigT, context: "WorkflowContext") -> ResultT:
-        """Run the workflow on the task's sources and return its result.
-
-        Parameters
-        ----------
-        config : ConfigT
-            This entry's settings, an instance of ``config_type``.
-        context : WorkflowContext
-            The task's sources, in the order the task names them, with cached access to what each yields.
-
-        Returns
-        -------
-        ResultT
-            A successful result of the config's result class, built with ``type=self.name``.
-
-        Raises
-        ------
-        Exception
-            Anything, to fail the run: Flow records the error on a failed result of the config's result class.
-        """

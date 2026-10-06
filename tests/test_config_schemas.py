@@ -25,7 +25,7 @@ from dataeval_flow.config.extractors import (
     UncertaintyExtractorConfig,
 )
 from dataeval_flow.steps import Finding
-from dataeval_flow.workflows import WorkflowConfig, WorkflowRawOutput, WorkflowReport
+from dataeval_flow.workflows import WorkflowConfig
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 
 pytestmark = pytest.mark.required
@@ -181,22 +181,12 @@ class TestFinding:
 
 
 class TestBaseClasses:
-    """Test base classes for workflow parameters and outputs."""
+    """Test base classes for workflow parameters."""
 
     def test_workflow_parameters_base(self):
         """WorkflowConfig needs only a type."""
         params = WorkflowConfig(type="x")
         assert params.type == "x"
-
-    def test_workflow_outputs_base(self):
-        """WorkflowRawOutput requires dataset_size."""
-        outputs = WorkflowRawOutput(dataset_size=100)
-        assert outputs.dataset_size == 100
-
-    def test_workflow_report_base(self):
-        """WorkflowReport requires summary."""
-        report = WorkflowReport(summary="Test")
-        assert report.summary == "Test"
 
 
 class TestLoadConfigFromFolder:

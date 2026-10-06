@@ -15,8 +15,9 @@ from pydantic import ValidationError
 import dataeval_flow._registry as registry_module
 from dataeval_flow.config import PipelineConfig
 from dataeval_flow.evaluators import list_evaluators
-from dataeval_flow.workflows import Workflow, WorkflowConfig, WorkflowContext, get_workflow, list_workflows
-from tests.example_plugin import BrightnessConfig, CountConfig, CountResult, CountWorkflow
+from dataeval_flow.steps import ChainResult, InputSlot
+from dataeval_flow.workflows import Preset, PresetChain, Workflow, WorkflowConfig, get_workflow, list_workflows
+from tests.example_plugin import BrightnessConfig, CountConfig, CountWorkflow
 
 BUILTIN_WORKFLOWS = [
     "audit",
@@ -31,13 +32,20 @@ BUILTIN_WORKFLOWS = [
     "ood-detection",
 ]
 
+# `example.count` with the combine and check its chain runs, which a pipeline holding it validates against.
+_COUNT = {
+    "dataeval_flow.workflows": [("example.count", "tests.example_plugin:CountWorkflow")],
+    "dataeval_flow.combines": [("example.items", "tests.example_plugin:ItemsCombine")],
+    "dataeval_flow.checks": [("example.at-least", "tests.example_plugin:AtLeastCheck")],
+}
+
 
 def test_every_builtin_workflow_loads() -> None:
     assert [cls.name for cls in list_workflows()] == BUILTIN_WORKFLOWS
 
 
 def test_a_plugin_is_listed_and_validates_from_yaml(plugins) -> None:
-    plugins["dataeval_flow.workflows"] = [("example.count", "tests.example_plugin:CountWorkflow")]
+    plugins.update(_COUNT)
     assert "example.count" in [cls.name for cls in list_workflows()]
     config = PipelineConfig.model_validate(yaml.safe_load("workflows:\n  - type: example.count\n    minimum: 3\n"))
     assert config.workflows is not None
@@ -45,7 +53,7 @@ def test_a_plugin_is_listed_and_validates_from_yaml(plugins) -> None:
 
 
 def test_dumping_keeps_a_plugins_own_fields(plugins) -> None:
-    plugins["dataeval_flow.workflows"] = [("example.count", "tests.example_plugin:CountWorkflow")]
+    plugins.update(_COUNT)
     config = PipelineConfig.model_validate({"workflows": [{"type": "example.count", "minimum": 3}]})
     dumped = json.loads(config.model_dump_json())
     assert dumped["workflows"][0]["minimum"] == 3
@@ -139,36 +147,40 @@ class _Nested:
     CountWorkflow = CountWorkflow
 
 
-class _Mismatched(Workflow[CountConfig, CountResult]):
+class _Mismatched(Preset, Workflow[CountConfig, ChainResult]):
     """Registered as `example.mismatched`, but its config configures `example.count`."""
 
     name: ClassVar[str] = "example.mismatched"
     description: ClassVar[str] = "Its config configures another type."
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
 
-    def run(self, config: CountConfig, context: WorkflowContext) -> CountResult:
+    @classmethod
+    def chain(cls, config: CountConfig) -> PresetChain:
         raise NotImplementedError
 
 
-class _Abstract(Workflow):  # type: ignore[type-arg]
+class _Abstract(Preset, Workflow):  # type: ignore[type-arg]
     """Abstract and unparameterized, so it has no `config_type` for the registry's check to read."""
 
     name: ClassVar[str] = "example.abstract"
     description: ClassVar[str] = "Never bound to a config."
 
 
-class _NoInputsConfig(WorkflowConfig[CountResult]):
+class _NoInputsConfig(WorkflowConfig[ChainResult]):
     """Its `type` matches what it is registered under, but it declares no `inputs`."""
 
     type: str = "example.noinputs"
 
 
-class _NoInputs(Workflow[_NoInputsConfig, CountResult]):
+class _NoInputs(Preset, Workflow[_NoInputsConfig, ChainResult]):
     """Registered as `example.noinputs`; its config's `type` matches, but it declares no `inputs`."""
 
     name: ClassVar[str] = "example.noinputs"
     description: ClassVar[str] = "Its config declares no `inputs`."
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
 
-    def run(self, config: _NoInputsConfig, context: WorkflowContext) -> CountResult:
+    @classmethod
+    def chain(cls, config: _NoInputsConfig) -> PresetChain:
         raise NotImplementedError
 
 

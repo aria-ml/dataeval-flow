@@ -38,7 +38,6 @@ _ARTICLE = {
     DataType.DATASET: "a Dataset",
     DataType.OUTPUT: "an Output",
     DataType.EXPORT: "an export record",
-    DataType.WORKFLOW_RESULT: "a workflow result",
     DataType.FINDINGS: "findings",
 }
 
@@ -201,20 +200,17 @@ def _count_word(count: int) -> str:
     return {2: "two", 3: "three", 4: "four", 5: "five"}.get(count, str(count))
 
 
-def one_step_graph(task: "TaskConfig", instance: BaseModel, source_names: Sequence[str]) -> ChainGraph:
-    """The graph an ``evaluator:`` task or a workflow-type task runs: its sources, read by one step named after it."""
-    from dataeval_flow.evaluators._base import EvaluatorConfig
+def one_step_graph(task: "TaskConfig", instance: "EvaluatorConfig[Any]", source_names: Sequence[str]) -> ChainGraph:
+    """The graph an ``evaluator:`` task runs: its sources, read by one step named after it."""
     from dataeval_flow.evaluators._registry import get_evaluator
-    from dataeval_flow.workflows._registry import get_workflow
 
-    is_evaluator = isinstance(instance, EvaluatorConfig)
-    impl: type[Step] = (get_evaluator if is_evaluator else get_workflow)(instance.type)  # type: ignore[attr-defined]
+    impl = get_evaluator(instance.type)
     slots = tuple(InputSlot.model_construct(name=name, is_list=False) for name in source_names)
     (port,) = impl.input_ports()
     spec = StepSpec(
         name=task.name,
-        kind="evaluator" if is_evaluator else "workflow",
-        type=instance.type,  # type: ignore[attr-defined]
+        kind="evaluator",
+        type=instance.type,
         impl=impl,
         config=instance,
         bindings=(PortBinding(port, tuple(Address(name) for name in source_names)),),
@@ -288,7 +284,7 @@ def _task_graph_problems(
     problems: list[str] = []
     for spec in graph.steps:
         config: Any = spec.config
-        needs_extractor = spec.kind in ("evaluator", "workflow") and config.requires_extractor()
+        needs_extractor = spec.kind == "evaluator" and config.requires_extractor()
         if needs_extractor and not (spec.extractor or task.extractor) and not spec.optional:
             kinds = ", ".join(sorted(str(kind) for kind in config.wanted_kinds() if kind.needs_extractor))
             problems.append(
@@ -430,12 +426,12 @@ def _inline(entry: StepEntry, pipeline: "PipelineConfig") -> tuple[Any, type[Ste
 def _pooled(
     entry: StepEntry, pipeline: "PipelineConfig", evaluators: Sequence["EvaluatorConfig[Any]"] = ()
 ) -> tuple[Any, type[Step], dict[str, tuple[Address, ...]]]:
-    """An evaluator or workflow step's pool entry, its implementation, and its `input` addresses.
+    """An evaluator step's pool entry, its implementation, and its `input` addresses.
 
-    A preset's own evaluator entries, `evaluators`, are found before the pipeline's.
+    A preset's own evaluator entries, `evaluators`, are found before the pipeline's. A `workflow:` step comes here only
+    when its entry is missing or a custom workflow, and is refused: a workflow type's chain is spliced in instead.
     """
     from dataeval_flow.evaluators._registry import get_evaluator
-    from dataeval_flow.workflows._registry import get_workflow
 
     kind = entry.kind
     pool = [*evaluators, *(pipeline.evaluators or ())] if kind == "evaluator" else pipeline.workflows
@@ -447,8 +443,7 @@ def _pooled(
             f"Step '{entry.name}' names workflow '{entry.target}', a custom workflow: only a workflow type (`type:`) "
             "runs as a step."
         )
-    impl = (get_evaluator if kind == "evaluator" else get_workflow)(config.type)
-    return config, impl, {"input": _input_addresses(entry)}
+    return config, get_evaluator(config.type), {"input": _input_addresses(entry)}
 
 
 def _input_addresses(entry: StepEntry) -> tuple[Address, ...]:
@@ -463,7 +458,8 @@ def _input_addresses(entry: StepEntry) -> tuple[Address, ...]:
 
 
 def _preset_step(entry: StepEntry, pipeline: "PipelineConfig") -> "tuple[Any, type[Preset]] | None":
-    """The pool entry and the preset a `workflow:` step runs, when that entry's type is a preset; else ``None``."""
+    """The pool entry and the preset a `workflow:` step runs; ``None`` where its entry is missing or a custom
+    workflow."""
     from dataeval_flow.workflows._preset import preset_of
 
     if entry.kind != "workflow":
@@ -622,7 +618,7 @@ def _bind_inputs(
                 f"Step '{entry.name}' has `pairs: true`, but `{port.name}` of {kind} '{type_id}' reads one item, "
                 "not two."
             )
-        if port.count is not None and kind in ("evaluator", "workflow"):
+        if port.count is not None and kind == "evaluator":
             problem = _count_problem(port.count, named, said, config)
             if problem is not None:
                 raise GraphError(f"Step '{entry.name}' runs {kind} '{entry.target}' ({type_id}), which {problem}")

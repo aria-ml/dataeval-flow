@@ -7,31 +7,41 @@ import pytest
 from dataeval.quality import Duplicates
 from pydantic import ValidationError
 
-from dataeval_flow import InputKind, InputSpec, SourceCount, run, run_task
-from dataeval_flow._orchestrator import _run_target
+from dataeval_flow import InputKind, InputSpec, Result, SourceCount, run, run_task
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators import Evaluator, EvaluatorConfig, EvaluatorInputs, EvaluatorResult
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesEvaluator, DuplicatesResult
-from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows import Workflow, WorkflowConfig, WorkflowContext, WorkflowResult
+from dataeval_flow.steps import ChainResult, InputSlot
+from dataeval_flow.workflows import Preset, PresetChain, Workflow, WorkflowConfig
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningWorkflow
 from dataeval_flow.workflows.data_splitting import DataSplittingConfig
 from tests.evaluator_toys import ToyImages, toy_pipeline
 from tests.example_plugin import CountConfig
-from tests.workflow_toys import ToyCountConfig, ToyCountResult, ToyCountWorkflow
+from tests.workflow_toys import ToyCountConfig
 
 
 def test_a_concrete_workflow_must_declare_its_identity() -> None:
     with pytest.raises(TypeError, match="must declare name, description"):
 
-        class Nameless(Workflow[ToyCountConfig, ToyCountResult]):
-            def run(self, config: ToyCountConfig, context: WorkflowContext) -> ToyCountResult:
+        class Nameless(Preset, Workflow[ToyCountConfig, ChainResult]):
+            slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
+
+            @classmethod
+            def chain(cls, config: ToyCountConfig) -> PresetChain:
                 raise NotImplementedError
 
 
+def test_a_concrete_workflow_that_is_not_a_preset_is_rejected() -> None:
+    with pytest.raises(TypeError, match=r"every workflow type is a preset: mix in `Preset`"):
+
+        class Opaque(Workflow[ToyCountConfig, ChainResult]):
+            name: ClassVar[str] = "x.opaque"
+            description: ClassVar[str] = "Mixes in no Preset."
+
+
 def test_an_abstract_intermediate_base_is_exempt() -> None:
-    class SharedBase(Workflow[ToyCountConfig, ToyCountResult]):
-        """A plugin's own base: it defines no `run`, so it stays abstract."""
+    class SharedBase(Preset, Workflow[ToyCountConfig, ChainResult]):
+        """A plugin's own base: it defines no `chain`, so it stays abstract."""
 
     assert SharedBase.config_type is ToyCountConfig
 
@@ -39,11 +49,13 @@ def test_an_abstract_intermediate_base_is_exempt() -> None:
 def test_an_unparameterized_concrete_workflow_is_rejected() -> None:
     with pytest.raises(TypeError, match="config_type"):
 
-        class Bare(Workflow):  # type: ignore[type-arg]
+        class Bare(Preset, Workflow):  # type: ignore[type-arg]
             name: ClassVar[str] = "bare"
             description: ClassVar[str] = "No type arguments."
+            slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
 
-            def run(self, config: Any, context: WorkflowContext) -> Any:
+            @classmethod
+            def chain(cls, config: Any) -> PresetChain:
                 raise NotImplementedError
 
 
@@ -62,7 +74,7 @@ def test_name_defaults_to_the_type() -> None:
     assert DataSplittingConfig(name="split_a").name == "split_a"
 
 
-class _Untyped(WorkflowConfig[ToyCountResult]):
+class _Untyped(WorkflowConfig[ChainResult]):
     """A config whose class gives ``type`` no default."""
 
 
@@ -121,11 +133,13 @@ class _UnresultedEvaluatorConfig(EvaluatorConfig):  # type: ignore[type-arg]
 def test_a_workflow_whose_config_names_no_result_class_is_rejected() -> None:
     with pytest.raises(TypeError, match=r"parameterize its base with one, e\.g\. .*WorkflowConfig\[MyResult\]"):
 
-        class Unresulted(Workflow[_UnresultedWorkflowConfig, ToyCountResult]):
+        class Unresulted(Preset, Workflow[_UnresultedWorkflowConfig, ChainResult]):
             name: ClassVar[str] = "x.unresulted"
             description: ClassVar[str] = "Its config names no result class."
+            slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
 
-            def run(self, config: _UnresultedWorkflowConfig, context: WorkflowContext) -> ToyCountResult:
+            @classmethod
+            def chain(cls, config: _UnresultedWorkflowConfig) -> PresetChain:
                 raise NotImplementedError
 
 
@@ -142,75 +156,36 @@ def test_an_evaluator_whose_config_names_no_result_class_is_rejected() -> None:
                 raise NotImplementedError
 
 
-class _Forgetful(Workflow[ToyCountConfig, ToyCountResult]):
-    """Returns nothing, as a run that forgets its ``return`` does."""
-
-    name: ClassVar[str] = "x.forgetful"
-    description: ClassVar[str] = "Returns None."
-
-    def run(self, config: ToyCountConfig, context: WorkflowContext) -> ToyCountResult:
-        return None  # type: ignore[return-value]
-
-
-def test_a_run_that_returns_no_result_becomes_a_failed_result() -> None:
-    config = ToyCountConfig()
-    result = _run_target(_Forgetful(), config, WorkflowContext())
-    assert isinstance(result, ToyCountResult)
-    assert not result.success
-    assert result.errors == ["x.forgetful returned NoneType, not a ToyCountResult"]
-
-
-def test_a_run_handed_another_workflow_s_config_becomes_a_failed_result() -> None:
-    result = _run_target(ToyCountWorkflow(), CountConfig(), WorkflowContext())
-    assert type(result) is ToyCountResult
-    assert not result.success
-    assert result.errors == ["Expected ToyCountConfig, got CountConfig"]
-
-
-@pytest.mark.parametrize("result", [ChainResult, WorkflowResult[Any, Any]], ids=["another", "broader"])
+@pytest.mark.parametrize("result", [DuplicatesResult, Result[Any, Any]], ids=["another", "broader"])
 def test_a_workflow_must_produce_the_result_its_config_names(result: Any) -> None:
-    """Else `run()`, typed by the config's result class, would type a result the workflow never returns."""
-    with pytest.raises(TypeError, match=r"Mismatched returns .*, but its config ToyCountConfig names ToyCount"):
+    """Else `dataeval_flow.run`, typed by the config's result class, would type a result the workflow never returns."""
+    with pytest.raises(TypeError, match=r"Mismatched returns .*, but its config ToyCountConfig names ChainResult"):
 
-        class Mismatched(Workflow[ToyCountConfig, result]):
+        class Mismatched(Preset, Workflow[ToyCountConfig, result]):
             name: ClassVar[str] = "x.mismatched"
             description: ClassVar[str] = "Names another result class than its config does."
+            slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
 
-            def run(self, config: ToyCountConfig, context: WorkflowContext) -> Any:
+            @classmethod
+            def chain(cls, config: ToyCountConfig) -> PresetChain:
                 raise NotImplementedError
 
 
-class _AnnotatedCountResult(ToyCountResult):
-    """A narrower result than ``ToyCountConfig`` names, which ``run()``'s type still covers."""
+class _AnnotatedChainResult(ChainResult):
+    """A narrower result than ``ToyCountConfig`` names, which ``dataeval_flow.run``'s type still covers."""
 
 
 def test_a_narrower_result_than_the_config_names_is_accepted() -> None:
-    class Narrower(Workflow[ToyCountConfig, _AnnotatedCountResult]):
+    class Narrower(Preset, Workflow[ToyCountConfig, _AnnotatedChainResult]):
         name: ClassVar[str] = "x.narrower"
         description: ClassVar[str] = "Returns a subclass of its config's result class."
+        slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
 
-        def run(self, config: ToyCountConfig, context: WorkflowContext) -> _AnnotatedCountResult:
+        @classmethod
+        def chain(cls, config: ToyCountConfig) -> PresetChain:
             raise NotImplementedError
 
     assert Narrower.config_type is ToyCountConfig
-
-
-class _Mislabelled(Workflow[ToyCountConfig, ToyCountResult]):
-    """Returns another workflow's result, which its annotation cannot stop at run time."""
-
-    name: ClassVar[str] = "x.mislabelled"
-    description: ClassVar[str] = "Returns a ChainResult."
-
-    def run(self, config: ToyCountConfig, context: WorkflowContext) -> ToyCountResult:
-        return ChainResult.failed(type="audit", errors=["not mine"])  # type: ignore[return-value]
-
-
-def test_a_run_that_returns_another_result_class_becomes_a_failed_result() -> None:
-    config = ToyCountConfig()
-    result = _run_target(_Mislabelled(), config, WorkflowContext())
-    assert type(result) is ToyCountResult
-    assert not result.success
-    assert result.errors == ["x.mislabelled returned ChainResult, not a ToyCountResult"]
 
 
 class _MetalessOutput:

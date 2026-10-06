@@ -1,7 +1,7 @@
 """`run` on in-memory data matches the same run through a pipeline."""
 
 import uuid
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any, assert_type
 
@@ -405,27 +405,27 @@ def test_a_chain_result_s_sources_are_the_draw_its_steps_read_though_the_view_sh
     assert _ids(result.sources["src"]) == _ids(read.dataset)
 
 
-def test_a_workflow_result_s_backfilled_dataset_is_the_draw_its_step_read_though_the_view_shuffles_unseeded(
+def test_a_workflow_type_s_result_s_sources_are_the_draw_its_steps_read_though_the_view_shuffles_unseeded(
     plugins: dict[str, list[tuple[str, str]]], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from tests.workflow_toys import ToyCountConfig, ToyCountWorkflow, register_count
+    from tests.workflow_toys import ToyCountConfig, ToyItems, ToyItemsConfig, register_count
 
     register_count(plugins)
     read: list[Any] = []
-    count = ToyCountWorkflow.run
+    count = ToyItems.run
 
-    def recording(self: ToyCountWorkflow, config: ToyCountConfig, context: WorkflowContext) -> Any:
-        read.extend(context.dataset(source) for source in context.sources)
-        return count(self, config, context)
+    def recording(self: ToyItems, config: ToyItemsConfig, inputs: Mapping[str, Any], context: Any) -> Any:
+        read.append(inputs["input"].value)
+        return count(self, config, inputs, context)
 
-    monkeypatch.setattr(ToyCountWorkflow, "run", recording)
+    monkeypatch.setattr(ToyItems, "run", recording)
     config = _shuffled_pipeline(
         workflows=[ToyCountConfig(name="count")], tasks=[TaskConfig(name="t", workflow="count", sources="src")]
     )
     result = run_tasks(config)["t"]
     (dataset,) = read
-    assert result.dataset is not None  # `test.count` leaves it unset, so the run fills it in
-    assert _ids(result.dataset) == _ids(dataset)
+    assert result.sources is not None
+    assert _ids(result.sources["src"]) == _ids(dataset)
 
 
 def test_a_view_that_cannot_be_drawn_fails_the_task_which_still_carries_its_source() -> None:

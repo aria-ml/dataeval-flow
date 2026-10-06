@@ -12,12 +12,15 @@ from dataeval_flow.config.extractors import list_extractors
 from dataeval_flow.config.image_transforms import list_image_transforms
 from dataeval_flow.evaluators import list_evaluators
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesResult
+from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows import get_workflow, list_workflows
 from tests.evaluator_toys import ToyImages, toy_pipeline
-from tests.example_plugin import BrightnessConfig, BrightnessResult, CountConfig, CountResult, Invert, MeanConfig
+from tests.example_plugin import BrightnessConfig, BrightnessResult, CountConfig, Invert, MeanConfig
 
 EXAMPLES = {
     "dataeval_flow.workflows": [("example.count", "tests.example_plugin:CountWorkflow")],
+    "dataeval_flow.combines": [("example.items", "tests.example_plugin:ItemsCombine")],
+    "dataeval_flow.checks": [("example.at-least", "tests.example_plugin:AtLeastCheck")],
     "dataeval_flow.evaluators": [("example.brightness", "tests.example_plugin:BrightnessEvaluator")],
     "dataeval_flow.extractors": [("example.mean", "tests.example_plugin:MeanExtractor")],
     "dataeval_flow.image_transforms": [("example.Invert", "tests.example_plugin:Invert")],
@@ -60,8 +63,8 @@ def test_the_workflow_runs_as_a_task() -> None:
         tasks=[TaskConfig(name="t", workflow="count", sources="src")],
     )
     result = run_tasks(config)["t"]
-    assert isinstance(result, CountResult)
-    assert result.output.raw.counts == {"src": len(ToyImages())}
+    assert isinstance(result, ChainResult)
+    assert result.steps["items"].output.items == len(ToyImages())
     assert result.warning_count == 1
 
 

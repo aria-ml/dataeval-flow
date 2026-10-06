@@ -33,7 +33,6 @@ if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.config.extractors._base import ExtractorConfig
     from dataeval_flow.evaluators._evaluator import Evaluator
-    from dataeval_flow.workflows._base import Workflow
     from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology, Subset
 
 _logger = logging.getLogger(__name__)
@@ -97,9 +96,9 @@ class RunSettings:
     extractors: Mapping[str | None, ExtractorSetup | None] = field(default_factory=dict)
     """By extractor name. ``None`` holds the task's own extractor, which every node's context already carries."""
     step_contexts: Mapping[str, StepContext] = field(default_factory=dict)
-    runners: "Mapping[str, Workflow[Any, Any] | Evaluator[Any, Any]]" = field(default_factory=dict)
-    """By step name, the instance an evaluator or workflow step runs, where the caller made it already, as a one-step
-    task makes its own. Any other such step makes a fresh instance of its type."""
+    runners: "Mapping[str, Evaluator[Any, Any]]" = field(default_factory=dict)
+    """By step name, the instance an evaluator step runs, where the caller made it already, as a one-step task makes
+    its own. Any other evaluator step makes a fresh instance of its type."""
     run: int | None = None
     """The task-matrix run this task's run is, numbered from 1; ``None`` outside a matrix."""
 
@@ -637,7 +636,7 @@ def _attempt(
     result: Any = None
     details: dict[str, Any] | None = None
     try:
-        if spec.kind in ("evaluator", "workflow"):
+        if spec.kind == "evaluator":
             _require_extractor(spec, settings)
             result = _pooled(spec, inputs, settings, element)
             if not result.success:
@@ -858,7 +857,7 @@ def _live(item: _Value) -> Any:
 
 
 def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, element: str | None) -> Any:
-    """An evaluator's or a workflow type's result, from a WorkflowContext over its input nodes.
+    """An evaluator's result, from a WorkflowContext over its input nodes.
 
     An evaluator step reading a Dataset other evaluator steps read also gets, by node, the union of their stats
     requests that preflight planned, so the first of them computes the statistics every one reads in one pass.
@@ -878,15 +877,10 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
         policy_name=_policy_name(spec),
         reads_factors=getattr(runner, "reads_factors", True),
     )
-    # Run as the orchestrator runs a task's target, so a step and a task run it the same way.
-    from dataeval_flow._orchestrator import _run_target
+    from dataeval_flow.evaluators._execute import execute
 
     unions = {node.address: union for node in nodes if (union := _stats_union(step, node, element)) is not None}
-    # Each is passed only when set, so without them the call is exactly a task's.
-    extra: dict[str, Any] = {"stats_unions": unions} if unions else {}
-    if spec.by is not None:
-        extra["by"] = spec.by
-    return _run_target(runner, spec.config, context, **extra)  # type: ignore[arg-type]
+    return execute(runner, context, spec.config, stats_unions=unions or None, by=spec.by)  # type: ignore[arg-type]
 
 
 def _stats_union(step: StepContext, node: Node, element: str | None) -> "ResolvedStatsPolicy | None":

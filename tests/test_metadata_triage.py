@@ -249,7 +249,7 @@ def _bare_finding(category: str, severity: str, factor: str = "weight") -> Any:
 
 
 def test_a_category_with_a_blocking_finding_is_a_warning_reportable():
-    """`WorkflowResult.health` counts exactly the categories this marks `"warning"`."""
+    """`ChainResult.health` counts exactly the categories this marks `"warning"`."""
     raw = {
         "findings": [
             _bare_finding("unreadable", "blocking"),

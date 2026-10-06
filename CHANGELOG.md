@@ -560,6 +560,12 @@
 
 ### Removed
 
+- Workflow types that run their own code: every workflow type is now a preset, whose settings expand to a chain of
+  steps. `Workflow.run`, `WorkflowOutput`, `WorkflowRawOutput`, `WorkflowReport` and `WorkflowResult` go, with the
+  `workflow_result` port type. A workflow type mixes in `Preset`, now exported from `dataeval_flow.workflows` with
+  `PresetChain`, and declares `slots` and `chain`; one that does not raises `TypeError` when its class is defined.
+  Every workflow returns a `ChainResult`. A plugin with an algorithm of its own registers it as an evaluator and
+  chains it in its preset
 - data-splitting's coverage: its whole-set and per-part `coverage` steps and `uncovered-items` checks, its `coverage:`
   setting, `checks.uncovered-items`, and `extractor:` on a data-splitting task or step. Judge the parts with an
   `audit` step after the split (see Check a set of splits). `DataSplittingCoverageSettings` goes with it

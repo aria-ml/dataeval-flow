@@ -7,16 +7,12 @@ No Textual dependency — consumed by the result modal and result cards.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, TypeGuard
+from typing import Any
 
-from dataeval_flow._blocks import Block, Paragraph, SummaryItem, Table
-from dataeval_flow._blocks._table import cell_text
+from dataeval_flow._blocks import SummaryItem
 from dataeval_flow._blocks._text import Frame, summary_line
 
-__all__ = ["FindingSummary", "ResultViewModel", "Segment", "table_data"]
-
-# A run of blocks the detail view draws as text, or a table it shows as a native ``DataTable``.
-Segment = Table | list[Block]
+__all__ = ["FindingSummary", "ResultViewModel"]
 
 
 @dataclass
@@ -28,23 +24,8 @@ class FindingSummary:
     brief: str
 
 
-def _is_data_table(block: Block) -> TypeGuard[Table]:
-    """A table a ``DataTable`` shows in full: rows, and nothing drawn, neither chart nor threshold marker.
-
-    A table with a chart stays in the text, where its bars, stacks and threshold lines draw;
-    a ``DataTable`` cell holds only text.
-    """
-    return isinstance(block, Table) and bool(block.rows) and all(column.kind == "text" for column in block.columns)
-
-
-def table_data(table: Table) -> tuple[list[str], list[list[str]]]:
-    """A data table's headers and rows as text, each cell printed as the text report prints it."""
-    rows = [[cell_text(column, row.get(column.key)) for column in table.columns] for row in table.rows]
-    return [column.header for column in table.columns], rows
-
-
 class ResultViewModel:
-    """Transforms a ``WorkflowResult`` into view-ready structures."""
+    """Transforms a task's ``Result`` into view-ready structures."""
 
     def __init__(self, result: Any) -> None:
         from dataeval_flow._matrix._result import MatrixResult
@@ -53,33 +34,21 @@ class ResultViewModel:
 
         self._result = result
         self._is_evaluator = isinstance(result, EvaluatorResult)
-        # A custom workflow's result holds its steps, not one report: its findings are its steps'.
+        # A workflow's result holds its steps, not one report: its findings are its steps'.
         self._is_chain = isinstance(result, ChainResult)
         # A matrix result holds its runs, not one report: it shows its comparison and each run's report.
         self._is_matrix = isinstance(result, MatrixResult)
         self._findings = self._extract_findings()
 
     def _extract_findings(self) -> list[Any]:
-        if self._is_chain:  # the steps that completed keep their findings, even where another step failed
-            return list(self._result.findings)
-        if self._is_evaluator or self._is_matrix or not self._result.success:
-            return []
-        return list(self._result.output.report.findings)
-
-    @property
-    def shows_output(self) -> bool:
-        """Whether the detail view shows :meth:`output_text` in place of findings and health.
-
-        An evaluator's result holds determinations only, and a custom workflow's holds its steps, each with its
-        status, errors and output.
-        """
-        return self._is_evaluator or self._is_chain or self._is_matrix
+        # A chain's steps that completed keep their findings, even where another step failed; no other result has any.
+        return list(self._result.findings) if self._is_chain else []
 
     def output_text(self) -> str:
-        """The rendered output :attr:`shows_output` names, as the text report renders it, every row included.
+        """The result's output, as the text report renders it, every row included.
 
-        An evaluator's output, or a custom workflow's report body: its summary, then each step's section. Empty for
-        any other result.
+        An evaluator's output, or a workflow's or matrix's report body: a workflow's summary, then each step's
+        section. Empty for any other result.
         """
         from dataeval_flow._blocks._text import Frame, render_text
         from dataeval_flow.evaluators._report import render_result_body
@@ -141,12 +110,6 @@ class ResultViewModel:
             parts.append(f"{meta.execution_time_s:.1f}s")
         return ", ".join(parts)
 
-    def report_summary(self) -> str:
-        """A workflow type's own summary string (e.g. 'Data Cleaning Report'); empty for any other result."""
-        if self._is_evaluator or self._is_chain or self._is_matrix or not self._result.success:
-            return ""
-        return self._result.output.report.summary
-
     # -- Metadata ----------------------------------------------------------
 
     def metadata_lines(self) -> list[str]:
@@ -196,34 +159,3 @@ class ResultViewModel:
             item = SummaryItem(label=finding.title, value=finding.brief or "", severity=finding.severity)
             return "\n".join(line.rstrip() for line in summary_line(item, Frame(indent="  ")))
         return ""
-
-    def finding_blocks(self, idx: int) -> list[Block]:
-        """The finding at *idx* as its detail draws it: the description as a lede, then its evidence."""
-        if not 0 <= idx < len(self._findings):
-            return []
-        finding = self._findings[idx]
-        lede: list[Block] = [Paragraph(text=finding.description)] if finding.description else []
-        return [*lede, *finding.blocks]
-
-    def finding_segments(self, idx: int) -> list[Segment]:
-        """The finding's blocks in the order they draw: each data table on its own, the rest in runs of text."""
-        segments: list[Segment] = []
-        for block in self.finding_blocks(idx):
-            if _is_data_table(block):
-                segments.append(block)
-            elif segments and isinstance(segments[-1], list):
-                segments[-1].append(block)
-            else:
-                segments.append([block])
-        return segments
-
-    # -- Health summary ----------------------------------------------------
-
-    def health_line(self) -> str:
-        """Health status string for the summary section."""
-        if self._is_evaluator:
-            return ""
-        warnings = self.warning_count()
-        if warnings:
-            return f"Health: {warnings} warning(s) — review flagged findings"
-        return "Health: All checks passed"

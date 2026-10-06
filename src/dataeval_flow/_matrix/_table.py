@@ -14,22 +14,16 @@ if TYPE_CHECKING:
     from dataeval_flow._result import Result
     from dataeval_flow.workflows._base import Finding
 
-# A finding's column: the step that made it (none for a lone workflow's), its title, and which of that step's
-# findings with that title it is.
-_ColumnKey = tuple[str | None, str, int]
+# A finding's column: the step that made it, its title, and which of that step's findings with that title it is.
+_ColumnKey = tuple[str, str, int]
 
 
 def _findings(result: "Result[Any, Any]") -> "dict[_ColumnKey, Finding]":
     from dataeval_flow.steps._result import ChainResult
-    from dataeval_flow.workflows._result import WorkflowResult
 
-    if isinstance(result, ChainResult):
-        pairs: list[tuple[str | None, Finding]] = list(result.findings_by_step())
-    elif isinstance(result, WorkflowResult):
-        pairs = [(None, finding) for finding in result.findings]
-    else:  # an evaluator makes determinations, not findings
-        pairs = []
-    seen: Counter[tuple[str | None, str]] = Counter()
+    # An evaluator makes determinations, not findings.
+    pairs = result.findings_by_step() if isinstance(result, ChainResult) else []
+    seen: Counter[tuple[str, str]] = Counter()
     cells: dict[_ColumnKey, Finding] = {}
     for step, finding in pairs:
         seen[(step, finding.title)] += 1
@@ -39,12 +33,12 @@ def _findings(result: "Result[Any, Any]") -> "dict[_ColumnKey, Finding]":
 
 def _headers(keys: "list[_ColumnKey]") -> "dict[_ColumnKey, str]":
     """The title; its step where columns of two steps share it; its number where one step repeats it."""
-    steps: dict[str, set[str | None]] = {}
+    steps: dict[str, set[str]] = {}
     for step, title, _ in keys:
         steps.setdefault(title, set()).add(step)
     headers: dict[_ColumnKey, str] = {}
     for step, title, occurrence in keys:
-        header = f"{title} · {step}" if len(steps[title]) > 1 and step is not None else title
+        header = f"{title} · {step}" if len(steps[title]) > 1 else title
         headers[(step, title, occurrence)] = f"{header} ({occurrence})" if occurrence > 1 else header
     return headers
 

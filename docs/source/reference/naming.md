@@ -174,7 +174,8 @@ A plugin registers a step through an entry point in its package's metadata, in i
 `module:attribute`. The class subclasses its kind's base, {py:class}`~dataeval_flow.evaluators.Evaluator`,
 {py:class}`~dataeval_flow.steps.Transform`, {py:class}`~dataeval_flow.steps.Combine`,
 {py:class}`~dataeval_flow.steps.Check` or {py:class}`~dataeval_flow.workflows.Workflow`, and its `name` is the entry
-point's name. An evaluator's or workflow's config also configures that type and declares its `inputs`. A plugin that
+point's name. A workflow type also mixes in {py:class}`~dataeval_flow.workflows.Preset`, whose chain may run any
+registered step. An evaluator's or workflow's config also configures that type and declares its `inputs`. A plugin that
 fails these is logged and left out, and a plugin can never take a built-in's name.
 
 ## Python names

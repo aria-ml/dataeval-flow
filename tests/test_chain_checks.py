@@ -12,7 +12,6 @@ from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import ChainResult, Finding
 from tests.chain_toys import CountGroups, GroupLimit, chain_pipeline, register_toys, run_chain_task, run_toy_chain
 from tests.evaluator_toys import ToyImages
-from tests.workflow_toys import ToyCountConfig, register_count
 
 pytestmark = pytest.mark.usefixtures("toys")
 
@@ -25,7 +24,6 @@ _LIST = [{"name": "cams", "list": True}]
 @pytest.fixture
 def toys(plugins):
     register_toys(plugins)
-    register_count(plugins)
     DatasetCache.clear_instances()
     yield plugins
     DatasetCache.clear_instances()
@@ -35,11 +33,10 @@ def _result(
     *steps: dict[str, Any],
     inputs: list[Any] | None = None,
     datasets: dict[str, Any] | None = None,
-    workflows: tuple[Any, ...] = (),
 ) -> ChainResult:
     datasets = datasets or {"src": ToyImages()}
     config = chain_pipeline(
-        workflows=[{"name": "w", "inputs": inputs or ["a"], "steps": list(steps)}, *workflows],
+        workflows=[{"name": "w", "inputs": inputs or ["a"], "steps": list(steps)}],
         evaluators=[DuplicatesConfig(name="dupes")],
         tasks=[{"name": "t", "workflow": "w", "sources": list(datasets)}],
         datasets=datasets,
@@ -153,25 +150,6 @@ def test_a_check_that_takes_a_whole_list_judges_it_once() -> None:
         datasets=_CAMS,
     )
     assert [(finding.step, finding.brief) for finding in result.findings] == [("worst", "worst: s1 (1 groups)")]
-
-
-def test_the_json_lists_only_check_findings_while_health_counts_a_workflow_step_s_too() -> None:
-    cleaning = ToyCountConfig(name="clean")
-    result = _result(
-        {"name": "cleaning", "workflow": "clean", "input": "a"},
-        _DUPES,
-        _COUNT,
-        {"name": "judge", "check": "toy-at-most", "input": "count", "most": 5},
-        workflows=(cleaning,),
-    )
-    workflow_findings = result.steps["cleaning"].result.findings  # type: ignore[union-attr]
-    assert workflow_findings
-    assert result.findings == [
-        *workflow_findings,
-        Finding(severity="ok", title="Group count", brief="1 groups", step="judge"),
-    ]
-    assert [finding["step"] for finding in result.to_dict()["findings"]] == ["judge"]  # type: ignore[index,union-attr]
-    assert result.health["findings"] == len(workflow_findings) + 1
 
 
 def test_a_check_that_returns_something_other_than_findings_fails_its_step() -> None:

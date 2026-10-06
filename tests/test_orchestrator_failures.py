@@ -8,8 +8,9 @@ import pytest
 from dataeval_flow import run_task
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesEvaluator, DuplicatesResult
+from dataeval_flow.steps import ChainResult
 from tests.evaluator_toys import toy_pipeline
-from tests.workflow_toys import ToyCountConfig, ToyCountResult, ToyCountWorkflow, register_count
+from tests.workflow_toys import ToyCountConfig, ToyItems, register_count
 
 _CLEAN = ToyCountConfig(name="clean")
 
@@ -22,11 +23,11 @@ def _count(plugins) -> None:
 def test_an_exception_becomes_a_failed_result_of_the_workflows_class() -> None:
     config = toy_pipeline(workflows=[_CLEAN])
     task = TaskConfig(name="t", workflow="clean", sources="src")
-    with patch.object(ToyCountWorkflow, "run", side_effect=RuntimeError("boom")):
+    with patch.object(ToyItems, "run", side_effect=RuntimeError("boom")):
         result = run_task(config, task)
-    assert isinstance(result, ToyCountResult)
+    assert type(result) is ChainResult
     assert not result.success
-    assert result.errors == ["RuntimeError: boom"]
+    assert result.errors == ["items: RuntimeError: boom"]
     with pytest.raises(RuntimeError, match="boom"):
         _ = result.output
 

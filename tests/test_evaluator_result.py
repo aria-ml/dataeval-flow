@@ -170,12 +170,6 @@ class TestDataEvalExecution:
 
 
 def test_workflow_results_say_what_they_are():
-    from unittest.mock import MagicMock
+    from tests.workflow_toys import count_result
 
-    from dataeval_flow import ResultMetadata
-    from dataeval_flow.workflows import WorkflowResult
-
-    output = MagicMock()
-    output.model_dump.return_value = {}
-    result = WorkflowResult(type="data-cleaning", success=True, output=output, metadata=ResultMetadata())
-    assert result.to_dict()["kind"] == "workflow"
+    assert count_result().to_dict()["kind"] == "workflow"

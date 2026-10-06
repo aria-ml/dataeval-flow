@@ -450,15 +450,13 @@ class TestResultPaneCoverage:
         app = builder_app
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause()
-            # Create a mock result that quacks like WorkflowResult
+            # Create a mock result that quacks like a task's Result
             mock_result = MagicMock()
             mock_result.metadata.execution_time_s = 1.5
             mock_result.metadata.timestamp = None
             mock_result.metadata.model_id = None
             mock_result.metadata.preprocessor_id = None
             mock_result.metadata.source_descriptions = []
-            mock_result.output.report.findings = []
-            mock_result.output.report.summary = ""
             mock_result.to_dict.return_value = {}
             mock_result.report.return_value = ""
             app._vm.mark_task_completed("t1", mock_result)

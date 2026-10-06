@@ -1,4 +1,5 @@
-"""A plugin written against the public API alone: one workflow, one evaluator, one extractor and one transform."""
+"""A plugin written against the public API alone: one workflow type over its own combine and check, one evaluator, one
+extractor and one transform."""
 
 from collections.abc import Mapping, Sequence
 from typing import Any, ClassVar
@@ -6,9 +7,9 @@ from typing import Any, ClassVar
 import numpy as np
 from dataeval.flags import ImageStats
 from dataeval.quality import Outliers, OutliersOutput
-from pydantic import Field
+from pydantic import BaseModel, Field
 
-from dataeval_flow import InputKind, InputSpec, ResultMetadata, SourceCount
+from dataeval_flow import InputKind, InputSpec, SourceCount
 from dataeval_flow.config import StatsConfigMixin
 from dataeval_flow.config.extractors import Extractor, ExtractorConfig
 from dataeval_flow.config.image_transforms import ImageTransform
@@ -18,67 +19,89 @@ from dataeval_flow.evaluators import (
     EvaluatorInputs,
     EvaluatorResult,
 )
-from dataeval_flow.steps import Finding
-from dataeval_flow.workflows import (
-    Workflow,
-    WorkflowConfig,
-    WorkflowContext,
-    WorkflowOutput,
-    WorkflowRawOutput,
-    WorkflowReport,
-    WorkflowResult,
+from dataeval_flow.steps import (
+    ChainResult,
+    Check,
+    CheckConfig,
+    CheckContext,
+    Combine,
+    CombineConfig,
+    CombineContext,
+    DataType,
+    Finding,
+    InputSlot,
+    Port,
 )
+from dataeval_flow.workflows import Preset, PresetChain, Workflow, WorkflowConfig
 
 
-class CountRaw(WorkflowRawOutput):
-    """Item counts per source."""
+class ItemCount(BaseModel):
+    """How many items a Dataset holds."""
 
-    counts: dict[str, int] = Field(default_factory=dict, description="Items in each source.")
-
-
-class CountReport(WorkflowReport):
-    """One finding per source."""
+    items: int = Field(description="Items in the Dataset.")
 
 
-class CountOutput(WorkflowOutput[CountRaw, CountReport]):
-    """What `example.count` produces."""
+class ItemsConfig(CombineConfig):
+    """Settings for `example.items`."""
+
+    input: str = Field(description="The Dataset to count.")
 
 
-class CountMetadata(ResultMetadata):
-    """The envelope of an `example.count` result."""
+class ItemsCombine(Combine[ItemsConfig]):
+    """Counts a Dataset's items."""
+
+    name: ClassVar[str] = "example.items"
+    description: ClassVar[str] = "Counts a Dataset's items."
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
+    outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.OUTPUT, classes=(ItemCount,)),)
+
+    def run(self, config: ItemsConfig, inputs: Mapping[str, Any], context: CombineContext) -> Mapping[str, Any]:
+        return {"output": ItemCount(items=len(inputs["input"].value))}
 
 
-class CountResult(WorkflowResult[CountMetadata, CountOutput]):
-    """The result of an `example.count` run."""
+class AtLeastConfig(CheckConfig):
+    """Settings for `example.at-least`."""
+
+    input: str = Field(description="The count to judge.")
+    minimum: int = Field(default=0, ge=0, description="Fewest items a Dataset may hold before it warns.")
 
 
-class CountConfig(WorkflowConfig[CountResult]):
+class AtLeastCheck(Check[AtLeastConfig]):
+    """Warns when a Dataset holds fewer than `minimum` items."""
+
+    name: ClassVar[str] = "example.at-least"
+    description: ClassVar[str] = "Warns below a count of items."
+    title: ClassVar[str] = "Items"
+    inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(ItemCount,)),)
+
+    def run(self, config: AtLeastConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:
+        n = inputs["input"].value.items
+        return [Finding(severity="warning" if n < config.minimum else "ok", title=self.title, brief=f"{n} items")]
+
+
+class CountConfig(WorkflowConfig[ChainResult]):
     """Settings for `example.count`."""
 
     type: str = "example.count"
-    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset(), sources=SourceCount.ONE_OR_MORE)
-    minimum: int = Field(default=0, ge=0, description="Fewest items a source may hold before it warns.")
+    inputs: ClassVar[InputSpec] = InputSpec(required=frozenset(), sources=SourceCount.ONE)
+    minimum: int = Field(default=0, ge=0, description="Fewest items the source may hold before it warns.")
 
 
-class CountWorkflow(Workflow[CountConfig, CountResult]):
-    """Counts each source's items and warns when one holds fewer than `minimum`."""
+class CountWorkflow(Preset, Workflow[CountConfig, ChainResult]):
+    """Counts the source's items and warns when it holds fewer than `minimum`."""
 
     name: ClassVar[str] = "example.count"
-    description: ClassVar[str] = "Counts the items in each source."
+    description: ClassVar[str] = "Counts the items in a source."
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
 
-    def run(self, config: CountConfig, context: WorkflowContext) -> CountResult:
-        counts = {source: len(context.dataset(source)) for source in context.sources}
-        findings = [
-            Finding(
-                severity="warning" if n < config.minimum else "ok",
-                title=f"{source} items",
-                brief=f"{n} items",
-            )
-            for source, n in counts.items()
-        ]
-        raw = CountRaw(dataset_size=sum(counts.values()), counts=counts)
-        output = CountOutput(raw=raw, report=CountReport(summary="Item counts", findings=findings))
-        return CountResult(type=self.name, success=True, output=output, metadata=CountMetadata())
+    @classmethod
+    def chain(cls, config: CountConfig) -> PresetChain:
+        return PresetChain(
+            steps=[
+                {"name": "items", "combine": "example.items", "input": "data"},
+                {"name": "at-least", "check": "example.at-least", "input": "items", "minimum": config.minimum},
+            ]
+        )
 
 
 class BrightnessResult(EvaluatorResult[OutliersOutput[Any]]):

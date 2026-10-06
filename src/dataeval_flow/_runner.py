@@ -63,7 +63,6 @@ def _collect_results(
     from dataeval_flow._logging import flush_logs
     from dataeval_flow._matrix._result import MatrixResult
     from dataeval_flow.steps._result import ChainResult
-    from dataeval_flow.workflows._result import WorkflowResult
 
     collected = _Collected()
 
@@ -92,7 +91,7 @@ def _collect_results(
             collected.binning[name] = record
 
         # Only a workflow judges health; an evaluator makes determinations, never a verdict.
-        if isinstance(result, WorkflowResult | MatrixResult) and result.warning_count:
+        if isinstance(result, ChainResult | MatrixResult) and result.warning_count:
             collected.warned.append(name)
 
         # A failed chain already logged FAILED above; its partial steps are still printed and written, but it

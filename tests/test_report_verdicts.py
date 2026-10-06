@@ -1,38 +1,17 @@
 """Renderers show the verdict a result counted once, and fold the sections it marks as reference (spec §9.1, §9.6)."""
 
-from pydantic import Field
-
-from dataeval_flow import ResultMetadata
 from dataeval_flow._binning_report import binning_blocks
 from dataeval_flow._blocks import Section, Summary, SummaryItem, Tree
 from dataeval_flow._blocks._html import render_html
 from dataeval_flow._blocks._text import render_text
-from dataeval_flow.steps import Finding
-from dataeval_flow.workflows import WorkflowOutput, WorkflowRawOutput, WorkflowReport, WorkflowResult
+from dataeval_flow.steps import ChainMetadata, ChainResult, Finding
+from tests.workflow_toys import count_result
 
 _WARNING = SummaryItem(label="Duplicates", value="3 groups", severity="warning")
 
 
-class _Raw(WorkflowRawOutput):
-    counts: dict[str, int] = Field(default_factory=dict, description="Items per source.")
-
-
-class _Output(WorkflowOutput[_Raw, WorkflowReport]):
-    pass
-
-
-class _Result(WorkflowResult[ResultMetadata, _Output]):
-    pass
-
-
-def _result(*findings: Finding, config: dict[str, object] | None = None) -> _Result:
-    report = WorkflowReport(summary="Verdicts", findings=list(findings))
-    return _Result(
-        type="test.verdicts",
-        success=True,
-        output=_Output(raw=_Raw(dataset_size=1), report=report),
-        metadata=ResultMetadata(resolved_config=config or {}),
-    )
+def _result(*findings: Finding, config: dict[str, object] | None = None) -> ChainResult:
+    return count_result(*findings, metadata=ChainMetadata(resolved_config=config or {}))
 
 
 def test_the_text_health_line_states_the_count_the_result_made() -> None:
