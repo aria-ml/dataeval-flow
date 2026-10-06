@@ -62,7 +62,8 @@ def dataset_digest(dataset: Any) -> DatasetDigest:
         Any dataset Flow reads: ``len()`` and indexing, each item an ``(image, target, metadata)`` tuple, and its class
         names in ``dataset.metadata["index2label"]`` where it declares them. Pass the dataset as Flow loads it, before
         any training transform: from :func:`~dataeval_flow.load_dataset` with the ``datasets:`` entry's format and
-        options, through the same views the recorded source applied. Data in another shape gives another digest:
+        options, through the same views the recorded source applied, which
+        :func:`~dataeval_flow.load_source` applies for you. Data in another shape gives another digest:
         resized or normalized images, ``(image, int)`` tuples, images in height-width-channel order, or a dataset
         with no ``index2label``.
 

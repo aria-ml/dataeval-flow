@@ -13,6 +13,7 @@ __all__ = [
     "SourceOperand",
     "flatten_source",
     "label_space_records",
+    "load_source",
     "resolve_source",
 ]
 
@@ -374,3 +375,68 @@ def _relabel_target(declared: "Any", class_remap: "Mapping[str, str]") -> list[s
     if declared is not None:
         return [str(v) for v in declared]
     return list(dict.fromkeys(class_remap.values()))
+
+
+def load_source(config: "PipelineConfig", name: str, *, data_dir: "Path | None" = None) -> "AnnotatedDataset[Any]":
+    """Load source `name` as a run reads it: its dataset as its `datasets:` entry says, its merge's operands merged,
+    and its view applied.
+
+    A training job hands the result to :func:`~dataeval_flow.dataset_digest` to check that it holds the data a run
+    recorded. A source that would draw different items on each load is refused: one whose view runs an operation
+    that draws at random when given no ``seed``, which is ``Shuffle``, or ``Stride`` and ``EvenlySpaced`` with
+    ``jitter``. An unseeded ``Shuffle`` as the source's own last operation is the one exception, since it only
+    reorders the items, which a digest ignores.
+
+    Parameters
+    ----------
+    config : PipelineConfig
+        The pipeline holding the source, as :func:`~dataeval_flow.load_config` reads it.
+    name : str
+        The ``sources:`` entry to load.
+    data_dir : Path or None, keyword-only
+        Root a relative dataset path resolves against.
+
+    Returns
+    -------
+    AnnotatedDataset
+        The source's items, as every step of a run over it reads them.
+
+    Raises
+    ------
+    ValueError
+        If no source is named `name`, or a view runs an operation that draws at random with no seed.
+    """
+    resolved = resolve_source(name, config, data_dir)
+    _refuse_unseeded(resolved)
+    return resolved.realized()
+
+
+def _refuse_unseeded(resolved: ResolvedSource) -> None:
+    """Refuse a view operation that draws at random when given no ``seed`` (one whose ``seed`` defaults to none,
+    and that has its ``jitter`` on if it takes one), except an unseeded ``Shuffle`` as the source's own last
+    operation: every other draws different items on each load."""
+    import inspect
+
+    import dataeval.data as ddata
+
+    views = [operand.view_config for operand in resolved.operands] if resolved.is_merged else []
+    views.append(resolved.view_config)
+    for position, view in enumerate(views):
+        if view is None:
+            continue
+        for index, operation in enumerate(view.operations):
+            if position == len(views) - 1 and index == len(view.operations) - 1 and operation.type == "Shuffle":
+                continue
+            kind = getattr(ddata, operation.type, None)
+            parameters = inspect.signature(kind).parameters if kind is not None else {}
+            seed = parameters.get("seed")
+            if seed is None or seed.default is not None or operation.params.get("seed") is not None:
+                continue
+            jitter = parameters.get("jitter")
+            if jitter is not None and not operation.params.get("jitter", jitter.default):
+                continue
+            cause = "with `jitter` and no `seed`" if jitter is not None else "with no `seed`"
+            raise ValueError(
+                f"Source '{resolved.name}' can't be loaded the same way twice: view '{view.name}' runs "
+                f"`{operation.type}` {cause}. Give it a `seed:`, so every load draws the items the run did."
+            )

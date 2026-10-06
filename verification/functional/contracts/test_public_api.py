@@ -9,6 +9,7 @@ pytestmark = pytest.mark.required
 PUBLIC_API = [
     "load_config",
     "load_dataset",
+    "load_source",
     "dataset_digest",
     "run",
     "run_task",

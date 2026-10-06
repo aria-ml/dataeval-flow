@@ -44,11 +44,13 @@ from dataeval_flow._matrix._result import MatrixResult, MatrixRun
 from dataeval_flow._orchestrator import run_task, run_tasks, set_device
 from dataeval_flow._result import Result, ResultMetadata
 from dataeval_flow._run import run
+from dataeval_flow._sources import load_source
 from dataeval_flow.config._loader import load_config
 
 __all__ = [
     "load_config",
     "load_dataset",
+    "load_source",
     "dataset_digest",
     "run",
     "run_task",

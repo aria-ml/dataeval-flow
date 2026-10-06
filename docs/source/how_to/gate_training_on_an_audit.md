@@ -110,6 +110,19 @@ name: `audit["steps"]["content-digest-evals"]["elements"]["test"]["output"]["dat
 `result.steps["content-digest-train"].output.data()` and
 `result.steps["content-digest-evals"].elements["test"].output.data()`.
 
+For a split read through a view or a merge, replace the `load_dataset` line with `load_source`, which loads a source as
+the run read it, from the pipeline config and the source's name:
+
+```python
+from dataeval_flow import load_config, load_source
+
+train = load_source(load_config("pipeline.yaml"), "train")
+```
+
+`load_source` refuses a source whose view would draw different items on each load: one that runs an operation that
+draws at random with no `seed`, which is `Shuffle`, or `Stride` and `EvenlySpaced` with `jitter`. An unseeded `Shuffle`
+as the source's last operation only reorders the items, which the digest ignores, so it is allowed.
+
 Notice:
 
 - The digest ignores item order, so an unseeded `Shuffle` still matches. Adding, removing or editing any item, or
@@ -117,10 +130,9 @@ Notice:
 - Metadata has a digest of its own, so a loader that yields images and labels with no metadata still matches the
   content digest. Gate on the content digest across machines: the metadata digest covers metadata as stored, paths
   included, so metadata holding an absolute file path digests differently on each machine.
-- A split read through views, or made by a chain step, digests the items the views or the step kept, and the record
-  says when it was. Flow has no public way to rebuild such a split outside a run, so for a gate, audit whole splits.
-  Or [export](export_a_dataset.md) the split, audit the export as a source, and train on the export. `export` writes
-  object-detection Datasets only.
+- A split made by a chain step digests the items the step kept, and the record says when it was. Flow can't rebuild
+  such a split outside a run, so [export](export_a_dataset.md) it, audit the export as a source, and train on the
+  export. `export` writes object-detection Datasets only.
 - The digest hashes decoded pixels and targets as Flow reads them. Compare digests made with the same image libraries,
   which the result records in `metadata.library_versions`.
 

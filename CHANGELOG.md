@@ -4,6 +4,8 @@
 
 ### Added
 
+- `load_source()`: a configured source as a run reads it, its view applied and its merge merged, so a training job
+  can digest a viewed split. It refuses a view that would draw different items on each load
 - `result: require:`, `--require` and `DATAEVAL_REQUIRE`: the worst verdict a task may have, `ready-with-caveats`,
   `ready-with-accepted-risks` or `ready`; a worse one exits 4. A run in which no task gives a verdict is
   refused

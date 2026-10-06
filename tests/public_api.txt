@@ -10,6 +10,7 @@ dataeval_flow:__version__
 dataeval_flow:dataset_digest
 dataeval_flow:load_config
 dataeval_flow:load_dataset
+dataeval_flow:load_source
 dataeval_flow:run
 dataeval_flow:run_task
 dataeval_flow:run_tasks
