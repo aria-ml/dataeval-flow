@@ -276,7 +276,7 @@ whether whole items or single detections. The step's report section counts what 
 Dataset's key follows the plan applied, not the arguments behind it, so two settings that remove the same rows key
 alike.
 
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning), [`data-prioritization`](presets.md#data-prioritization)
+- **Used in:** [`data-cleaning`](presets.md#data-cleaning)
 
 ```yaml
 evaluators:

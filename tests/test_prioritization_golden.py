@@ -48,7 +48,7 @@ def _produced(result: ChainResult) -> dict[str, dict[str, Any]]:
     through `pool-clean`'s to reach the pool.
     """
     steps = result.steps
-    selected = steps["selected"].elements or {}
+    selected = steps["selected" if "selected" in steps else "rank/selected"].elements or {}
     if "pool-clean" not in steps:
         return {
             "rankings": {

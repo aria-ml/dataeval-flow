@@ -372,11 +372,10 @@ workflows:
     policy: difficulty             # difficulty | stratified | class_balanced
     select:
       n: 200                       # keep each pool's top 200 as `selected`; omit to keep all
-    cleaning:
-      outliers:
-        flags: [dimension, pixel]
-        outlier_threshold: adaptive
 ```
+
+To rank clean data, run it as a step after a `data-cleaning` step, as the
+[Preset Catalog](../reference/presets.md#data-prioritization) shows.
 ````
 
 ````{tab-item} matrix

@@ -149,8 +149,8 @@ class DataCleaningChecks(BaseModel):
 
 
 class OutliersSettings(BaseModel):
-    """The `outliers` step's settings: which statistics, and how far out an outlier sits. data-prioritization's
-    `cleaning:` takes the same block."""
+    """The `outliers` step's settings: which statistics, and how far out an outlier sits. audit's `outliers:` takes
+    the same block."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -175,7 +175,7 @@ class OutliersSettings(BaseModel):
 
 
 class DuplicatesSettings(BaseModel):
-    """The `duplicates` step's settings. data-prioritization's `cleaning:` takes the same block."""
+    """The `duplicates` step's settings."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 

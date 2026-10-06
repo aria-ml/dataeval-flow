@@ -1,7 +1,8 @@
 """The data-prioritization runs the agreement golden records: one pipeline per case.
 
 The generator ran each case once on the legacy workflow and recorded what it produced; the agreement test runs the same
-pipelines on whatever `data-prioritization` names today (spec §10.9).
+pipelines on whatever `data-prioritization` names today (spec §10.9). A case with cleaning runs the steps the preset's
+removed `cleaning:` expanded to, in a custom workflow, then the preset as its step `rank`.
 """
 
 from collections.abc import Callable
@@ -13,7 +14,11 @@ from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 
 _BASE: dict[str, Any] = {"name": "prio", "type": "data-prioritization", "method": "knn", "k": 3}
-_CLEANING: dict[str, Any] = {"outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}}
+_CLEANING: dict[str, Any] = {"dup_types": ["exact", "near"]}
+_EVALUATORS = [
+    {"name": "outliers", "type": "outliers", "flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
+    {"name": "duplicates", "type": "duplicates", "merge_near_duplicates": True},
+]
 
 
 def _pair(**pool: Any) -> Callable[[], dict[str, Any]]:
@@ -26,7 +31,7 @@ CASES: dict[str, tuple[dict[str, Any], Callable[[], dict[str, Any]]]] = {
     "easy_first": ({"order": "easy_first"}, _pair()),
     "cleaned": ({"cleaning": _CLEANING}, _pair()),
     "near_duplicates": ({"cleaning": _CLEANING}, _pair(near_duplicate=True)),
-    "exact_only": ({"cleaning": {**_CLEANING, "dup_types": ["exact"]}}, _pair(near_duplicate=True)),
+    "exact_only": ({"cleaning": {"dup_types": ["exact"]}}, _pair(near_duplicate=True)),
     "unlabelled_pool": ({"cleaning": _CLEANING}, _pair(labeled=False)),
     "two_pools": (
         {"cleaning": _CLEANING},
@@ -35,15 +40,57 @@ CASES: dict[str, tuple[dict[str, Any], Callable[[], dict[str, Any]]]] = {
 }
 
 
+def _cleaned(prefix: str, source: str, dup_types: list[str]) -> list[dict[str, Any]]:
+    """`source` without its outliers and duplicates, as `cleaning:` cleaned it: steps `outliers-<prefix>`,
+    `duplicates-<prefix>` and `<prefix>-clean`."""
+    return [
+        {"name": f"outliers-{prefix}", "evaluator": "outliers", "input": source},
+        {"name": f"duplicates-{prefix}", "evaluator": "duplicates", "input": source},
+        {
+            "name": f"{prefix}-clean",
+            "transform": "remove",
+            "input": source,
+            "plans": {
+                f"duplicates-{prefix}": {"dup_types": dup_types, "keep": "first"},
+                f"outliers-{prefix}": {"min_flags": 1},
+            },
+        },
+    ]
+
+
 def pipeline(name: str) -> PipelineConfig:
-    """Case `name`'s pipeline: one `data-prioritization` task over its sources, reference first, with an extractor."""
+    """Case `name`'s pipeline: one task over its sources, reference first, with an extractor. It runs
+    `data-prioritization`, or with cleaning, a custom workflow that cleans each source and runs it as step `rank`."""
     settings, datasets = CASES[name]
     sources = datasets()
     # Two toy datasets can share an id, and a dataset's cache is one per id within a process.
     DatasetCache.clear_instances()
+    settings = dict(settings)
+    cleaning = settings.pop("cleaning", None)
+    workflows: list[dict[str, Any]] = [{**_BASE, **settings}]
+    if cleaning is not None:
+        workflows.append(
+            {
+                "name": "cleaned",
+                "inputs": ["reference", {"name": "pools", "list": True}],
+                "steps": [
+                    *_cleaned("reference", "reference", cleaning["dup_types"]),
+                    *_cleaned("pool", "pools", cleaning["dup_types"]),
+                    {"name": "rank", "workflow": "prio", "input": ["reference-clean", "pool-clean"]},
+                ],
+            }
+        )
     return chain_pipeline(
-        workflows=[{**_BASE, **settings}],
-        tasks=[{"name": "t", "workflow": "prio", "sources": list(sources), "extractor": "flat"}],
+        workflows=workflows,
+        evaluators=_EVALUATORS if cleaning is not None else (),
+        tasks=[
+            {
+                "name": "t",
+                "workflow": "prio" if cleaning is None else "cleaned",
+                "sources": list(sources),
+                "extractor": "flat",
+            }
+        ],
         datasets=sources,
         extractor=True,
     )

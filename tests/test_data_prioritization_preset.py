@@ -1,5 +1,5 @@
-"""The data-prioritization preset: each pool ranked against the reference after optional cleaning, and the top of
-each ranking kept as `selected` (spec §10.9)."""
+"""The data-prioritization preset: each pool ranked against the reference, and the top of each ranking kept as
+`selected` (spec §10.9). A custom workflow cleans the data first, with steps or a data-cleaning step."""
 
 import re
 from collections.abc import Mapping
@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from dataeval_flow import run, run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.data_prioritization import DataPrioritizationConfig, DataPrioritizationWorkflow
+from dataeval_flow.workflows.data_prioritization import DataPrioritizationConfig
 from tests.chain_toys import FLAT, chain_pipeline
 from tests.evaluator_toys import ToyImages
 
@@ -46,27 +46,12 @@ def _selected(result: ChainResult) -> dict[str, int]:
     return {key: len(element.output) for key, element in (result.steps["selected"].elements or {}).items()}
 
 
-def test_without_cleaning_the_preset_ranks_and_selects() -> None:
+def test_the_preset_ranks_and_selects() -> None:
     result = _task(_pair())
     assert result.type == "data-prioritization"
     assert list(result.steps) == ["prioritization", "selected"]
     assert result.findings == []
     assert _selected(result) == {"pool": 20}
-
-
-def test_cleaning_runs_as_steps_on_the_reference_and_each_pool() -> None:
-    result = _task(_pair(), cleaning=_CLEANING)
-    assert list(result.steps) == [
-        "outliers-reference",
-        "duplicates-reference",
-        "reference-clean",
-        "outliers-pool",
-        "duplicates-pool",
-        "pool-clean",
-        "prioritization",
-        "selected",
-    ]
-    assert result.steps["prioritization"].inputs == ["pool-clean", "reference-clean"]
 
 
 def test_n_keeps_the_top_of_each_ranking() -> None:
@@ -89,8 +74,8 @@ def test_n_and_fraction_together_are_refused() -> None:
 
 def test_each_pool_is_ranked_on_its_own_against_the_one_reference() -> None:
     sources = {"ref": ToyImages(count=16), "p1": ToyImages(count=20, seed=1), "p2": ToyImages(count=12, seed=2)}
-    result = _task(sources, cleaning=_CLEANING)
-    assert result.steps["reference-clean"].elements is None
+    result = _task(sources)
+    assert result.steps["prioritization"].inputs == ["pools", "reference"]
     assert list(result.steps["prioritization"].elements or {}) == ["p1", "p2"]
     assert list(result.steps["selected"].elements or {}) == ["p1", "p2"]
 
@@ -108,21 +93,13 @@ def test_a_task_naming_one_source_is_refused() -> None:
         )
 
 
-@pytest.mark.parametrize("key", ["health_thresholds", "value_range"])
-def test_a_config_that_still_writes_a_removed_key_is_refused(key: str) -> None:
+@pytest.mark.parametrize(
+    ("key", "value"), [("health_thresholds", {}), ("value_range", [0, 1]), ("cleaning", _CLEANING), ("stats", "bands")]
+)
+def test_a_config_that_still_writes_a_removed_key_is_refused(key: str, value: object) -> None:
     with pytest.raises(ValidationError) as info:
-        DataPrioritizationConfig.model_validate({"name": "prio", key: {} if key == "health_thresholds" else [0, 1]})
+        DataPrioritizationConfig.model_validate({"name": "prio", key: value})
     assert [error["loc"] for error in info.value.errors() if error["type"] == "extra_forbidden"] == [(key,)]
-
-
-def test_exact_only_cleaning_removes_exact_duplicates_alone() -> None:
-    config = DataPrioritizationConfig(cleaning={**_CLEANING, "dup_types": ["exact"]})  # type: ignore[arg-type]
-    steps = [cast("Mapping[str, Any]", step) for step in DataPrioritizationWorkflow.chain(config).steps]
-    (clean,) = [step for step in steps if step["name"] == "pool-clean"]
-    assert clean["plans"] == {
-        "duplicates-pool": {"dup_types": ["exact"], "keep": "first"},
-        "outliers-pool": {"min_flags": 1},
-    }
 
 
 def test_run_takes_a_data_prioritization_config() -> None:
@@ -161,9 +138,28 @@ def test_data_prioritization_runs_as_a_step_after_data_cleaning_over_the_pools()
 
 
 def test_cleaning_that_empties_a_pool_ranks_it_as_empty() -> None:
-    sources = {"ref": ToyImages(count=80), "p1": ToyImages(count=80, seed=1), "p2": ToyImages(count=2, seed=2)}
     cleaning = {"outliers": {"flags": ["visual"], "outlier_threshold": ("zscore", 0.99)}}
-    result = _task(sources, cleaning=cleaning)
-    assert _selected(result) == {"p1": 72, "p2": 0}
+    config = chain_pipeline(
+        workflows=[
+            {"name": "basic_clean", "type": "data-cleaning", **cleaning},
+            {"name": "prio", "type": "data-prioritization", "method": "knn", "k": 3},
+            {
+                "name": "outer",
+                "inputs": ["ref", {"name": "pools", "list": True}],
+                "steps": [
+                    {"name": "cleaning", "workflow": "basic_clean", "input": "pools"},
+                    {"name": "ranking", "workflow": "prio", "input": ["ref", "cleaning.clean"]},
+                ],
+            },
+        ],
+        tasks=[{"name": "t", "workflow": "outer", "sources": ["ref", "p1", "p2"], "extractor": "flat"}],
+        datasets={"ref": ToyImages(count=80), "p1": ToyImages(count=80, seed=1), "p2": ToyImages(count=2, seed=2)},
+        extractor=True,
+    )
+    result = run_tasks(config)["t"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    selected = result.steps["ranking/selected"].elements or {}
+    assert {key: len(element.output) for key, element in selected.items()} == {"p1": 72, "p2": 0}
     assert result.report()
-    assert cast(Mapping[str, Any], result.to_dict()["steps"])["prioritization"]
+    assert cast(Mapping[str, Any], result.to_dict()["steps"])["ranking/prioritization"]

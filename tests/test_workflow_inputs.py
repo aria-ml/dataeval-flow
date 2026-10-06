@@ -13,7 +13,7 @@ SPECS = {
     "audit": (SourceCount.ONE_OR_MORE, {InputKind.METADATA, InputKind.STATS}, {InputKind.EMBEDDINGS}),
     "data-cleaning": (SourceCount.ONE, {InputKind.STATS, InputKind.METADATA}, {InputKind.CLUSTERS}),
     "data-coverage": (SourceCount.ONE, {InputKind.METADATA}, {InputKind.EMBEDDINGS}),
-    "data-prioritization": (SourceCount.TWO_OR_MORE, {InputKind.STATS, InputKind.EMBEDDINGS}, set()),
+    "data-prioritization": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, set()),
     "data-splitting": (SourceCount.ONE, {InputKind.METADATA}, {InputKind.EMBEDDINGS}),
     "drift-monitoring": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.LABELS}),
     "label-space": (SourceCount.ONE, {InputKind.LABELS}, set()),

@@ -303,7 +303,11 @@ print(f"Model saved to {model_path}")
 # - **Incoming data**: Unlabeled pool (1,500 frames, including held-out Air Defense and corrupted samples).
 # - **Extractor**: Trained VehicleNet hooking the `embed` layer for 128-dimensional embeddings.
 # - **Method**: KNN with `hard_first` ordering to rank samples farthest from reference neighbors.
-# - **Pruning**: Outlier and duplicate detection to filter invalid samples before ranking.
+# - **Pruning**: Outlier and exact-duplicate detection to filter invalid samples before ranking.
+#
+# The `data-prioritization` preset ranks; it does not prune. A custom workflow prunes the
+# reference and the pool with `outliers`, `duplicates` and `remove` steps, then runs the preset
+# as its step `rank`, on what they kept.
 
 # %%
 from dataeval_flow.config import (
@@ -314,23 +318,37 @@ from dataeval_flow.config import (
     TaskConfig,
 )
 from dataeval_flow.config.extractors import TorchExtractorConfig
+from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
+from dataeval_flow.steps import CustomWorkflowConfig, StepEntry
 from dataeval_flow.workflows.data_prioritization import DataPrioritizationConfig
 
 ref_dataset = labeled_dataset
 
-from dataeval_flow.workflows.data_prioritization import CleaningSettings
+# The adaptive bound is lower than the default 3.5, to catch subtler corruptions.
+outliers = OutliersConfig(name="outliers", flags=["dimension", "pixel", "visual"], outlier_threshold=("adaptive", 3.0))
+duplicates = DuplicatesConfig(name="duplicates", merge_near_duplicates=True)
+ranking = DataPrioritizationConfig(name="ranking", method="knn", k=5, order="hard_first", policy="difficulty")
 
-workflow = DataPrioritizationConfig(
+
+def pruned(prefix: str, source: str) -> list[StepEntry]:
+    """`source` without its outliers and its exact duplicates: steps `outliers-<prefix>`, `duplicates-<prefix>` and
+    `<prefix>-clean`."""
+    plans = {f"duplicates-{prefix}": {"dup_types": ["exact"], "keep": "first"}, f"outliers-{prefix}": {"min_flags": 1}}
+    return [
+        StepEntry(name=f"outliers-{prefix}", evaluator="outliers", input=source),
+        StepEntry(name=f"duplicates-{prefix}", evaluator="duplicates", input=source),
+        StepEntry(name=f"{prefix}-clean", transform="remove", input=source, plans=plans),
+    ]
+
+
+workflow = CustomWorkflowConfig(
     name="vehicles_prioritize",
-    method="knn",
-    k=5,
-    order="hard_first",
-    policy="difficulty",
-    cleaning=CleaningSettings(
-        # The adaptive bound is lower than the default 3.5, to catch subtler corruptions.
-        outliers={"flags": ["dimension", "pixel", "visual"], "outlier_threshold": ("adaptive", 3.0)},
-        dup_types=["exact"],
-    ),
+    inputs=["reference", {"name": "pools", "list": True}],
+    steps=[
+        *pruned("reference", "reference"),
+        *pruned("pool", "pools"),
+        StepEntry(name="rank", workflow="ranking", input=["reference-clean", "pool-clean"]),
+    ],
 )
 
 task = TaskConfig(
@@ -382,7 +400,8 @@ config = PipelineConfig(
             batch_size=32,
         ),
     ],
-    workflows=[workflow],
+    evaluators=[outliers, duplicates],
+    workflows=[ranking, workflow],
     tasks=[task],
 )
 
@@ -404,8 +423,8 @@ assert result.success
 # %% [markdown]
 # ### Prioritization report
 #
-# The report lists each step of the preset. Its `prioritization` step pictures the 25 highest-priority
-# and the 25 lowest-priority frames.
+# The report lists each step of the workflow. Its `rank/prioritization` step pictures the 25
+# highest-priority and the 25 lowest-priority frames.
 
 # %%
 print(result.report())
@@ -465,7 +484,7 @@ if other_pruned:
 # %%
 # `selected` holds the pool in ranked order. Its indices count within the cleaned pool, so map them back through
 # `pool-clean`'s to index the pool itself.
-selected = result.steps["selected"].elements["test_src"].output
+selected = result.steps["rank/selected"].elements["test_src"].output
 top_indices = [kept[i] for i in selected.resolve_indices()]
 
 # `pool_labels` was read straight off the view; the corruption wrapper alters pixels only,
@@ -575,13 +594,17 @@ except ImportError:
 # %% [markdown]
 # ## Step 7: Keep the top of the ranking
 #
-# Set `select: {n: ...}` or `select: {fraction: ...}` on the workflow and each pool's top
-# items become `selected`, a Dataset a custom workflow can hand to later steps. Here you keep
-# the top 100 frames for a labeling batch.
+# Set `select: {n: ...}` or `select: {fraction: ...}` on the `ranking` entry and each pool's
+# top items become `rank.selected`, a Dataset later steps can read. Here you keep the top 100
+# frames for a labeling batch.
 
 # %%
-top_100 = config.model_copy(update={"workflows": [workflow.model_copy(update={"n": 100})]})
-batch = run_task(top_100, task, cache_dir=Path("./cache")).steps["selected"].elements["test_src"].output
+from dataeval_flow.workflows.data_prioritization import SelectSettings
+
+top_100 = config.model_copy(
+    update={"workflows": [ranking.model_copy(update={"select": SelectSettings(n=100)}), workflow]}
+)
+batch = run_task(top_100, task, cache_dir=Path("./cache")).steps["rank/selected"].elements["test_src"].output
 print(f"Selected for labeling: {len(batch)} frames, the first {len(batch)} of the ranking")
 
 # %% [markdown]
@@ -591,7 +614,8 @@ print(f"Selected for labeling: {len(batch)} frames, the first {len(batch)} of th
 #
 # - Train a custom embedding extractor on reference data.
 # - Configure the `data-prioritization` workflow with KNN distance metrics and `hard_first` ordering.
-# - Prune outliers and duplicates before ranking with cleaning steps.
+# - Prune outliers and exact duplicates with steps of a custom workflow, then run the preset as
+#   its step.
 # - Run the preset via `run_task()`.
 # - Benchmark prioritization results against random selection baselines.
 # - Contrast distance-based prioritization with model uncertainty sampling.
@@ -602,8 +626,10 @@ print(f"Selected for labeling: {len(batch)} frames, the first {len(batch)} of th
 #
 # - **Alternative ranking methods**: Evaluate `kmeans_distance` or `hdbscan_complexity` policies.
 # - **Class-balanced sampling**: Use `policy="class_balanced"` to balance ranking across known classes.
-# - **Threshold tuning**: Adjust `cleaning.outliers.outlier_threshold` and
-#   `cleaning.outliers.flags` to control pruning sensitivity.
+# - **Threshold tuning**: Adjust the `outliers` entry's `outlier_threshold` and `flags` to
+#   control pruning sensitivity.
+# - **Fewer steps**: Prune with a `data-cleaning` step on each input instead, which also
+#   removes near duplicates.
 
 # %% [markdown]
 # ## Related guides

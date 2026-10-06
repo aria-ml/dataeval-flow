@@ -199,8 +199,8 @@ fails these is logged and left out, and a plugin can never take a built-in's nam
 - **Preset settings models** are named for the key they model. A preset's `checks:` map is `<Preset>Checks`. A block
   keyed by a step type is `<Type>Settings`. Where more than one preset defines its own model for one type, each is
   `<Preset><Type>Settings`, because the config schema keys its `$defs` by class name and two models with one name
-  would get mangled names. Where two presets take the same block they share one model: `data-prioritization`'s
-  `cleaning:` reuses `data-cleaning`'s `OutliersSettings` and `DuplicatesSettings`.
+  would get mangled names. Where two presets take the same block they share one model: `audit`'s `outliers:` reuses
+  `data-cleaning`'s `OutliersSettings`.
 - **One home per public name.** A name is exported from one package. `Finding` is exported from `dataeval_flow.steps`,
   beside `Check`, `CheckConfig` and `StepResult`, and not from `dataeval_flow.workflows`. Guard test:
   `test_finding_is_exported_beside_check_and_only_there`. The `list_<kind>s` and `get_<kind>` helpers stay with their

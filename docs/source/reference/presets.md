@@ -16,7 +16,7 @@ every preset that takes it:
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space the preset's labels are read under: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children, read as an inline hierarchy. It is recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` requires it and judges labels against it, and `audit` judges each split's labels against it with `label-conformance`. `data-coverage` refuses it as the config loads, so a data-coverage run on a conformed source records no label space of its own; judge its labels with a `label-space` entry on the same source. |
-| `stats` | a stats policy name, or `null` | `null` | The name of a policy under the top-level `stats:` key, which the preset's image statistics are measured under. Declare one to measure named band groups or the image background; leave it unset to measure the whole image. `audit`, `data-cleaning` and `data-prioritization` pass it to their `outliers` and `duplicates` steps, and outlier detection reads the policy's `outliers_from` views. `ood-detection` passes it to `factor-predictors` and `factor-deviation`, which read the statistics beside the metadata factors. |
+| `stats` | a stats policy name, or `null` | `null` | The name of a policy under the top-level `stats:` key, which the preset's image statistics are measured under. Declare one to measure named band groups or the image background; leave it unset to measure the whole image. `audit` and `data-cleaning` pass it to their `outliers` and `duplicates` steps, and outlier detection reads the policy's `outliers_from` views. `ood-detection` passes it to `factor-predictors` and `factor-deviation`, which read the statistics beside the metadata factors. |
 | `metadata` | a metadata policy name, or `null` | `null` | The name of a policy under the top-level `metadata:` key, which the preset's metadata factors are read under. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave it unset for DataEval's defaults. The preset passes it to every step of its chain that reads metadata. |
 
 ## `audit`
@@ -597,7 +597,7 @@ tasks:
 
 ## `data-prioritization`
 
-Ranks each pool against a reference for labeling, after optional cleaning, and keeps the top.
+Ranks each pool against a reference for labeling, and keeps the top.
 
 - **Answers:** [Which items should be labeled next?](index.md#which-items-should-be-labeled-next)
 - **Reads:** `reference`, then `pools`: the first source is the reference and the rest are the pools. This is the
@@ -605,25 +605,17 @@ Ranks each pool against a reference for labeling, after optional cleaning, and k
   reference, and the chain hands them to it in that order.
 - **Makes:** `selected`, each pool's top-ranked items.
 
-**Chain**, from `cleaning: {outliers: {flags: [pixel], outlier_threshold: zscore}}`, with an extractor for
-`prioritization`:
+**Chain**, from its defaults, with an extractor for `prioritization`:
 
 | Step | Kind | Type | Reads |
 | --- | --- | --- | --- |
-| `outliers-reference` | evaluator | [`outliers`](evaluators.md#outliers) | `input`: `reference` |
-| `duplicates-reference` | evaluator | [`duplicates`](evaluators.md#duplicates) | `input`: `reference` |
-| `reference-clean` | transform | [`remove`](transforms.md#remove) | `input`: `reference`; `plans`: `duplicates-reference`, `outliers-reference` |
-| `outliers-pool` | evaluator | [`outliers`](evaluators.md#outliers) | `input`: `pools` |
-| `duplicates-pool` | evaluator | [`duplicates`](evaluators.md#duplicates) | `input`: `pools` |
-| `pool-clean` | transform | [`remove`](transforms.md#remove) | `input`: `pools`; `plans`: `duplicates-pool`, `outliers-pool` |
-| `prioritization` | evaluator | [`prioritization`](evaluators.md#prioritization) | `input`: `pool-clean`, `reference-clean` |
-| `selected` | transform | [`select`](transforms.md#select) | `input`: `pool-clean`; `ranking`: `prioritization` |
+| `prioritization` | evaluator | [`prioritization`](evaluators.md#prioritization) | `input`: `pools`, `reference` |
+| `selected` | transform | [`select`](transforms.md#select) | `input`: `pools`; `ranking`: `prioritization` |
 
 **Settings** ({py:class}`~dataeval_flow.workflows.data_prioritization.DataPrioritizationConfig`):
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `stats` | a stats policy name, or `null` | `null` | The stats policy; see [Settings every preset shares](#settings-every-preset-shares) |
 | `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
 | `method` | `knn`, `kmeans_distance`, `kmeans_complexity`, `hdbscan_distance` or `hdbscan_complexity` | `knn` | The ranking method. |
 | `k` | a count, or `null` | `null` | The neighbors the `knn` method counts; unset uses the square root of the number of samples. |
@@ -633,16 +625,12 @@ Ranks each pool against a reference for labeling, after optional cleaning, and k
 | `order` | `easy_first` or `hard_first` | `hard_first` | The sort direction: `easy_first` puts prototypical items first, and `hard_first` puts novel or challenging items first. |
 | `policy` | `difficulty`, `stratified` or `class_balanced` | `difficulty` | The selection policy: `difficulty` keeps the ranking's order, `stratified` selects across bins of it, and `class_balanced` balances the classes. |
 | `num_bins` | a count | `50` | The bins of the `stratified` policy. |
-| `cleaning` | a block, or `null` | `null` | Cleaning before ranking: `outliers`, required, and `duplicates`, which take the fields of [`data-cleaning`](#data-cleaning)'s blocks of the same names, with the same defaults; and `dup_types`, the duplicate kinds removed, `[exact, near]` unless set. Unset ranks the data as it is |
 | `select` | a block | `n: null`, `fraction: null` | [`select`](transforms.md#select)'s `n` and `fraction`: how much of each pool's ranking `selected` keeps |
 
-The preset has no `checks:`. With `cleaning:` set, the reference and each pool are cleaned by their own `outliers`
-and `duplicates` steps and a `remove` step, and `method`, `k`, `c`, `n_init`, `max_cluster_size`, `order`, `policy` and
-`num_bins` are the settings of `prioritization`. `selected` keeps the top of each pool's ranking: `select.n` items, or
-`select.fraction` of them. Without `cleaning:`, only `prioritization` and `selected` run, reading `pools` and
-`reference`. `cleaning.dup_types: [exact]` makes both plans' `dup_types` `[exact]`. With neither `select.n` nor
-`select.fraction`, `selected` keeps every item (`fraction: 1.0`). The chain has no checks, so it makes no findings. See
-[Data Prioritization](../concepts/Prioritization.md).
+The preset has no `checks:`. `method`, `k`, `c`, `n_init`, `max_cluster_size`, `order`, `policy` and `num_bins` are
+the settings of `prioritization`, which ranks each pool against the reference. `selected` keeps the top of each pool's
+ranking: `select.n` items, or `select.fraction` of them. With neither, `selected` keeps every item (`fraction: 1.0`).
+The chain has no checks, so it makes no findings. See [Data Prioritization](../concepts/Prioritization.md).
 
 ```yaml
 workflows:
@@ -650,12 +638,42 @@ workflows:
     type: data-prioritization
     method: knn
     k: 5
-    cleaning: {outliers: {flags: [pixel, visual], outlier_threshold: zscore}}
     select: {n: 200}
 
 tasks:
   - {name: next-labels, workflow: prioritization, sources: [labeled, unlabeled], extractor: bovw_ext}
 ```
+
+To rank clean data, run the preset as a step of a custom workflow, after a [`data-cleaning`](#data-cleaning) step on
+the reference and one on the pools. A step over the pools runs once per pool, so `pool-clean.clean` is a list keyed by
+pool, and `rank.selected` is too:
+
+```yaml
+workflows:
+  - name: cleaning
+    type: data-cleaning
+    outliers: {flags: [pixel, visual], outlier_threshold: zscore}
+
+  - name: prioritization
+    type: data-prioritization
+    method: knn
+    k: 5
+    select: {n: 200}
+
+  - name: clean_then_rank
+    inputs: [reference, {name: pools, list: true}]
+    steps:
+      - {name: reference-clean, workflow: cleaning, input: reference}
+      - {name: pool-clean, workflow: cleaning, input: pools}
+      - {name: rank, workflow: prioritization, input: [reference-clean.clean, pool-clean.clean]}
+
+tasks:
+  - {name: next-labels, workflow: clean_then_rank, sources: [labeled, unlabeled], extractor: bovw_ext}
+```
+
+`data-cleaning` removes exact and near duplicates. To keep near duplicates, clean with an `outliers` step, a
+`duplicates` step and a `remove` step whose duplicates plan sets `dup_types: [exact]`; see
+[`remove`](transforms.md#remove).
 
 ## `metadata-triage`
 

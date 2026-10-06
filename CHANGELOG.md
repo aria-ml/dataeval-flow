@@ -534,6 +534,9 @@
 
 ### Removed
 
+- data-prioritization's `cleaning:` and `stats:`, with `CleaningSettings`: run the preset as a step of a custom
+  workflow after a `data-cleaning` step on the reference and one on the pools, or after `outliers`, `duplicates` and
+  `remove` steps to keep near duplicates (see the Preset Catalog)
 - The `selections:` and `selection:` aliases for `views:` and `view:`, and a `views:` entry's `steps:` alias for
   `operations:`, deprecated since v0.2.0
 - `parameter-sweep`, with `ParameterSweepConfig`, `ParameterSweepResult` and `ParameterSweepWorkflow`: write a

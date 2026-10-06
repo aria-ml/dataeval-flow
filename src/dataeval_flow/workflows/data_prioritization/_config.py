@@ -1,37 +1,18 @@
-"""The ``data-prioritization`` preset's config and its cleaning block."""
+"""The ``data-prioritization`` preset's config."""
 
 from typing import ClassVar, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.config._schemas._mixins import StatsConfigMixin
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
-from dataeval_flow.workflows.data_cleaning._config import DuplicatesSettings, OutliersSettings
 
-__all__ = ["CleaningSettings", "DataPrioritizationConfig", "SelectSettings"]
+__all__ = ["DataPrioritizationConfig", "SelectSettings"]
 
 MethodType = Literal["knn", "kmeans_distance", "kmeans_complexity", "hdbscan_distance", "hdbscan_complexity"]
 OrderType = Literal["easy_first", "hard_first"]
 PolicyType = Literal["difficulty", "stratified", "class_balanced"]
-
-
-class CleaningSettings(BaseModel):
-    """The cleaning before ranking: the reference and each pool lose their outliers, and each duplicate but the first
-    of its group. Its `outliers` and `duplicates` blocks are data-cleaning's."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    outliers: OutliersSettings = Field(description="The `outliers` step's settings.")
-    duplicates: DuplicatesSettings = Field(
-        default_factory=DuplicatesSettings, description="The `duplicates` step's settings."
-    )
-    dup_types: list[Literal["exact", "near"]] = Field(
-        default_factory=lambda: ["exact", "near"],
-        min_length=1,
-        description="The duplicate kinds removed: `[exact]` keeps near duplicates.",
-    )
 
 
 class SelectSettings(BaseModel):
@@ -63,8 +44,8 @@ class SelectSettings(BaseModel):
         return self
 
 
-class DataPrioritizationConfig(WorkflowConfig[ChainResult], StatsConfigMixin):
-    """The settings of one ``data-prioritization`` entry: how data is ranked against a reference, and cleaned first.
+class DataPrioritizationConfig(WorkflowConfig[ChainResult]):
+    """The settings of one ``data-prioritization`` entry: how data is ranked against a reference.
 
     Requires at least two sources: the first is the reference (labeled) dataset,
     and each later source is a pool, ranked against it on its own.
@@ -79,10 +60,9 @@ class DataPrioritizationConfig(WorkflowConfig[ChainResult], StatsConfigMixin):
             order: hard_first
             select:
               n: 200
-            cleaning:
-              outliers:
-                flags: [dimension, pixel]
-                outlier_threshold: adaptive
+
+    To clean the data first, run the preset as a step of a custom workflow, after a ``data-cleaning`` step or the
+    ``outliers``, ``duplicates`` and ``remove`` steps.
     """
 
     type: str = Field(
@@ -90,7 +70,7 @@ class DataPrioritizationConfig(WorkflowConfig[ChainResult], StatsConfigMixin):
     )
 
     inputs: ClassVar[InputSpec] = InputSpec(
-        required=frozenset({InputKind.STATS, InputKind.EMBEDDINGS}),
+        required=frozenset({InputKind.EMBEDDINGS}),
         sources=SourceCount.TWO_OR_MORE,
     )
 
@@ -134,8 +114,5 @@ class DataPrioritizationConfig(WorkflowConfig[ChainResult], StatsConfigMixin):
         description="Number of bins for stratified policy.",
     )
 
-    # --- Optional cleaning, and selection ---
-    cleaning: CleaningSettings | None = Field(
-        default=None, description="Cleaning before ranking; unset ranks the data as it is."
-    )
+    # --- Selection ---
     select: SelectSettings = Field(default_factory=SelectSettings, description="The `select` step's settings.")

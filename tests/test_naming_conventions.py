@@ -191,7 +191,7 @@ _MINIMAL = {
     },
     "data-cleaning": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}},
     "data-coverage": {"coverage": {"method": "naive"}},
-    "data-prioritization": {"cleaning": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}},
+    "data-prioritization": {},
     "data-splitting": {"rebalance": "interclass", "coverage": {"method": "naive"}},
     "drift-monitoring": {
         "detectors": [{"name": "mmd", "type": "drift-mmd", "chunking": {"chunk_count": 5}}],

@@ -49,8 +49,8 @@ workflows:
       outlier_threshold: modzscore
 ```
 
-Reference a policy by name from any workflow that computes image statistics — `data-cleaning`, `audit`,
-`ood-detection`, and `data-prioritization` all take a `stats:` name; `data-coverage` reads no statistics and refuses
+Reference a policy by name from any workflow that computes image statistics — `data-cleaning`, `audit` and
+`ood-detection` all take a `stats:` name; `data-coverage` and `data-prioritization` read no statistics and refuse
 one. Two workflows naming the same policy measure the same things, so their results are comparable.
 
 ### measure is a complete statement
