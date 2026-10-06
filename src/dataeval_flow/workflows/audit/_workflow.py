@@ -6,7 +6,6 @@ __all__ = ["NO_EVALUATION_SPLIT", "PER_EVALUATION_SPLIT", "AuditWorkflow"]
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from dataeval_flow.evaluators.bias import BalanceConfig, DiversityConfig, FactorSummaryConfig
 from dataeval_flow.evaluators.quality import (
     ContentDigestConfig,
     DuplicatesConfig,
@@ -15,13 +14,19 @@ from dataeval_flow.evaluators.quality import (
     LabelHealthConfig,
     OutliersConfig,
 )
-from dataeval_flow.evaluators.scope import CompletenessConfig, CoverageConfig, LabelReconciliationConfig
+from dataeval_flow.evaluators.scope import LabelReconciliationConfig
 from dataeval_flow.evaluators.shift import DivergenceConfig, OODKNeighborsConfig
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._preset import NextSteps, Preset, PresetChain, Record, ReportGroup
 from dataeval_flow.workflows.audit._config import AuditConfig
+from dataeval_flow.workflows.data_coverage._workflow import (
+    coverage_evaluators,
+    embedding_steps,
+    factor_steps,
+    gap_steps,
+)
 
 if TYPE_CHECKING:
     from dataeval_flow._chain._nodes import Node, NodeList
@@ -187,11 +192,7 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
             ContentDigestConfig(name="content-digest"),
             OODKNeighborsConfig(name="ood-kneighbors", **config.ood_kneighbors.model_dump()),
             DivergenceConfig(name="divergence", method=config.divergence.method),
-            CoverageConfig(name="coverage", **config.coverage.model_dump()),
-            CompletenessConfig(name="completeness"),
-            FactorSummaryConfig(name="factor-summary", metadata=config.metadata),
-            BalanceConfig(name="balance", metadata=config.metadata),
-            DiversityConfig(name="diversity", method=config.diversity.method, metadata=config.metadata),
+            *coverage_evaluators(config),
         ]
         steps: list[dict[str, Any]] = [
             *_each_split("evaluator", "label-health"),
@@ -269,57 +270,11 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
                 **c.stratification.model_dump(),
             },
             # train only (spec §4.3); detection data is cropped before coverage (spec §4.5)
-            {
-                "name": "crops",
-                "transform": "wrap",
-                "input": "train",
-                "wrapper": "DetectionCrops",
-                "params": config.wrap.params.model_dump(),
-                "other_kinds": "pass",
-            },
-            {"name": "coverage", "evaluator": "coverage", "input": "crops", "optional": True},
-            {"name": "class-coverage", "check": "class-coverage", "input": "coverage", **c.class_coverage.model_dump()},
-        ]
-        if config.coverage.method == "naive":
-            steps.append(
-                {
-                    "name": "uncovered-items",
-                    "check": "uncovered-items",
-                    "input": "coverage",
-                    **c.uncovered_items.model_dump(),
-                }
-            )
-        steps += [
-            {"name": "completeness", "evaluator": "completeness", "input": "crops", "optional": True},
-            {
-                "name": "dimensional-completeness",
-                "check": "dimensional-completeness",
-                "input": "completeness",
-                **c.dimensional_completeness.model_dump(),
-            },
-            {"name": "factor-summary", "evaluator": "factor-summary", "input": "train"},
-            {"name": "balance", "evaluator": "balance", "input": "train", "optional": True},
-            {"name": "diversity", "evaluator": "diversity", "input": "train", "optional": True},
+            *embedding_steps(config, "train"),
+            *factor_steps("train"),
             {"name": "shortcut-risk", "check": "shortcut-risk", "input": "balance", **c.shortcut_risk.model_dump()},
+            *gap_steps(config, "train"),
         ]
-        if config.factor_gaps is not False:
-            steps += [
-                {
-                    "name": "factor-gaps",
-                    "combine": "factor-gaps",
-                    "input": "train",
-                    "balance": "balance",
-                    "optional": True,
-                    "metadata": config.metadata,
-                    **config.factor_gaps.model_dump(),
-                },
-                {
-                    "name": "factor-coverage-gaps",
-                    "check": "factor-coverage-gaps",
-                    "input": "factor-gaps",
-                    **c.factor_coverage_gaps.model_dump(),
-                },
-            ]
         return PresetChain(
             steps=steps,
             evaluators=evaluators,
