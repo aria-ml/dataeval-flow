@@ -58,6 +58,15 @@ def test_data_cleaning_hands_its_duplicates_block_to_the_duplicates_entry() -> N
     assert entry.merge_near_duplicates is False
 
 
+def test_data_prioritization_ranks_by_its_prioritization_block() -> None:
+    config = DataPrioritizationConfig.model_validate(
+        {"prioritization": {"method": "kmeans_distance", "c": 4, "n_init": 3, "policy": "stratified", "num_bins": 9}}
+    )
+    entry = _entry(DataPrioritizationWorkflow.chain(config), "prioritization")
+    assert (entry.method, entry.c, entry.n_init) == ("kmeans_distance", 4, 3)
+    assert (entry.order, entry.policy, entry.num_bins) == ("hard_first", "stratified", 9)
+
+
 def test_data_prioritization_selects_by_its_select_block() -> None:
     config = DataPrioritizationConfig.model_validate({"select": {"n": 7}})
     assert _step(DataPrioritizationWorkflow.chain(config), "selected")["n"] == 7

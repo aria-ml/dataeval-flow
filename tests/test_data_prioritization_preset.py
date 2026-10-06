@@ -16,6 +16,7 @@ from tests.chain_toys import FLAT, chain_pipeline
 from tests.evaluator_toys import ToyImages
 
 _CLEANING = {"outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}}
+_KNN = {"method": "knn", "k": 3}
 
 
 @pytest.fixture(autouse=True)
@@ -27,7 +28,7 @@ def _fresh_cache():
 
 def _task(sources: dict[str, Any], **settings: Any) -> ChainResult:
     config = chain_pipeline(
-        workflows=[{"name": "prio", "type": "data-prioritization", "method": "knn", "k": 3, **settings}],
+        workflows=[{"name": "prio", "type": "data-prioritization", "prioritization": _KNN, **settings}],
         tasks=[{"name": "t", "workflow": "prio", "sources": list(sources), "extractor": "flat"}],
         datasets=sources,
         extractor=True,
@@ -94,7 +95,15 @@ def test_a_task_naming_one_source_is_refused() -> None:
 
 
 @pytest.mark.parametrize(
-    ("key", "value"), [("health_thresholds", {}), ("value_range", [0, 1]), ("cleaning", _CLEANING), ("stats", "bands")]
+    ("key", "value"),
+    [
+        ("health_thresholds", {}),
+        ("value_range", [0, 1]),
+        ("cleaning", _CLEANING),
+        ("stats", "bands"),
+        ("method", "knn"),
+        ("order", "easy_first"),
+    ],
 )
 def test_a_config_that_still_writes_a_removed_key_is_refused(key: str, value: object) -> None:
     with pytest.raises(ValidationError) as info:
@@ -103,7 +112,7 @@ def test_a_config_that_still_writes_a_removed_key_is_refused(key: str, value: ob
 
 
 def test_run_takes_a_data_prioritization_config() -> None:
-    result = run(DataPrioritizationConfig(method="knn", k=3), _pair(), extractor=FLAT)
+    result = run(DataPrioritizationConfig(prioritization=_KNN), _pair(), extractor=FLAT)  # type: ignore[arg-type]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
     assert _selected(result) == {"pool": 20}
@@ -114,7 +123,7 @@ def test_data_prioritization_runs_as_a_step_after_data_cleaning_over_the_pools()
     config = chain_pipeline(
         workflows=[
             {"name": "basic_clean", "type": "data-cleaning", **_CLEANING},
-            {"name": "prio", "type": "data-prioritization", "method": "knn", "k": 3},
+            {"name": "prio", "type": "data-prioritization", "prioritization": _KNN},
             {
                 "name": "outer",
                 "inputs": ["ref", {"name": "pools", "list": True}],
@@ -142,7 +151,7 @@ def test_cleaning_that_empties_a_pool_ranks_it_as_empty() -> None:
     config = chain_pipeline(
         workflows=[
             {"name": "basic_clean", "type": "data-cleaning", **cleaning},
-            {"name": "prio", "type": "data-prioritization", "method": "knn", "k": 3},
+            {"name": "prio", "type": "data-prioritization", "prioritization": _KNN},
             {
                 "name": "outer",
                 "inputs": ["ref", {"name": "pools", "list": True}],

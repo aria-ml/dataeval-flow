@@ -39,19 +39,7 @@ class DataPrioritizationWorkflow(Preset, Workflow[DataPrioritizationConfig, Chai
     @classmethod
     def chain(cls, config: DataPrioritizationConfig) -> PresetChain:
         """The ranking, and the selection."""
-        evaluators: list[Any] = [
-            PrioritizationConfig(
-                name="prioritization",
-                method=config.method,
-                k=config.k,
-                c=config.c,
-                n_init=config.n_init,
-                max_cluster_size=config.max_cluster_size,
-                order=config.order,
-                policy=config.policy,
-                num_bins=config.num_bins,
-            )
-        ]
+        evaluators = [PrioritizationConfig(name="prioritization", **config.prioritization.model_dump())]
         amount: dict[str, Any] = (
             {"n": config.select.n} if config.select.n is not None else {"fraction": config.select.fraction or 1.0}
         )

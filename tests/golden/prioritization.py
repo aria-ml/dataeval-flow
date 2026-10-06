@@ -13,7 +13,8 @@ from dataeval_flow.config import PipelineConfig
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 
-_BASE: dict[str, Any] = {"name": "prio", "type": "data-prioritization", "method": "knn", "k": 3}
+_KNN: dict[str, Any] = {"method": "knn", "k": 3}
+_BASE: dict[str, Any] = {"name": "prio", "type": "data-prioritization", "prioritization": _KNN}
 _CLEANING: dict[str, Any] = {"dup_types": ["exact", "near"]}
 _EVALUATORS = [
     {"name": "outliers", "type": "outliers", "flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
@@ -28,7 +29,7 @@ def _pair(**pool: Any) -> Callable[[], dict[str, Any]]:
 
 CASES: dict[str, tuple[dict[str, Any], Callable[[], dict[str, Any]]]] = {
     "plain": ({}, _pair()),
-    "easy_first": ({"order": "easy_first"}, _pair()),
+    "easy_first": ({"prioritization": {**_KNN, "order": "easy_first"}}, _pair()),
     "cleaned": ({"cleaning": _CLEANING}, _pair()),
     "near_duplicates": ({"cleaning": _CLEANING}, _pair(near_duplicate=True)),
     "exact_only": ({"cleaning": {"dup_types": ["exact"]}}, _pair(near_duplicate=True)),

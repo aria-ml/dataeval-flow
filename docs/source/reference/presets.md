@@ -617,27 +617,18 @@ Ranks each pool against a reference for labeling, and keeps the top.
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
-| `method` | `knn`, `kmeans_distance`, `kmeans_complexity`, `hdbscan_distance` or `hdbscan_complexity` | `knn` | The ranking method. |
-| `k` | a count, or `null` | `null` | The neighbors the `knn` method counts; unset uses the square root of the number of samples. |
-| `c` | a count, or `null` | `null` | The clusters the `kmeans` and `hdbscan` methods make; unset uses the square root of the number of samples. |
-| `n_init` | a count, or `auto` | `auto` | The K-means initializations, for the `kmeans` methods only. |
-| `max_cluster_size` | a count, or `null` | `null` | The largest cluster, for the `hdbscan` methods only; unset sets no limit. |
-| `order` | `easy_first` or `hard_first` | `hard_first` | The sort direction: `easy_first` puts prototypical items first, and `hard_first` puts novel or challenging items first. |
-| `policy` | `difficulty`, `stratified` or `class_balanced` | `difficulty` | The selection policy: `difficulty` keeps the ranking's order, `stratified` selects across bins of it, and `class_balanced` balances the classes. |
-| `num_bins` | a count | `50` | The bins of the `stratified` policy. |
+| `prioritization` | a block | `method: knn`, `n_init: auto`, `order: hard_first` where the step's own default is DataEval's `easy_first`, `policy: difficulty`, `num_bins: 50` | [`prioritization`](evaluators.md#prioritization)'s `method`, `k`, `c`, `n_init`, `max_cluster_size`, `order`, `policy` and `num_bins`: how each pool is ranked |
 | `select` | a block | `n: null`, `fraction: null` | [`select`](transforms.md#select)'s `n` and `fraction`: how much of each pool's ranking `selected` keeps |
 
-The preset has no `checks:`. `method`, `k`, `c`, `n_init`, `max_cluster_size`, `order`, `policy` and `num_bins` are
-the settings of `prioritization`, which ranks each pool against the reference. `selected` keeps the top of each pool's
-ranking: `select.n` items, or `select.fraction` of them. With neither, `selected` keeps every item (`fraction: 1.0`).
+The preset has no `checks:`. `prioritization` ranks each pool against the reference, `hard_first` putting novel or
+challenging items first. `selected` keeps the top of each pool's ranking: `select.n` items, or `select.fraction` of them. With neither, `selected` keeps every item (`fraction: 1.0`).
 The chain has no checks, so it makes no findings. See [Data Prioritization](../concepts/Prioritization.md).
 
 ```yaml
 workflows:
   - name: prioritization
     type: data-prioritization
-    method: knn
-    k: 5
+    prioritization: {method: knn, k: 5}
     select: {n: 200}
 
 tasks:
@@ -656,8 +647,7 @@ workflows:
 
   - name: prioritization
     type: data-prioritization
-    method: knn
-    k: 5
+    prioritization: {method: knn, k: 5}
     select: {n: 200}
 
   - name: clean_then_rank

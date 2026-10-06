@@ -327,7 +327,9 @@ ref_dataset = labeled_dataset
 # The adaptive bound is lower than the default 3.5, to catch subtler corruptions.
 outliers = OutliersConfig(name="outliers", flags=["dimension", "pixel", "visual"], outlier_threshold=("adaptive", 3.0))
 duplicates = DuplicatesConfig(name="duplicates", merge_near_duplicates=True)
-ranking = DataPrioritizationConfig(name="ranking", method="knn", k=5, order="hard_first", policy="difficulty")
+ranking = DataPrioritizationConfig(
+    name="ranking", prioritization={"method": "knn", "k": 5, "order": "hard_first", "policy": "difficulty"}
+)
 
 
 def pruned(prefix: str, source: str) -> list[StepEntry]:
@@ -625,7 +627,8 @@ print(f"Selected for labeling: {len(batch)} frames, the first {len(batch)} of th
 # ## Next steps
 #
 # - **Alternative ranking methods**: Evaluate `kmeans_distance` or `hdbscan_complexity` policies.
-# - **Class-balanced sampling**: Use `policy="class_balanced"` to balance ranking across known classes.
+# - **Class-balanced sampling**: Set `prioritization={"policy": "class_balanced"}` to balance
+#   ranking across known classes.
 # - **Threshold tuning**: Adjust the `outliers` entry's `outlier_threshold` and `flags` to
 #   control pruning sensitivity.
 # - **Fewer steps**: Prune with a `data-cleaning` step on each input instead, which also

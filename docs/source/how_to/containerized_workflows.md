@@ -366,10 +366,11 @@ See the {doc}`Prioritization tutorial <../notebooks/data_prioritization>` for a 
 workflows:
   - name: label_next
     type: data-prioritization
-    method: knn                    # knn | kmeans_distance | kmeans_complexity
+    prioritization:
+      method: knn                  # knn | kmeans_distance | kmeans_complexity
                                    # | hdbscan_distance | hdbscan_complexity
-    order: hard_first              # or easy_first
-    policy: difficulty             # difficulty | stratified | class_balanced
+      order: hard_first            # or easy_first
+      policy: difficulty           # difficulty | stratified | class_balanced
     select:
       n: 200                       # keep each pool's top 200 as `selected`; omit to keep all
 ```

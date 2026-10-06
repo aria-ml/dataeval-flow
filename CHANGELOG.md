@@ -227,6 +227,9 @@
 
 ### Changed
 
+- data-prioritization's ranking settings, `method`, `k`, `c`, `n_init`, `max_cluster_size`, `order`, `policy` and
+  `num_bins`, sit under a `prioritization:` block, as every preset holds a step's settings under its type, with
+  `PrioritizationSettings` as its model
 - The findings that data-cleaning, data-coverage and ood-detection shipped are retitled, so anything that matches a
   title must follow: "Duplicates" is "Image Duplicates"; "Label Distribution", and "Label/Directory_Name Distribution"
   on an ImageFolder source, are "Class Imbalance"; "Embedding Coverage" is "Class Coverage"; "Metadata Coverage Gaps"

@@ -4381,7 +4381,7 @@
     },
     "DataPrioritizationConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``data-prioritization`` entry: how data is ranked against a reference.\n\nRequires at least two sources: the first is the reference (labeled) dataset,\nand each later source is a pool, ranked against it on its own.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        method: knn\n        k: 10\n        order: hard_first\n        select:\n          n: 200\n\nTo clean the data first, run the preset as a step of a custom workflow, after a ``data-cleaning`` step or the\n``outliers``, ``duplicates`` and ``remove`` steps.",
+      "description": "The settings of one ``data-prioritization`` entry: how data is ranked against a reference.\n\nRequires at least two sources: the first is the reference (labeled) dataset,\nand each later source is a pool, ranked against it on its own.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        prioritization:\n          method: knn\n          k: 10\n          order: hard_first\n        select:\n          n: 200\n\nTo clean the data first, run the preset as a step of a custom workflow, after a ``data-cleaning`` step or the\n``outliers``, ``duplicates`` and ``remove`` steps.",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -4412,102 +4412,9 @@
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
-        "method": {
-          "default": "knn",
-          "description": "Ranking method: knn, kmeans_distance, kmeans_complexity, hdbscan_distance, hdbscan_complexity.",
-          "enum": [
-            "knn",
-            "kmeans_distance",
-            "kmeans_complexity",
-            "hdbscan_distance",
-            "hdbscan_complexity"
-          ],
-          "title": "Method",
-          "type": "string"
-        },
-        "k": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Number of nearest neighbors for knn method. None = sqrt(n_samples).",
-          "title": "K"
-        },
-        "c": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Number of clusters for clustering methods. None = sqrt(n_samples).",
-          "title": "C"
-        },
-        "n_init": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "const": "auto",
-              "type": "string"
-            }
-          ],
-          "default": "auto",
-          "description": "Number of K-means initializations (kmeans methods only).",
-          "title": "N Init"
-        },
-        "max_cluster_size": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Maximum cluster size for HDBSCAN methods.",
-          "title": "Max Cluster Size"
-        },
-        "order": {
-          "default": "hard_first",
-          "description": "Sort direction: easy_first (prototypical first) or hard_first (novel/challenging first).",
-          "enum": [
-            "easy_first",
-            "hard_first"
-          ],
-          "title": "Order",
-          "type": "string"
-        },
-        "policy": {
-          "default": "difficulty",
-          "description": "Selection policy: difficulty (direct ordering), stratified (binned), class_balanced.",
-          "enum": [
-            "difficulty",
-            "stratified",
-            "class_balanced"
-          ],
-          "title": "Policy",
-          "type": "string"
-        },
-        "num_bins": {
-          "default": 50,
-          "description": "Number of bins for stratified policy.",
-          "exclusiveMinimum": 0,
-          "title": "Num Bins",
-          "type": "integer"
+        "prioritization": {
+          "$ref": "#/$defs/PrioritizationSettings",
+          "description": "The `prioritization` step's settings."
         },
         "select": {
           "$ref": "#/$defs/SelectSettings",
@@ -10497,6 +10404,111 @@
         }
       },
       "title": "PrioritizationConfig",
+      "type": "object"
+    },
+    "PrioritizationSettings": {
+      "additionalProperties": false,
+      "description": "The `prioritization` step's settings: how each pool is ranked against the reference.",
+      "properties": {
+        "method": {
+          "default": "knn",
+          "description": "Ranking method: knn, kmeans_distance, kmeans_complexity, hdbscan_distance, hdbscan_complexity.",
+          "enum": [
+            "knn",
+            "kmeans_distance",
+            "kmeans_complexity",
+            "hdbscan_distance",
+            "hdbscan_complexity"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of nearest neighbors for knn method. None = sqrt(n_samples).",
+          "title": "K"
+        },
+        "c": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of clusters for clustering methods. None = sqrt(n_samples).",
+          "title": "C"
+        },
+        "n_init": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "const": "auto",
+              "type": "string"
+            }
+          ],
+          "default": "auto",
+          "description": "Number of K-means initializations (kmeans methods only).",
+          "title": "N Init"
+        },
+        "max_cluster_size": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum cluster size for HDBSCAN methods.",
+          "title": "Max Cluster Size"
+        },
+        "order": {
+          "default": "hard_first",
+          "description": "Sort direction: easy_first (prototypical first) or hard_first (novel/challenging first), where the step's own default is DataEval's easy_first.",
+          "enum": [
+            "easy_first",
+            "hard_first"
+          ],
+          "title": "Order",
+          "type": "string"
+        },
+        "policy": {
+          "default": "difficulty",
+          "description": "Selection policy: difficulty (direct ordering), stratified (binned), class_balanced.",
+          "enum": [
+            "difficulty",
+            "stratified",
+            "class_balanced"
+          ],
+          "title": "Policy",
+          "type": "string"
+        },
+        "num_bins": {
+          "default": 50,
+          "description": "Number of bins for stratified policy.",
+          "exclusiveMinimum": 0,
+          "title": "Num Bins",
+          "type": "integer"
+        }
+      },
+      "title": "PrioritizationSettings",
       "type": "object"
     },
     "ReductionOptionsConfig": {

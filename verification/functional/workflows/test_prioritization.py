@@ -32,10 +32,7 @@ class TestDataPrioritizationWorkflow:
                 DataPrioritizationConfig(
                     name="prio_main",
                     type="data-prioritization",
-                    method="knn",
-                    k=3,
-                    order="hard_first",
-                    policy="difficulty",
+                    prioritization={"method": "knn", "k": 3, "order": "hard_first", "policy": "difficulty"},
                 ),
             ],
             tasks=[
