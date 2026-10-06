@@ -1,6 +1,6 @@
 """Preflight: what each step needs resolved before any step runs, and the Dataset kinds reaching each (spec §5.4)."""
 
-__all__ = ["check_kinds", "derive_policies", "detect_kind", "step_contexts"]
+__all__ = ["check_kinds", "derive_from_node", "derive_policies", "detect_kind", "step_contexts"]
 
 import logging
 from collections.abc import Mapping, Sequence
@@ -253,10 +253,6 @@ def derive_policies(
     object. Raises GraphError where a `reference_split` names no source the task binds, and RuntimeError where the
     reference's Metadata cannot be built: nothing else is comparable without it.
     """
-    from dataeval_flow._binning import _descriptor
-    from dataeval_flow._policy import derive_from, policy_key
-    from dataeval_flow._result import failure_message
-
     slot = inputs.get(reference)
     if not isinstance(slot, Node) or slot.source is None:
         raise GraphError(f"The preset names reference `{reference}`, which is no slot taking one source.")
@@ -276,20 +272,50 @@ def derive_policies(
     built: dict[tuple[str, str], tuple[Any, Any]] = {}
     derived = dict(contexts)
     for spec, policy, source in chosen:
-        key = (policy_key(policy), source)
-        try:
-            if key not in built:
-                metadata = _read_metadata(bound[source], policy)
-                built[key] = metadata, _descriptor(metadata).factors or None
-            metadata, descriptor = built[key]
-            derived_policy = derive_from(policy, metadata, descriptor)
-        except Exception as error:
-            _logger.debug("Reference derivation failed", exc_info=error)
-            named = _policy_name(spec)
-            under = f"metadata policy {named!r}" if named else "DataEval's default metadata policy"
-            raise RuntimeError(
-                f"The reference split `{bound[source].address}` could not be encoded under {under}, and without its "
-                f"encoding no other split's factors are comparable: {failure_message(error)}"
-            ) from error
+        derived_policy = _derived(spec, policy, bound[source], built)
         derived[spec.name] = replace(contexts[spec.name], derived_policy=derived_policy, reference=source)
     return derived
+
+
+def derive_from_node(
+    specs: Sequence[StepSpec], contexts: Mapping[str, StepContext], node: Node
+) -> dict[str, StepContext]:
+    """`contexts`, each of `specs` with a metadata policy also given that policy put on `node`'s encoding: a spliced
+    preset's reference (audit-as-a-step spec D7). Each such step's `reference_addresses` starts as `node`'s address;
+    the run adds what it makes from `node` alone. RuntimeError where `node`'s Metadata cannot be built."""
+    built: dict[tuple[str, str], tuple[Any, Any]] = {}
+    derived = dict(contexts)
+    for spec in specs:
+        context = contexts.get(spec.name)
+        if context is None or context.metadata_policy is None:
+            continue
+        derived[spec.name] = replace(
+            context,
+            derived_policy=_derived(spec, context.metadata_policy, node, built),
+            reference_addresses=frozenset({node.address}),
+        )
+    return derived
+
+
+def _derived(spec: StepSpec, policy: Any, node: Node, built: dict[tuple[str, str], tuple[Any, Any]]) -> Any:
+    """`policy` put on `node`'s encoding, building `node`'s Metadata once per policy into `built`. RuntimeError where it
+    cannot be built: nothing else is comparable without it."""
+    from dataeval_flow._binning import _descriptor
+    from dataeval_flow._policy import derive_from, policy_key
+    from dataeval_flow._result import failure_message
+
+    key = (policy_key(policy), node.address)
+    try:
+        if key not in built:
+            metadata = _read_metadata(node, policy)
+            built[key] = metadata, _descriptor(metadata).factors or None
+        metadata, descriptor = built[key]
+        return derive_from(policy, metadata, descriptor)
+    except Exception as error:
+        _logger.debug("Reference derivation failed", exc_info=error)
+        named = _policy_name(spec)
+        under = f"metadata policy {named!r}" if named else "DataEval's default metadata policy"
+        raise RuntimeError(
+            f"The reference split `{node.address}` could not be encoded under {under}, and without its encoding no "
+            f"other split's factors are comparable: {failure_message(error)}"
+        ) from error

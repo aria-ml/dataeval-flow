@@ -16,7 +16,7 @@ from dataeval_flow._chain._identity import element_key, output_key, settings_of,
 from dataeval_flow._chain._nodes import Missing, Node, NodeList, Root
 from dataeval_flow._chain._reads import MetadataRead, ReadingContext, note_read, noting_reads
 from dataeval_flow._result import LabelSpaceRecord, LineageRecord, failure_message
-from dataeval_flow.steps._address import Address, pair_key, pair_keys
+from dataeval_flow.steps._address import Address, pair_key, pair_keys, parse_address
 from dataeval_flow.steps._by import roll_up
 from dataeval_flow.steps._check import Check, CheckContext
 from dataeval_flow.steps._combine import Combine, CombineContext
@@ -26,6 +26,7 @@ from dataeval_flow.steps._step import StepSkipped, Transform, TransformContext
 from dataeval_flow.workflows._base import Finding
 
 if TYPE_CHECKING:
+    from dataeval_flow._chain._presets import Splice, SpliceRun
     from dataeval_flow._policy import ResolvedPolicy
     from dataeval_flow._sources import ResolvedSource
     from dataeval_flow._stats import ResolvedStatsPolicy
@@ -53,7 +54,7 @@ class ExtractorSetup:
 @dataclass(frozen=True)
 class StepContext:
     """What preflight resolved for one step: its metadata and stats policies, its ontology, its stats unions, and,
-    under a preset's reference, the derived policy and the reference source."""
+    under a preset's reference, the derived policy and the reference: a task's source, or what a splice's node made."""
 
     metadata_policy: "ResolvedPolicy | None" = None
     stats_policy: "ResolvedStatsPolicy | None" = None
@@ -67,13 +68,21 @@ class StepContext:
     from the reference alone reads under; ``None`` where the chain names no reference or the step no policy."""
     reference: str | None = None
     """The source the reference is, where :attr:`derived_policy` is set."""
+    reference_addresses: frozenset[str] | None = None
+    """Under a splice's reference (audit-as-a-step spec D7), the addresses of the Datasets made from the reference
+    alone, which read under the step's own policy; ``None`` under a task's reference, which goes by source name."""
 
     def policy_for(self, node: Node) -> "ResolvedPolicy | None":
         """The metadata policy `node` reads under: this step's own for the reference and what is made from it alone,
-        the derived one for every other Dataset."""
-        if self.derived_policy is None or {root.source for root in node.roots} == {self.reference}:
+        the derived one for every other Dataset. A task's reference is a source; a splice's, a node and what the run
+        has made from it alone."""
+        if self.derived_policy is None:
             return self.metadata_policy
-        return self.derived_policy
+        if self.reference_addresses is not None:
+            alone = node.address in self.reference_addresses
+        else:
+            alone = {root.source for root in node.roots} == {self.reference}
+        return self.metadata_policy if alone else self.derived_policy
 
 
 @dataclass(frozen=True)
@@ -105,6 +114,8 @@ class ChainRun:
     label_space: list[LabelSpaceRecord]
     reads: list[MetadataRead] = field(default_factory=list)
     """Each Metadata a step read, in the order read, for the result's binning record."""
+    splices: "dict[str, SpliceRun]" = field(default_factory=dict)
+    """By splice name, how each splice the run reached started (audit-as-a-step spec §4.2)."""
 
 
 def input_node(address: str, context: "DatasetContext", *, source: str, cache_name: str, cache_key: str) -> Node:
@@ -160,9 +171,32 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
     lineage = [_lineage(node) for node in _datasets(inputs.values())] if tracked else []
     steps: dict[str, StepResult] = {}
     label_space: list[LabelSpaceRecord] = []
+    starts = {splice.steps[0]: splice for splice in graph.splices if splice.steps}
+    member = {name: splice for splice in graph.splices for name in splice.steps}
+    specs = {spec.name: spec for spec in graph.steps}
+    splice_runs: dict[str, SpliceRun] = {}
+    made_from_reference: dict[str, set[str]] = {}
     with noting_reads() as reads:
         for spec in graph.steps:
-            record, produced, records = _run_step(spec, nodes, settings, lineage, label_space, steps)
+            if (splice := starts.get(spec.name)) is not None:
+                settings, started = begin_splice(splice, nodes, settings, steps, specs)
+                splice_runs[splice.name] = started
+                # The reference's node, not its column: a list slot's element may share the reference slot's name.
+                reference = splice.chain.reference
+                node = _lookup(nodes, parse_address(splice.slots[reference])) if reference is not None else None
+                if started.failed is None and started.skipped is None and isinstance(node, Node):
+                    made_from_reference[splice.name] = {node.address}
+            owner = member.get(spec.name)
+            halted = _halted(spec, owner, splice_runs[owner.name]) if owner is not None else None
+            if halted is not None:
+                (record, produced), records = halted, []
+            else:
+                grown = made_from_reference.get(owner.name) if owner is not None else None
+                if grown is not None:
+                    settings = _with_reference(settings, spec.name, grown)
+                record, produced, records = _run_step(spec, nodes, settings, lineage, label_space, steps)
+                if grown is not None:
+                    _grow(grown, produced)
             steps[spec.name] = record
             nodes.update(produced)
             # A preset step's declared output reads what the spliced step made.
@@ -172,7 +206,83 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
             if tracked:
                 lineage.extend(_lineage(node) for node in _datasets(produced.values()))
             label_space.extend(records)
-    return ChainRun(steps, nodes, lineage, label_space, reads)
+    return ChainRun(steps, nodes, lineage, label_space, reads, splices=splice_runs)
+
+
+def begin_splice(
+    splice: "Splice",
+    nodes: Mapping[str, _Value],
+    settings: RunSettings,
+    steps: Mapping[str, StepResult],
+    specs: Mapping[str, StepSpec],
+) -> "tuple[RunSettings, SpliceRun]":
+    """Start `splice` as its first step is reached: resolve its slots to the Datasets now made, run its preset's
+    preflight on them, and derive its steps' metadata policies from its reference slot's node. A slot holding nothing
+    leaves it unstarted; a preflight refusal, or a reference with no Metadata, fails it (audit-as-a-step spec §4.2)."""
+    from dataeval_flow._chain._graph import GraphError
+    from dataeval_flow._chain._preflight import derive_from_node
+    from dataeval_flow._chain._presets import SpliceRun
+
+    bound: dict[str, Node | NodeList] = {}
+    columns: dict[str, str] = {}
+    owners: dict[str, str] = {}
+    for slot, text in splice.slots.items():
+        address = parse_address(text)
+        value = _lookup(nodes, address)
+        if isinstance(value, Missing):
+            return settings, SpliceRun(skipped=_gap_text(address, value, steps))
+        bound[slot] = value
+        if isinstance(value, NodeList):
+            for key, node in value.present.items():
+                columns[key] = node.address
+                owners[node.address] = owners[f"{text}[{key}]"] = key
+        else:
+            columns[slot] = value.address
+            owners[value.address] = owners[text] = slot
+    try:
+        splice.preset.preflight(splice.entry, bound)
+        reference = splice.chain.reference
+        if reference is not None:
+            node = bound[reference]
+            assert isinstance(node, Node)  # noqa: S101 - load refuses a list on a single slot (D3)
+            contexts = derive_from_node([specs[name] for name in splice.steps], settings.step_contexts, node)
+            settings = replace(settings, step_contexts=contexts)
+    except (GraphError, RuntimeError) as error:
+        return settings, SpliceRun(columns, owners, failed=f"Step '{splice.name}': {error}")
+    return settings, SpliceRun(columns, owners)
+
+
+def _halted(spec: StepSpec, splice: "Splice", outcome: "SpliceRun") -> tuple[StepResult, dict[str, _Value]] | None:
+    """`spec`'s record and outputs where its splice did not start: every step is skipped for the missing input where
+    a slot held nothing; where it failed as it started, the first step fails with the message and every later step is
+    skipped, naming the step that failed, so the task's errors hold the message once. ``None`` where it started."""
+    inputs_text = [str(address) for binding in spec.bindings for address in binding.addresses]
+    if outcome.skipped is not None:
+        return _skipped(spec, inputs_text, outcome.skipped), _by_address(spec, _missing_outputs(spec, "was skipped"))
+    if outcome.failed is None:
+        return None
+    if spec.name == splice.steps[0]:
+        record = _failed(spec, inputs_text, [outcome.failed], time.monotonic(), None)
+    else:
+        record = _skipped(spec, inputs_text, f"step `{splice.name}` failed as it started")
+    return record, _by_address(spec, _missing_outputs(spec, "failed"))
+
+
+def _with_reference(settings: RunSettings, step: str, addresses: set[str]) -> RunSettings:
+    """`settings`, step `step` reading the Datasets at `addresses` as made from its splice's reference alone."""
+    context = settings.step_contexts.get(step)
+    if context is None or context.reference_addresses is None:
+        return settings
+    narrowed = replace(context, reference_addresses=frozenset(addresses))
+    return replace(settings, step_contexts={**settings.step_contexts, step: narrowed})
+
+
+def _grow(addresses: set[str], produced: Mapping[str, _Value]) -> None:
+    """Add to `addresses` each Dataset in `produced` whose Dataset inputs are all in it: made from the reference
+    alone."""
+    for node in _datasets(produced.values()):
+        if node.inputs and set(node.inputs) <= addresses:
+            addresses.add(node.address)
 
 
 def _lookup(nodes: Mapping[str, _Value], address: Address) -> _Value:

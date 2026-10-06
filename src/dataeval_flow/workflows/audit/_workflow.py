@@ -146,23 +146,26 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
 
     @classmethod
     def preflight(cls, config: AuditConfig, inputs: "Mapping[str, Node | NodeList]") -> None:
-        """Refuse a split with no items, naming it, and splits of different kinds (audit spec §4.1, §13)."""
+        """Refuse a split with no items, naming it by its source, or, for a Dataset a chain made, by its slot or
+        element key; and splits of different kinds (audit spec §4.1, §13; audit-as-a-step spec §4.2)."""
         from dataeval_flow._chain._graph import GraphError
         from dataeval_flow._chain._nodes import NodeList
 
-        splits = [
-            node
-            for value in inputs.values()
-            for node in (value.present.values() if isinstance(value, NodeList) else [value])
-        ]
-        for node in splits:
+        named: list[tuple[str, Node]] = []
+        for slot, value in inputs.items():
+            if isinstance(value, NodeList):
+                named.extend(value.present.items())
+            else:
+                named.append((value.source or slot, value))
+        for name, node in named:
             if len(node.value) == 0:
-                raise GraphError(f"Split `{node.source}` holds no items; an audit judges only splits with data.")
-        if len({node.kind for node in splits}) > 1:
-            listing = ", ".join(f"{node.source}: {node.kind}" for node in splits)
+                raise GraphError(f"Split `{name}` holds no items; an audit judges only splits with data.")
+        # A Dataset a chain made carries no kind; check_kinds has judged it already.
+        if len({node.kind for _, node in named if node.kind is not None}) > 1:
+            listing = ", ".join(f"{name}: {node.kind}" for name, node in named)
             raise GraphError(f"An audit's splits must be one kind: {listing}.")
         evals = inputs.get("evals")
-        names = [str(node.source) for node in evals.present.values()] if isinstance(evals, NodeList) else []
+        names = list(evals.present) if isinstance(evals, NodeList) else []
         for accepted in config.accepted:
             if "[" in accepted and (element := accepted[accepted.index("[") + 1 : -1]) not in names:
                 raise GraphError(

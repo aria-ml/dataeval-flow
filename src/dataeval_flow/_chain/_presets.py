@@ -1,9 +1,9 @@
 """A preset run as a step of a custom workflow: its chain spliced into the graph, each step as `<step>/<inner>`."""
 
-__all__ = ["Spliced", "splice_preset"]
+__all__ = ["Splice", "SpliceRun", "Spliced", "splice_preset"]
 
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 from dataeval_flow._chain._graph import GraphError, PortBinding, StepSpec, ValueType, build_graph
@@ -14,7 +14,44 @@ from dataeval_flow.steps._step import Transform
 if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.steps._workflow import StepEntry
-    from dataeval_flow.workflows._preset import Preset
+    from dataeval_flow.workflows._preset import Preset, PresetChain
+
+
+@dataclass(frozen=True)
+class Splice:
+    """A preset run as a step of a custom workflow, as the config loads it (audit-as-a-step spec §4.1): what the run
+    needs to start it, and the result to judge and record it."""
+
+    name: str
+    """The step's name in the custom workflow, such as `audit`."""
+    preset: "type[Preset]"
+    entry: Any
+    """The preset entry: its workflow config."""
+    chain: "PresetChain"
+    """What the entry expanded to."""
+    slots: Mapping[str, str]
+    """By slot name, the address the step binds it to, as written: `splits.train`."""
+    steps: tuple[str, ...]
+    """The spliced step names, in run order: `audit/label-health-train`, ..."""
+
+    @property
+    def gives_verdict(self) -> bool:
+        """Whether its chain declares a verdict."""
+        return self.chain.blocking is not None
+
+
+@dataclass(frozen=True)
+class SpliceRun:
+    """How one splice started when the run reached its first step (audit-as-a-step spec §4.2)."""
+
+    columns: Mapping[str, str] = field(default_factory=dict)
+    """By record column (a single slot's name, or a list slot's element key), the address of the node bound there."""
+    owners: Mapping[str, str] = field(default_factory=dict)
+    """By address, a node's or as written, the record column it is."""
+    skipped: str | None = None
+    """Why it never started: a slot's address held nothing."""
+    failed: str | None = None
+    """Why it failed as it started: its preflight refused, or its reference's Metadata could not be built."""
 
 
 @dataclass(frozen=True)
@@ -27,8 +64,10 @@ class Spliced:
     it."""
     types: dict[str, ValueType]
     """What each declared output's address holds."""
-    empty: frozenset[str] = frozenset()
+    empty: frozenset[str]
     """The declared outputs these settings leave empty, which no step outside may read."""
+    splice: Splice
+    """The splice, as the run starts it."""
 
 
 def splice_preset(
@@ -67,7 +106,8 @@ def splice_preset(
         )
         for spec in graph.steps
     )
-    mapped = preset.chain(config).outputs
+    preset_chain = preset.chain(config)
+    mapped = preset_chain.outputs
     aliases: dict[str, str] = {}
     types: dict[str, ValueType] = {}
     empty: set[str] = set()
@@ -100,7 +140,15 @@ def splice_preset(
         )
         if transform is not None and output.name in transform.empty_outputs(spec.config):
             empty.add(port.name)
-    return Spliced(steps, aliases, types, frozenset(empty))
+    splice = Splice(
+        name=entry.name,
+        preset=preset,
+        entry=config,
+        chain=preset_chain,
+        slots={slot: str(address) for slot, (address, _) in bound.items()},
+        steps=tuple(spec.name for spec in steps),
+    )
+    return Spliced(steps, aliases, types, frozenset(empty), splice)
 
 
 def _output(made: Mapping[str, StepSpec], target: str) -> "tuple[StepSpec, Port] | None":
