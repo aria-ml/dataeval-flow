@@ -429,7 +429,8 @@ not vary `to` itself: `steps.dataset.to` fails the load, since each run already 
 
 **Gating.** By default a failed run fails the command (exit 1), and warnings do not. `result: fail_on: warning`, or
 `--fail-on-warning`, exits 3 when any run warns. For an exploratory matrix, where most runs are meant to warn,
-`fail_on: never` keeps the exit code 0:
+`fail_on: never` stops a failed or warning run from failing the command, though a verdict short of `result: require:`
+still exits 4:
 
 ```yaml
 result:

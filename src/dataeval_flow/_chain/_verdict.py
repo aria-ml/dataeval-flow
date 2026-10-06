@@ -65,6 +65,18 @@ class Verdict(BaseModel):
         """The level as a report writes it: "Ready with caveats"."""
         return LABELS[self.level]
 
+    def meets(self, requirement: str) -> bool:
+        """Whether this verdict passes `requirement`, the worst verdict `result: require:` lets through:
+        ``ready-with-caveats`` passes anything but Not ready; ``ready-with-accepted-risks`` passes Ready, and Ready with
+        caveats whose only caveats are fired acceptances; ``ready`` passes only Ready."""
+        if requirement == "ready-with-caveats":
+            return self.level != "not-ready"
+        if requirement == "ready-with-accepted-risks":
+            return self.level == "ready" or (
+                self.level == "ready-with-caveats" and not self.warnings and not self.not_assessed
+            )
+        return self.level == "ready"
+
     def line(self) -> str:
         """The level and its reasons: each blocking warning, or how many caveats of each kind."""
         if self.level == "not-ready":

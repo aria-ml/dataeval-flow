@@ -582,15 +582,18 @@ docker run --rm \
 
 | Exit code | Meaning |
 | --- | --- |
-| `0` | Every task succeeded, with no warnings the gate fails on; or `fail_on: never` |
+| `0` | Every task succeeded, with no warnings the gate fails on; or `fail_on: never` with no `require` |
 | `1` | A task failed, or an export couldn't be written |
 | `2` | The command line was mistyped: an unknown flag, or a value it refuses |
 | `3` | Every task succeeded, but a task raised warnings and the gate fails on them |
+| `4` | A task's verdict is worse than `result: require:` or `--require` |
 
-`fail_on` in the `result:` block sets the gate: `failure` (the default), `warning`, or `never`,
-which reports without ever failing the job. `--fail-on-warning` and `--no-fail-on-warning`, or
-`DATAEVAL_FAIL_ON_WARNING`, override it. Since a warning exits `3`, a job can tell a data-quality
-gate from a crash or a mistyped flag:
+When more than one applies, `1` comes first, then `4`, then `3`. Exit `4` gates on an `audit`'s
+verdict; see [Gate training on an audit](gate_training_on_an_audit.md#read-the-verdict). `fail_on`
+in the `result:` block sets the gate: `failure` (the default), `warning`, or `never`, which fails
+the job on neither a failed task nor a warning, though a set `require` still exits `4`.
+`--fail-on-warning` and `--no-fail-on-warning`, or `DATAEVAL_FAIL_ON_WARNING`, override it. Since a
+warning exits `3`, a job can tell a data-quality gate from a crash or a mistyped flag:
 
 ```yaml
 # .gitlab-ci.yml
@@ -674,6 +677,7 @@ result:
   detail: summary           # the text and HTML files' detail: full or summary (default: full)
   per_task: true            # one set of files per task: release-<task>.json, … (default: false)
   fail_on: warning          # what fails the job: failure, warning or never (default: failure)
+  require: ready-with-accepted-risks  # the worst verdict that passes, else exit 4 (default: none)
   width: 100                # the text report's width, at least 40 (default: 80)
   max_images: 100           # thumbnails per task's result; 0: none, -1: every item named (default: 200)
   max_rows: 1000            # rows a table of items lists; -1: every row (default: 500)

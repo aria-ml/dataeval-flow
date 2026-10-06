@@ -182,6 +182,83 @@ _EXTENSIONS = {"json": "json", "text": "txt", "html": "html", "junit": "xml", "m
 _SUCCEEDED_ONLY = ("json", "text", "html")
 
 
+def _judged_tasks(config: PipelineConfig, tasks: str | Sequence[str] | None) -> list[str]:
+    """The tasks this run runs whose workflow declares a verdict: a preset whose chain names `blocking` checks."""
+    from dataeval_flow._orchestrator import _resolve_workflow, select_tasks
+    from dataeval_flow.workflows._base import WorkflowConfig
+    from dataeval_flow.workflows._preset import Preset
+    from dataeval_flow.workflows._registry import get_workflow
+
+    judged: list[str] = []
+    for task in select_tasks(config, tasks):
+        if task.kind != "workflow":
+            continue
+        entry = _resolve_workflow(task.workflow, config)
+        if not isinstance(entry, WorkflowConfig):
+            continue  # a custom workflow declares no verdict
+        workflow = get_workflow(entry.type)
+        if issubclass(workflow, Preset) and workflow.chain(entry).blocking is not None:
+            judged.append(task.name)
+    return judged
+
+
+def _short_of(requirement: str, results: Mapping[str, Result[Any, Any]], judged: Sequence[str]) -> list[str]:
+    """Each judged task, or run of a judged matrix, whose verdict falls short of `requirement`, named with its verdict.
+    A run that failed has no verdict, and falls short."""
+    from dataeval_flow._matrix._result import MatrixResult
+
+    short: list[str] = []
+    for name in judged:
+        result = results[name]
+        runs = (
+            [(f"{name} run {run.number}", run.result) for run in result.runs]
+            if isinstance(result, MatrixResult)
+            else [(name, result)]
+        )
+        for label, outcome in runs:
+            verdict = getattr(outcome, "verdict", None)
+            if verdict is None:
+                short.append(f"{label} (no verdict: it failed)")
+            elif not verdict.meets(requirement):
+                short.append(f"{label} ({verdict.label})")
+    return short
+
+
+def _gate_exit(warned: Sequence[str], gate: str, short: Sequence[str], requirement: str | None) -> int:
+    """4 when a verdict fell short of `requirement`, else 3 when health warnings were raised and the gate fails on
+    them, else 0. Which tasks warned is logged whatever the code: a warning that breached a threshold is worth stating
+    even when it is not fatal."""
+    from dataeval_flow._logging import flush_logs
+
+    if warned:
+        _logger.warning("  Health warnings raised by: %s", ", ".join(warned))
+    if short:
+        _logger.error("  Verdicts short of `require: %s`: %s", requirement, "; ".join(short))
+        flush_logs()
+        return 4
+    if warned and gate == "warning":
+        _logger.error("  Failing on health warnings (fail_on: warning, or --fail-on-warning).")
+        flush_logs()
+        return 3
+    return 0
+
+
+def _requirement(
+    config: PipelineConfig, tasks: str | Sequence[str] | None, require: str | None
+) -> tuple[str | None, list[str]]:
+    """The requirement the run gates on, and the tasks it judges; refused when it gates and no task gives a verdict."""
+    requirement = require if require is not None else config.result.require
+    if requirement is None:
+        return None, []
+    judged = _judged_tasks(config, tasks) if config.tasks else []
+    if not judged:
+        raise ValueError(
+            f"`require: {requirement}` gates on a verdict, and no task this run runs gives one: only a preset "
+            "that declares a verdict, such as `audit`, does."
+        )
+    return requirement, judged
+
+
 def run(
     config_arg: Path | str | None,
     output_dir: Path | None = None,
@@ -192,6 +269,7 @@ def run(
     fail_on_warning: bool | None = None,
     report_width: int | None = None,
     report_images: bool = True,
+    require: str | None = None,
 ) -> int:
     """Load config, execute the selected tasks, and write reports.
 
@@ -225,19 +303,24 @@ def run(
     report_images : bool
         Whether results keep thumbnails of the items their reports name, which ``result.html`` shows and
         ``result.json`` holds. ``False`` reads no item and keeps none.
+    require : str | None
+        The worst verdict a task that gives one may have: ``ready-with-caveats``, ``ready-with-accepted-risks`` or
+        ``ready``. ``None`` (the default) leaves it to the config's ``result: require``.
 
     Returns
     -------
     int
-        0 if nothing the gate fails on happened, or the gate is ``fail_on: never``; 1 if a task failed or
-        an export couldn't be written; 3 if the gate fails on warnings and a task raised one.
+        1 if a task failed or an export couldn't be written, unless ``fail_on: never``; else 4 if a task's
+        verdict falls short of ``require``, which ``fail_on: never`` leaves in force; else 3 if the gate fails on
+        warnings and a task raised one; else 0.
 
     Raises
     ------
     ValueError
         If ``report_width`` is below 40, before any task runs.
+        If ``require`` is set and no task the run runs gives a verdict, before any task runs.
     """
-    from dataeval_flow._logging import configure_log_levels, flush_logs, setup_logging
+    from dataeval_flow._logging import configure_log_levels, setup_logging
     from dataeval_flow._orchestrator import run_tasks
     from dataeval_flow.config._loader import get_data_dir
 
@@ -251,6 +334,8 @@ def run(
     resolved_data = get_data_dir(data_dir)
     config = _resolve_config(config_arg, resolved_data)
     config.result.max_images = config.result.max_images if report_images else 0
+
+    requirement, judged = _requirement(config, tasks, require)
 
     if config.logging:
         configure_log_levels(config.logging.app_level, config.logging.lib_level)
@@ -287,16 +372,8 @@ def run(
     if (failures or export_failures) and gate != "never":
         return 1
 
-    if warned:
-        # Printed either way: a warning that breached a threshold is worth stating even
-        # when it is not fatal.
-        _logger.warning("  Health warnings raised by: %s", ", ".join(warned))
-        if gate == "warning":
-            _logger.error("  Failing on health warnings (fail_on: warning, or --fail-on-warning).")
-            flush_logs()
-            return 3
-
-    return 0
+    short = _short_of(requirement or "", results, judged)  # no requirement judges no task
+    return _gate_exit(warned, gate, short, requirement)
 
 
 def _write_declared_exports(config: PipelineConfig, output_dir: Path | None, data_dir: Path) -> int:

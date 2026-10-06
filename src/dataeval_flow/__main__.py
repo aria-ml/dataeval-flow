@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, NoReturn
 
 from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH
 from dataeval_flow._env import env_bool, env_choice, env_int, env_list, env_path
+from dataeval_flow.config._models import REQUIREMENTS
 
 if TYPE_CHECKING:
     from dataeval_flow.evaluators._evaluator import Evaluator
@@ -143,6 +144,17 @@ def _build_parser() -> argparse.ArgumentParser:
             "Exit 3 when a task succeeds but reports findings that breached their "
             "health thresholds (default: $DATAEVAL_FAIL_ON_WARNING, else the config's result: fail_on). "
             "Use --no-fail-on-warning to override the environment."
+        ),
+    )
+    parser.add_argument(
+        "--require",
+        choices=REQUIREMENTS,
+        default=env_choice("DATAEVAL_REQUIRE", REQUIREMENTS),
+        metavar="LEVEL",
+        help=(
+            "Exit 4 when a task's verdict is worse than LEVEL: ready-with-caveats, ready-with-accepted-risks or "
+            "ready (default: $DATAEVAL_REQUIRE, else the config's result: require). A task that gives no verdict "
+            "is not judged; a run where none does is refused."
         ),
     )
 
@@ -484,6 +496,7 @@ def main() -> NoReturn:
                 fail_on_warning=args.fail_on_warning,
                 report_width=args.report_width,
                 report_images=args.report_images,
+                require=args.require,
             )
         )
     except (FileNotFoundError, ValueError, ImportError) as e:

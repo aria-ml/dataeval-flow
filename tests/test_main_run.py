@@ -287,6 +287,7 @@ class TestRunTasks:
 
         config = MagicMock()
         config.tasks = []
+        config.result.require = None
         config.logging.app_level = "WARNING"
         config.logging.lib_level = "ERROR"
         mock_load.return_value = config
@@ -406,6 +407,7 @@ class TestMain:
         args.fail_on_warning = False
         args.report_width = 72
         args.report_images = False
+        args.require = None
         mock_parse.return_value = args
         mock_run_tasks.return_value = 0
 
@@ -422,6 +424,7 @@ class TestMain:
             fail_on_warning=False,
             report_width=72,
             report_images=False,
+            require=None,
         )
 
     @patch("dataeval_flow._runner.run")

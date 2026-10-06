@@ -11053,7 +11053,7 @@
         },
         "fail_on": {
           "default": "failure",
-          "description": "What makes the command's exit code non-zero: a failed task (`failure`: 1), also a finding past its health threshold (`warning`: 3), or nothing (`never`). `--fail-on-warning` and `DATAEVAL_FAIL_ON_WARNING` override it.",
+          "description": "What makes the command's exit code non-zero: a failed task (`failure`: 1), also a finding past its health threshold (`warning`: 3), or neither (`never`). `require` gives 4 whatever this says, after 1 and before 3. `--fail-on-warning` and `DATAEVAL_FAIL_ON_WARNING` override it.",
           "enum": [
             "never",
             "failure",
@@ -11061,6 +11061,24 @@
           ],
           "title": "Fail On",
           "type": "string"
+        },
+        "require": {
+          "anyOf": [
+            {
+              "enum": [
+                "ready-with-caveats",
+                "ready-with-accepted-risks",
+                "ready"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The worst verdict a task that gives one may have before the command exits 4: `ready-with-caveats` refuses Not ready, `ready-with-accepted-risks` also refuses a caveat that isn't a fired acceptance, and `ready` refuses anything but Ready. A task that failed has no verdict, and falls short. `--require` and `DATAEVAL_REQUIRE` override it.",
+          "title": "Require"
         },
         "width": {
           "default": 80,

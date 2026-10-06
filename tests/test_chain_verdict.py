@@ -305,3 +305,38 @@ def test_a_not_ready_line_names_each_blocking_warning_and_its_brief_if_any() -> 
         not_assessed=[],
     )
     assert verdict.line() == "Not ready: Leakage (2 exact duplicates across splits); Untrained Classes"
+
+
+def _verdict(level: str, *, warning: bool = False, unassessed: bool = False) -> Verdict:
+    """A verdict at `level`, with one unaccepted warning and one check not assessed where asked."""
+    return Verdict(
+        level=level,  # type: ignore[arg-type]
+        blocking=[],
+        warnings=[VerdictItem(check="c", step="c", title="C", brief="b")] if warning else [],
+        accepted=[],
+        not_assessed=[Unassessed(check="d", step="d", reason="r")] if unassessed else [],
+    )
+
+
+@pytest.mark.parametrize(
+    ("verdict", "passes"),
+    [
+        (_verdict("not-ready"), {"ready-with-caveats": False, "ready-with-accepted-risks": False, "ready": False}),
+        (
+            _verdict("ready-with-caveats"),
+            {"ready-with-caveats": True, "ready-with-accepted-risks": True, "ready": False},
+        ),
+        (
+            _verdict("ready-with-caveats", warning=True),
+            {"ready-with-caveats": True, "ready-with-accepted-risks": False, "ready": False},
+        ),
+        (
+            _verdict("ready-with-caveats", unassessed=True),
+            {"ready-with-caveats": True, "ready-with-accepted-risks": False, "ready": False},
+        ),
+        (_verdict("ready"), {"ready-with-caveats": True, "ready-with-accepted-risks": True, "ready": True}),
+    ],
+    ids=["not-ready", "only-accepted-risks", "a-warning", "not-assessed", "ready"],
+)
+def test_a_verdict_meets_each_requirement_its_level_and_caveats_allow(verdict: Verdict, passes: dict) -> None:
+    assert {requirement: verdict.meets(requirement) for requirement in passes} == passes

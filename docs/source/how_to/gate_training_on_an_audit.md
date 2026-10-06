@@ -42,25 +42,41 @@ dataeval-flow --config pipeline.yaml --output ./output
 gives the rule for each level, and the verdict's other fields. From Python the level is `result.verdict.level`, and in
 the JSON it is `verdict.level`.
 
-The command's exit code doesn't read the verdict. Under the default `result: fail_on: failure`, it exits 1 only when a
-task fails or an export can't be written, so a `not-ready` audit exits 0. `fail_on: warning` exits 3 on any warning,
-an accepted one included, since health counts the warnings the data has and the verdict records the decision made
-about them. Read the level from the JSON instead:
+Gate on it with `--require`, or `result: require:` in the config; `DATAEVAL_REQUIRE` sets the requirement too, and the
+flag overrides both. Its value names the worst verdict that passes, and the command exits 4 when a task's verdict is
+worse:
 
 ```bash
-jq -e '.["audit-splits"].verdict.level | IN("ready", "ready-with-caveats")' output/results/result.json
+dataeval-flow --config pipeline.yaml --output ./output --require ready-with-accepted-risks
 ```
 
-`jq -e` exits 1 when the level is `not-ready`, and also when the task failed, since a failed task has no verdict.
+A pipeline that reads the JSON can apply the same gate with `jq -e`, which exits 1 when the expression is false:
 
-Choose what the gate refuses:
+| `--require` | Refuses | The same gate with `jq -e` |
+| --- | --- | --- |
+| `ready-with-caveats` | Not ready | `.["audit-splits"].verdict.level \| IN("ready", "ready-with-caveats")` |
+| `ready-with-accepted-risks` | Not ready, and Ready with caveats unless its only caveats are accepted risks | `.["audit-splits"].verdict \| .level != "not-ready" and .warnings == [] and .not_assessed == []` |
+| `ready` | Anything but Ready | `.["audit-splits"].verdict.level == "ready"` |
 
-- **`not-ready` only.** A blocking check warned, and no acceptance covers it.
-- **`not-ready`, and `ready-with-caveats` while `verdict.warnings` or `verdict.not_assessed` is non-empty.** An audit
-  whose only caveats are accepted risks goes through. Any other warning, or a check not assessed, stops training until
-  a person fixes the data, accepts the warning under `accepted:`, or gives the check what it needs.
-- **Anything but `ready`.** An acceptance whose check warns keeps the verdict at `ready-with-caveats`, so once a
-  warning is accepted, this gate refuses until the data stops warning.
+```bash
+jq -e '.["audit-splits"].verdict | .level != "not-ready" and .warnings == [] and .not_assessed == []' output/results/result.json
+```
+
+`ready-with-caveats` refuses only a blocking check that warned with no acceptance covering it.
+`ready-with-accepted-risks` lets through an audit whose only caveats are accepted risks; any other warning, or a check
+not assessed, stops training until a person fixes the data, accepts the warning under `accepted:`, or gives the check
+what it needs. `ready` refuses those too, and an accepted warning as well: an acceptance whose check warns keeps the
+verdict at `ready-with-caveats`, so once a warning is accepted, this gate refuses until the data stops warning.
+
+A task whose workflow gives no verdict isn't judged. A task that failed has no verdict, and falls short; each `jq`
+expression refuses it too. A run in which no task gives a verdict is refused, and exits 1, before any task starts.
+
+Exit codes take this order: 1, for a failed task or export, unless `result: fail_on: never`; then 4; then 3, which
+`fail_on: warning` gives for any warning, an accepted one included, since health counts the warnings the data has and
+the verdict records the decision made about them. So an audit whose only caveats are accepted risks passes
+`--require ready-with-accepted-risks` and still exits 3 under `fail_on: warning`: keep the default `fail_on: failure`
+when you gate with `--require`. Without `--require`, the exit code doesn't read the verdict, and a `not-ready` audit
+exits 0 under `fail_on: failure`.
 
 ## Refuse data that was not audited
 

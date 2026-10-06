@@ -8,7 +8,7 @@ __all__ = [
 
 import difflib
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, get_args
 
 from pydantic import (
     AliasChoices,
@@ -145,6 +145,11 @@ class LoggingConfig(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+Requirement = Literal["ready-with-caveats", "ready-with-accepted-risks", "ready"]
+"""The worst verdict `result: require:` lets through."""
+REQUIREMENTS: tuple[str, ...] = get_args(Requirement)
+
+
 class ResultConfig(BaseModel):
     """What each task's result carries, and the files the ``dataeval-flow`` command writes it to, under ``result:``.
 
@@ -194,8 +199,17 @@ class ResultConfig(BaseModel):
         default="failure",
         description=(
             "What makes the command's exit code non-zero: a failed task (`failure`: 1), also a finding past its health "
-            "threshold (`warning`: 3), or nothing (`never`). `--fail-on-warning` and `DATAEVAL_FAIL_ON_WARNING` "
-            "override it."
+            "threshold (`warning`: 3), or neither (`never`). `require` gives 4 whatever this says, after 1 and before "
+            "3. `--fail-on-warning` and `DATAEVAL_FAIL_ON_WARNING` override it."
+        ),
+    )
+    require: Requirement | None = Field(
+        default=None,
+        description=(
+            "The worst verdict a task that gives one may have before the command exits 4: `ready-with-caveats` "
+            "refuses Not ready, `ready-with-accepted-risks` also refuses a caveat that isn't a fired acceptance, and "
+            "`ready` refuses anything but Ready. A task that failed has no verdict, and falls short. `--require` and "
+            "`DATAEVAL_REQUIRE` override it."
         ),
     )
     width: int = Field(

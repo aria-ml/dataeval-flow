@@ -4,6 +4,9 @@
 
 ### Added
 
+- `result: require:`, `--require` and `DATAEVAL_REQUIRE`: the worst verdict a task may have, `ready-with-caveats`,
+  `ready-with-accepted-risks` or `ready`; a worse one exits 4. A run in which no task gives a verdict is
+  refused
 - The `audit` preset: one chain over train and each evaluation split before training. Its report gives a verdict
   ("Not ready", "Ready with caveats" or "Ready"), a record of what was audited, with each split's items, classes,
   metadata factors and digests and the criteria applied, the findings under five questions, and next steps for each

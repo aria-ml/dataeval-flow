@@ -158,6 +158,15 @@ class TestConfigState:
         assert state.is_empty()
         assert state.count("datasets") == 0
 
+    def test_result_require_survives_a_load_and_save(self, tmp_path: Path) -> None:
+        path = tmp_path / "params.yaml"
+        path.write_text("result:\n  require: ready-with-accepted-risks\n")
+        state = ConfigState()
+        state.load_file(path)
+        saved = tmp_path / "saved.yaml"
+        state.save_file(saved)
+        assert load_config(saved).result.require == "ready-with-accepted-risks"
+
     def test_add_get_items(self) -> None:
         state = ConfigState()
         item = {"name": "ds1", "format": "huggingface"}

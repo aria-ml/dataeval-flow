@@ -88,6 +88,7 @@ All runtime environment variables are optional.
 | `DATAEVAL_CACHE`         | Disk-backed computation cache directory     | Auto-set to `/cache` when that mount is present and writable (see below) |
 | `DATAEVAL_REPORT_WIDTH`  | Characters per line of the text report      | The config's `result: width`, else `80`; at least `40`                   |
 | `DATAEVAL_REPORT_IMAGES` | Thumbnails of the items reports name        | On; `0`, `false` or `no` turns them off                                  |
+| `DATAEVAL_REQUIRE`       | The worst verdict that passes, else exit 4  | The config's `result: require`, else none                                |
 
 `DATAEVAL_DATA` and `DATAEVAL_OUTPUT` are baked into the image as `/dataeval` and
 `/output`. `DATAEVAL_CACHE` is **not**. The entrypoint sets it to `/cache`
@@ -120,6 +121,7 @@ a GPU; neither is intended as a caller-facing knob.
 | `-v`, `--verbose`      | Increase verbosity (repeatable)        | Off — see below                                    |
 | `--report-width N`     | Characters per line of the text report | `$DATAEVAL_REPORT_WIDTH`, else `result: width`     |
 | `--[no-]report-images` | Thumbnails of the items reports name   | `$DATAEVAL_REPORT_IMAGES`, else on                 |
+| `--require LEVEL`      | Exit 4 when a verdict is worse         | `$DATAEVAL_REQUIRE`, else `result: require`        |
 | `-h`, `--help`         | Print the interface help and exit      | —                                                  |
 
 `--verbose` is a counting flag. Without it, reports print to stdout in their short form;
@@ -238,4 +240,7 @@ dependencies (PyTorch, NumPy, SciPy) provide x86-64 wheels.
 
 The container exposes **no health-check endpoint** (IR-2.3 monitoring
 requirements are not applicable). Success or failure is reported through the
-process exit code and the logs/reports written to the output directory.
+process exit code and the logs/reports written to the output directory: `0` for
+success, `1` for a failed task or export, `2` for a mistyped command line, `3` for
+health warnings under `fail_on: warning`, and `4` for a verdict worse than `--require`.
+When more than one applies, `1` comes first, then `4`, then `3`.
