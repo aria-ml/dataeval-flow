@@ -177,6 +177,17 @@ class StepEntry(BaseModel):
         return written
 
 
+class ReportGroupConfig(BaseModel):
+    """A heading of a custom workflow's report, and the check types whose findings it holds."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    heading: str = Field(min_length=1, description="The heading, such as a question its checks answer.")
+    checks: list[str] = Field(
+        min_length=1, description="The check types whose findings it holds, as the steps' `check:` names them."
+    )
+
+
 class CustomWorkflowConfig(BaseModel):
     """A workflow built from steps: its named inputs, and the steps that read them in order.
 
@@ -211,6 +222,13 @@ class CustomWorkflowConfig(BaseModel):
     description: str | None = Field(default=None, description="One line on what the workflow is for.")
     inputs: list[InputSlot] = Field(min_length=1, description="The inputs a task binds its sources to, in order.")
     steps: list[StepEntry] = Field(min_length=1, description="The steps, in the order they run.")
+    groups: list[ReportGroupConfig] = Field(
+        default_factory=list,
+        description=(
+            "The report's headings, in order, each holding the findings of the check types it names, as a preset's "
+            "report does. The findings of check types no heading names follow them."
+        ),
+    )
 
     @field_validator("inputs", mode="before")
     @classmethod
@@ -236,6 +254,19 @@ class CustomWorkflowConfig(BaseModel):
             seen.add(step.name)
         return self
 
+    @model_validator(mode="after")
+    def _groups_name_checks(self) -> "CustomWorkflowConfig":
+        """Refuse a group naming a check type no step runs, listing the ones the steps run."""
+        ran = {step.check for step in self.steps if step.check is not None}
+        for group in self.groups:
+            for check in group.checks:
+                if check not in ran:
+                    raise ValueError(
+                        f"Workflow '{self.name}': group '{group.heading}' names check `{check}`, which no step runs. "
+                        f"Its steps' checks: {', '.join(sorted(ran)) or 'none'}."
+                    )
+        return self
+
     @model_serializer(mode="wrap")
     def _as_written(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
         data = handler(self)
@@ -244,6 +275,8 @@ class CustomWorkflowConfig(BaseModel):
             written["description"] = self.description
         written["inputs"] = data["inputs"]
         written["steps"] = data["steps"]
+        if self.groups:
+            written["groups"] = data["groups"]
         return written
 
     @property

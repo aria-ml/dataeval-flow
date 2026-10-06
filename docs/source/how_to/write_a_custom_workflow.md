@@ -602,6 +602,33 @@ with train first: `sources: [train, val, test]`. It counts shared group values o
 factors, as `factor-leakage: {factors: [scene]}`. It also judges each split's labels, cleanliness and coverage, and
 gives a verdict over them all.
 
+## 12. Group the report's findings under headings
+
+A preset's report holds its findings under headings, such as audit's questions. A custom workflow does the same with
+`groups:`: each group has a heading, and the check types whose findings it holds, as the steps' `check:` names them.
+
+```yaml
+evaluators:
+  - {name: dupes, type: duplicates}
+  - {name: labels, type: label-health}
+
+workflows:
+  - name: clean-check
+    inputs: [data]
+    steps:
+      - {name: dupes, evaluator: dupes, input: data}
+      - {name: labels, evaluator: labels, input: data}
+      - {name: duplicates, check: image-duplicates, input: dupes}
+      - {name: imbalance, check: class-imbalance, input: labels}
+    groups:
+      - {heading: "Is the data clean?", checks: [image-duplicates]}
+      - {heading: "Are the labels sound?", checks: [class-imbalance]}
+```
+
+Each heading's status line counts its checks' warnings, and the findings of check types no heading names follow the
+groups. A group that names a check type no step runs is refused when the config loads. Groups change only the report:
+a custom workflow gives no verdict.
+
 ## See also
 
 - [Monitor drift with steps](monitor_drift.md) — merge test sources, compare classes or groups, and drift on crops

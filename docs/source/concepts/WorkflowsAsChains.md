@@ -110,7 +110,8 @@ saying which input holds nothing and why, so the report shows what could not be 
 cannot assess them raises `StepSkipped(reason)`, and the engine records it the same way, never as skipped.
 
 The report gives each finding a section of its own, with the evidence it judged below it: `duplicates`' finding holds
-the `dupes` step's duplicate groups. The steps no finding shows follow, then a table of every step.
+the `dupes` step's duplicate groups. With `groups:`, findings sit under headings, as a preset's do. The steps no
+finding shows follow, then a table of every step.
 [Read evaluation outputs](../how_to/read_evaluation_outputs.md) describes the layout.
 
 ## Addresses and lists

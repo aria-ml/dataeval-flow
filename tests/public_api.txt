@@ -176,6 +176,7 @@ dataeval_flow.steps:Finding
 dataeval_flow.steps:InputSlot
 dataeval_flow.steps:Port
 dataeval_flow.steps:PortEntry
+dataeval_flow.steps:ReportGroupConfig
 dataeval_flow.steps:Step
 dataeval_flow.steps:StepCatalog
 dataeval_flow.steps:StepCatalogEntry

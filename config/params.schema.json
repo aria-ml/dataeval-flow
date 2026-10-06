@@ -4004,6 +4004,14 @@
           "minItems": 1,
           "title": "Steps",
           "type": "array"
+        },
+        "groups": {
+          "description": "The report's headings, in order, each holding the findings of the check types it names, as a preset's report does. The findings of check types no heading names follow them.",
+          "items": {
+            "$ref": "#/$defs/ReportGroupConfig"
+          },
+          "title": "Groups",
+          "type": "array"
         }
       },
       "required": [
@@ -10883,6 +10891,33 @@
         }
       },
       "title": "RemapRuleConfig",
+      "type": "object"
+    },
+    "ReportGroupConfig": {
+      "additionalProperties": false,
+      "description": "A heading of a custom workflow's report, and the check types whose findings it holds.",
+      "properties": {
+        "heading": {
+          "description": "The heading, such as a question its checks answer.",
+          "minLength": 1,
+          "title": "Heading",
+          "type": "string"
+        },
+        "checks": {
+          "description": "The check types whose findings it holds, as the steps' `check:` names them.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Checks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "heading",
+        "checks"
+      ],
+      "title": "ReportGroupConfig",
       "type": "object"
     },
     "RepresentationConfig": {

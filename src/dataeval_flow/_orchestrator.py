@@ -801,6 +801,16 @@ def _run_one_step(
     return result, elapsed, contexts[task.name].ontology, drawn
 
 
+def _groups_only_plan(workflow: CustomWorkflowConfig) -> "PresetChain | None":
+    """A custom workflow's headings, and nothing else a preset declares: its report reads them, with no verdict."""
+    if not workflow.groups:
+        return None
+    from dataeval_flow.workflows._preset import PresetChain, ReportGroup
+
+    groups = tuple(ReportGroup(group.heading, tuple(group.checks)) for group in workflow.groups)
+    return PresetChain(steps=workflow.steps, groups=groups)
+
+
 def _run_custom_task(
     task: "TaskConfig",
     workflow: CustomWorkflowConfig,
@@ -890,8 +900,8 @@ def _run_custom_task(
         return refuse([chain], diagnostics)
     elapsed = time.monotonic() - start
     result = ChainResult.from_run(workflow.name, chain, type_id=type_id, preset=entry is not None)
-    if preset_chain is not None:
-        result.attach_preset(preset_chain)
+    if (plan := preset_chain or _groups_only_plan(workflow)) is not None:
+        result.attach_preset(plan)
     if diagnostics:
         result.metadata.diagnostics = list(diagnostics)
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)

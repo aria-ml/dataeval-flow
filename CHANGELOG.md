@@ -4,6 +4,8 @@
 
 ### Added
 
+- `groups:` on a custom workflow: report headings, each holding the findings of the check types it names, as a
+  preset's report holds them
 - An export records the digest of what it wrote, read back as a training job loads it, in `provenance.json` and the
   `export` step's record; and each operand's dataset's `provenance:` facts
 - `dataset_manifest()` and `DatasetManifest`: a dataset's digest with each item's hash, saved and loaded as JSON, and

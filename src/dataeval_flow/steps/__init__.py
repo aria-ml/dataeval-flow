@@ -27,7 +27,7 @@ from dataeval_flow.steps._step import (
     TransformConfig,
     TransformContext,
 )
-from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, StepEntry
+from dataeval_flow.steps._workflow import CustomWorkflowConfig, InputSlot, ReportGroupConfig, StepEntry
 from dataeval_flow.workflows._base import Finding
 
 __all__ = [
@@ -48,6 +48,7 @@ __all__ = [
     "InputSlot",
     "Port",
     "PortEntry",
+    "ReportGroupConfig",
     "Step",
     "StepCatalog",
     "StepCatalogEntry",
