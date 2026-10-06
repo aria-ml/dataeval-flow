@@ -253,8 +253,9 @@ for item in verdict.not_assessed:
 #
 # A warning you have reviewed and decided to live with goes under `accepted:`, keyed by check type, with the reason.
 # The accepted warning keeps its severity and its evidence, and the report lists it as an accepted risk. It can no
-# longer make the verdict `not-ready`, but it is still a caveat. An acceptance covers its check type on every split,
-# on this run and later ones.
+# longer make the verdict `not-ready`, but it is still a caveat. An acceptance keyed by check type covers that check on
+# every split, on this run and later ones; key it by step instead, such as `image-outliers-evals[test]`, to accept one
+# split's warning alone.
 #
 # Before accepting the image outliers, look at them. These are the first eight of train's flagged frames:
 

@@ -8,10 +8,10 @@ DataEval Flow [Explanation pages](../concepts/index.md).
 
 ```{glossary}
 Accepted Risk
-    A check type named under an `audit` entry's `accepted:`, with the reason its warning is accepted, on every split.
-    Its warning can't make the {term}`verdict<Verdict>` `not-ready`, but a warning it covers leaves the verdict
-    `ready-with-caveats`, keeps its severity and evidence, and still counts toward health. See
-    [Preset Catalog](presets.md#audit).
+    A warning accepted under an `audit` entry's `accepted:`, with the reason, keyed by check type (every split), by
+    check step (all its runs) or by `step[split]` (one run). An accepted warning can't make the
+    {term}`verdict<Verdict>` `not-ready`, but it leaves the verdict `ready-with-caveats`, keeps its severity and
+    evidence, and still counts toward health. See [Preset Catalog](presets.md#audit).
 
 Bag-of-Visual-Words (BoVW)
     A model-free {term}`feature extractor<Extractor>` that builds an

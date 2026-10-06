@@ -36,7 +36,7 @@ class VerdictItem(BaseModel):
 
 
 class Acceptance(BaseModel):
-    """An accepted check type, why, and whether its check warned on this run, passed, or could not run."""
+    """An accepted check type or check step, why, and whether its check warned on this run, passed, or could not run."""
 
     check: str
     reason: str
@@ -95,7 +95,8 @@ class Verdict(BaseModel):
 def judge(steps: "Mapping[str, StepResult]", *, blocking: Sequence[str], accepted: Mapping[str, str]) -> Verdict:
     """The verdict over `steps`' check records: an unaccepted warning of a `blocking` type makes it not ready; any
     other unaccepted warning, an acceptance that fired, or a check not assessed makes it ready with caveats. A check
-    run that did not complete is not assessed, for its skip reason or its errors; :func:`moot_checks` are left out."""
+    run that did not complete is not assessed, for its skip reason or its errors; :func:`moot_checks` are left out. An
+    acceptance keyed by a step covers that step's runs: all of them by its name, one by `name[element]`."""
     blocked: list[VerdictItem] = []
     warnings: list[VerdictItem] = []
     warned: set[str] = set()
@@ -114,14 +115,14 @@ def judge(steps: "Mapping[str, StepResult]", *, blocking: Sequence[str], accepte
             for finding in (run.output or []) if run.status == "ok" else []:
                 if finding.severity != "warning":
                     continue
-                if record.type in accepted:
-                    warned.add(record.type)
+                if covering := _covering(accepted, record, key):
+                    warned.update(covering)
                     continue
                 item = VerdictItem(
                     check=record.type, step=finding.step or record.name, title=finding.title, brief=finding.brief or ""
                 )
                 (blocked if record.type in blocking else warnings).append(item)
-    missed = {item.check for item in unassessed}
+    missed = {name for item in unassessed for name in (item.check, item.step, item.step.split("[", 1)[0])}
     acceptances = [
         Acceptance(
             check=check,
@@ -132,6 +133,12 @@ def judge(steps: "Mapping[str, StepResult]", *, blocking: Sequence[str], accepte
     ]
     level: Level = "not-ready" if blocked else "ready-with-caveats" if warnings or warned or unassessed else "ready"
     return Verdict(level=level, blocking=blocked, warnings=warnings, accepted=acceptances, not_assessed=unassessed)
+
+
+def _covering(accepted: Mapping[str, str], record: "StepResult", key: str | None) -> list[str]:
+    """The `accepted` keys covering `record`'s run `key`: its step as the verdict names it, its bare step, its type."""
+    step = record.name if key is None else f"{record.name}[{key}]"
+    return [candidate for candidate in dict.fromkeys((step, record.name, record.type)) if candidate in accepted]
 
 
 def moot_checks(steps: "Mapping[str, StepResult]") -> set[str]:

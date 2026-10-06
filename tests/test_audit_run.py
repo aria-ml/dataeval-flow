@@ -19,7 +19,7 @@ from dataeval_flow.config import PipelineConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.steps._registry import get_check
 from dataeval_flow.workflows.audit import AuditConfig, AuditWorkflow
-from dataeval_flow.workflows.audit._workflow import NO_EVALUATION_SPLIT
+from dataeval_flow.workflows.audit._workflow import NO_EVALUATION_SPLIT, PER_EVALUATION_SPLIT
 from tests.chain_toys import ToyDetections, chain_pipeline
 from tests.evaluator_toys import Items, ToyFactors, ToyImages
 from tests.test_audit_preset import _HEADINGS, _OUTLIERS
@@ -224,3 +224,30 @@ def test_every_factor_step_reads_one_encoding() -> None:
     assert {split: record["encoding_digest"] for split, record in binning["per_split"].items()} == dict.fromkeys(
         ["train", "evals[val]", "evals[test]"], digest
     )
+
+
+def test_an_acceptance_keyed_by_one_split_s_step_leaves_the_other_split_s_warning() -> None:
+    result = _audit(_three(), {"accepted": {"image-outliers-evals[test]": "Night shots, by design."}})
+    steps = {item.step for item in _verdict(result).warnings if item.check == "image-outliers"}
+    assert "image-outliers-evals[val]" in steps
+    assert "image-outliers-evals[test]" not in steps
+
+
+def test_the_steps_that_take_a_split_are_the_checks_run_once_per_evaluation_split() -> None:
+    # An extractor and an ontology, so every check over the evaluation splits runs.
+    result = _audit(_three(), {"ontology": {"a": {}, "b": {}}}, extractor=True)
+    per_split = {name for name, record in result.steps.items() if record.kind == "check" and record.elements}
+    assert per_split == PER_EVALUATION_SPLIT
+
+
+def test_an_acceptance_naming_no_split_of_the_task_is_refused_before_the_run() -> None:
+    config = _pipeline(_three(), {"accepted": {"image-outliers-evals[tset]": "x"}}, extractor=False)
+    with pytest.raises(GraphError, match=r"`image-outliers-evals\[tset\]`, but this task has no evaluation split"):
+        run_tasks(config)
+
+
+@pytest.mark.parametrize("element", ["train", "val_vs_test"])
+def test_an_acceptance_naming_train_or_a_pair_is_refused_before_the_run(element: str) -> None:
+    config = _pipeline(_three(), {"accepted": {f"image-outliers-evals[{element}]": "x"}}, extractor=False)
+    with pytest.raises(GraphError, match=rf"has no evaluation split `{element}`"):
+        run_tasks(config)

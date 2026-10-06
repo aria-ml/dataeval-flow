@@ -1,7 +1,7 @@
 """The ``audit`` preset: train and each evaluation split judged before training, with a verdict, a record of what was
 audited, and findings under five questions (audit spec §4, §5, §11)."""
 
-__all__ = ["NO_EVALUATION_SPLIT", "AuditWorkflow"]
+__all__ = ["NO_EVALUATION_SPLIT", "PER_EVALUATION_SPLIT", "AuditWorkflow"]
 
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -30,6 +30,21 @@ NO_EVALUATION_SPLIT = "no evaluation split given"
 """Why a check over the evaluation splits judged nothing when the task names train alone."""
 
 _ROLES = ("train", "evals")
+
+PER_EVALUATION_SPLIT = frozenset(
+    {
+        "class-imbalance-evals",
+        "image-outliers-evals",
+        "image-duplicates-evals",
+        "metadata-issues-evals",
+        "label-conformance-evals",
+        "eval-coverage",
+        "distribution-shift",
+        "stratification",
+    }
+)
+"""The check steps the chain runs once per evaluation split, so the only ones an `accepted` key `step[split]` can
+name; every other check step runs once."""
 
 _GROUPS = (
     ReportGroup("Is the data clean?", ("image-outliers", "image-duplicates", "metadata-issues")),
@@ -125,7 +140,7 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
     )
 
     @classmethod
-    def preflight(cls, config: AuditConfig, inputs: "Mapping[str, Node | NodeList]") -> None:  # noqa: ARG003
+    def preflight(cls, config: AuditConfig, inputs: "Mapping[str, Node | NodeList]") -> None:
         """Refuse a split with no items, naming it, and splits of different kinds (audit spec §4.1, §13)."""
         from dataeval_flow._chain._graph import GraphError
         from dataeval_flow._chain._nodes import NodeList
@@ -141,6 +156,14 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
         if len({node.kind for node in splits}) > 1:
             listing = ", ".join(f"{node.source}: {node.kind}" for node in splits)
             raise GraphError(f"An audit's splits must be one kind: {listing}.")
+        evals = inputs.get("evals")
+        names = [str(node.source) for node in evals.present.values()] if isinstance(evals, NodeList) else []
+        for accepted in config.accepted:
+            if "[" in accepted and (element := accepted[accepted.index("[") + 1 : -1]) not in names:
+                raise GraphError(
+                    f"`accepted` names `{accepted}`, but this task has no evaluation split `{element}`. Its "
+                    f"evaluation splits: {', '.join(names)}."
+                )
 
     @classmethod
     def chain(cls, config: AuditConfig) -> PresetChain:

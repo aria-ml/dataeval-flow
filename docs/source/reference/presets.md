@@ -36,23 +36,30 @@ The verdict is one of three levels, worst first:
 
 | Verdict | `level` | When |
 | --- | --- | --- |
-| Not ready | `not-ready` | A check that `blocking` names warned, and `accepted` doesn't name it. |
+| Not ready | `not-ready` | A check that `blocking` names warned, and no `accepted` key covers that run. |
 | Ready with caveats | `ready-with-caveats` | Any other check warned and isn't accepted, an accepted check warned, or a check was not assessed. |
 | Ready | `ready` | No check warned, and every check was assessed. |
 
-A blocking check that could not run is a caveat, not a block. An acceptance covers its check type on every split, on
-this run and later ones; the accepted finding keeps its severity and its evidence, and health still counts it. A
-`blocking` entry or an `accepted` key that names a check the chain does not run is refused as the config loads:
-`label-conformance` without `ontology`, `uncovered-items` unless `coverage: {method: naive}`, and
-`factor-coverage-gaps` with `factor-gaps: false`.
+A blocking check that could not run is a caveat, not a block. An acceptance keyed by check type covers that check on
+every split; one keyed by a check step covers all that step's runs, and `step[split]` one run. Copy a step key from the
+verdict's `warnings[].step`. Only a step that runs once per evaluation split takes `[split]`: `class-imbalance-evals`,
+`image-outliers-evals`, `image-duplicates-evals`, `metadata-issues-evals`, `label-conformance-evals`, `eval-coverage`,
+`distribution-shift` and `stratification`. Each acceptance holds on this run and later ones; the accepted finding keeps
+its severity and its evidence, and health still counts it.
+
+A `blocking` entry that names no check the chain runs, or an `accepted` key that names neither a check nor a check step
+it runs, is refused as the config loads: `label-conformance` without `ontology`, `uncovered-items` unless
+`coverage: {method: naive}`, and `factor-coverage-gaps` with `factor-gaps: false`. So is a `[split]` on a step that
+runs once, such as `leakage[test]`. A `[split]` naming no evaluation split of the task refuses the run before any step
+runs: the command exits 1 and writes no result.json.
 
 The result's `verdict`, `result.verdict` in Python and `verdict` in the JSON, holds:
 
 - `level`: `not-ready`, `ready-with-caveats` or `ready`;
 - `blocking` and `warnings`: each unaccepted warning, of a blocking check and of any other, as
   `{check, step, title, brief}`;
-- `accepted`: each acceptance, as `{check, reason, state}`, where `state` is `warned`, `did-not-warn` or
-  `not-assessed`;
+- `accepted`: each acceptance, as `{check, reason, state}`, where `check` is the key as written, such as
+  `image-outliers` or `image-outliers-evals[test]`, and `state` is `warned`, `did-not-warn` or `not-assessed`;
 - `not_assessed`: each check, or element of one, that judged nothing, as `{check, step, reason}`.
 
 A task that fails has no verdict: `result.verdict` is `None`, and the JSON has no `verdict`. Run as a step of a custom
@@ -129,7 +136,7 @@ splits. `crops` crops detection data and passes other Datasets through:
 | `divergence` | a block | `method: mst` | [`divergence`](evaluators.md#divergence)'s `method`; the step runs when the task names an extractor |
 | `ood-kneighbors` | a block | `threshold_perc: 99.0`, and the step's own defaults otherwise | [`ood-kneighbors`](evaluators.md#ood-kneighbors)'s `k`, `distance_metric` and `threshold_perc`, where the step's own default is DataEval's 95; the step is fitted on train and runs on each evaluation split when the task names an extractor |
 | `blocking` | a list of check types | `[leakage, untrained-classes]` | The check types whose unaccepted warning makes the verdict "Not ready"; each must name a check the chain runs |
-| `accepted` | a mapping of check type to a reason | `{}` | Why each check type's warning is accepted; each key must name a check the chain runs, and a reason may not be blank |
+| `accepted` | a mapping of a check type, check step or `step[split]` to a reason | `{}` | Why each warning is accepted, by check type (`image-outliers`), by check step for all its runs (`image-outliers-evals`), or by `step[split]` for one run of a step that runs once per evaluation split (`image-outliers-evals[test]`), as the verdict's `warnings[].step` names it: an accepted warning can't make the verdict not ready, but it still leaves it ready with caveats; each key must name a check or check step the chain runs, and a reason may not be blank |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
 **Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.audit.AuditChecks`):

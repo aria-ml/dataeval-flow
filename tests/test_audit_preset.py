@@ -149,12 +149,20 @@ def test_the_chain_declares_the_five_questions_a_record_and_a_verdict() -> None:
         ),
         (
             {"accepted": {"label-conformance": "x"}},
-            "`accepted` names `label-conformance`, which this audit's chain has no check for.",
+            "`accepted` names `label-conformance`, which this audit's chain has no check or check step for.",
+        ),
+        (
+            {"accepted": {"leakage[test]": "x"}},
+            (
+                "`accepted` names `leakage[test]`, but `leakage` runs once, not once per evaluation split; key it "
+                "`leakage` alone. The check steps that take `[split]`: class-imbalance-evals, distribution-shift, "
+                "eval-coverage, image-duplicates-evals, image-outliers-evals, metadata-issues-evals, stratification."
+            ),
         ),
         ({"accepted": {"class-imbalance": "  "}}, "at least 1 character"),
         ({"accepted": {"class-imbalance": "Rare by design."}}, None),
     ],
-    ids=["unknown-blocking", "no-ontology", "blank-reason", "loads"],
+    ids=["unknown-blocking", "no-ontology", "split-of-a-run-once-step", "blank-reason", "loads"],
 )
 def test_blocking_and_accepted_name_only_checks_in_the_chain(entry: dict[str, Any], message: str | None) -> None:
     if message is None:
@@ -291,3 +299,17 @@ def test_the_record_prints_the_thresholds_of_each_check_in_the_chain_as_its_crit
     # with no ontology and adaptive coverage, the chain runs neither check, so their settings applied to nothing
     assert "label-conformance" not in lines
     assert "uncovered-items" not in lines
+
+
+def test_accepted_takes_a_check_step_as_the_verdict_names_it() -> None:
+    config = AuditConfig.model_validate(
+        {"name": "w", "type": "audit", **_OUTLIERS, "accepted": {"image-outliers-evals[test]": "Night shots."}}
+    )
+    assert config.accepted == {"image-outliers-evals[test]": "Night shots."}
+
+
+def test_accepted_refuses_a_key_naming_no_check_or_check_step() -> None:
+    with pytest.raises(ValueError, match=r"`accepted` names `image-outliers-nope`, which this audit's chain has no"):
+        AuditConfig.model_validate(
+            {"name": "w", "type": "audit", **_OUTLIERS, "accepted": {"image-outliers-nope": "x"}}
+        )

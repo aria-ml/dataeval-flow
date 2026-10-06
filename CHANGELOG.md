@@ -4,6 +4,9 @@
 
 ### Added
 
+- An audit's `accepted:` takes a check step as the verdict names it: a check step alone, such as
+  `image-outliers-evals`, covers all its runs, and `step[split]`, such as `image-outliers-evals[test]`, covers that run
+  alone, on a step that runs once per evaluation split
 - `groups:` on a custom workflow: report headings, each holding the findings of the check types it names, as a
   preset's report holds them
 - An export records the digest of what it wrote, read back as a training job loads it, in `provenance.json` and the

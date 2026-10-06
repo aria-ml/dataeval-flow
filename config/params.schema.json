@@ -394,7 +394,7 @@
             "minLength": 1,
             "type": "string"
           },
-          "description": "Why each check type's warning is accepted, by check type, on every split: an accepted warning can't make the verdict not ready, but it still leaves it ready with caveats.",
+          "description": "Why each warning is accepted, by check type (`image-outliers`), by check step for all its runs (`image-outliers-evals`), or by `step[split]` for one run of a step that runs once per evaluation split (`image-outliers-evals[test]`), as the verdict's `warnings[].step` names it: an accepted warning can't make the verdict not ready, but it still leaves it ready with caveats.",
           "title": "Accepted",
           "type": "object"
         },

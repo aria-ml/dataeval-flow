@@ -340,3 +340,60 @@ def _verdict(level: str, *, warning: bool = False, unassessed: bool = False) -> 
 )
 def test_a_verdict_meets_each_requirement_its_level_and_caveats_allow(verdict: Verdict, passes: dict) -> None:
     assert {requirement: verdict.meets(requirement) for requirement in passes} == passes
+
+
+def test_an_acceptance_keyed_by_step_covers_only_that_run() -> None:
+    steps = {
+        "image-outliers-evals": _record(
+            "image-outliers-evals",
+            "image-outliers",
+            elements={
+                "test": _record("x", "image-outliers", _warning("image-outliers-evals[test]", "Image Outliers")),
+                "val": _record("y", "image-outliers", _warning("image-outliers-evals[val]", "Image Outliers")),
+            },
+        ),
+    }
+    verdict = judge(steps, blocking=[], accepted={"image-outliers-evals[test]": "Night shots, by design."})
+    assert [item.step for item in verdict.warnings] == ["image-outliers-evals[val]"]
+    assert verdict.accepted == [
+        Acceptance(check="image-outliers-evals[test]", reason="Night shots, by design.", state="warned")
+    ]
+
+
+def test_an_acceptance_keyed_by_a_step_that_could_not_run_is_not_assessed() -> None:
+    steps = {"image-outliers-train": _record("image-outliers-train", "image-outliers", not_assessed="`x` failed")}
+    verdict = judge(steps, blocking=[], accepted={"image-outliers-train": "Fine."})
+    assert [acceptance.state for acceptance in verdict.accepted] == ["not-assessed"]
+
+
+def _evals_outliers(**fields: Any) -> dict[str, StepResult]:
+    elements = {
+        "test": _record("x", "image-outliers", _warning("image-outliers-evals[test]", "Image Outliers"), **fields),
+        "val": _record("y", "image-outliers", **fields),
+    }
+    return {"image-outliers-evals": _record("image-outliers-evals", "image-outliers", elements=elements)}
+
+
+def test_every_accepted_key_covering_a_warned_run_reads_warned() -> None:
+    accepted = {"image-outliers": "Type.", "image-outliers-evals[test]": "Step."}
+    verdict = judge(_evals_outliers(), blocking=[], accepted=accepted)
+    assert [a.state for a in verdict.accepted] == ["warned", "warned"]
+    assert verdict.line() == "Ready with caveats: 2 accepted risks"
+
+
+def test_an_acceptance_keyed_by_a_bare_step_covers_every_element() -> None:
+    verdict = judge(_evals_outliers(), blocking=[], accepted={"image-outliers-evals": "All splits."})
+    assert verdict.warnings == []
+    assert [a.state for a in verdict.accepted] == ["warned"]
+
+
+def test_an_acceptance_keyed_by_a_bare_step_whose_runs_could_not_run_is_not_assessed() -> None:
+    steps = {
+        "image-outliers-evals": _record(
+            "image-outliers-evals",
+            "image-outliers",
+            elements={"val": _record("y", "image-outliers", not_assessed="`x` failed")},
+        )
+    }
+    verdict = judge(steps, blocking=[], accepted={"image-outliers-evals": "Fine."})
+    assert [a.state for a in verdict.accepted] == ["not-assessed"]

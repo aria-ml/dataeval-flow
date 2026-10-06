@@ -419,8 +419,10 @@ class AuditConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, StatsConfigM
     accepted: dict[str, _Reason] = Field(
         default_factory=dict,
         description=(
-            "Why each check type's warning is accepted, by check type, on every split: an accepted warning can't make "
-            "the verdict not ready, but it still leaves it ready with caveats."
+            "Why each warning is accepted, by check type (`image-outliers`), by check step for all its runs "
+            "(`image-outliers-evals`), or by `step[split]` for one run of a step that runs once per evaluation split "
+            "(`image-outliers-evals[test]`), as the verdict's `warnings[].step` names it: an accepted warning can't "
+            "make the verdict not ready, but it still leaves it ready with caveats."
         ),
     )
     checks: AuditChecks = Field(default_factory=AuditChecks, description="When findings warn, keyed by check type.")
@@ -444,16 +446,32 @@ class AuditConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, StatsConfigM
 
     @model_validator(mode="after")
     def _blocking_and_accepted_name_checks(self) -> Self:
-        """Refuse a `blocking` entry or an `accepted` key that names no check in this entry's chain."""
-        from dataeval_flow.workflows.audit._workflow import AuditWorkflow
+        """Refuse a `blocking` entry or an `accepted` key that names no check in this entry's chain, and a
+        `step[split]` key whose step doesn't run once per evaluation split."""
+        from dataeval_flow.workflows.audit._workflow import PER_EVALUATION_SPLIT, AuditWorkflow
 
         steps = AuditWorkflow.chain(self).steps
-        checks = {step["check"] for step in steps if isinstance(step, Mapping) and "check" in step}
-        for field, keys in (("blocking", self.blocking), ("accepted", self.accepted)):
-            for key in keys:
-                if key not in checks:
-                    raise ValueError(
-                        f"`{field}` names `{key}`, which this audit's chain has no check for. Its checks: "
-                        f"{', '.join(sorted(checks))}."
-                    )
+        entries = [step for step in steps if isinstance(step, Mapping) and "check" in step]
+        checks = {step["check"] for step in entries}
+        check_steps = {step["name"] for step in entries}
+        for key in self.blocking:
+            if key not in checks:
+                raise ValueError(
+                    f"`blocking` names `{key}`, which this audit's chain has no check for. Its checks: "
+                    f"{', '.join(sorted(checks))}."
+                )
+        for key in self.accepted:
+            step = key.split("[", 1)[0]
+            if step in check_steps and key != step and key.endswith("]") and step not in PER_EVALUATION_SPLIT:
+                raise ValueError(
+                    f"`accepted` names `{key}`, but `{step}` runs once, not once per evaluation split; key it "
+                    f"`{step}` alone. The check steps that take `[split]`: "
+                    f"{', '.join(sorted(PER_EVALUATION_SPLIT & check_steps))}."
+                )
+            if key in checks or (step in check_steps and (key == step or key.endswith("]"))):
+                continue
+            raise ValueError(
+                f"`accepted` names `{key}`, which this audit's chain has no check or check step for. Its checks: "
+                f"{', '.join(sorted(checks))}. Its check steps: {', '.join(sorted(check_steps))}."
+            )
         return self
