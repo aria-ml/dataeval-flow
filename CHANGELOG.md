@@ -4,6 +4,8 @@
 
 ### Added
 
+- An export records the digest of what it wrote, read back as a training job loads it, in `provenance.json` and the
+  `export` step's record; and each operand's dataset's `provenance:` facts
 - `dataset_manifest()` and `DatasetManifest`: a dataset's digest with each item's hash, saved and loaded as JSON, and
   compared to name the items that changed. The `dataeval-flow` command writes each `content-digest` run's manifest
   under `results/manifests/`

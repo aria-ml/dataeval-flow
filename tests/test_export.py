@@ -575,7 +575,8 @@ class TestProvenanceSidecar:
         """Only the sidecar gains the wrapper. The embedded block stays flat."""
         write_export(ExportConfig(name="dataset", source="merged"), _merge_config(), tmp_path)
         written = json.loads((tmp_path / "dataset" / "annotations" / "instances.json").read_text())
-        assert self._runs(tmp_path)[0] == written["info"]
+        # The digest is read back from the files, so only the sidecar can hold it.
+        assert {k: v for k, v in self._runs(tmp_path)[0].items() if k != "digest"} == written["info"]
 
     def test_append_records_every_write_in_order(self, tmp_path: Path):
         """An appended dataset holds both writes, so its provenance has to describe both."""

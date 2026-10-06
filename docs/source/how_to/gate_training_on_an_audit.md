@@ -130,9 +130,13 @@ Notice:
 - Metadata has a digest of its own, so a loader that yields images and labels with no metadata still matches the
   content digest. Gate on the content digest across machines: the metadata digest covers metadata as stored, paths
   included, so metadata holding an absolute file path digests differently on each machine.
-- A split made by a chain step digests the items the step kept, and the record says when it was. Flow can't rebuild
-  such a split outside a run, so [export](export_a_dataset.md) it, audit the export as a source, and train on the
-  export. `export` writes object-detection Datasets only.
+- A split made by a chain step, such as a `data-splitting` step's `split.train`, isn't a source: an audit task can't
+  read it, and `load_source` can't rebuild it. [Export it](export_a_dataset.md#export-the-parts-of-a-split), add the
+  export as a `datasets:` entry in the format it was written, audit that source, and train on the export. `export`
+  writes object-detection Datasets only. The audit's content digest then equals `digest.content` in the last entry of
+  the export's `provenance.json`, and a mismatch means the audit read something else. Gate the training job on the
+  audit's digest, as above: the digest `provenance.json` records proves only that the data is what was exported, not
+  that it was audited.
 - The digest hashes decoded pixels and targets as Flow reads them. Compare digests made with the same image libraries,
   which the result records in `metadata.library_versions`.
 

@@ -368,13 +368,16 @@ element, and the others are still written.
 | `to` | one directory name, not `.` or `..` | `<task>.<step>` | The directory under `<output>/datasets/` |
 
 The step writes to `<output>/datasets/<to>/`, with a `provenance.json` that records each source the Dataset descends
-from, with the dataset and view it read, and the lineage of the Dataset written. Its `label_space` list is shaped as a
-top-level export's: the sources' own Relabel records, then each `conform` on the way, in chain order, with its remap
-and ontology digest. A Dataset a chain made is written with its pixels encoded; a chain input whose view left its
+from, with the dataset and view it read, and the lineage of the Dataset written. It also records `digest`, the digest of
+the export as Flow reads it back, which the step's record holds as `ExportRecord.digest` and its report shows as Content
+digest. A training job gates on the digest the audit of the export recorded, as [Gate training on an
+audit](../how_to/gate_training_on_an_audit.md#refuse-data-that-was-not-audited) shows. Its `label_space` list is shaped
+as a top-level export's: the sources' own Relabel records, then each `conform` on the way, in chain order, with its
+remap and ontology digest. A Dataset a chain made is written with its pixels encoded; a chain input whose view left its
 pixels alone is written by reference to its image files, as a top-level export is. A run with no output directory skips
 the step, and that is not a failure. A Dataset of another kind is refused before any step runs. Two destinations that
-coincide anywhere in the run, top-level `exports:` included, fail the config load.
-[Export a dataset](../how_to/export_a_dataset.md) covers the formats and modes in full.
+coincide anywhere in the run, top-level `exports:` included, fail the config load. [Export a
+dataset](../how_to/export_a_dataset.md) covers the formats and modes in full.
 
 - **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 

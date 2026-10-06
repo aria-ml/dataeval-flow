@@ -85,11 +85,28 @@ entry records:
 
 - the tool and its version, and when the write happened,
 - the source that was written, the ontology it was read under, and that ontology's digest,
-- one entry per merge operand: its source name, its dataset, the view it read through, and the `class_remap` that
-  conformed it,
-- the `label_space` records, each with its `digest`.
+- one entry per merge operand: its source name, its dataset, the view it read through, the `class_remap` that
+  conformed it, and, as `provenance`, its dataset's `provenance:` facts,
+- the `label_space` records, each with its `digest`,
+- `digest`: the content and metadata digests and the item count of the whole destination as Flow reads it back. A
+  VisDrone export, which Flow can't read back, records `digest: null` and a `digest_reason`, as does a COCO or YOLO
+  export whose read-back fails.
 
-`mode: append` adds an entry rather than replacing the file, so a directory written twice records both writes.
+`mode: append` adds an entry rather than replacing the file, so a directory written twice records both writes. The
+last entry's `digest` covers the whole destination, which is what a reader loads, so compare against that one.
+
+The recorded digest is what `dataset_digest()` computes in a training job that loads the export with
+`load_dataset(path, dataset_format="coco")`, `dataset_format="yolo"`, or, for `huggingface_vision`,
+`dataset_format="huggingface", task="object_detection"`. A COCO or YOLO round trip usually keeps the source's digest,
+but it need not: boxes pass through other number formats. So compare against the recorded digest, not the source's:
+
+```python
+import json
+from pathlib import Path
+
+export_dir = Path("output/datasets/conformed_dataset")
+recorded = json.loads((export_dir / "provenance.json").read_text())["runs"][-1]["digest"]["content"]
+```
 
 Only the COCO writer also embeds the same mapping in its own `info` block. The other three drop it, which is why the
 sidecar is written for every format.
@@ -109,7 +126,8 @@ its class. Dropped are:
 - `area`, `segmentation`, and `iscrowd`,
 - the per-detection attributes.
 
-Read the source's own files where you need those.
+Read the source's own files where you need those. Flow also reads a `huggingface_vision` export back with no class
+names and every label as -1, so audit and train from a `coco` or `yolo` export.
 
 ## Know when the imagery is copied and when it is re-encoded
 
@@ -173,6 +191,12 @@ workflows:
 
 Only object-detection Datasets can be exported. A classification source's parts can be read as `split.train` by other
 steps, such as an evaluator, but `export` does not yet write them.
+
+Each `provenance.json` records the digest of what was written, read back (see
+[Read the provenance the export writes](#read-the-provenance-the-export-writes)). The step's record holds it as
+`digest`, and the report shows it as Content digest. To train on a part with an audit's backing, audit the export as a
+source and gate on the audit's digest, as
+[Gate training on an audit](gate_training_on_an_audit.md#refuse-data-that-was-not-audited) shows.
 
 ## Related material
 

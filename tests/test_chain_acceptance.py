@@ -169,8 +169,8 @@ def test_align_conform_merge_export_refuses_a_collapse_until_allowed(tmp_path: P
     ]
     provenance = json.loads((dataset / "provenance.json").read_text())["runs"][-1]
     assert provenance["operands"] == [
-        {"source": "a", "dataset": "a_data", "view": None, "class_remap": {}},
-        {"source": "b", "dataset": "b_data", "view": None, "class_remap": {}},
+        {"source": "a", "dataset": "a_data", "view": None, "class_remap": {}, "provenance": {}},
+        {"source": "b", "dataset": "b_data", "view": None, "class_remap": {}, "provenance": {}},
     ]
     assert [record["name"] for record in provenance["lineage"]] == ["merged", "a2", "b2", "a", "b"]
     # The roots `a` and `b` read no view, so the label space holds each conform on the way, in chain order.

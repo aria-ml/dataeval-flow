@@ -47,6 +47,13 @@ class ExportRecord(BaseModel):
     mode: str = Field(description="The mode it was written in.")
     items: int = Field(description="How many images it holds.")
     provenance: dict[str, Any] = Field(description="The provenance written beside it, in `provenance.json`.")
+    digest: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "The digest of the destination as Flow reads it back, `content`, `metadata`, `items` and `scheme`, as "
+            "`content-digest` records them. `None` for a format Flow can't read back."
+        ),
+    )
 
 
 class ExportTransform(Transform[ExportTransformConfig]):
@@ -116,7 +123,12 @@ class ExportTransform(Transform[ExportTransformConfig]):
                 **common,
             )
         record = ExportRecord(
-            path=str(path), format=config.format, mode=config.mode, items=items, provenance=provenance
+            path=str(path),
+            format=config.format,
+            mode=config.mode,
+            items=items,
+            provenance=provenance,
+            digest=provenance.get("digest"),
         )
         return {"output": record}
 
@@ -125,4 +137,13 @@ class ExportTransform(Transform[ExportTransformConfig]):
         from dataeval_flow._blocks import Fields
 
         output = record.output
-        return [Fields(items=[("Path", output.path), ("Format", output.format), ("Images", output.items)])]
+        return [
+            Fields(
+                items=[
+                    ("Path", output.path),
+                    ("Format", output.format),
+                    ("Images", output.items),
+                    *([("Content digest", output.digest["content"])] if output.digest else []),
+                ]
+            )
+        ]

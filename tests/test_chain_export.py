@@ -100,10 +100,11 @@ def test_the_provenance_of_a_derived_dataset_names_each_root_sources_dataset_vie
     result = run_tasks(config, output_dir=tmp_path)["t"]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
+    remap = {"car": "vehicle"}
     provenance = json.loads((tmp_path / "datasets" / "t.dataset" / "provenance.json").read_text())["runs"][-1]
     assert provenance["operands"] == [
-        {"source": "plain", "dataset": "plain_data", "view": "vehicles", "class_remap": {"car": "vehicle"}},
-        {"source": "renamed", "dataset": "renamed_data", "view": "vehicles", "class_remap": {"car": "vehicle"}},
+        {"source": "plain", "dataset": "plain_data", "view": "vehicles", "class_remap": remap, "provenance": {}},
+        {"source": "renamed", "dataset": "renamed_data", "view": "vehicles", "class_remap": remap, "provenance": {}},
     ]
     assert [record["name"] for record in provenance["lineage"]] == ["both", "a", "b"]
     # Each root source's Relabel, recorded as a top-level export of that source records it.
@@ -403,3 +404,14 @@ def test_a_matrix_run_writes_a_list_export_under_its_run_then_each_key(tmp_path:
     run_tasks(config, output_dir=tmp_path)
     for key in ("0", "1"):
         assert (tmp_path / "datasets" / "t.dataset" / "run-1" / key / "provenance.json").is_file()
+
+
+def test_the_record_carries_the_digest_of_the_export_read_back(tmp_path: Path) -> None:
+    from dataeval_flow import dataset_digest, load_dataset
+
+    config = _config([{"name": "dataset", "transform": "export", "input": "a"}])
+    result = run_tasks(config, output_dir=tmp_path)["t"]
+    assert isinstance(result, ChainResult)
+    record = result.steps["dataset"].output
+    assert record.digest is not None
+    assert record.digest["content"] == dataset_digest(load_dataset(Path(record.path), dataset_format="coco")).content

@@ -410,12 +410,41 @@ def _operand_entry(operand: "SourceOperand", record: "LabelSpaceRecord | None") 
     ``record`` is None where the operand's view conformed nothing, which is a dataset
     merged from sources that already shared a vocabulary.
     """
+    from dataeval_flow.config._schemas._dataset import _DatasetConfigBase
+
+    facts = operand.dataset_config.provenance if isinstance(operand.dataset_config, _DatasetConfigBase) else None
     return {
         "source": operand.source.name,
         "dataset": operand.source.dataset,
         "view": operand.view_config.name if operand.view_config else None,
         "class_remap": dict(record.class_remap) if record is not None else {},
+        "provenance": dict(facts or {}),
     }
+
+
+def _reload_digest(dest: "Path", format: str) -> dict[str, Any]:  # noqa: A002
+    """The digest a reader loading `dest` with :func:`~dataeval_flow.load_dataset` computes, as ``content-digest``
+    records it; for a format Flow can't read back, ``None`` with the reason. Under ``mode: append`` it covers the whole
+    destination, which is what a reader loads."""
+    from dataeval_flow._dataset import load_dataset
+    from dataeval_flow._digest import dataset_digest
+
+    if format not in ("coco", "yolo", "huggingface_vision"):
+        return {"digest": None, "digest_reason": f"Flow can't read {format} back"}
+    try:
+        match format:
+            case "coco":
+                reloaded = load_dataset(dest, dataset_format="coco")
+            case "yolo":
+                reloaded = load_dataset(dest, dataset_format="yolo")
+            case _:
+                reloaded = load_dataset(dest, dataset_format="huggingface", task="object_detection")
+        digest = dataset_digest(reloaded)
+    except Exception as error:  # noqa: BLE001 - the written export must not be lost to its own check
+        _logger.warning("  Couldn't read export %s back to digest it: %s", dest, error)
+        return {"digest": None, "digest_reason": f"Flow couldn't read {format} back: {error}"}
+    fields = {"content": digest.content, "metadata": digest.metadata, "items": digest.items, "scheme": digest.scheme}
+    return {"digest": fields}
 
 
 def write_source(
@@ -441,9 +470,10 @@ def write_source(
     provenance = export_provenance(resolved, ontology=ontology)
     dataset = build_od_dataset(resolved, dataset_metadata=provenance)
     _write_or_explain(dataset, dest, name=name, format=format, mode=mode, write=write)
-    _write_provenance(dest, provenance)
+    run = {**provenance.info, **_reload_digest(dest, format)}
+    _write_provenance(dest, run)
     _logger.info("  Wrote export '%s' (%s, %d images) to %s", name, format, len(dataset.samples), dest)
-    return dest, dict(provenance.info), len(dataset.samples)
+    return dest, run, len(dataset.samples)
 
 
 def write_export(
@@ -618,9 +648,10 @@ def write_node(
     )
     built = build_node_dataset(dataset, name=name, dataset_metadata=provenance)
     _write_or_explain(built, dest, name=name, format=format, mode=mode, write=write)
-    _write_provenance(dest, provenance)
+    run = {**provenance.info, **_reload_digest(dest, format)}
+    _write_provenance(dest, run)
     _logger.info("  Wrote export '%s' (%s, %d images) to %s", name, format, len(built.samples), dest)
-    return dest, dict(provenance.info), len(built.samples)
+    return dest, run, len(built.samples)
 
 
 def _holds_a_dataset(dest: "Path") -> bool:
@@ -665,8 +696,8 @@ def _warn_on_missing_ontology(export: "ExportConfig", config: "PipelineConfig") 
     )
 
 
-def _write_provenance(dest: "Path", provenance: "DatasetMetadata") -> None:
-    """Write the provenance sidecar into a written export.
+def _write_provenance(dest: "Path", run: "Mapping[str, Any]") -> None:
+    """Write the provenance sidecar into a written export, adding `run`, this write's entry.
 
     Only the COCO writer carries `DatasetMetadata.info` into the files it writes; the
     others drop it. Write it beside the dataset for every format, so an export's provenance
@@ -685,7 +716,7 @@ def _write_provenance(dest: "Path", provenance: "DatasetMetadata") -> None:
 
     dest.mkdir(parents=True, exist_ok=True)
     path = dest / "provenance.json"
-    runs = [*_recorded_runs(path), dict(provenance.info)]
+    runs = [*_recorded_runs(path), dict(run)]
     path.write_text(json.dumps({"runs": runs}, indent=2) + "\n", encoding="utf-8")
 
 

@@ -266,7 +266,8 @@ its items, so the same digest doesn't prove the same content. The `content-diges
 digest does; see [Provenance](Provenance.md#pinning-the-data-a-result-read).
 
 An `export` step writes into the dataset's `provenance.json` each source the Dataset descends from, with the dataset and
-view it read; the lineage of the Dataset it wrote; and a `label_space` list shaped as a top-level export's. The list
+view it read; the lineage of the Dataset it wrote; the digest of what it wrote, read back, as `digest`; and a
+`label_space` list shaped as a top-level export's. The list
 holds each source's own Relabel records first, as a top-level export of that source writes them, then one record per
 `conform` on the way, in chain order, with its remap and ontology digest and the step's address as its `source`.
 
