@@ -157,4 +157,5 @@ Shapes, combines and writes out Datasets, for the steps that read them.
 
 - **Preset:** none yet; chain its steps in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 - **Transforms:** [`view`](transforms.md#view), [`wrap`](transforms.md#wrap), [`merge`](transforms.md#merge),
-  [`conform`](transforms.md#conform), [`remove`](transforms.md#remove), [`export`](transforms.md#export)
+  [`collect`](transforms.md#collect), [`conform`](transforms.md#conform), [`remove`](transforms.md#remove),
+  [`export`](transforms.md#export)

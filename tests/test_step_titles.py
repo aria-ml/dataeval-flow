@@ -49,6 +49,7 @@ _TITLES = {
     "conform": "Conform",
     "export": "Export",
     "kfold": "K-Fold",
+    "collect": "Collect",
     "merge": "Merge",
     "remove": "Remove",
     "select": "Select",

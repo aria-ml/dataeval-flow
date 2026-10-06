@@ -854,7 +854,8 @@ def _transform(
             outputs[port.name] = NodeList(
                 address,
                 {
-                    k: _made_node(f"{address}[{k}]", ds, element_key(key, k), sources, spec, settings)
+                    k: _handed_on(f"{address}[{k}]", ds, sources, spec)
+                    or _made_node(f"{address}[{k}]", ds, element_key(key, k), sources, spec, settings)
                     for k, ds in value.items()
                 },
             )
@@ -883,9 +884,9 @@ def _check_datasets(spec: StepSpec, made: Mapping[str, Any]) -> None:
 
 
 def _handed_on(address: str, dataset: Any, sources: Sequence[Node], spec: StepSpec) -> Node | None:
-    """A node at `address` for an output that is one of the step's input Datasets itself, unchanged: it shares that
-    input's key, context, cache and drawn Dataset, so its readers read what the input's readers read, under the
-    source's cache key (coverage spec §5.1, §17). `None` for any other output."""
+    """A node at `address` for an output, or an element of a list output, that is one of the step's input Datasets
+    itself, unchanged: it shares that input's key, context, cache and drawn Dataset, so its readers read what the
+    input's readers read, under the source's cache key (coverage spec §5.1, §17). `None` for any other output."""
     source = next((node for node in sources if dataset is node.value), None)
     if source is None or source.context is None:
         return None

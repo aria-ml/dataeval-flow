@@ -3851,6 +3851,9 @@
                 "$ref": "#/$defs/WorkflowStep"
               },
               {
+                "$ref": "#/$defs/TransformStep_collect"
+              },
+              {
                 "$ref": "#/$defs/TransformStep_conform"
               },
               {
@@ -11506,6 +11509,67 @@
         "model_path"
       ],
       "title": "TorchExtractorConfig",
+      "type": "object"
+    },
+    "TransformStep_collect": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "The Datasets to gather, in order.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Input",
+          "type": "array"
+        },
+        "keys": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Each element's key, one per input. Unset takes each from its address: `[key]` where written, else its output's name, else its step's.",
+          "title": "Keys"
+        },
+        "transform": {
+          "const": "collect",
+          "description": "`collect`: Gathers Datasets into one list, keyed by name, each as it is.",
+          "title": "Transform",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input",
+        "transform",
+        "name"
+      ],
+      "title": "TransformStep_collect",
       "type": "object"
     },
     "TransformStep_conform": {

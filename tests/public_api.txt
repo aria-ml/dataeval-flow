@@ -267,6 +267,8 @@ dataeval_flow.steps.combines:OutliersByClassCombine
 dataeval_flow.steps.combines:OutliersByClassConfig
 dataeval_flow.steps.combines:OutliersByClassOutput
 dataeval_flow.steps.combines:OutliersByClassRow
+dataeval_flow.steps.transforms:CollectConfig
+dataeval_flow.steps.transforms:CollectTransform
 dataeval_flow.steps.transforms:ConformConfig
 dataeval_flow.steps.transforms:ConformTransform
 dataeval_flow.steps.transforms:ExportRecord

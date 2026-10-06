@@ -21,6 +21,7 @@ from dataeval_flow.steps._combine import Combine
 from dataeval_flow.steps._step import Transform
 
 _BUILTINS: dict[str, str] = {
+    "collect": "dataeval_flow.steps.transforms._collect:CollectTransform",
     "conform": "dataeval_flow.steps.transforms._conform:ConformTransform",
     "export": "dataeval_flow.steps.transforms._export:ExportTransform",
     "kfold": "dataeval_flow.steps.transforms._split:KFoldTransform",

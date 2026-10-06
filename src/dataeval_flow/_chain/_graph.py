@@ -337,9 +337,11 @@ def _resolve(
     )
 
     if broadcast and any(port.is_list for port in impl.output_ports()):
+        address, value = _first_list(bindings, entry, workflow, types, later, empty)
+        element = f"{address}[{value.keys[0] if value.keys else '<key>'}]"
         raise GraphError(
-            f"Step '{entry.name}' reads a list on a port that takes one item, so it runs once per element; but it "
-            "outputs lists, and lists do not nest."
+            f"Step '{entry.name}' reads `{address}`, a list, on a port that takes one item, so it would run once per "
+            f"element; but it outputs lists, and lists do not nest: name one element, such as `{element}`."
         )
     if broadcast and issubclass(impl, Transform) and not impl.broadcasts:
         address, value = _first_list(bindings, entry, workflow, types, later, empty)

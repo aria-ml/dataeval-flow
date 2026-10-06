@@ -4,6 +4,8 @@
 
 ### Added
 
+- The `collect` transform: one or more Datasets gathered into one list, keyed by name, each element its input
+  unchanged, for a step that runs once per element or a preset's list input such as `audit`'s `evals`
 - An audit's `accepted:` takes a check step as the verdict names it: a check step alone, such as
   `image-outliers-evals`, covers all its runs, and `step[split]`, such as `image-outliers-evals[test]`, covers that run
   alone, on a step that runs once per evaluation split
