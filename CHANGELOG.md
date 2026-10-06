@@ -6,6 +6,10 @@
 
 - The `collect` transform: one or more Datasets gathered into one list, keyed by name, each element its input
   unchanged, for a step that runs once per element or a preset's list input such as `audit`'s `evals`
+- `audit` runs as a step of a custom workflow, on splits a chain made: the task's result carries its verdict, record
+  and five questions, and `--require` gates it. A spliced preset keeps its preflight and encodes every split like
+  its reference. One step per workflow may give a verdict; it may not be `optional:`. The verdict names the splice's
+  steps as `audit/...`, and the entry's `accepted:` keys, written without the prefix, cover them
 - An audit's `accepted:` takes a check step as the verdict names it: a check step alone, such as
   `image-outliers-evals`, covers all its runs, and `step[split]`, such as `image-outliers-evals[test]`, covers that run
   alone, on a step that runs once per evaluation split

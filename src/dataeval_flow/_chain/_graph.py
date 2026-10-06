@@ -10,6 +10,7 @@ __all__ = [
     "build_graph",
     "one_step_graph",
     "task_problems",
+    "verdict_steps",
 ]
 
 import builtins
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.config._schemas import TaskConfig
     from dataeval_flow.evaluators._base import EvaluatorConfig
-    from dataeval_flow.workflows._preset import Preset
+    from dataeval_flow.workflows._preset import Preset, PresetChain
 
 _ARTICLE = {
     DataType.DATASET: "a Dataset",
@@ -136,6 +137,13 @@ def build_graph(
     GraphError
         Naming the step and the address that does not connect.
     """
+    verdicts = verdict_steps(workflow, pipeline)
+    if len(verdicts) > 1:
+        named = ", ".join(f"`{name}`" for name in verdicts[:-1]) + f" and `{verdicts[-1]}`"
+        raise GraphError(
+            f"Workflow '{workflow.name}' runs {_count_word(len(verdicts))} steps that give a verdict, {named}; a "
+            "workflow gives one verdict."
+        )
     keys = slot_keys or {}
     given = slot_types or {}
     types: dict[str, ValueType] = {
@@ -177,6 +185,20 @@ def build_graph(
     return ChainGraph(
         workflow.name, tuple(workflow.inputs), tuple(specs.values()), aliases=aliases, splices=tuple(splices)
     )
+
+
+def verdict_steps(workflow: CustomWorkflowConfig, pipeline: "PipelineConfig") -> list[str]:
+    """The steps of `workflow` that run a preset whose chain gives a verdict, in order."""
+    found: list[str] = []
+    for entry in workflow.steps:
+        preset = _preset_step(entry, pipeline)
+        if preset is not None and preset[1].chain(preset[0]).blocking is not None:
+            found.append(entry.name)
+    return found
+
+
+def _count_word(count: int) -> str:
+    return {2: "two", 3: "three", 4: "four", 5: "five"}.get(count, str(count))
 
 
 def one_step_graph(task: "TaskConfig", instance: BaseModel, source_names: Sequence[str]) -> ChainGraph:
@@ -496,21 +518,61 @@ def _splice(
             )
         bound.append((address, value))
     by_slot = dict(zip(names, bound, strict=True))
-    _check_reference(entry, config, preset, pipeline, by_slot)
+    chain = preset.chain(config)
+    _check_splice(entry, config, preset, chain, by_slot)
+    _check_reference(entry, config, preset, chain, pipeline, by_slot)
     _check_extractor(entry, "workflow", config.type, config, pipeline)
     return splice_preset(entry, config, preset, pipeline, by_slot)
+
+
+def _check_splice(
+    entry: StepEntry,
+    config: Any,
+    preset: "type[Preset]",
+    chain: "PresetChain",
+    bound: Mapping[str, tuple[Address, ValueType]],
+) -> None:
+    """Refuse, on a preset step, `optional:` where its chain gives a verdict (audit-as-a-step spec D9); an `accepted`
+    key naming an element no list bound to a slot has, where its keys are known (§4.1); and, where its chain declares a
+    reference, a record or a verdict, an element of such a list keyed like one of its single slots, which the record's
+    columns and the preflight's names would confuse."""
+    if entry.optional and chain.blocking is not None:
+        raise GraphError(
+            f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), which gives a verdict, so it may not "
+            "be optional: a step of it that failed would read as not assessed, and the verdict would pass."
+        )
+    lists = [(address, value) for address, value in bound.values() if value.is_list and value.keys]
+    keys = [key for _, value in lists for key in value.keys or ()]
+    for accepted in chain.accepted if lists else ():
+        if "[" in accepted and (element := accepted[accepted.index("[") + 1 : -1]) not in keys:
+            raise GraphError(
+                f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), whose `accepted` names "
+                f"`{accepted}`, but `{lists[0][0]}` has no element `{element}`. Its elements: {', '.join(keys)}."
+            )
+    if chain.reference is None and chain.record is None and chain.blocking is None:
+        return
+    singles = {
+        name for slot, name in zip(preset.slots, bound, strict=True) if isinstance(slot, str) or not slot.is_list
+    }
+    for name, (address, value) in bound.items():
+        clash = next((key for key in value.keys or () if key in singles), None) if name not in singles else None
+        if clash is not None:
+            raise GraphError(
+                f"Step '{entry.name}' binds `{address}`, whose element `{clash}` has the name of its slot `{clash}`: "
+                "name the element otherwise with `keys:`."
+            )
 
 
 def _check_reference(
     entry: StepEntry,
     config: Any,
     preset: "type[Preset]",
+    chain: "PresetChain",
     pipeline: "PipelineConfig",
     bound: Mapping[str, tuple[Address, ValueType]],
 ) -> None:
     """Refuse, on a preset step whose chain declares a reference or a verdict, a list bound to a slot taking one Dataset
     (audit-as-a-step spec D3), and, under a reference, a metadata policy naming `reference_split` (D7)."""
-    chain = preset.chain(config)
     if chain.reference is not None or chain.blocking is not None:
         for slot, (name, (address, value)) in zip(preset.slots, bound.items(), strict=True):
             single = isinstance(slot, str) or not slot.is_list

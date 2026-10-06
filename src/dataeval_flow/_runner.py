@@ -184,8 +184,11 @@ _SUCCEEDED_ONLY = ("json", "text", "html")
 
 
 def _judged_tasks(config: PipelineConfig, tasks: str | Sequence[str] | None) -> list[str]:
-    """The tasks this run runs whose workflow declares a verdict: a preset whose chain names `blocking` checks."""
+    """The tasks this run runs whose workflow declares a verdict: a preset whose chain names `blocking` checks, or a
+    custom workflow with a step running one."""
+    from dataeval_flow._chain._graph import verdict_steps
     from dataeval_flow._orchestrator import _resolve_workflow, select_tasks
+    from dataeval_flow.steps._workflow import CustomWorkflowConfig
     from dataeval_flow.workflows._base import WorkflowConfig
     from dataeval_flow.workflows._preset import Preset
     from dataeval_flow.workflows._registry import get_workflow
@@ -195,8 +198,12 @@ def _judged_tasks(config: PipelineConfig, tasks: str | Sequence[str] | None) -> 
         if task.kind != "workflow":
             continue
         entry = _resolve_workflow(task.workflow, config)
+        if isinstance(entry, CustomWorkflowConfig):
+            if verdict_steps(entry, config):
+                judged.append(task.name)
+            continue
         if not isinstance(entry, WorkflowConfig):
-            continue  # a custom workflow declares no verdict
+            continue
         workflow = get_workflow(entry.type)
         if issubclass(workflow, Preset) and workflow.chain(entry).blocking is not None:
             judged.append(task.name)
@@ -219,7 +226,8 @@ def _short_of(requirement: str, results: Mapping[str, Result[Any, Any]], judged:
         for label, outcome in runs:
             verdict = getattr(outcome, "verdict", None)
             if verdict is None:
-                short.append(f"{label} (no verdict: it failed)")
+                reason = getattr(outcome, "no_verdict", None) or "it failed"
+                short.append(f"{label} (no verdict: {reason})")
             elif not verdict.meets(requirement):
                 short.append(f"{label} ({verdict.label})")
     return short
@@ -255,7 +263,7 @@ def _requirement(
     if not judged:
         raise ValueError(
             f"`require: {requirement}` gates on a verdict, and no task this run runs gives one: only a preset "
-            "that declares a verdict, such as `audit`, does."
+            "that declares a verdict, such as `audit`, does, run as a task or as a step of a custom workflow."
         )
     return requirement, judged
 

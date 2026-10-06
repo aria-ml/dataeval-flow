@@ -116,6 +116,8 @@ class ChainRun:
     """Each Metadata a step read, in the order read, for the result's binning record."""
     splices: "dict[str, SpliceRun]" = field(default_factory=dict)
     """By splice name, how each splice the run reached started (audit-as-a-step spec §4.2)."""
+    splice_reads: dict[str, list[MetadataRead]] = field(default_factory=dict)
+    """By splice name, each Metadata its own steps read, in the order read: what its record's encoding rests on."""
 
 
 def input_node(address: str, context: "DatasetContext", *, source: str, cache_name: str, cache_key: str) -> Node:
@@ -163,7 +165,8 @@ def _source_node(
 def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings: RunSettings) -> ChainRun:
     """Run each step in order. Never raises for a step's failure: it becomes the step's status.
 
-    Each Metadata a step reads is noted, for the result's binning record.
+    Each Metadata a step reads is noted, for the result's binning record, and for each splice, those its own steps
+    read, for its record's encoding.
     """
     nodes: dict[str, _Value] = dict(inputs)
     # A one-step graph is a rerouted task: its result carries no lineage, so measure nothing it would not.
@@ -176,6 +179,7 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
     specs = {spec.name: spec for spec in graph.steps}
     splice_runs: dict[str, SpliceRun] = {}
     made_from_reference: dict[str, set[str]] = {}
+    read_by: dict[str, list[MetadataRead]] = {}
     with noting_reads() as reads:
         for spec in graph.steps:
             if (splice := starts.get(spec.name)) is not None:
@@ -194,7 +198,9 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
                 grown = made_from_reference.get(owner.name) if owner is not None else None
                 if grown is not None:
                     settings = _with_reference(settings, spec.name, grown)
+                before = len(reads)
                 record, produced, records = _run_step(spec, nodes, settings, lineage, label_space, steps)
+                read_by[spec.name] = reads[before:]
                 if grown is not None:
                     _grow(grown, produced)
             steps[spec.name] = record
@@ -206,7 +212,10 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
             if tracked:
                 lineage.extend(_lineage(node) for node in _datasets(produced.values()))
             label_space.extend(records)
-    return ChainRun(steps, nodes, lineage, label_space, reads, splices=splice_runs)
+    splice_reads = {
+        splice.name: [read for name in splice.steps for read in read_by.get(name, ())] for splice in graph.splices
+    }
+    return ChainRun(steps, nodes, lineage, label_space, reads, splices=splice_runs, splice_reads=splice_reads)
 
 
 def begin_splice(

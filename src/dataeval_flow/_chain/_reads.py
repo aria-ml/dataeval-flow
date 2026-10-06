@@ -1,6 +1,6 @@
 """The Metadata a chain's steps read, noted as they read it, and the binning record the reads make (spec §10.10)."""
 
-__all__ = ["MetadataRead", "ReadingContext", "attach_reads", "note_read", "noting_reads"]
+__all__ = ["MetadataRead", "ReadingContext", "attach_reads", "binning_record", "note_read", "noting_reads"]
 
 import json
 import logging
@@ -74,18 +74,34 @@ class ReadingContext(WorkflowContext):
 
 
 def attach_reads(result_metadata: "ResultMetadata", reads: Sequence[MetadataRead]) -> None:
-    """Record on a chain's envelope the encodings `reads` read: ``metadata_binning`` and ``encoding_digest``.
+    """Record on a chain's envelope the encodings `reads` read: ``metadata_binning``, as :func:`binning_record` makes
+    it, and ``encoding_digest``, set only where every record agrees. Never raises: a read that cannot be described
+    costs the record, not the run.
+    """
+    from dataeval_flow._binning import _common_digest
+
+    record = binning_record(reads)
+    if record is None:
+        return
+    per_split = record.get("per_split")
+    result_metadata.metadata_binning = record
+    result_metadata.encoding_digest = (
+        record.get("encoding_digest") if per_split is None else _common_digest(per_split.values())
+    )
+
+
+def binning_record(reads: Sequence[MetadataRead]) -> dict[str, Any] | None:
+    """The binning record of the encodings `reads` read; ``None`` for no reads, or where one cannot be described.
 
     Reads of one Dataset that describe identically are one record, whatever policy object each step held. One record
-    is written as it stands, as an unported workflow writes one. Several are written as ``{"per_split": {key:
+    is returned as it stands, as an unported workflow writes one. Several are returned as ``{"per_split": {key:
     record}}``, keyed by the Dataset's address; a Dataset read a second way is keyed ``address (policy)``, by the name
-    the step's entry gave its policy, and a further collision is numbered. ``encoding_digest`` is set only where every
-    record agrees. Never raises: a read that cannot be described costs the record, not the run.
+    the step's entry gave its policy, and a further collision is numbered. Never raises.
     """
-    from dataeval_flow._binning import _common_digest, describe_under
+    from dataeval_flow._binning import describe_under
 
     if not reads:
-        return
+        return None
     try:
         records: dict[str, dict[str, Any]] = {}
         texts: dict[str, str] = {}  # each record as sorted JSON: a record's NaNs never equal themselves as floats
@@ -105,12 +121,10 @@ def attach_reads(result_metadata: "ResultMetadata", reads: Sequence[MetadataRead
                 if key in records:
                     key = f"{read.address} ({len(same) + 1})"
             records[key], texts[key] = record, text
-        if len(records) == 1:
-            (record,) = records.values()
-            result_metadata.metadata_binning = record
-            result_metadata.encoding_digest = record.get("encoding_digest")
-        else:
-            result_metadata.metadata_binning = {"per_split": records}
-            result_metadata.encoding_digest = _common_digest(records.values())
     except Exception:
         _logger.warning("Binning record unavailable", exc_info=True)
+        return None
+    if len(records) == 1:
+        (record,) = records.values()
+        return record
+    return {"per_split": records}

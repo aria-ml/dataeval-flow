@@ -397,3 +397,22 @@ def test_an_acceptance_keyed_by_a_bare_step_whose_runs_could_not_run_is_not_asse
     }
     verdict = judge(steps, blocking=[], accepted={"image-outliers-evals": "Fine."})
     assert [a.state for a in verdict.accepted] == ["not-assessed"]
+
+
+def test_an_acceptance_covers_a_spliced_step_with_the_prefix_dropped() -> None:
+    name = "audit/image-outliers-evals"
+    elements = {
+        "val": _record(name, "image-outliers", _warning(f"{name}[val]", "Image Outliers")),
+        "test": _record(name, "image-outliers", _warning(f"{name}[test]", "Image Outliers")),
+    }
+    steps = {name: _record(name, "image-outliers", elements=elements)}
+    verdict = judge(steps, blocking=[], accepted={"image-outliers-evals[test]": "x"}, prefix="audit/")
+    assert [(w.check, w.step) for w in verdict.warnings] == [("image-outliers", f"{name}[val]")]
+    assert [(a.check, a.state) for a in verdict.accepted] == [("image-outliers-evals[test]", "warned")]
+
+
+def test_an_acceptance_of_a_spliced_check_not_assessed_reads_not_assessed() -> None:
+    name = "audit/eval-coverage"
+    steps = {name: _record(name, "eval-coverage", not_assessed="requires an extractor")}
+    verdict = judge(steps, blocking=[], accepted={"eval-coverage": "x"}, prefix="audit/")
+    assert [(a.check, a.state) for a in verdict.accepted] == [("eval-coverage", "not-assessed")]

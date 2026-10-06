@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from dataeval_flow.steps._result import ChainResult, StepResult
     from dataeval_flow.workflows._base import Workflow, WorkflowConfig
     from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology, WorkflowContext
-    from dataeval_flow.workflows._preset import Preset, PresetChain
+    from dataeval_flow.workflows._preset import Preset, PresetChain, ReportGroup
 
 
 @runtime_checkable
@@ -801,14 +801,20 @@ def _run_one_step(
     return result, elapsed, contexts[task.name].ontology, drawn
 
 
+def _custom_groups(workflow: CustomWorkflowConfig) -> "tuple[ReportGroup, ...]":
+    """A custom workflow's `groups:`, as report groups."""
+    from dataeval_flow.workflows._preset import ReportGroup
+
+    return tuple(ReportGroup(group.heading, tuple(group.checks)) for group in workflow.groups)
+
+
 def _groups_only_plan(workflow: CustomWorkflowConfig) -> "PresetChain | None":
     """A custom workflow's headings, and nothing else a preset declares: its report reads them, with no verdict."""
     if not workflow.groups:
         return None
-    from dataeval_flow.workflows._preset import PresetChain, ReportGroup
+    from dataeval_flow.workflows._preset import PresetChain
 
-    groups = tuple(ReportGroup(group.heading, tuple(group.checks)) for group in workflow.groups)
-    return PresetChain(steps=workflow.steps, groups=groups)
+    return PresetChain(steps=workflow.steps, groups=_custom_groups(workflow))
 
 
 def _run_custom_task(
@@ -900,8 +906,6 @@ def _run_custom_task(
         return refuse([chain], diagnostics)
     elapsed = time.monotonic() - start
     result = ChainResult.from_run(workflow.name, chain, type_id=type_id, preset=entry is not None)
-    if (plan := preset_chain or _groups_only_plan(workflow)) is not None:
-        result.attach_preset(plan)
     if diagnostics:
         result.metadata.diagnostics = list(diagnostics)
     _logger.info("Task '%s': finished in %.1fs (success=%s)", task.name, elapsed, result.success)
@@ -912,6 +916,7 @@ def _run_custom_task(
     _populate_result_metadata(
         result, resolved_sources, extractor_cfg, elapsed, described, config, data_dir=data_dir, ontology=ontology
     )
+    _attach_declared(result, workflow, graph, preset_chain)
     if chain.label_space:
         # The sources' records, where there are any, replaced the chain's own: keep both, the sources' first.
         result.metadata.label_space = [*label_space_records(resolved_sources, ontology), *chain.label_space]
@@ -921,6 +926,25 @@ def _run_custom_task(
     else:
         _stamp_alignment_digest(result.metadata, result.steps)
     return result
+
+
+def _attach_declared(
+    result: "ChainResult", workflow: CustomWorkflowConfig, graph: "ChainGraph", preset_chain: "PresetChain | None"
+) -> None:
+    """Attach what the task's preset chain declares; else, the splice's that gives a verdict, with the custom workflow's
+    own groups after it (D2 allows one); else the custom workflow's groups alone. The envelope records each spliced
+    preset entry, by step name, so a verdict can be reproduced from its result (audit-as-a-step spec §4.4)."""
+    judged = next((splice for splice in graph.splices if splice.gives_verdict), None)
+    if preset_chain is not None:
+        result.attach_preset(preset_chain)
+    elif judged is not None:
+        result.attach_preset(judged.chain, splice=judged.name, groups=_custom_groups(workflow))
+    elif (plan := _groups_only_plan(workflow)) is not None:
+        result.attach_preset(plan)
+    if graph.splices:
+        result.metadata.resolved_config["presets"] = {
+            splice.name: splice.entry.model_dump(mode="json") for splice in graph.splices
+        }
 
 
 def _run_on_reference(
