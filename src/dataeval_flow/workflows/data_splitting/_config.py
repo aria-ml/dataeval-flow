@@ -2,7 +2,7 @@
 
 __all__ = ["DataSplittingConfig", "DataSplittingChecks"]
 
-from typing import ClassVar, Literal, Self
+from typing import Any, ClassVar, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -13,34 +13,25 @@ from dataeval_flow.steps.checks._stratification import StratificationThresholds
 from dataeval_flow.workflows._base import WorkflowConfig
 
 
-class DataSplittingClassImbalanceSettings(BaseModel):
-    """The `class-imbalance` check's field, with legacy data-splitting's default."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    warning: float | None = Field(
-        default=10.0,
-        ge=1.0,
-        description=(
-            "Largest class count over smallest that may hold before the whole set's Class Imbalance finding warns; "
-            "`null` judges nothing but an empty class."
-        ),
-    )
-
-
 class DataSplittingChecks(BaseModel):
     """When data-splitting's findings warn: each check's fields, keyed by check type."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
-    class_imbalance: DataSplittingClassImbalanceSettings = Field(
-        default_factory=DataSplittingClassImbalanceSettings,
-        alias="class-imbalance",
-        description="The `class-imbalance` check's thresholds, on the whole set.",
-    )
     stratification: StratificationThresholds = Field(
         default_factory=StratificationThresholds, description="The `stratification` check's thresholds, on each fold."
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_class_imbalance(cls, data: Any) -> Any:
+        """Refuse `class-imbalance`, whose check moved to data-bias, saying where it went."""
+        if isinstance(data, dict) and ("class-imbalance" in data or "class_imbalance" in data):
+            raise ValueError(
+                "data-splitting's `checks.class-imbalance` is refused: class balance moved to the `data-bias` "
+                "preset; run a `data-bias` entry on the source before splitting, with this under its `checks:`."
+            )
+        return data
 
 
 class DataSplittingConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):

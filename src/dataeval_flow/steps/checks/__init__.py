@@ -14,6 +14,8 @@ __all__ = [
     "DimensionalCompletenessCheck",
     "DimensionalCompletenessConfig",
     "FactorCoverageGapsCheck",
+    "FactorParityCheck",
+    "FactorParityConfig",
     "FactorCoverageGapsConfig",
     "DistributionShiftCheck",
     "DistributionShiftConfig",
@@ -57,7 +59,12 @@ __all__ = [
 ]
 
 from dataeval_flow.steps.checks._alignment import MergeabilityCheck, MergeabilityConfig
-from dataeval_flow.steps.checks._bias import ShortcutRiskCheck, ShortcutRiskConfig
+from dataeval_flow.steps.checks._bias import (
+    FactorParityCheck,
+    FactorParityConfig,
+    ShortcutRiskCheck,
+    ShortcutRiskConfig,
+)
 from dataeval_flow.steps.checks._coverage import (
     ClassCoverageCheck,
     ClassCoverageConfig,

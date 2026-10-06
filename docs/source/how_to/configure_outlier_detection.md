@@ -112,12 +112,11 @@ a `warning`, counted in the report's health line. It does not change what is det
       image-outliers: {warning: 5.0}             # % of images flagged
       target-outliers: {warning: 10.0}           # % of labels/annotations flagged
       classwise-outliers: {warning: 12.0}        # % flagged within any single class
-      class-imbalance: {warning: 5.0}            # max:min class count ratio
 ```
 
 Rough guidance: tighten toward 1–2% for curated benchmarks and safety-critical datasets; loosen toward 10–15% for
-large web-scraped or naturally diverse collections. For a class hierarchy with a long tail, raise
-`class-imbalance` to 10–20 to avoid a warning that only restates the domain.
+large web-scraped or naturally diverse collections. Class imbalance is judged by the `data-bias` preset; for a class
+hierarchy with a long tail, raise its `class-imbalance` to 10–20 to avoid a warning that only restates the domain.
 
 ## Verify the effect
 

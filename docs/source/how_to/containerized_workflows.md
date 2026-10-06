@@ -312,8 +312,8 @@ workflows:
 ````
 
 ````{tab-item} data-coverage
-Class balance, metadata gaps, and embedding blind spots; a `label-space` entry on the same source judges the labels
-against an ontology.
+Embedding blind spots and the classes short of their share; a `data-bias` entry on the same source judges class
+balance and metadata gaps, and a `label-space` entry judges the labels against an ontology.
 See the {doc}`Data Coverage tutorial <../notebooks/data_coverage>` for a full walkthrough.
 
 ```yaml
@@ -321,9 +321,23 @@ workflows:
   - name: coverage_check
     type: data-coverage
     coverage: {method: adaptive}     # adaptive | naive; embeds only when the task names an extractor
+    checks:
+      dimensional-completeness: {warning: 0.5}
+```
+````
+
+````{tab-item} data-bias
+Class balance, and how the metadata factors relate to the class: shortcut risk, association and under-represented
+combinations. It needs no extractor.
+
+```yaml
+workflows:
+  - name: bias_check
+    type: data-bias
     factor-gaps: {mi_threshold: 0.1, min_representation: 5}   # false leaves out the gap analysis
     checks:
       class-imbalance: {warning: 5.0}
+      shortcut-risk: {warning: 0.1}
       factor-coverage-gaps: {warning: 2}
 ```
 ````
@@ -664,7 +678,7 @@ offline in any browser, and prints or saves to PDF as it shows.
 `encoding.json` is the metadata encoding descriptor the run was computed under, ready
 to review and commit — see
 {doc}`Configure metadata binning <configure_metadata_binning>`. It is written only where
-a task records an encoding, as `audit`, `data-coverage` and `ood-detection` do, so
+a task records an encoding, as `audit`, `data-bias` and `ood-detection` do, so
 the `data-cleaning` run above writes none. It is also omitted when a run's tasks encoded
 their factors differently, since no single descriptor describes it.
 `manifests/` holds each `content-digest` step's manifest, one hash per item, under

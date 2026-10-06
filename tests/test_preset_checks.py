@@ -16,7 +16,6 @@ def test_data_cleaning_keys_its_checks_by_type_with_todays_defaults() -> None:
         "target-outliers": {"warning": 3.0},
         "classwise-outliers": {"warning": 3.0},
         "image-duplicates": {"exact": 0.0, "near": 5.0},
-        "class-imbalance": {"warning": 5.0},
     }
 
 
@@ -36,4 +35,4 @@ def test_a_partial_checks_block_keeps_the_other_defaults() -> None:
     checks = DataCleaningConfig.model_validate({**_CLEANING, "checks": {"image-duplicates": {"near": 1.0}}}).checks
     assert (checks.image_duplicates.exact, checks.image_duplicates.near) == (0.0, 1.0)
     assert checks.image_outliers.warning == 3.0
-    assert checks.class_imbalance.warning == 5.0
+    assert checks.target_outliers.warning == 3.0

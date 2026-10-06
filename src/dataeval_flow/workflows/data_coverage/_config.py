@@ -1,5 +1,5 @@
 """The ``data-coverage`` preset's config: the settings of its step types, and when a finding warns
-(coverage spec §4.1, §4.3)."""
+(coverage spec §4.1, §4.3). Class balance and the metadata factors are `data-bias`'s."""
 
 __all__ = [
     "CropParams",
@@ -7,8 +7,6 @@ __all__ = [
     "DataCoverageConfig",
     "DataCoverageCoverageSettings",
     "DataCoverageRepresentationSettings",
-    "DiversitySettings",
-    "FactorGapsSettings",
     "WrapSettings",
 ]
 
@@ -17,7 +15,6 @@ from typing import Annotated, Any, ClassVar, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
-from dataeval_flow.config._schemas._mixins import MetadataConfigMixin
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
 
@@ -68,19 +65,6 @@ class CropParams(BaseModel):
     )
 
 
-class FactorGapsSettings(BaseModel):
-    """The `factor-gaps` step's settings."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    mi_threshold: float = Field(
-        default=0.1, ge=0.0, description="The least mutual information with the class a factor needs to be searched."
-    )
-    min_representation: int = Field(
-        default=5, ge=1, description="A combination is a gap under this count while its expected count is over it."
-    )
-
-
 class WrapSettings(BaseModel):
     """The `wrap` step's settings, for the crops data-coverage measures detection data on: `DetectionCrops`' `params`.
     The preset fixes the wrapper and `other_kinds`."""
@@ -88,14 +72,6 @@ class WrapSettings(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     params: CropParams = Field(default_factory=CropParams, description="`DetectionCrops`' parameters.")
-
-
-class DiversitySettings(BaseModel):
-    """The `diversity` step's settings."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    method: Literal["simpson", "shannon"] = Field(default="simpson", description="The diversity index.")
 
 
 class DataCoverageRepresentationSettings(BaseModel):
@@ -108,59 +84,6 @@ class DataCoverageRepresentationSettings(BaseModel):
         description=(
             "Class name to its minimum expected share of the dataset, a fraction in [0, 1]; a name that is no class "
             "is ignored and noted."
-        ),
-    )
-
-
-class DataCoverageClassImbalanceSettings(BaseModel):
-    """The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset, so it
-    reaches the schema `$defs` apart from data-splitting's and data-cleaning's limits."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    warning: float | None = Field(
-        default=5.0,
-        ge=1.0,
-        description=(
-            "Largest class count over smallest, among the classes with labels, past which the Class Imbalance "
-            "finding warns; `null` judges nothing but an empty class, which always warns."
-        ),
-    )
-    info: float | None = Field(
-        default=2.0,
-        ge=1.0,
-        description=(
-            "The ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every "
-            "ratio under `warning` information. Must not exceed `warning`. Defaults to 2.0, or `warning` where "
-            "that is lower and `info` is unset."
-        ),
-    )
-
-    @model_validator(mode="after")
-    def _info_under_ratio(self) -> Self:
-        """An unset `info` follows a `warning` under it; two written bounds that cross
-        are refused here, where the user wrote them."""
-        if self.warning is None or self.info is None:
-            return self
-        if "info" not in self.model_fields_set:
-            # derived, so still unset: a matrix varies `warning` alone
-            object.__setattr__(self, "info", min(self.info, self.warning))
-        elif self.info > self.warning:
-            raise ValueError(f"`info` ({self.info}) must not exceed `warning` ({self.warning}).")
-        return self
-
-
-class FactorCoverageGapsSettings(BaseModel):
-    """The `factor-coverage-gaps` check's field, with legacy data-coverage's default."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    warning: int | None = Field(
-        default=2,
-        ge=0,
-        description=(
-            "The most under-represented class-factor-value combinations before the Factor Coverage Gaps finding "
-            "warns; `null` never warns."
         ),
     )
 
@@ -199,7 +122,7 @@ class ClassCoverageSettings(BaseModel):
 
 class DataCoverageUncoveredItemsSettings(BaseModel):
     """The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.
-    Named for the preset, as `DataCoverageClassImbalanceSettings` is."""
+    Named for the preset, so it reaches the schema `$defs` apart from data-splitting's limits."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -258,16 +181,6 @@ class DataCoverageChecks(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
-    class_imbalance: DataCoverageClassImbalanceSettings = Field(
-        default_factory=DataCoverageClassImbalanceSettings,
-        alias="class-imbalance",
-        description="The `class-imbalance` check's thresholds.",
-    )
-    factor_coverage_gaps: FactorCoverageGapsSettings = Field(
-        default_factory=FactorCoverageGapsSettings,
-        alias="factor-coverage-gaps",
-        description="The `factor-coverage-gaps` check's threshold.",
-    )
     class_coverage: ClassCoverageSettings = Field(
         default_factory=ClassCoverageSettings,
         alias="class-coverage",
@@ -290,6 +203,10 @@ _NO_ONTOLOGY = (
     "(and `ontology-validation.label_pattern:`)"
 )
 
+_BIAS = (
+    "class balance and the metadata factors moved to the `data-bias` preset; run a `data-bias` entry on the same source"
+)
+
 _MOVED: dict[str, str] = {
     "coverage_method": "it is `coverage.method`",
     "coverage_percent": "it is `coverage.percent`",
@@ -300,28 +217,34 @@ _MOVED: dict[str, str] = {
     "crop_padding": "it is `wrap.params.padding`",
     "crop_min_size": "it is `wrap.params.min_size`",
     "run_completeness": "it is `completeness`",
-    "balance": "balance always runs, as a report section; `factor-gaps: false` leaves out the gap analysis",
-    "diversity_method": "diversity always runs, as a report section, and `diversity.method` picks the method",
-    "run_gap_analysis": "write `factor-gaps: false` to leave out the gap analysis",
-    "gap_mi_threshold": "it is `factor-gaps.mi_threshold`",
-    "gap_min_representation": "it is `factor-gaps.min_representation`",
+    "balance": _BIAS,
+    "diversity_method": f"{_BIAS}, as its `diversity.method`",
+    "run_gap_analysis": f"{_BIAS}, where `factor-gaps: false` leaves out the gap analysis",
+    "gap_mi_threshold": f"{_BIAS}, as its `factor-gaps.mi_threshold`",
+    "gap_min_representation": f"{_BIAS}, as its `factor-gaps.min_representation`",
     "ontology_label_pattern": _NO_ONTOLOGY,
     "ontology_expected": (
         "it is `representation.expected`, or `label-space`'s `representation.expected` where an ontology is set"
     ),
-    "metadata_auto_bin_method": "name a policy under `metadata:`",
-    "metadata_exclude": "name a policy under `metadata:`",
-    "metadata_continuous_factor_bins": "name a policy under `metadata:`",
-    "metadata_factor_source": "name a policy under `metadata:`",
+    "metadata_auto_bin_method": _BIAS,
+    "metadata_exclude": _BIAS,
+    "metadata_continuous_factor_bins": _BIAS,
+    "metadata_factor_source": _BIAS,
+    "diversity": f"{_BIAS}, as its `diversity`",
+    "factor-gaps": f"{_BIAS}, as its `factor-gaps`",
+    "factor_gaps": f"{_BIAS}, as its `factor-gaps`",
     "value_range": "set `value_range` on the dataset",
     "stats": "no step of data-coverage reads statistics",
 }
 
+_CHECKS_MOVED = ("class-imbalance", "class_imbalance", "factor-coverage-gaps", "factor_coverage_gaps")
+"""The check types whose `checks:` settings moved to data-bias with their checks."""
+
 _THRESHOLDS_MOVED: dict[str, str] = {
-    "class_imbalance_ratio": "`checks.class-imbalance.warning`",
+    "class_imbalance_ratio": "`data-bias`'s `checks.class-imbalance.warning`",
     "gap_count": (
-        "`checks.factor-coverage-gaps.warning`, set one less: legacy warned at `gap_count` gaps, this warns past the "
-        "bound, so `gap_count: N` is `warning: N-1`"
+        "`data-bias`'s `checks.factor-coverage-gaps.warning`, set one less: legacy warned at `gap_count` gaps, this "
+        "warns past the bound, so `gap_count: N` is `warning: N-1`"
     ),
     "min_dispersion": "`checks.class-coverage.dispersion`",
     "min_isotropy": "`checks.class-coverage.isotropy`",
@@ -334,7 +257,15 @@ _THRESHOLDS_MOVED: dict[str, str] = {
 }
 
 
-class DataCoverageConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
+def _refuse_moved_checks(checks: Any) -> None:
+    """Refuse the `checks:` settings of each check that moved to data-bias, naming it."""
+    if isinstance(checks, dict):
+        for key in _CHECKS_MOVED:
+            if key in checks:
+                raise ValueError(f"data-coverage's `checks.{key}` is refused: {_BIAS}, under its `checks:`.")
+
+
+class DataCoverageConfig(WorkflowConfig[ChainResult]):
     """The settings of one ``data-coverage`` entry: each step type's settings, keyed by the step type, and when a
     finding warns.
 
@@ -343,16 +274,14 @@ class DataCoverageConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
         workflows:
           - name: coverage
             type: data-coverage
-            metadata: standard
             coverage: {method: adaptive, num_observations: 50}
             wrap: {params: {padding: 0.1}}
-            factor-gaps: {mi_threshold: 0.1}
     """
 
     type: str = Field(default="data-coverage", description="The workflow type this entry configures: `data-coverage`.")
     model_config: ClassVar[ConfigDict] = ConfigDict(populate_by_name=True, serialize_by_alias=True)
     inputs: ClassVar[InputSpec] = InputSpec(
-        required=frozenset({InputKind.METADATA}), optional=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.ONE
+        required=frozenset({InputKind.LABELS}), optional=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.ONE
     )
 
     representation: DataCoverageRepresentationSettings = Field(
@@ -367,14 +296,6 @@ class DataCoverageConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
     )
     completeness: bool = Field(
         default=True, description="Whether the completeness steps run, when the task names an extractor."
-    )
-    diversity: DiversitySettings = Field(
-        default_factory=DiversitySettings, description="The `diversity` step's settings."
-    )
-    factor_gaps: FactorGapsSettings | Literal[False] = Field(
-        default_factory=FactorGapsSettings,
-        alias="factor-gaps",
-        description="The `factor-gaps` step's settings; `false` leaves out the gap analysis and its check.",
     )
     checks: DataCoverageChecks = Field(
         default_factory=DataCoverageChecks, description="When findings warn, keyed by check type."
@@ -391,9 +312,12 @@ class DataCoverageConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):
                 f"{_NO_ONTOLOGY}. A data-coverage run on a conformed source then records no label space of its own; "
                 "`label-space` carries the join key."
             )
+        if data.get("metadata") is not None:
+            raise ValueError(f"data-coverage's `metadata` is refused: no step of it reads metadata factors; {_BIAS}.")
         for key, message in _MOVED.items():
             if key in data:
                 raise ValueError(f"data-coverage's `{key}` is refused: {message}.")
+        _refuse_moved_checks(data.get("checks"))
         thresholds = data.get("health_thresholds")
         if isinstance(thresholds, dict):
             for key, replacement in _THRESHOLDS_MOVED.items():

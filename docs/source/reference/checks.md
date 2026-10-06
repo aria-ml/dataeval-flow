@@ -39,6 +39,7 @@ example assumes the pipeline defines
 | `factor-coverage-gaps` | `input`: a `factor-gaps` Output | Factor Coverage Gaps |
 | `class-shortfall` | `input`: a `representation` Output with no ontology | Class Shortfall |
 | `shortcut-risk` | `input`: a `balance` Output | Shortcut Risk |
+| `factor-parity` | `input`: a `parity` Output | Factor Parity |
 | `stratification` | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
 | `leakage` | `duplicates`: `duplicates` Outputs over two splits; `factors`: `factor-leakage` Outputs | Leakage |
 | `distribution-shift` | `input`: a `divergence` Output | Distribution Shift |
@@ -233,8 +234,7 @@ The ratio is taken over the classes with labels. A class with none is named and 
 | `empty` | `true` or `false` | `true` | Whether a declared class with no labels warns; `false` leaves it to `untrained-classes` and `class-sufficiency` |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)
-- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning),
-  [`data-coverage`](presets.md#data-coverage), [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
 
 ```yaml
 evaluators:
@@ -599,7 +599,7 @@ It warns past `warning` gaps, is `info` up to that many, and is `ok` with none.
 | `warning` | a count, or `null` | `2` | The most under-represented class-factor-value combinations before the finding warns; `null` never warns |
 
 - **Judges:** [`factor-gaps`](combines.md#factor-gaps)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
 
 ```yaml
 evaluators:
@@ -667,7 +667,7 @@ assessed (`no factor to score`). With `warning: null` the finding is `info`.
 | `warning` | 0 to 1, or `null` | `0.1` | The mutual information with the class past which a factor warns; `null` judges nothing |
 
 - **Judges:** [`balance`](evaluators.md#balance)
-- **Used in:** [`audit`](presets.md#audit)
+- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
 
 ```yaml
 evaluators:
@@ -679,6 +679,43 @@ workflows:
     steps:
       - {name: balance, evaluator: balance, input: data}
       - {name: shortcut-risk, check: shortcut-risk, input: balance, warning: 0.2}
+```
+
+### `factor-parity`
+
+Warns when a metadata factor is significantly associated with the class.
+
+Where `shortcut-risk` measures how much a factor tells about the class, this tests whether the association is real. A
+factor warns where its bias-corrected Cramér's V with the class is past `warning` and its chi-square p-value is at or
+under `p_value`. A factor whose contingency table has a cell expected to hold fewer than 5 items is named in the
+description, since its p-value is unreliable. Where the `parity` Output scores no factor it is not assessed (`no factor
+to score`). With `warning: null` the finding is `info`.
+
+- **Reads:** `input`, a `parity` Output.
+- **Makes:** one finding, titled Factor Parity, which lists the three most associated factors; a table gives every
+  factor's Cramér's V and p-value, and marks the sparse ones.
+
+**Settings** ({py:class}`~dataeval_flow.steps.checks.FactorParityConfig`):
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `parity` Output |
+| `warning` | 0 to 1, or `null` | `0.3` | The Cramér's V with the class past which a significant factor warns; `null` judges nothing |
+| `p_value` | a number in (0, 1] | `0.05` | The p-value at or under which a factor's association counts as significant |
+
+- **Judges:** [`parity`](evaluators.md#parity)
+- **Used in:** [`data-bias`](presets.md#data-bias)
+
+```yaml
+evaluators:
+  - {name: parity, type: parity}
+
+workflows:
+  - name: example
+    inputs: [data]
+    steps:
+      - {name: parity, evaluator: parity, input: data}
+      - {name: factor-parity, check: factor-parity, input: parity, warning: 0.2}
 ```
 
 ## Are the splits fit to evaluate on?

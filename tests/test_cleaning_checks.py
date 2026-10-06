@@ -299,7 +299,6 @@ _ALL_STEPS = [
     {"name": "dupes", "evaluator": "dupes", "input": "data"},
     *_OUTLIER_STEPS[3:],
     {"name": "duplicates", "check": "image-duplicates", "input": "dupes"},
-    {"name": "imbalance", "check": "class-imbalance", "input": "labels"},
 ]
 
 
@@ -314,7 +313,7 @@ def test_data_cleaning_s_whole_report_agrees_as_a_chain(name: str) -> None:
 
 def test_the_duplicate_and_label_checks_judge_nothing_where_their_limits_are_none() -> None:
     steps = [
-        *_ALL_STEPS[:-2],
+        *_ALL_STEPS[:-1],
         {"name": "duplicates", "check": "image-duplicates", "input": "dupes", "exact": None, "near": None},
         {"name": "imbalance", "check": "class-imbalance", "input": "labels", "warning": None},
     ]

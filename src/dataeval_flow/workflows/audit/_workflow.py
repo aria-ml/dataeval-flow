@@ -21,12 +21,8 @@ from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._preset import NextSteps, Preset, PresetChain, Record, ReportGroup
 from dataeval_flow.workflows.audit._config import AuditConfig
-from dataeval_flow.workflows.data_coverage._workflow import (
-    coverage_evaluators,
-    embedding_steps,
-    factor_steps,
-    gap_steps,
-)
+from dataeval_flow.workflows.data_bias._workflow import bias_evaluators, factor_steps, gap_steps
+from dataeval_flow.workflows.data_coverage._workflow import coverage_evaluators, embedding_steps
 
 if TYPE_CHECKING:
     from dataeval_flow._chain._nodes import Node, NodeList
@@ -67,7 +63,8 @@ _GROUPS = (
     ),
 )
 
-_DATA_COVERAGE = "Run data-coverage for the uncovered items and gaps; collect data for them."
+_DATA_COVERAGE = "Run data-coverage for the uncovered items; collect data for them."
+_DATA_BIAS = "Run data-bias for the gaps; collect data for them."
 _RESPLIT = "Re-split so evaluation draws from train's distribution, or document the shift as intended."
 _MORE_LABELS = "Collect more of the named classes, or rebalance train with a `view` step and `ClassBalance`."
 _NEXT_STEPS = NextSteps(
@@ -81,7 +78,7 @@ _NEXT_STEPS = NextSteps(
         "label-conformance": "Run label-space to resolve the class names.",
         "class-coverage": _DATA_COVERAGE,
         "uncovered-items": _DATA_COVERAGE,
-        "factor-coverage-gaps": _DATA_COVERAGE,
+        "factor-coverage-gaps": _DATA_BIAS,
         "dimensional-completeness": _DATA_COVERAGE,
         "shortcut-risk": "Balance the named factors across classes, or confirm they are causal.",
         "leakage": "Re-split with `split`'s `split_on` on the leaking factor, or remove the cross-split duplicates.",
@@ -196,6 +193,7 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
             OODKNeighborsConfig(name="ood-kneighbors", **config.ood_kneighbors.model_dump()),
             DivergenceConfig(name="divergence", method=config.divergence.method),
             *coverage_evaluators(config),
+            *bias_evaluators(config),
         ]
         steps: list[dict[str, Any]] = [
             *_each_split("evaluator", "label-health"),

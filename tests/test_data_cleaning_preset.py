@@ -50,7 +50,6 @@ _STEPS = [
     "target-outliers",
     "classwise-outliers",
     "image-duplicates",
-    "class-imbalance",
     "clean",
 ]
 
@@ -86,7 +85,6 @@ def test_a_data_cleaning_task_returns_a_chain_result_of_its_steps() -> None:
         ("warning", "Image Outliers", "1 images (8.3%)", "image-outliers"),
         ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "classwise-outliers"),
         ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "image-duplicates"),
-        ("info", "Class Imbalance", "2 classes, 12 items, imbalance 1.0:1", "class-imbalance"),
     ]
 
 
@@ -139,12 +137,10 @@ def test_the_report_keeps_every_threshold_the_user_nulled() -> None:
         "image-outliers": {"warning": None},
         "target-outliers": {"warning": None},
         "classwise-outliers": {"warning": None},
-        "class-imbalance": {"warning": None},
     }
     shown = _configuration(_task(ToyImages(count=12), checks=nulls))
     assert "checks:" in shown
     assert sorted(line for line in shown if "None" in line) == [
-        "class-imbalance: {warning: None}",
         "classwise-outliers: {warning: None}",
         "image-duplicates: {exact: 0.0, near: None}",
         "image-outliers: {warning: None}",
@@ -175,7 +171,7 @@ def test_a_data_cleaning_task_reads_its_source_through_its_view() -> None:
     result = run_task(config.model_copy(update={"views": [view], "sources": [source]}), task)
     assert isinstance(result, ChainResult)
     assert result.metadata.lineage[0].items == 16
-    assert ("info", "Class Imbalance", "2 classes, 16 items, imbalance 1.0:1", "class-imbalance") in _verdicts(result)
+    assert result.steps["label-health"].output.data()["item_count"] == 16
     assert len(result.steps["clean"].output) == 16
 
 
@@ -207,8 +203,6 @@ def test_a_data_cleaning_step_cleans_each_split_of_a_list() -> None:
         ("warning", "Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "cleaning/classwise-outliers[s2]"),
         ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "cleaning/image-duplicates[s1]"),
         ("warning", "Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "cleaning/image-duplicates[s2]"),
-        ("info", "Class Imbalance", "2 classes, 12 items, imbalance 1.0:1", "cleaning/class-imbalance[s1]"),
-        ("info", "Class Imbalance", "2 classes, 24 items, imbalance 1.0:1", "cleaning/class-imbalance[s2]"),
     ]
     clean = result.steps["cleaning/clean"].elements or {}
     assert {key: len(element.output) for key, element in clean.items()} == {"s1": 10, "s2": 22}
@@ -263,7 +257,6 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
             "image-outliers": {"warning": 6.0},
             "target-outliers": {"warning": 7.0},
             "classwise-outliers": {"warning": 8.0},
-            "class-imbalance": {"warning": None},
         },
     )
     chain = DataCleaningWorkflow.chain(config)
@@ -298,8 +291,12 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
         steps["classwise-outliers"]["warning"],
         steps["image-duplicates"]["exact"],
         steps["image-duplicates"]["near"],
-        steps["class-imbalance"]["warning"],
-    ) == (6.0, 7.0, 8.0, 1.0, 9.0, None)
+    ) == (6.0, 7.0, 8.0, 1.0, 9.0)
+
+
+def test_class_imbalance_is_refused_for_data_bias() -> None:
+    with pytest.raises(ValidationError, match=re.escape("run a `data-bias` entry on the same source")):
+        DataCleaningConfig.model_validate({**_BASE, "checks": {"class-imbalance": {"warning": 3.0}}})
 
 
 @pytest.mark.parametrize(

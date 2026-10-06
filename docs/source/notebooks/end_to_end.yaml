@@ -128,7 +128,6 @@ workflows:
       image-outliers: {warning: 5.0}
       target-outliers: {warning: 10.0}
       classwise-outliers: {warning: 12.0}
-      class-imbalance: {warning: 5.0}
 
   - name: audit
     type: audit

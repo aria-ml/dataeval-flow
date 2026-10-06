@@ -161,8 +161,8 @@ and the items that carry none.
 - **Judged by:** [`class-imbalance`](checks.md#class-imbalance), [`class-sufficiency`](checks.md#class-sufficiency),
   [`stratification`](checks.md#stratification), [`target-outliers`](checks.md#target-outliers),
   [`untrained-classes`](checks.md#untrained-classes)
-- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning),
-  [`data-coverage`](presets.md#data-coverage), [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias),
+  [`data-cleaning`](presets.md#data-cleaning), [`data-splitting`](presets.md#data-splitting)
 
 ```yaml
 metadata:
@@ -422,8 +422,7 @@ It runs `dataeval.bias.Balance` on the Dataset's metadata.
 
 - **Judged by:** [`shortcut-risk`](checks.md#shortcut-risk)
 - **Combined by:** [`factor-gaps`](combines.md#factor-gaps)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage),
-  [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
 
 ```yaml
 evaluators:
@@ -452,8 +451,8 @@ It runs `dataeval.bias.Parity` on the Dataset's metadata.
 | `p_value_threshold` | `p_value_threshold` | DataEval's default (`0.05`) |
 | `label` | `label`: a factor, or a list of factors, to condition on | the class labels |
 
-- **Judged by:** none
-- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **Judged by:** [`factor-parity`](checks.md#factor-parity)
+- **Used in:** [`data-bias`](presets.md#data-bias)
 
 ```yaml
 evaluators:
@@ -483,8 +482,7 @@ It runs `dataeval.bias.Diversity` on the Dataset's metadata, overall and within 
 | `label` | `label`: a factor, or a list of factors, to condition on | the class labels |
 
 - **Judged by:** none
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage),
-  [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
 
 ```yaml
 evaluators:
@@ -511,7 +509,7 @@ It reads the Dataset's metadata through DataEval's `Metadata`.
 | `metadata` | (DataEval Flow) the name of a `metadata:` policy | DataEval's default encoding |
 
 - **Judged by:** none
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
 
 ```yaml
 metadata:

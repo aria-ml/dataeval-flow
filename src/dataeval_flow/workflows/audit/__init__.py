@@ -12,7 +12,6 @@ __all__ = [
     "FactorLeakageSettings",
     "LeakageSettings",
     "OODKNeighborsSettings",
-    "ShortcutRiskSettings",
     "UntrainedClassesSettings",
 ]
 
@@ -27,7 +26,6 @@ from dataeval_flow.workflows.audit._config import (
     FactorLeakageSettings,
     LeakageSettings,
     OODKNeighborsSettings,
-    ShortcutRiskSettings,
     UntrainedClassesSettings,
 )
 from dataeval_flow.workflows.audit._workflow import AuditWorkflow

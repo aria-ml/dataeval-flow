@@ -1,12 +1,10 @@
-"""The ``data-coverage`` preset: coverage and completeness on the crops, labels and metadata on the source, and the
-class worklist (coverage spec §4.2)."""
+"""The ``data-coverage`` preset: coverage and completeness on the crops, and the class worklist on the source
+(coverage spec §4.2)."""
 
-__all__ = ["DataCoverageWorkflow", "coverage_evaluators", "embedding_steps", "factor_steps", "gap_steps"]
+__all__ = ["DataCoverageWorkflow", "coverage_evaluators", "embedding_steps"]
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from dataeval_flow.evaluators.bias import BalanceConfig, DiversityConfig, FactorSummaryConfig
-from dataeval_flow.evaluators.quality import LabelHealthConfig
 from dataeval_flow.evaluators.scope import CompletenessConfig, CoverageConfig, RepresentationConfig
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
@@ -22,14 +20,8 @@ if TYPE_CHECKING:
 
 
 def coverage_evaluators(config: "Covered") -> list[Any]:
-    """The entries the coverage steps name: `coverage`, `completeness`, `factor-summary`, `balance` and `diversity`."""
-    return [
-        CoverageConfig(name="coverage", **config.coverage.model_dump()),
-        CompletenessConfig(name="completeness"),
-        FactorSummaryConfig(name="factor-summary", metadata=config.metadata),
-        BalanceConfig(name="balance", metadata=config.metadata),
-        DiversityConfig(name="diversity", method=config.diversity.method, metadata=config.metadata),
-    ]
+    """The entries the embedding steps name: `coverage` and `completeness`."""
+    return [CoverageConfig(name="coverage", **config.coverage.model_dump()), CompletenessConfig(name="completeness")]
 
 
 def embedding_steps(config: "Covered", source: str, *, completeness: bool = True) -> list[dict[str, Any]]:
@@ -76,60 +68,26 @@ def embedding_steps(config: "Covered", source: str, *, completeness: bool = True
     return steps
 
 
-def factor_steps(source: str) -> list[dict[str, Any]]:
-    """`factor-summary`, `balance` (optional) and `diversity` (optional) on `source`."""
-    return [
-        {"name": "factor-summary", "evaluator": "factor-summary", "input": source},
-        {"name": "balance", "evaluator": "balance", "input": source, "optional": True},
-        {"name": "diversity", "evaluator": "diversity", "input": source, "optional": True},
-    ]
-
-
-def gap_steps(config: "Covered", source: str) -> list[dict[str, Any]]:
-    """`factor-gaps` (optional) on `source` with `factor-coverage-gaps`; none where `factor-gaps` is false."""
-    if config.factor_gaps is False:
-        return []
-    return [
-        {
-            "name": "factor-gaps",
-            "combine": "factor-gaps",
-            "input": source,
-            "balance": "balance",
-            "optional": True,
-            "metadata": config.metadata,
-            **config.factor_gaps.model_dump(),
-        },
-        {
-            "name": "factor-coverage-gaps",
-            "check": "factor-coverage-gaps",
-            "input": "factor-gaps",
-            **config.checks.factor_coverage_gaps.model_dump(),
-        },
-    ]
-
-
 class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
-    """Judges the task's one source, ``data``: how its embeddings cover their space, and its labels and metadata.
+    """Judges the task's one source, ``data``: how its embeddings cover their space, and what to acquire per class.
 
     The settings expand to, in legacy's finding order:
 
     - ``crops`` (``wrap``, ``DetectionCrops``, passing other kinds through), then ``coverage`` (optional) with
       ``class-coverage`` and, under ``naive`` coverage, ``uncovered-items``; and ``completeness``
       (optional) with ``dimensional-completeness``, where ``completeness`` is set;
-    - ``label-health`` and ``class-imbalance``;
-    - ``factor-summary``, ``balance`` and ``diversity`` (optional), and ``factor-gaps`` (optional) with
-      ``factor-coverage-gaps``, where ``factor-gaps`` is set;
     - ``representation`` (with no ontology, optional) and ``class-shortfall``.
 
     The embedding steps are skipped with "requires an extractor" when the task names none. It makes no Dataset, so it
-    declares no outputs; ontology analysis is ``label-space``'s.
+    declares no outputs; ontology analysis is ``label-space``'s, and class balance and the metadata factors are
+    ``data-bias``'s.
     """
 
     name: ClassVar[str] = "data-coverage"
     title: ClassVar[str] = "Data Coverage"
     description: ClassVar[str] = (
-        "Judges how a Dataset's embeddings cover their space, its class balance and metadata gaps, and what to acquire "
-        "per class; detections are cropped first."
+        "Judges how a Dataset's embeddings cover their space, and what to acquire per class; detections are cropped "
+        "first."
     )
     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
 
@@ -138,20 +96,10 @@ class DataCoverageWorkflow(Preset, Workflow[DataCoverageConfig, ChainResult]):
         """The crops' steps, then the source's."""
         evaluators = [
             *coverage_evaluators(config),
-            LabelHealthConfig(name="label-health", metadata=config.metadata),
             RepresentationConfig(name="representation", expected=config.representation.expected),
         ]
         steps = [
             *embedding_steps(config, "data", completeness=config.completeness),
-            {"name": "label-health", "evaluator": "label-health", "input": "data"},
-            {
-                "name": "class-imbalance",
-                "check": "class-imbalance",
-                "input": "label-health",
-                **config.checks.class_imbalance.model_dump(),
-            },
-            *factor_steps("data"),
-            *gap_steps(config, "data"),
             {"name": "representation", "evaluator": "representation", "input": "data", "optional": True},
             {"name": "class-shortfall", "check": "class-shortfall", "input": "representation"},
         ]

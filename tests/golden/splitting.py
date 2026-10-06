@@ -52,18 +52,26 @@ CASES: dict[str, tuple[dict[str, Any], dict[str, Any], bool]] = {
 }
 
 
+# Legacy data-splitting's class-imbalance limit, which judged no info band.
+_IMBALANCE = {"class-imbalance": {"warning": 10.0, "info": None}}
+
+
 def pipeline(name: str, *, legacy: bool) -> PipelineConfig:
-    """Case `name`'s pipeline: one `data-splitting` task over `SplitImages`, seed 0, in legacy's settings or the
-    preset's."""
+    """Case `name`'s pipeline over `SplitImages`, seed 0: one `data-splitting` task in legacy's settings, or task `t`
+    in the preset's with task `b`, a `data-bias` entry on the same source judging the whole set's class balance at
+    legacy's limit."""
     legacy_settings, settings, extractor = CASES[name]
     DatasetCache.clear_instances()
     task: dict[str, Any] = {"name": "t", "workflow": "split", "sources": ["src"]}
     if extractor:
         task["extractor"] = "flat"
+    workflows: list[dict[str, Any]] = [
+        {"name": "split", "type": "data-splitting", **(legacy_settings if legacy else settings)}
+    ]
+    tasks = [task]
+    if not legacy:
+        workflows.append({"name": "bias", "type": "data-bias", "checks": _IMBALANCE})
+        tasks.append({"name": "b", "workflow": "bias", "sources": ["src"]})
     return chain_pipeline(
-        workflows=[{"name": "split", "type": "data-splitting", **(legacy_settings if legacy else settings)}],
-        tasks=[task],
-        datasets={"src": SplitImages()},
-        extractor=extractor,
-        extra={"seed": SEED},
+        workflows=workflows, tasks=tasks, datasets={"src": SplitImages()}, extractor=extractor, extra={"seed": SEED}
     )

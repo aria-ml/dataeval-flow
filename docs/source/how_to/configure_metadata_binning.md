@@ -17,9 +17,10 @@ These workflows read metadata factors under the policy their `metadata:` names:
 | Workflow | Reads metadata for |
 | --- | --- |
 | `audit` | its `factor-triage`, `factor-summary`, `balance`, `diversity`, `factor-gaps` and `factor-leakage` steps: unreadable factors, per-factor summaries, shortcut risk, diversity, factor gaps and group leakage, with every split encoded like train |
-| `data-coverage` | its `factor-summary`, `balance`, `diversity` and `factor-gaps` steps: per-factor summaries, class balance, diversity, and the factor gap analysis with factor-to-class mutual information |
+| `data-bias` | its `label-health`, `factor-summary`, `balance`, `diversity`, `parity` and `factor-gaps` steps: class counts, per-factor summaries, shortcut risk, diversity, factor-class association, and the factor gap analysis with factor-to-class mutual information |
 
-`data-cleaning` and `ood-detection` take a policy's name, `metadata:`, too. A custom workflow's or preset's result
+`data-cleaning`, `data-splitting` and `ood-detection` take a policy's name, `metadata:`, too; `data-coverage` reads no
+factors and refuses one. A custom workflow's or preset's result
 records the encodings its steps read in `metadata_binning`: one record, or `per_split` keyed by Dataset address where
 the steps read several Datasets or one Dataset two ways. A step that reads labels alone, as `label-health` does, adds
 nothing to it, so a split's parts are not recorded when only their labels are read. A chain whose steps read no
@@ -42,8 +43,8 @@ metadata:
       brightness: 4
 
 workflows:
-  - name: coverage_check
-    type: data-coverage
+  - name: bias_check
+    type: data-bias
     metadata: standard
   - name: release_audit
     type: audit
@@ -171,8 +172,8 @@ metadata:
     auto_bin_method: uniform_width
 
 workflows:
-  - name: coverage_check
-    type: data-coverage
+  - name: bias_check
+    type: data-bias
     metadata: standard
 ```
 

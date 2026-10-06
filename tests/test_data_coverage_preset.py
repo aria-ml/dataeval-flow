@@ -1,4 +1,4 @@
-"""data-coverage: embeddings, labels and metadata judged as chained steps (coverage spec §4)."""
+"""data-coverage: embeddings and the class worklist judged as chained steps (coverage spec §4)."""
 
 import re
 from typing import Any
@@ -44,13 +44,6 @@ def test_its_chain_follows_legacy_s_finding_order() -> None:
         "class-coverage",
         "completeness",
         "dimensional-completeness",
-        "label-health",
-        "class-imbalance",
-        "factor-summary",
-        "balance",
-        "diversity",
-        "factor-gaps",
-        "factor-coverage-gaps",
         "representation",
         "class-shortfall",
     ]
@@ -61,8 +54,8 @@ def test_naive_coverage_adds_the_uncovered_rate() -> None:
 
 
 def test_settings_leave_out_their_steps() -> None:
-    names = _names(DataCoverageConfig.model_validate({"name": "w", "completeness": False, "factor-gaps": False}))
-    assert not {"completeness", "dimensional-completeness", "factor-gaps", "factor-coverage-gaps"} & set(names)
+    names = _names(DataCoverageConfig.model_validate({"name": "w", "completeness": False}))
+    assert not {"completeness", "dimensional-completeness"} & set(names)
 
 
 @pytest.mark.parametrize("key", sorted(_MOVED))
@@ -82,7 +75,11 @@ def test_a_flat_threshold_is_refused_with_its_check_type_key(key: str) -> None:
     ("legacy", "names"),
     [
         ({"ontology": {"a": None}}, "label-space"),
-        ({"metadata_exclude": ["id"]}, "metadata:"),
+        ({"metadata_exclude": ["id"]}, "data-bias"),
+        ({"metadata": "standard"}, "data-bias"),
+        ({"factor-gaps": False}, "data-bias"),
+        ({"checks": {"class-imbalance": {"warning": 2.0}}}, "data-bias"),
+        ({"checks": {"factor-coverage-gaps": {"warning": 1}}}, "data-bias"),
     ],
 )
 def test_a_refusal_names_what_replaced_it(legacy: dict[str, Any], names: str) -> None:
@@ -98,7 +95,6 @@ def test_a_dumped_config_reloads() -> None:
 @pytest.mark.parametrize(
     ("limits", "message"),
     [
-        ({"class-imbalance": {"warning": 2.0, "info": 3.0}}, "`info` (3.0) must not exceed `warning` (2.0)."),
         ({"dimensional-completeness": {"warning": 0.9, "info": 0.7}}, "`warning` (0.9) must not exceed `info` (0.7)."),
     ],
 )
@@ -106,14 +102,6 @@ def test_explicitly_crossed_bands_are_refused_where_they_were_written(limits: di
     with pytest.raises(ValidationError, match=re.escape(message)) as caught:
         DataCoverageConfig.model_validate({"name": "w", "checks": limits})
     assert caught.value.errors()[0]["loc"][0] == "checks"
-
-
-def test_a_ratio_under_the_fixed_band_moves_the_band_as_legacy_did() -> None:
-    config = DataCoverageConfig.model_validate({"name": "w", "checks": {"class-imbalance": {"warning": 1.5}}})
-    assert config.checks.class_imbalance.info == 1.5
-    result = _run({"checks": {"class-imbalance": {"warning": 1.5}}}, CoverageDetections())
-    assert result.success, result.errors
-    assert next(f.severity for f in result.findings if f.title == "Class Imbalance") == "warning"
 
 
 def test_a_warning_over_the_fixed_band_moves_the_band_as_legacy_did() -> None:
@@ -168,7 +156,7 @@ def test_detection_data_with_no_extractor_runs_and_reports_not_assessed() -> Non
     by_title = {finding.title: finding for finding in result.findings}
     assert by_title["Class Coverage"].brief == "not assessed"
     assert by_title["Dimensional Completeness"].brief == "not assessed"
-    assert by_title["Class Imbalance"].severity == "warning"
+    assert "Class Imbalance" not in by_title
 
 
 def test_classification_data_reads_its_embeddings_once() -> None:
@@ -186,13 +174,6 @@ def test_classification_data_reads_its_embeddings_once() -> None:
         result = _run({}, CoverageImages(), extractor=True)
     assert result.success, result.errors
     assert len(calls) == 1
-
-
-def test_its_binning_record_is_one_record() -> None:
-    result = _run({}, CoverageImages())
-    record = result.metadata.metadata_binning
-    assert record is not None
-    assert "per_split" not in record
 
 
 def test_a_matrix_varies_a_hyphenated_threshold() -> None:

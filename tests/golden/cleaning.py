@@ -23,7 +23,6 @@ _LENIENT = {
     "image-outliers": {"warning": 50.0},
     "target-outliers": {"warning": 50.0},
     "classwise-outliers": {"warning": 50.0},
-    "class-imbalance": {"warning": 20.0},
 }
 
 

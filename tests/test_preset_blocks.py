@@ -5,6 +5,7 @@ from typing import Any, cast
 import pytest
 from pydantic import ValidationError
 
+from dataeval_flow.workflows.data_bias import DataBiasConfig, DataBiasWorkflow
 from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningWorkflow
 from dataeval_flow.workflows.data_coverage import DataCoverageConfig, DataCoverageWorkflow
 from dataeval_flow.workflows.data_prioritization import DataPrioritizationConfig, DataPrioritizationWorkflow
@@ -99,23 +100,27 @@ def test_data_coverage_keys_its_step_settings_by_step_type() -> None:
     config = DataCoverageConfig.model_validate(
         {
             "representation": {"expected": {"cat": 0.3}},
-            "diversity": {"method": "shannon"},
-            "factor-gaps": {"mi_threshold": 0.2},
             "wrap": {"params": {"padding": 0.1, "min_size": 4}},
         }
     )
     chain = cast("Any", DataCoverageWorkflow.chain(config))
     entries = {entry.type: entry for entry in chain.evaluators}
     assert entries["representation"].expected == {"cat": 0.3}
-    assert entries["diversity"].method == "shannon"
     (wrap,) = (step for step in chain.steps if step.get("transform") == "wrap")
     assert wrap["params"] == {"padding": 0.1, "min_size": 4}
+
+
+def test_data_bias_keys_its_step_settings_by_step_type() -> None:
+    config = DataBiasConfig.model_validate({"diversity": {"method": "shannon"}, "factor-gaps": {"mi_threshold": 0.2}})
+    chain = cast("Any", DataBiasWorkflow.chain(config))
+    entries = {entry.type: entry for entry in chain.evaluators}
+    assert entries["diversity"].method == "shannon"
     (gaps,) = (step for step in chain.steps if step.get("combine") == "factor-gaps")
     assert gaps["mi_threshold"] == 0.2
 
 
 def test_factor_gaps_false_drops_the_gap_steps() -> None:
-    chain = DataCoverageWorkflow.chain(DataCoverageConfig.model_validate({"factor-gaps": False}))
+    chain = DataBiasWorkflow.chain(DataBiasConfig.model_validate({"factor-gaps": False}))
     assert {"factor-gaps", "factor-coverage-gaps"} & _types(chain) == set()
 
 

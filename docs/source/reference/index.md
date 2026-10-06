@@ -14,8 +14,8 @@ To ask whether a set of splits is ready to train on, run [`audit`](presets.md#au
 
 ## Is the data clean?
 
-Finds outlier and duplicate images and boxes, judges class imbalance, and removes the outliers and duplicates. `audit`
-judges each split's outliers, duplicates and metadata issues.
+Finds outlier and duplicate images and boxes, and removes them. `audit` judges each split's outliers, duplicates and
+metadata issues.
 
 - **Preset:** [`audit`](presets.md#audit) and [`data-cleaning`](presets.md#data-cleaning)
 - **Evaluators:** [`outliers`](evaluators.md#outliers), [`duplicates`](evaluators.md#duplicates),
@@ -23,15 +23,16 @@ judges each split's outliers, duplicates and metadata issues.
 - **Combines:** [`outliers-by-class`](combines.md#outliers-by-class)
 - **Checks:** [`image-outliers`](checks.md#image-outliers), [`target-outliers`](checks.md#target-outliers),
   [`classwise-outliers`](checks.md#classwise-outliers), [`image-duplicates`](checks.md#image-duplicates),
-  [`class-imbalance`](checks.md#class-imbalance), [`metadata-issues`](checks.md#metadata-issues)
+  [`metadata-issues`](checks.md#metadata-issues)
 - **Transforms:** [`remove`](transforms.md#remove)
 
 ## Are the labels sound?
 
 Measures how a Dataset's labels spread over its classes, and warns on classes that are too few, too uneven or missing
 from train, and, where `ontology:` is set, on class names that resolve to no ontology concept, or to several.
+`data-bias` judges one Dataset's class balance.
 
-- **Preset:** [`audit`](presets.md#audit)
+- **Preset:** [`audit`](presets.md#audit) and [`data-bias`](presets.md#data-bias)
 - **Evaluators:** [`label-health`](evaluators.md#label-health),
   [`label-reconciliation`](evaluators.md#label-reconciliation)
 - **Checks:** [`class-imbalance`](checks.md#class-imbalance), [`class-sufficiency`](checks.md#class-sufficiency),
@@ -54,46 +55,45 @@ Dataset onto the ontology.
 
 ## Does the data cover what the model must handle?
 
-Judges how a Dataset's embeddings, classes and metadata factors cover their space, its class balance, and which
-classes fall short, and summarizes its metadata factors; detections are cropped first.
+Judges how a Dataset's embeddings cover their space and which classes fall short of their expected share; detections are
+cropped first. Among the metadata factors tied to the class, `data-bias` and `audit` list the class-factor-value
+combinations held too rarely.
 
-- **Preset:** [`audit`](presets.md#audit), on train, and [`data-coverage`](presets.md#data-coverage)
+- **Preset:** [`audit`](presets.md#audit), on train, and [`data-coverage`](presets.md#data-coverage);
+  [`data-bias`](presets.md#data-bias) runs `factor-gaps` and `factor-coverage-gaps`
 - **Evaluators:** [`coverage`](evaluators.md#coverage), [`completeness`](evaluators.md#completeness),
-  [`label-health`](evaluators.md#label-health), [`factor-summary`](evaluators.md#factor-summary),
-  [`balance`](evaluators.md#balance), [`diversity`](evaluators.md#diversity),
-  [`representation`](evaluators.md#representation)
+  [`representation`](evaluators.md#representation), [`balance`](evaluators.md#balance),
+  [`factor-summary`](evaluators.md#factor-summary), [`diversity`](evaluators.md#diversity)
 - **Combines:** [`factor-gaps`](combines.md#factor-gaps)
 - **Checks:** [`class-coverage`](checks.md#class-coverage), [`uncovered-items`](checks.md#uncovered-items),
-  [`dimensional-completeness`](checks.md#dimensional-completeness), [`class-imbalance`](checks.md#class-imbalance),
+  [`dimensional-completeness`](checks.md#dimensional-completeness),
   [`factor-coverage-gaps`](checks.md#factor-coverage-gaps), [`class-shortfall`](checks.md#class-shortfall)
 - **Transforms:** [`wrap`](transforms.md#wrap)
 
 ## Could the model learn a shortcut?
 
 Measures how metadata factors relate to the class labels and how evenly their values spread, summarizes each factor, and
-warns when a factor tells much about the class.
+warns when a factor tells much about the class or is significantly associated with it. `audit` judges
+`shortcut-risk` alone; `parity` and `factor-parity` are `data-bias`'s.
 
-- **Preset:** [`audit`](presets.md#audit), on train
-- **Evaluators:** [`balance`](evaluators.md#balance), [`diversity`](evaluators.md#diversity),
-  [`factor-summary`](evaluators.md#factor-summary)
-- **Checks:** [`shortcut-risk`](checks.md#shortcut-risk)
-- **In a workflow of your own:** [`parity`](evaluators.md#parity); see the
-  [workflow of your own](../how_to/write_a_custom_workflow.md)
+- **Preset:** [`data-bias`](presets.md#data-bias) and [`audit`](presets.md#audit), on train
+- **Evaluators:** [`balance`](evaluators.md#balance), [`parity`](evaluators.md#parity),
+  [`diversity`](evaluators.md#diversity), [`factor-summary`](evaluators.md#factor-summary)
+- **Checks:** [`shortcut-risk`](checks.md#shortcut-risk), [`factor-parity`](checks.md#factor-parity)
 
 ## Are the splits fit to evaluate on?
 
-`data-splitting` splits a Dataset, or cuts it into k folds, and judges the whole set's class balance and each part's
-class shares against the whole's. `audit` judges splits already made, as a task over sources or as a step after
-`data-splitting`: the items and group values two splits share, how far apart the splits sit, how much of each evaluation
-split lies beyond what train covers, each split's class shares against train's, whether each class train holds has
-enough labels in every split, and whether an evaluation split holds a class train lacks.
+`data-splitting` splits a Dataset, or cuts it into k folds, and judges each part's class shares against the whole's.
+`audit` judges splits already made, as a task over sources or as a step after `data-splitting`: the items and group
+values two splits share, how far apart the splits sit, how much of each evaluation split lies beyond what train covers,
+each split's class shares against train's, whether each class train holds has enough labels in every split, and whether
+an evaluation split holds a class train lacks.
 
 - **Preset:** [`audit`](presets.md#audit) and [`data-splitting`](presets.md#data-splitting)
-- **Evaluators:** [`label-health`](evaluators.md#label-health), [`balance`](evaluators.md#balance),
-  [`diversity`](evaluators.md#diversity), [`coverage`](evaluators.md#coverage),
+- **Evaluators:** [`label-health`](evaluators.md#label-health), [`coverage`](evaluators.md#coverage),
   [`duplicates`](evaluators.md#duplicates), [`factor-leakage`](evaluators.md#factor-leakage),
   [`divergence`](evaluators.md#divergence), [`ood-kneighbors`](evaluators.md#ood-kneighbors)
-- **Checks:** [`class-imbalance`](checks.md#class-imbalance), [`uncovered-items`](checks.md#uncovered-items),
+- **Checks:** [`uncovered-items`](checks.md#uncovered-items),
   [`stratification`](checks.md#stratification), [`leakage`](checks.md#leakage),
   [`distribution-shift`](checks.md#distribution-shift), [`eval-coverage`](checks.md#eval-coverage),
   [`class-sufficiency`](checks.md#class-sufficiency), [`untrained-classes`](checks.md#untrained-classes)

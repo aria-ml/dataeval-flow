@@ -217,6 +217,8 @@ dataeval_flow.steps.checks:EvalCoverageCheck
 dataeval_flow.steps.checks:EvalCoverageConfig
 dataeval_flow.steps.checks:FactorCoverageGapsCheck
 dataeval_flow.steps.checks:FactorCoverageGapsConfig
+dataeval_flow.steps.checks:FactorParityCheck
+dataeval_flow.steps.checks:FactorParityConfig
 dataeval_flow.steps.checks:ImageDuplicatesCheck
 dataeval_flow.steps.checks:ImageDuplicatesConfig
 dataeval_flow.steps.checks:ImageOutliersCheck
@@ -310,11 +312,16 @@ dataeval_flow.workflows.audit:EvalCoverageSettings
 dataeval_flow.workflows.audit:FactorLeakageSettings
 dataeval_flow.workflows.audit:LeakageSettings
 dataeval_flow.workflows.audit:OODKNeighborsSettings
-dataeval_flow.workflows.audit:ShortcutRiskSettings
 dataeval_flow.workflows.audit:UntrainedClassesSettings
+dataeval_flow.workflows.data_bias:DataBiasChecks
+dataeval_flow.workflows.data_bias:DataBiasConfig
+dataeval_flow.workflows.data_bias:DataBiasWorkflow
+dataeval_flow.workflows.data_bias:DiversitySettings
+dataeval_flow.workflows.data_bias:FactorGapsSettings
+dataeval_flow.workflows.data_bias:FactorParitySettings
+dataeval_flow.workflows.data_bias:ShortcutRiskSettings
 dataeval_flow.workflows.data_cleaning:ClasswiseOutliersSettings
 dataeval_flow.workflows.data_cleaning:DataCleaningChecks
-dataeval_flow.workflows.data_cleaning:DataCleaningClassImbalanceSettings
 dataeval_flow.workflows.data_cleaning:DataCleaningConfig
 dataeval_flow.workflows.data_cleaning:DataCleaningWorkflow
 dataeval_flow.workflows.data_cleaning:DuplicatesSettings
@@ -328,8 +335,6 @@ dataeval_flow.workflows.data_coverage:DataCoverageConfig
 dataeval_flow.workflows.data_coverage:DataCoverageCoverageSettings
 dataeval_flow.workflows.data_coverage:DataCoverageRepresentationSettings
 dataeval_flow.workflows.data_coverage:DataCoverageWorkflow
-dataeval_flow.workflows.data_coverage:DiversitySettings
-dataeval_flow.workflows.data_coverage:FactorGapsSettings
 dataeval_flow.workflows.data_coverage:WrapSettings
 dataeval_flow.workflows.data_prioritization:DataPrioritizationConfig
 dataeval_flow.workflows.data_prioritization:DataPrioritizationWorkflow

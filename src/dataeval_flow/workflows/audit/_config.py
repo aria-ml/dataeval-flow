@@ -12,7 +12,6 @@ __all__ = [
     "FactorLeakageSettings",
     "LeakageSettings",
     "OODKNeighborsSettings",
-    "ShortcutRiskSettings",
     "UntrainedClassesSettings",
 ]
 
@@ -27,18 +26,14 @@ from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps.checks._ood import OODThresholds
 from dataeval_flow.steps.checks._stratification import StratificationThresholds
 from dataeval_flow.workflows._base import WorkflowConfig
+from dataeval_flow.workflows.data_bias import DiversitySettings, FactorGapsSettings, ShortcutRiskSettings
+from dataeval_flow.workflows.data_bias._config import FactorCoverageGapsSettings
 from dataeval_flow.workflows.data_cleaning import ImageDuplicatesSettings, ImageOutliersSettings, OutliersSettings
-from dataeval_flow.workflows.data_coverage import (
-    DataCoverageCoverageSettings,
-    DiversitySettings,
-    FactorGapsSettings,
-    WrapSettings,
-)
+from dataeval_flow.workflows.data_coverage import DataCoverageCoverageSettings, WrapSettings
 from dataeval_flow.workflows.data_coverage._config import (
     ClassCoverageSettings,
     DataCoverageUncoveredItemsSettings,
     DimensionalCompletenessSettings,
-    FactorCoverageGapsSettings,
 )
 from dataeval_flow.workflows.label_space import LabelConformanceSettings
 from dataeval_flow.workflows.metadata_triage import MetadataIssuesSettings
@@ -155,21 +150,6 @@ class UntrainedClassesSettings(BaseModel):
         description=(
             "Whether a declared class with no labels in train also warns. Off, it is listed: a vocabulary conformed "
             "to an ontology carries abstract concepts with no items."
-        ),
-    )
-
-
-class ShortcutRiskSettings(BaseModel):
-    """The `shortcut-risk` check's settings, judged on train."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    warning: float | None = Field(
-        default=0.1,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "The mutual information with the class, from 0 to 1, past which a factor warns; `null` judges nothing."
         ),
     )
 
