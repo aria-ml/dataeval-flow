@@ -35,7 +35,7 @@
 # - Configure a stratified splitting workflow with a test holdout and 3-fold cross-validation.
 # - Run `run_task()` to generate partition index sets.
 # - Inspect the splitting report for class distribution, stratification and split sizes.
-# - Review metadata balance and diversity.
+# - Run `data-bias` on the source to review its class balance, and its metadata balance and diversity.
 # - Read the split indices from the result and export them to JSON.
 
 # %% [markdown]
@@ -45,7 +45,7 @@
 # - How to set splitting parameters (`test_frac`, `folds`, `stratify`, `rebalance`).
 # - How to evaluate class distribution balance across splits.
 # - How to read each part's indices from the split step's details.
-# - How pre-split balance and diversity metrics evaluate metadata factor correlation.
+# - How the `data-bias` preset's balance and diversity evaluate metadata factor correlation before a split.
 
 # %% [markdown]
 # ## Prerequisites
@@ -105,10 +105,15 @@ print(f"Reading from {data_path}")
 #
 # The split reads labels and metadata only, so it needs no extractor, and it judges
 # class shares.
+#
+# The whole set's class balance and metadata factors are judged by the `data-bias` preset,
+# not by the split. The pipeline holds a `data-bias` task on the same source, which a later
+# step runs.
 
 # %%
 from dataeval_flow import run_task
 from dataeval_flow.config import HuggingFaceDatasetConfig, PipelineConfig, SourceConfig, TaskConfig
+from dataeval_flow.workflows.data_bias import DataBiasConfig
 from dataeval_flow.workflows.data_splitting import DataSplittingConfig
 
 workflow = DataSplittingConfig(
@@ -124,6 +129,8 @@ task = TaskConfig(
     sources="mv_src",
 )
 
+bias_task = TaskConfig(name="bias_military_vehicles", workflow="mv_bias", sources="mv_src")
+
 # Build the pipeline configuration
 config = PipelineConfig(
     datasets=[
@@ -132,8 +139,8 @@ config = PipelineConfig(
     sources=[
         SourceConfig(name="mv_src", dataset="mv_train"),
     ],
-    workflows=[workflow],
-    tasks=[task],
+    workflows=[workflow, DataBiasConfig(name="mv_bias")],
+    tasks=[task, bias_task],
 )
 
 # %% [markdown]
@@ -150,8 +157,8 @@ assert result.success
 # %% [markdown]
 # ### Splitting report
 #
-# Call `result.report()` to display the findings, the class distributions, the split
-# sizes, and the metadata balance and diversity in a formatted summary.
+# Call `result.report()` to display the findings, the class distributions and the split
+# sizes in a formatted summary.
 
 # %%
 print(result.report())
@@ -159,21 +166,12 @@ print(result.report())
 # %% [markdown]
 # ### Understanding the report
 #
-# The summary lists one finding for the whole set and one per fold:
+# The summary lists one finding per fold, **Stratification**: how far each part's class
+# shares stray from the whole's, in percentage points. Every fold's largest deviation is
+# 0.1 points (class `T-72` in the test part), so all three pass.
 #
-# - **Class Imbalance**: the whole set's class counts and its imbalance ratio, the
-#   largest class count over the smallest. MilitaryVehicles has 24 classes and 7,823
-#   items, with an imbalance ratio of 3.6:1, under the default limit of 10:1.
-# - **Stratification**: for each fold, how far each part's class shares stray from the
-#   whole's, in percentage points. Every fold's largest deviation is 0.1 points (class
-#   `T-72` in the test part), so all three pass.
-#
-# The report's other sections are not findings:
-#
-# - **Balance**: mutual information between each metadata factor and the class.
-#   High values mean a factor predicts the label.
-# - **Diversity**: how evenly each factor's values spread.
-# - **K-Fold**: the sizes of each fold's train and val, and of the shared test.
+# The report's **K-Fold** section, not a finding, gives the sizes of each fold's train and
+# val, and of the shared test.
 #
 # The Steps table lists each step and its status.
 
@@ -231,10 +229,14 @@ for item in result.findings:
     print(f"{item.severity:8} {item.title}: {item.brief}")
 
 # %% [markdown]
-# ### Balance and diversity
+# ### Class balance, balance and diversity before the split
 #
-# The workflow evaluates `Balance` and `Diversity` on the whole set before splitting.
-# They are report sections on the `balance` and `diversity` steps, not findings.
+# The `data-bias` task judges the whole set before it is split. Its **Class Imbalance**
+# finding gives the class counts and the imbalance ratio, the largest class count over the
+# smallest: MilitaryVehicles has 24 classes and 7,823 items, with a ratio of 3.6:1, under the
+# default warning limit of 5:1 and over the 2:1 at which it informs. Its `balance` and
+# `diversity` steps are report sections, not findings, and Shortcut Risk and Factor Parity
+# judge each factor against the class.
 #
 # Balance reports the mutual information between each metadata factor and the class
 # label. In MilitaryVehicles, `height` and `width` score about 0.01, so the vehicle
@@ -246,8 +248,11 @@ for item in result.findings:
 # most images share a few sizes.
 
 # %%
-print(result.steps["balance"].output.balance)
-print(result.steps["diversity"].output.factors)
+bias = run_task(config, bias_task, cache_dir=Path("./cache"))
+for item in bias.findings:
+    print(f"{item.severity:8} {item.title}: {item.brief}")
+print(bias.steps["balance"].output.balance)
+print(bias.steps["diversity"].output.factors)
 
 # %% [markdown]
 # ## Results Exploration: Export and lineage
@@ -287,7 +292,7 @@ for fold in exported_indices["train"]:
 # - Read the splitting report for class distributions and partition sizes.
 # - Read the partition indices for train, validation, and test sets.
 # - Verify partition coverage and verify that partitions do not overlap.
-# - Inspect balance and diversity across metadata factors.
+# - Run `data-bias` to inspect class balance, and balance and diversity across metadata factors.
 # - Export the split to JSON for downstream integration.
 
 # %% [markdown]

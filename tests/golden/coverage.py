@@ -129,12 +129,36 @@ CASES: dict[str, Case] = {
 }
 
 
+_BIAS_SETTINGS = ("diversity", "factor-gaps")
+_BIAS_CHECKS = ("class-imbalance", "factor-coverage-gaps")
+
+
+def _split(settings: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The preset's settings parted into data-coverage's and data-bias's, which took legacy's class balance and
+    metadata factors."""
+    coverage = {key: value for key, value in settings.items() if key not in (*_BIAS_SETTINGS, "checks")}
+    bias = {key: settings[key] for key in _BIAS_SETTINGS if key in settings}
+    checks = settings.get("checks", {})
+    if covered := {key: value for key, value in checks.items() if key not in _BIAS_CHECKS}:
+        coverage["checks"] = covered
+    if biased := {key: value for key, value in checks.items() if key in _BIAS_CHECKS}:
+        bias["checks"] = biased
+    return coverage, bias
+
+
 def pipeline(name: str, *, legacy: bool) -> PipelineConfig:
-    """Case `name` as a one-task pipeline: legacy data-coverage's settings, or the preset's."""
+    """Case `name` as a pipeline: one task of legacy data-coverage's settings, or the preset's as two tasks on the same
+    source, `t` running data-coverage and `b` data-bias."""
     case = CASES[name]
     DatasetCache.clear_instances()
-    entry = {"name": "w", "type": "data-coverage", **(case.legacy if legacy else case.preset)}
     task: dict[str, Any] = {"name": "t", "workflow": "w", "sources": ["src"]}
     if case.extractor:
         task["extractor"] = "flat"
-    return chain_pipeline(workflows=[entry], tasks=[task], datasets={"src": case.dataset()}, extractor=case.extractor)
+    if legacy:
+        entries = [{"name": "w", "type": "data-coverage", **case.legacy}]
+        tasks = [task]
+    else:
+        coverage, bias = _split(case.preset)
+        entries = [{"name": "w", "type": "data-coverage", **coverage}, {"name": "b", "type": "data-bias", **bias}]
+        tasks = [task, {"name": "b", "workflow": "b", "sources": ["src"]}]
+    return chain_pipeline(workflows=entries, tasks=tasks, datasets={"src": case.dataset()}, extractor=case.extractor)

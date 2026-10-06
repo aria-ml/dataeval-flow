@@ -268,9 +268,8 @@ tasks:
         ("ok", "Image Outliers", "cleaning/image-outliers"),
         ("ok", "Classwise Outliers", "cleaning/classwise-outliers"),
         ("warning", "Image Duplicates", "cleaning/image-duplicates"),
-        ("info", "Class Imbalance", "cleaning/class-imbalance"),
     ]
-    assert result.health == {"status": "warning", "warnings": 1, "findings": 4, "failed_steps": []}
+    assert result.health == {"status": "warning", "warnings": 1, "findings": 3, "failed_steps": []}
     assert result.steps["cleaning/clean"].details == {
         "removed": {"items": 1, "detections": 0, "tracks": 0, "frames": 0},
         "by_plan": {"duplicates": {"items": 1}, "outliers": {}},

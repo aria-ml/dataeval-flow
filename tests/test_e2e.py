@@ -405,16 +405,14 @@ class TestEndToEndCleaningWorkflow:
             "target-outliers",
             "classwise-outliers",
             "image-duplicates",
-            "class-imbalance",
             "clean",
         ]
         # Nothing is flagged in empty statistics, so no duplicate is found and nothing is removed.
         assert [(f["severity"], f["title"]) for f in results_data["findings"]] == [
             ("ok", "Image Outliers"),
             ("ok", "Classwise Outliers"),
-            ("info", "Class Imbalance"),
         ]
-        assert results_data["health"] == {"status": "ok", "warnings": 0, "findings": 3, "failed_steps": []}
+        assert results_data["health"] == {"status": "ok", "warnings": 0, "findings": 2, "failed_steps": []}
         assert results_data["steps"]["clean"]["output"]["items"] == 10
 
         # Verify JATIC metadata is embedded in results.json

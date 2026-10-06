@@ -388,8 +388,8 @@ class MetadataPolicyConfig(BaseModel):
             exclude: [id, filename]
 
         workflows:
-          - name: coverage_check
-            type: data-coverage
+          - name: bias_check
+            type: data-bias
             metadata: standard
     """
 

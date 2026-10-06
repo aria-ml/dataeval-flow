@@ -23,6 +23,7 @@ class TestOrchestration:
         names = {w.name for w in wfs}
         assert names == {
             "audit",
+            "data-bias",
             "data-cleaning",
             "data-coverage",
             "drift-monitoring",

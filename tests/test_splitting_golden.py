@@ -6,7 +6,9 @@ Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), e
 
 - **Titles and briefs are the checks' own:** "Class Imbalance", "Stratification".
 - **The split sizes are the split step's section, not findings.**
-- **Balance and diversity are sections, not findings,** and are skipped, not fatal, on a dataset with no factors.
+- **The whole set's balance, diversity and class imbalance are data-bias's:** each case runs a data-bias entry on the
+  same source, at legacy's class-imbalance limit, and they are compared there. Balance and diversity are sections,
+  not findings.
 - **The cross-split class distribution is the stratification finding's evidence,** not a finding of its own.
 - **Stratification is one finding per fold,** not one for the worst fold.
 - **Stratification judges the split before rebalancing.** Legacy judged the rebalanced train, so its rebalanced cases
@@ -66,7 +68,7 @@ def _elements(record: Any, keys: list[str] | None) -> list[Any]:
     return [record] if keys is None else [(record.elements or {})[key] for key in keys]
 
 
-def _produced(result: ChainResult) -> dict[str, Any]:
+def _produced(result: ChainResult, bias: ChainResult) -> dict[str, Any]:
     steps = result.steps
     indices = (steps["split"].details or {})["indices"]
     keys = list(indices["train"]) if isinstance(indices["train"], dict) else None
@@ -87,8 +89,8 @@ def _produced(result: ChainResult) -> dict[str, Any]:
             )
         ],
         "full_counts": _counts(steps["label-health"]),
-        "balance": steps["balance"].output.balance.to_dicts(),
-        "diversity": steps["diversity"].output.factors.to_dicts(),
+        "balance": bias.steps["balance"].output.balance.to_dicts(),
+        "diversity": bias.steps["diversity"].output.factors.to_dicts(),
     }
 
 
@@ -98,11 +100,13 @@ def test_every_case_is_recorded() -> None:
 
 @pytest.mark.parametrize("name", sorted(CASES))
 def test_data_splitting_gives_the_splits_it_gave_before_its_port(name: str) -> None:
-    result = run_tasks(pipeline(name, legacy=False))["t"]
+    results = run_tasks(pipeline(name, legacy=False))
+    result, bias = results["t"], results["b"]
     assert isinstance(result, ChainResult)
+    assert isinstance(bias, ChainResult)
     assert result.success, result.errors
     golden = _GOLDEN[name]
-    produced = _produced(result)
+    produced = _produced(result, bias)
     assert produced["test"] == golden["test"]
     _same_counts(produced["test_counts"], golden["test_counts"])
     _same_counts(produced["full_counts"], golden["full_counts"])
@@ -113,7 +117,7 @@ def test_data_splitting_gives_the_splits_it_gave_before_its_port(name: str) -> N
         _same_counts(fold["val_counts"], recorded["val_counts"])
     assert produced["balance"] == approximately(golden["balance"])
     assert produced["diversity"] == approximately(golden["diversity"])
-    imbalance = next(finding for finding in result.findings if finding.step == "class-imbalance")
+    imbalance = next(finding for finding in bias.findings if finding.step == "class-imbalance")
     assert imbalance.severity == golden["class_distribution"]
 
 

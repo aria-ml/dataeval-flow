@@ -83,7 +83,7 @@ factor's overall spread, is over it.
 The config refuses a `balance` computed on another Dataset when it loads, as `outliers-by-class` does.
 
 - **Judged by:** [`factor-coverage-gaps`](checks.md#factor-coverage-gaps)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
 
 ```yaml
 evaluators:

@@ -28,6 +28,10 @@ Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), e
   which data-coverage now refuses; its ignored-entries note says `expected`.
 - **Ontology findings are `label-space`'s;** the summary line and `metadata.has_extractor` go.
 - **Names follow the naming pass** (naming spec §3.2): recorded titles are read through `tests/golden/_renames.py`.
+- **Class balance and the metadata factors are data-bias's:** each case runs data-coverage and data-bias on the same
+  source, and legacy's Class Imbalance and Factor Coverage Gaps, with the label counts, factor summary and gaps they
+  read, come from data-bias. Each preset's findings follow legacy's order among themselves, and data-bias's Shortcut
+  Risk and Factor Parity, which legacy did not make, are left out of the comparison.
 """
 
 import json
@@ -50,11 +54,19 @@ def test_every_case_is_recorded() -> None:
     assert sorted(_GOLDEN) == sorted(CASES)
 
 
-def _run(name: str) -> ChainResult:
-    result = run_tasks(pipeline(name, legacy=False))["t"]
-    assert isinstance(result, ChainResult)
-    assert result.success, result.errors
-    return result
+_BIAS = ("Class Imbalance", "Factor Coverage Gaps")
+_NEW = ("Shortcut Risk", "Factor Parity")
+
+
+def _run(name: str) -> tuple[ChainResult, ChainResult]:
+    """The case's data-coverage result and its data-bias result."""
+    results = run_tasks(pipeline(name, legacy=False))
+    coverage, bias = results["t"], results["b"]
+    assert isinstance(coverage, ChainResult)
+    assert isinstance(bias, ChainResult)
+    assert coverage.success, coverage.errors
+    assert bias.success, bias.errors
+    return coverage, bias
 
 
 def _left_out(name: str) -> set[str]:
@@ -82,10 +94,13 @@ def _titles(name: str) -> list[str]:
 
 @pytest.mark.parametrize("name", sorted(CASES))
 def test_the_findings_agree(name: str) -> None:
-    result = _run(name)
+    coverage, bias = _run(name)
+    findings = [*coverage.findings, *(f for f in bias.findings if f.title not in _NEW)]
     legacy = {renamed(f[1]): [f[0], renamed(f[1]), *f[2:]] for f in _GOLDEN[name]["findings"]}
-    preset = {f.title: [f.severity, f.title, f.brief, f.description] for f in result.findings}
-    assert [finding.title for finding in result.findings] == _titles(name)
+    preset = {f.title: [f.severity, f.title, f.brief, f.description] for f in findings}
+    titles = _titles(name)
+    assert [finding.title for finding in coverage.findings] == [title for title in titles if title not in _BIAS]
+    assert [f.title for f in bias.findings if f.title not in _NEW] == [title for title in titles if title in _BIAS]
     assert preset["Class Imbalance"][0] == legacy["Class Imbalance"][0]
     coverage = legacy.get("Class Coverage")
     if coverage is None or coverage[2] == "skipped":
@@ -110,13 +125,13 @@ def test_the_findings_agree(name: str) -> None:
 
 @pytest.mark.parametrize("name", sorted(CASES))
 def test_what_they_were_computed_from_agrees(name: str) -> None:
-    result = _run(name)
+    result, bias = _run(name)
     golden = _GOLDEN[name]
-    labels = result.steps["label-health"].output.data()
+    labels = bias.steps["label-health"].output.data()
     assert labels["label_counts_per_class"] == golden["labels"]["counts"]
     assert labels["empty_image_indices"] == golden["labels"]["empty_images"]
     # Through JSON, as the golden was written: a discrete factor's top values are keyed by number.
-    summary = json.loads(json.dumps(result.steps["factor-summary"].output.data()["summary"]))
+    summary = json.loads(json.dumps(bias.steps["factor-summary"].output.data()["summary"]))
     assert summary == approximately(golden["summary"])
     if golden["coverage"] is not None:
         _coverage_agrees(result, golden["coverage"])
@@ -126,7 +141,7 @@ def test_what_they_were_computed_from_agrees(name: str) -> None:
         assert data["completeness"] == pytest.approx(golden["completeness"]["score"], rel=1e-3)
         assert len(data["nearest_neighbor_pairs"]) == golden["completeness"]["pairs"]
     if golden["gaps"] is not None:
-        gaps = result.steps["factor-gaps"].output
+        gaps = bias.steps["factor-gaps"].output
         assert gaps.mutual_information == approximately(golden["gaps"]["mutual_information"])
         assert [(gap.class_name, gap.factor_name) for gap in gaps.gaps] == [
             (gap["class_name"], gap["factor_name"]) for gap in golden["gaps"]["gaps"]

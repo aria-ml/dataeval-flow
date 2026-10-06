@@ -217,7 +217,6 @@ Outlier and duplicate detection for image datasets, and the dataset without them
 | `target-outliers` | check | [`target-outliers`](checks.md#target-outliers) | `input`: `outliers`; `labels`: `label-health` |
 | `classwise-outliers` | check | [`classwise-outliers`](checks.md#classwise-outliers) | `input`: `outliers-by-class` |
 | `image-duplicates` | check | [`image-duplicates`](checks.md#image-duplicates) | `input`: `duplicates` |
-| `class-imbalance` | check | [`class-imbalance`](checks.md#class-imbalance) | `input`: `label-health` |
 | `clean` | transform | [`remove`](transforms.md#remove) | `input`: `data`; `plans`: `duplicates`, `outliers` |
 
 **Settings** ({py:class}`~dataeval_flow.workflows.data_cleaning.DataCleaningConfig`):
@@ -239,7 +238,6 @@ Outlier and duplicate detection for image datasets, and the dataset without them
 | [`target-outliers`](checks.md#target-outliers) | `warning: 3.0` |
 | [`classwise-outliers`](checks.md#classwise-outliers) | `warning: 3.0` |
 | [`image-duplicates`](checks.md#image-duplicates) | `exact: 0.0`, `near: 5.0` |
-| [`class-imbalance`](checks.md#class-imbalance) | `warning: 5.0` |
 
 The other settings go to the evaluators: the `outliers` block to `outliers`, the `duplicates` block to `duplicates`,
 `metadata` to `label-health`, and `stats` to both `outliers` and `duplicates`. Each block holds the step settings its
@@ -247,8 +245,9 @@ row lists, spelled as the step spells them. Each `checks:` entry holds the setti
 removes each image and box with at least one outlier flag, and each exact or near duplicate but the first of its group.
 
 Its report gives each finding a section, with the evaluators it judged below it: the flagged images and boxes under
-Image Outliers, and the duplicate groups under Image Duplicates. The class counts sit under the first finding that read
-`label-health`: Target Outliers where any box was flagged, else Class Imbalance. A finding that read a step shown
+Image Outliers, and the duplicate groups under Image Duplicates. The class counts sit under Target Outliers where any box
+was flagged, else in a Label Health section of their own; class balance is [`data-bias`](#data-bias)'s. A finding
+that read a step shown
 already names the finding it is under, as Classwise Outliers names Image Outliers for the outliers `outliers-by-class`
 counted. `clean`'s section follows, saying how many images it kept and what each plan named. On MILCO's reference
 campaigns, as {doc}`View a report as HTML <../notebooks/view_html_reports>` runs it: "Kept 162 of 261 images. Removed 99
@@ -328,8 +327,7 @@ tasks:
 
 ## `data-coverage`
 
-Judges how a Dataset's embeddings cover their space, its class balance and metadata gaps, and what to acquire per class;
-detections are cropped first.
+Judges how a Dataset's embeddings cover their space, and what to acquire per class; detections are cropped first.
 
 - **Answers:** [Does the data cover what the model must handle?](index.md#does-the-data-cover-what-the-model-must-handle)
 - **Reads:** `data`, the task's one source.
@@ -346,13 +344,6 @@ detection data and passes other Datasets through:
 | `uncovered-items` | check | [`uncovered-items`](checks.md#uncovered-items) | `input`: `coverage` |
 | `completeness` | evaluator | [`completeness`](evaluators.md#completeness) | `input`: `crops` |
 | `dimensional-completeness` | check | [`dimensional-completeness`](checks.md#dimensional-completeness) | `input`: `completeness` |
-| `label-health` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `data` |
-| `class-imbalance` | check | [`class-imbalance`](checks.md#class-imbalance) | `input`: `label-health` |
-| `factor-summary` | evaluator | [`factor-summary`](evaluators.md#factor-summary) | `input`: `data` |
-| `balance` | evaluator | [`balance`](evaluators.md#balance) | `input`: `data` |
-| `diversity` | evaluator | [`diversity`](evaluators.md#diversity) | `input`: `data` |
-| `factor-gaps` | combine | [`factor-gaps`](combines.md#factor-gaps) | `input`: `data`; `balance`: `balance` |
-| `factor-coverage-gaps` | check | [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `input`: `factor-gaps` |
 | `representation` | evaluator | [`representation`](evaluators.md#representation) | `input`: `data` |
 | `class-shortfall` | check | [`class-shortfall`](checks.md#class-shortfall) | `input`: `representation` |
 
@@ -360,33 +351,30 @@ detection data and passes other Datasets through:
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares) |
 | `ontology` | `null`; any other value is refused | `null` | Refused when set, as the config loads: judge the labels with a `label-space` entry on the same source; see [Settings every preset shares](#settings-every-preset-shares) |
 | `representation` | a block | the step's own defaults | [`representation`](evaluators.md#representation)'s `expected`: each class's minimum share |
 | `coverage` | a block | `method: adaptive`, `num_observations: 50` where the step's own default is DataEval's 20, and the step's other defaults | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples` and `near_duplicate_factor`; the step runs when the task names an extractor |
 | `wrap` | a block | `params: {padding: 0.0, min_size: 1}` | [`wrap`](transforms.md#wrap)'s `params`, used on detection data only; the preset fixes the wrapper |
 | `completeness` | `true` or `false` | `true` | Whether the completeness steps run, when the task names an extractor |
-| `diversity` | a block | `method: simpson` | [`diversity`](evaluators.md#diversity)'s `method` |
-| `factor-gaps` | a block, or `false` | `mi_threshold: 0.1`, `min_representation: 5` | [`factor-gaps`](combines.md#factor-gaps)'s `mi_threshold` and `min_representation`; `false` leaves out the gap analysis and its check |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
 **Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.data_coverage.DataCoverageChecks`):
 
 | Check | Default settings |
 | --- | --- |
-| [`class-imbalance`](checks.md#class-imbalance) | `warning: 5.0`, `info: 2.0` |
-| [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `warning: 2` |
 | [`class-coverage`](checks.md#class-coverage) | `dispersion: 0.5`, `isotropy: 0.5`, `near_duplicates: 0.1` |
 | [`uncovered-items`](checks.md#uncovered-items) | `warning: 10.0` |
 | [`dimensional-completeness`](checks.md#dimensional-completeness) | `warning: 0.5`, `info: 0.8` |
 
 Coverage asks whether a collection spans the conditions the model will meet, where cleaning asks whether its samples are
-sound. The preset evaluates class balance and metadata factor gaps. When the task names an
+sound. The preset lists the classes that fall short of their expected share. When the task names an
 {term}`extractor <Extractor>`, it adds per-class embedding variety and dimensional completeness. A class can be
 plentiful by count and still occupy little of the representation space, which the embedding steps show. `naive` coverage
 is judged by an `uncovered-items` step. The chain is the same without an extractor, but the `coverage` and
-`completeness` steps are then skipped with "requires an extractor". Run it before training and before fixing a reference
-set, while a gap can still be closed by collecting more data. See [Dataset Coverage](../concepts/Coverage.md).
+`completeness` steps are then skipped with "requires an extractor". Class balance and the metadata factors, with the
+class-factor combinations a factor tied to the class leaves under-represented, are [`data-bias`](#data-bias)'s; run it
+on the same source. Run both before training and before fixing a reference set, while a gap can still be closed by
+collecting more data. See [Dataset Coverage](../concepts/Coverage.md).
 
 ```yaml
 workflows:
@@ -400,9 +388,74 @@ tasks:
   - {name: coverage-train, workflow: coverage, sources: [train], extractor: bovw_ext}
 ```
 
+## `data-bias`
+
+Judges a Dataset's class balance and how its metadata factors relate to the class: shortcuts, association and
+under-represented combinations.
+
+- **Answers:** [Could the model learn a shortcut?](index.md#could-the-model-learn-a-shortcut) and
+  [Are the labels sound?](index.md#are-the-labels-sound)
+- **Reads:** `data`, the task's one source.
+- **Makes:** no Dataset; its findings are its result.
+
+**Chain**, from the defaults:
+
+| Step | Kind | Type | Reads |
+| --- | --- | --- | --- |
+| `label-health` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `data` |
+| `class-imbalance` | check | [`class-imbalance`](checks.md#class-imbalance) | `input`: `label-health` |
+| `factor-summary` | evaluator | [`factor-summary`](evaluators.md#factor-summary) | `input`: `data` |
+| `balance` | evaluator | [`balance`](evaluators.md#balance) | `input`: `data` |
+| `diversity` | evaluator | [`diversity`](evaluators.md#diversity) | `input`: `data` |
+| `shortcut-risk` | check | [`shortcut-risk`](checks.md#shortcut-risk) | `input`: `balance` |
+| `parity` | evaluator | [`parity`](evaluators.md#parity) | `input`: `data` |
+| `factor-parity` | check | [`factor-parity`](checks.md#factor-parity) | `input`: `parity` |
+| `factor-gaps` | combine | [`factor-gaps`](combines.md#factor-gaps) | `input`: `data`; `balance`: `balance` |
+| `factor-coverage-gaps` | check | [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `input`: `factor-gaps` |
+
+**Settings** ({py:class}`~dataeval_flow.workflows.data_bias.DataBiasConfig`):
+
+| Setting | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares) |
+| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
+| `diversity` | a block | `method: simpson` | [`diversity`](evaluators.md#diversity)'s `method` |
+| `factor-gaps` | a block, or `false` | `mi_threshold: 0.1`, `min_representation: 5` | [`factor-gaps`](combines.md#factor-gaps)'s `mi_threshold` and `min_representation`; `false` leaves out the gap analysis and its check |
+| `checks` | a block | the defaults below | When findings warn, keyed by check type |
+
+**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.data_bias.DataBiasChecks`):
+
+| Check | Default settings |
+| --- | --- |
+| [`class-imbalance`](checks.md#class-imbalance) | `warning: 5.0`, `info: 2.0` |
+| [`shortcut-risk`](checks.md#shortcut-risk) | `warning: 0.1` |
+| [`factor-parity`](checks.md#factor-parity) | `warning: 0.3`, `p_value: 0.05` |
+| [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `warning: 2` |
+
+Bias asks whether something other than the task tells the classes apart. The preset judges how far the largest class
+outnumbers the smallest, then, for each metadata factor, how much it tells about the class (`shortcut-risk`, by mutual
+information) and whether that association is significant (`factor-parity`, by Cramér's V and a chi-square test). Among
+the factors tied to the class, `factor-coverage-gaps` lists the class-factor-value combinations held too rarely, which
+collecting more data can close. Diversity and the factor summary are report sections. It reads labels and metadata
+only, so it needs no extractor; a source with no metadata factors still judges its class balance, and its factor checks
+are not assessed. Run it beside [`data-coverage`](#data-coverage) on the same source: each judges what the other
+leaves out. See DataEval's [Dataset Bias
+explanation](https://dataeval.readthedocs.io/en/latest/concepts/DatasetBias.html).
+
+```yaml
+workflows:
+  - name: bias
+    type: data-bias
+    checks:
+      shortcut-risk: {warning: 0.2}
+
+tasks:
+  - {name: bias-train, workflow: bias, sources: [train]}
+```
+
 ## `data-splitting`
 
-Splits a Dataset into train, val and test, or k folds, and judges its balance and stratification; with `folds` of 2 or
+Splits a Dataset into train, val and test, or k folds, and judges each part's stratification; with `folds` of 2 or
 more, `train` and `val` are lists keyed by fold.
 
 - **Answers:** [Are the splits fit to evaluate on?](index.md#are-the-splits-fit-to-evaluate-on)
@@ -414,9 +467,6 @@ more, `train` and `val` are lists keyed by fold.
 | Step | Kind | Type | Reads |
 | --- | --- | --- | --- |
 | `label-health` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `data` |
-| `class-imbalance` | check | [`class-imbalance`](checks.md#class-imbalance) | `input`: `label-health` |
-| `balance` | evaluator | [`balance`](evaluators.md#balance) | `input`: `data` |
-| `diversity` | evaluator | [`diversity`](evaluators.md#diversity) | `input`: `data` |
 | `split` | transform | [`split`](transforms.md#split) | `input`: `data` |
 | `rebalanced` | transform | [`view`](transforms.md#view) | `input`: `split.train` |
 | `label-health-train` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `split.train` |
@@ -443,16 +493,15 @@ more, `train` and `val` are lists keyed by fold.
 
 | Check | Default settings |
 | --- | --- |
-| [`class-imbalance`](checks.md#class-imbalance) | `warning: 10.0` |
 | [`stratification`](checks.md#stratification) | `info: 2.0`, `warning: 10.0` |
 
-The chain judges the whole set's labels, balance and diversity, splits it (`folds: 1`) or cuts it into k folds
-(`folds` of 2 or more) with a shared test part, optionally rebalances each train, and judges each part's labels, its
-stratification against the whole. Its findings are Class Imbalance for the whole set and Stratification for each
-fold; balance and diversity are report sections. The result is a `ChainResult`, and each part's indices into the
-source are in `result.steps["split"].details["indices"]`. Run as a step of a custom workflow, the entry hands on three
-Datasets: `<step>.train` (the rebalanced train, where the entry sets `rebalance:`), `<step>.val` and `<step>.test`. The
-preset does not judge coverage, leakage or shift: run [`audit`](#audit) as a step after it, as
+The chain reads the whole set's labels, splits it (`folds: 1`) or cuts it into k folds (`folds` of 2 or more) with a
+shared test part, optionally rebalances each train, and judges each part's labels and its stratification against the
+whole. Its findings are Stratification for each fold. The whole set's class balance and metadata factors are
+[`data-bias`](#data-bias)'s; run it on the source before splitting it. The result is a `ChainResult`, and each part's
+indices into the source are in `result.steps["split"].details["indices"]`. Run as a step of a custom workflow, the
+entry hands on three Datasets: `<step>.train` (the rebalanced train, where the entry sets `rebalance:`), `<step>.val`
+and `<step>.test`. The preset does not judge coverage, leakage or shift: run [`audit`](#audit) as a step after it, as
 [Check a set of splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) does, or give the parts to an
 `audit` task as sources, train first. See [Dataset Splitting](../concepts/DatasetSplitting.md).
 

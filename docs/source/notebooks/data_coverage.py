@@ -17,7 +17,7 @@
 # # Assess dataset coverage
 #
 # Detect class imbalance, metadata gaps, missing label-space regions, and
-# embedding blind spots with two config-driven presets: `data-coverage` and `label-space`.
+# embedding blind spots with three config-driven presets: `data-bias`, `data-coverage` and `label-space`.
 
 # %% [markdown]
 # **Target audience**: You are a T&E engineer or data scientist who needs to verify
@@ -37,7 +37,7 @@
 #
 # - Load MilitaryVehicles and filter out the Air Defense category using `ClassFilter` to
 #   simulate missing collection categories.
-# - Run `data-coverage` without an extractor for a fast label and metadata pass.
+# - Run `data-bias` and `data-coverage` without an extractor for a fast label and metadata pass.
 # - See why class counts alone do not reveal a missing category.
 # - Run `label-space` on the same source, with the dataset's taxonomy as its ontology, to name
 #   the unsampled concepts.
@@ -47,7 +47,8 @@
 # %% [markdown]
 # ## What you will learn
 #
-# - How to configure and run the `data-coverage` and `label-space` presets with `run_task()`.
+# - How to configure and run the `data-bias`, `data-coverage` and `label-space` presets with `run_task()` and
+#   `run_tasks()`.
 # - How coverage evaluates two axes: taxonomic representation (`label-space`, against an ontology) and visual
 #   variation (`data-coverage`, in embedding space).
 # - Why count-based distributions fail to detect unsampled classes when loaders drop missing categories.
@@ -141,26 +142,28 @@ plt.show()
 # external ontology definition.
 
 # %% [markdown]
-# ## Step 1: Run coverage without an extractor (metadata only)
+# ## Step 1: Run bias and coverage without an extractor (metadata only)
 #
-# You can run `data-coverage` without an extractor for a fast initial pass. `data-coverage`
-# is a preset: its settings expand to a chain of steps, each an evaluator, a check that
-# judges one, or a transform. Without an extractor, the steps that embed the images,
-# `coverage` and `completeness`, are skipped, and the steps that read labels and metadata
-# run: `label-health`, `factor-summary`, `balance`, `diversity`, `factor-gaps` (the gap analysis)
-# and `representation` (what each class lacks of an even spread).
+# You can run `data-bias` and `data-coverage` without an extractor for a fast initial pass.
+# Each is a preset: its settings expand to a chain of steps, each an evaluator, a check that
+# judges one, or a transform. `data-bias` reads only labels and metadata: `label-health`,
+# `factor-summary`, `balance`, `diversity`, `parity` and `factor-gaps` (the gap analysis).
+# Without an extractor, `data-coverage` skips the steps that embed the images, `coverage` and
+# `completeness`, and runs `representation` (what each class lacks of an even spread). The two
+# run as two tasks of one pipeline, on the same source.
 #
 # You will evaluate intrinsic image factors (such as brightness, contrast, and
 # sharpness) as metadata conditions. The gap analysis cross-tabulates class labels against
 # binned factors to detect whether particular vehicle classes were imaged under
 # limited operational conditions.
 #
-# `checks` is keyed by the type of the check it sets: `class-imbalance` judges
+# `checks` is keyed by the type of the check it sets: on `data-bias`, `class-imbalance` judges
 # the label distribution, and `factor-coverage-gaps` the gap analysis.
 
 # %%
-from dataeval_flow import run_task
+from dataeval_flow import run_task, run_tasks
 from dataeval_flow.config import DatasetProtocolConfig, MetadataPolicyConfig, PipelineConfig, SourceConfig, TaskConfig
+from dataeval_flow.workflows.data_bias import DataBiasConfig
 from dataeval_flow.workflows.data_coverage import DataCoverageConfig
 
 vehicle_factors = MetadataPolicyConfig(
@@ -186,19 +189,21 @@ vehicle_factors = MetadataPolicyConfig(
     },
 )
 
-metadata_only_workflow = DataCoverageConfig.model_validate(
+bias_workflow = DataBiasConfig.model_validate(
     {
-        "name": "coverage-metadata-only",
+        "name": "bias",
         "metadata": "vehicle_factors",
         "factor-gaps": {"min_representation": 5},  # Flag class-factor-value combos with < 5 samples
         "diversity": {"method": "simpson"},
         "checks": {
             "class-imbalance": {"warning": 3.0},  # Catch moderate class imbalance
-            "factor-coverage-gaps": {"warning": 2},  # Warn if >= 2 gaps found
+            "factor-coverage-gaps": {"warning": 2},  # Warn past 2 gaps
         },
     }
 )
+metadata_only_workflow = DataCoverageConfig(name="coverage-metadata-only")
 
+task_bias = TaskConfig(name="vehicles-bias", workflow="bias", sources="vehicles_src")
 task_metadata = TaskConfig(
     name="vehicles-coverage-metadata",
     workflow="coverage-metadata-only",
@@ -214,20 +219,30 @@ config_metadata = PipelineConfig(
     sources=[
         SourceConfig(name="vehicles_src", dataset="vehicles_collected"),
     ],
-    workflows=[metadata_only_workflow],
-    tasks=[task_metadata],
+    workflows=[bias_workflow, metadata_only_workflow],
+    tasks=[task_bias, task_metadata],
 )
 
 # %%
-result_metadata = run_task(config_metadata, task_metadata, cache_dir=Path("./cache"))
+results = run_tasks(config_metadata, cache_dir=Path("./cache"))
+result_bias, result_metadata = results["vehicles-bias"], results["vehicles-coverage-metadata"]
+
+# %% [markdown]
+# ### Bias report
+#
+# The `data-bias` report gives each finding a section: Class Imbalance, Shortcut Risk,
+# Factor Parity and Factor Coverage Gaps. The metadata summary, balance and diversity are
+# report sections, not findings.
+
+# %%
+print(result_bias.report())
 
 # %% [markdown]
 # ### Coverage report (metadata only)
 #
-# The report gives each finding a section: Class Imbalance, Factor Coverage Gaps and
-# the Class Shortfall. The metadata summary, balance and diversity are report
-# sections, not findings. Class Coverage and Dimensional Completeness are reported as
-# not assessed, and the Steps table at the end says why each embedding step was skipped.
+# The `data-coverage` report gives the Class Shortfall. Class Coverage and Dimensional
+# Completeness are reported as not assessed, and the Steps table at the end says why each
+# embedding step was skipped.
 
 # %%
 print(result_metadata.report())
@@ -236,11 +251,11 @@ print(result_metadata.report())
 # ### Drill into each step's output
 #
 # The result is a `ChainResult`. `result.steps` holds each step's output by step name,
-# for programmatic inspection. The `label-health` step's output is a `label-health` count of
+# for programmatic inspection. The `data-bias` run's `label-health` step's output is a count of
 # every class the dataset declares, at 0 where it has no labels.
 
 # %%
-label_health = result_metadata.steps["label-health"].output.data()
+label_health = result_bias.steps["label-health"].output.data()
 print(f"Number of classes: {label_health['class_count']}")
 print(f"Empty images: {label_health['empty_image_count']}")
 print("\nClass distribution (five largest, five smallest):")
@@ -253,7 +268,7 @@ for cls, count in by_size[-5:]:
 
 # %%
 # Metadata gaps: evaluate if a class was only imaged under narrow conditions
-gaps = result_metadata.steps["factor-gaps"].output
+gaps = result_bias.steps["factor-gaps"].output
 print(f"Metadata coverage gaps: {len(gaps.gaps)}\n")
 
 print("  Mutual information (class -> factor), five strongest:")
@@ -291,6 +306,12 @@ for row in worklist.data().iter_rows(named=True):
 # here, `contrast`, scores 0.0027. The measured image statistics barely vary with the
 # vehicle class in this sample, so Factor Coverage Gaps is `ok`.
 #
+# Shortcut Risk and Factor Parity agree: no factor tells much about the class. No factor's
+# mutual information passes 0.1, and no factor's Cramér's V passes 0.3; the strongest,
+# `darkness`, scores 0.066. Factor Parity also names ten factors whose binned tables hold
+# cells too sparse for the chi-square p-value to be trusted, 1,500 items being spread over
+# 24 classes and five bins.
+#
 # The worklist cell lists six classes short of an even spread over the 24 declared
 # classes, 266 labels in all: the four Air Defense types have 0 of a target of 62, and
 # `BTR-70` and `T-90` have 53.
@@ -304,8 +325,8 @@ for row in worklist.data().iter_rows(named=True):
 # ## Step 2: Judge the labels against the sanctioned label space
 #
 # The `label-space` preset compares a dataset's labels against a declared ontology, the
-# full taxonomy specification. It runs on the same source as `data-coverage`, as a task
-# of its own.
+# full taxonomy specification. It runs on the same source as `data-bias` and `data-coverage`,
+# as a task of its own.
 #
 # You will load the hierarchy attribute from MilitaryVehicles as your ontology:
 
@@ -416,7 +437,7 @@ print("unmatched:", list(check["unmatched"]))
 # ### Sharing one ontology across tasks
 #
 # You can define ontologies centrally under `ontologies:` in YAML and reference them
-# by name. The two presets run as two tasks on one source:
+# by name. The presets run as tasks on one source:
 #
 # ```yaml
 # ontologies:
@@ -431,13 +452,18 @@ print("unmatched:", list(check["unmatched"]))
 #   - name: vocab
 #     type: label-space
 #     ontology: vehicles
+#   - name: bias
+#     type: data-bias
+#     metadata: vehicle_factors
 #   - name: coverage
 #     type: data-coverage
-#     metadata: vehicle_factors
 #
 # tasks:
 #   - name: vehicles-vocab
 #     workflow: vocab
+#     sources: vehicles_src
+#   - name: vehicles-bias
+#     workflow: bias
 #     sources: vehicles_src
 #   - name: vehicles-coverage
 #     workflow: coverage
@@ -466,18 +492,13 @@ from dataeval_flow.config.extractors import BoVWExtractorConfig
 full_workflow = DataCoverageConfig.model_validate(
     {
         "name": "coverage-full",
-        "metadata": "vehicle_factors",
         "coverage": {
             "method": "adaptive",
             "percent": 0.01,  # adaptive: flag the sparsest 1% of observations
             "num_observations": 50,  # Number of neighbors for coverage analysis
         },
-        "factor-gaps": {"min_representation": 5},
-        "diversity": {"method": "simpson"},
         "checks": {
             "dimensional-completeness": {"warning": 0.5},  # Warn if completeness < 0.5
-            "class-imbalance": {"warning": 3.0},
-            "factor-coverage-gaps": {"warning": 2},
         },
     }
 )
@@ -507,9 +528,8 @@ result_full = run_task(config_full, task_full, cache_dir=Path("./cache"))
 # %% [markdown]
 # ### Full coverage report
 #
-# Now the report includes Class Coverage and Dimensional Completeness in addition
-# to the label and metadata findings. The label and metadata evidence repeats Step 1's,
-# so this cell prints the short form, `report(detailed=False)`: the summary of findings,
+# Now the report judges Class Coverage and Dimensional Completeness beside the Class
+# Shortfall. The Class Shortfall's evidence repeats Step 1's, so this cell prints the short form, `report(detailed=False)`: the summary of findings,
 # the health and the Steps table. `report()` gives the full evidence; the cells below read
 # it from the steps.
 
@@ -579,8 +599,8 @@ print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}"
 # |---|---|---|---|---|---|
 # | `data-coverage` | `uncovered-items` | `warning` | 10% | 3–5% | 15–20% |
 # | `data-coverage` | `dimensional-completeness` | `warning` | 0.5 | 0.7–0.8 | 0.3–0.4 |
-# | `data-coverage` | `class-imbalance` | `warning` | 5:1 | 2–3:1 | 10–20:1 |
-# | `data-coverage` | `factor-coverage-gaps` | `warning` | 3 | 1 | 5–10 |
+# | `data-bias` | `class-imbalance` | `warning` | 5:1 | 2–3:1 | 10–20:1 |
+# | `data-bias` | `factor-coverage-gaps` | `warning` | 2 | 1 | 5–10 |
 # | `data-coverage` | `class-coverage` | `dispersion` | 0.5 | 0.7 | 0.3 |
 # | `data-coverage` | `class-coverage` | `isotropy` | 0.5 | 0.7 | 0.3 |
 # | `data-coverage` | `class-coverage` | `near_duplicates` | 0.1 | 0.02 | 0.25 |
@@ -588,13 +608,13 @@ print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}"
 # | `label-space` | `leaf-coverage` | `empty_branches` | 0 | 0 | 2–5 |
 # | `label-space` | `label-conformance` | `warning` | 0 | 0 | 3–10 |
 #
-# `class-imbalance` and `dimensional-completeness` also take `info`, the band between `ok` and
+# `class-imbalance` (on `data-bias`) and `dimensional-completeness` also take `info`, the band between `ok` and
 # a warning: a ratio over 2.0, or a score under 0.8, informs by default. `null` turns a
 # threshold off.
 #
 # `uncovered-items` judges only `naive` coverage, since adaptive coverage flags its
-# `percent` of the items by construction. The label-space thresholds go on the
-# `label-space` entry, as `LabelSpaceConfig(..., checks={"leaf-coverage": {"coverage": 0.95}})`.
+# `percent` of the items by construction. The data-bias and label-space thresholds go on their
+# own entries, as `LabelSpaceConfig(..., checks={"leaf-coverage": {"coverage": 0.95}})`.
 
 # %%
 from dataeval_flow.workflows.data_coverage import DataCoverageChecks
@@ -602,8 +622,6 @@ from dataeval_flow.workflows.data_coverage import DataCoverageChecks
 strict_thresholds = DataCoverageChecks.model_validate(
     {
         "dimensional-completeness": {"warning": 0.6},
-        "class-imbalance": {"warning": 2.0},
-        "factor-coverage-gaps": {"warning": 1},
         "class-coverage": {"dispersion": 0.7, "isotropy": 0.7, "near_duplicates": 0.02},
     }
 )
@@ -642,9 +660,8 @@ for default, strict in zip(result_full.findings, result_strict.findings, strict=
 # %% [markdown]
 # Exactly one additional warning triggers: Dimensional Completeness (0.573) falls below
 # the strict 0.6 threshold. The other strict limits change nothing: no class's dispersion
-# is under 0.7, every class's near-duplicate fraction prints as 0.00, isotropy is not
-# measured, there are no gaps to count, and Class Imbalance warns already for its empty
-# classes.
+# is under 0.7, every class's near-duplicate fraction prints as 0.00, and isotropy is not
+# measured.
 #
 # You can adjust individual check thresholds to match your domain tolerance without
 # altering underlying data calculations.
@@ -663,7 +680,8 @@ print(json_str[:500] + "\n...")
 # In this tutorial, you learned how to:
 #
 # - Simulate missing categories using `ClassFilter` view operations.
-# - Run `data-coverage` without an extractor to assess class balance and cross-tabulated factor gaps.
+# - Run `data-bias` to assess class balance, shortcut factors and cross-tabulated factor gaps, and
+#   `data-coverage` without an extractor for the class worklist.
 # - Run `label-space` on the same source to benchmark the labels against an ontology and name missing categories.
 # - Reconcile label names against an ontology.
 # - Configure feature extractors to evaluate embedding dispersion and dimensional completeness.

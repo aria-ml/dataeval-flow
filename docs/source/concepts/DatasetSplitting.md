@@ -29,10 +29,11 @@ arises and how to prevent it — is explained authoritatively in DataEval's
 ## The preset
 
 `data-splitting` is a {term}`preset <Preset>`: its settings expand to a chain of steps, which the
-[Preset Catalog](../reference/presets.md#data-splitting) lists with its settings and findings. The preset judges class
-shares, not coverage or leakage. On classification data, its `split_on` keeps each value of a metadata factor, such
-as a scene or site, in one part, so correlated groups of samples do not straddle a split. To judge coverage, leakage and
-shift, run [`audit`](../reference/presets.md#audit) as a step after the split, as [Check a set of
+[Preset Catalog](../reference/presets.md#data-splitting) lists with its settings and findings. The preset judges each
+part's class shares, not coverage or leakage, and not the whole set's class balance, which is the
+[`data-bias`](../reference/presets.md#data-bias) preset's. On classification data, its `split_on` keeps each value of a
+metadata factor, such as a scene or site, in one part, so correlated groups of samples do not straddle a split. To judge
+coverage, leakage and shift, run [`audit`](../reference/presets.md#audit) as a step after the split, as [Check a set of
 splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) does, or give exported parts to an `audit` task
 as sources, train first.
 

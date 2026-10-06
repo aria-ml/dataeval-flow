@@ -111,13 +111,11 @@ MILCO's two campaigns, `reference` and `operational`:
     Target Outliers .................................. 32 targets (6.5%)  [!!]
     Classwise Outliers ...... worst: NOMBO (7.5%), 2/2 classes over 3.0%  [!!]
     Image Duplicates .................. 0 exact (0.0%), 150 near (57.5%)  [!!]
-    Class Imbalance ........... 2 classes, 261 items, imbalance 1.8:1  [..]
   operational
     Image Outliers .................................... 22 images (2.4%)  [..]
     Target Outliers ................................... 6 targets (3.4%)  [!!]
     Classwise Outliers ...... worst: NOMBO (5.2%), 1/2 classes over 3.0%  [!!]
     Image Duplicates .................. 0 exact (0.0%), 787 near (86.6%)  [!!]
-    Class Imbalance ........... 2 classes, 909 items, imbalance 2.0:1  [..]
 
   Health: 7 warning(s) [!!] — review flagged findings
 ```
@@ -127,7 +125,7 @@ step's name, status and note, with no finding's detail and no evidence. The refe
 banner and configuration:
 
 ```text
-  Steps: 10 ran
+  Steps: 9 ran
 
 ================================================================================
   SUMMARY
@@ -136,7 +134,6 @@ banner and configuration:
   Target Outliers .................................... 32 targets (6.5%)  [!!]
   Classwise Outliers ........ worst: NOMBO (7.5%), 2/2 classes over 3.0%  [!!]
   Image Duplicates .................... 0 exact (0.0%), 150 near (57.5%)  [!!]
-  Class Imbalance ............. 2 classes, 261 items, imbalance 1.8:1  [..]
 
   Health: 4 warning(s) [!!] — review flagged findings
 
@@ -153,7 +150,6 @@ banner and configuration:
   target-outliers     ok
   classwise-outliers  ok
   image-duplicates    ok
-  class-imbalance     ok
   clean               ok
 ```
 
@@ -316,7 +312,7 @@ chain of steps.
     "lineage":   [ { "name": "data", "source": "ref-src", "items": 261 },
                    { "name": "clean", "step": "clean", "items": 162 } ]
   },
-  "health":   { "status": "warning", "warnings": 4, "findings": 5, "failed_steps": [] },
+  "health":   { "status": "warning", "warnings": 4, "findings": 4, "failed_steps": [] },
   "steps":    { "outliers": { "kind": "evaluator", "type": "outliers", "status": "ok" } },
   "findings": [ { "step": "image-outliers", "title": "Image Outliers", "severity": "warning" } ]
 }
@@ -341,10 +337,11 @@ under a sixth, `step`:
 | `description` | A sentence or two of plain prose that leads the detail, or `null` where the brief says it all. |
 | `blocks` | The evidence: report blocks, in reading order. |
 
-The same run's Class Imbalance finding:
+A `data-bias` run on the same campaigns judges their class balance; its Class Imbalance finding, under the preset's
+default `info: 2.0`:
 
 ```json
-{"severity": "info", "title": "Class Imbalance", "brief": "2 classes, 261 items, imbalance 1.8:1",
+{"severity": "ok", "title": "Class Imbalance", "brief": "2 classes, 261 items, imbalance 1.8:1",
  "description": null,
  "blocks": [
    {"type": "table",
@@ -593,7 +590,7 @@ binned at, whether it was binned or digitized, and the observed range and popula
 `result.metadata.diagnostics` carries the library warnings the run raised. Both render in the text report under
 **METADATA FACTORS**.
 
-The `factor-summary` step's per-factor summaries, in `audit` and `data-coverage`, carry the same shape of information
+The `factor-summary` step's per-factor summaries, in `audit` and `data-bias`, carry the same shape of information
 alongside the values: `level` and `is_binned` per factor, plus an entry of type `dropped`, with its reasons, for each
 column that never became a factor at all, such as an identifier or a vector-valued statistic (`histogram`,
 `percentiles`, `center`) with no single-column form. `invalid_box` is carried through as a factor; the other hash

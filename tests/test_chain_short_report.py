@@ -36,7 +36,7 @@ def test_data_cleaning_short_text_is_its_summary_health_and_steps(cleaned) -> No
   Workflow:  clean (data-cleaning)
   Source:    dataset (dataset)
 
-  Steps: 10 ran
+  Steps: 9 ran
 
 ================================================================================
   SUMMARY
@@ -44,7 +44,6 @@ def test_data_cleaning_short_text_is_its_summary_health_and_steps(cleaned) -> No
   Image Outliers ....................................... 1 images (4.2%)  [!!]
   Classwise Outliers ............ worst: b (8.3%), 1/1 classes over 3.0%  [!!]
   Image Duplicates ....................... 2 exact (8.3%), 0 near (0.0%)  [!!]
-  Class Imbalance ................. 2 classes, 24 items, imbalance 1.0:1  [..]
 
   Health: 3 warning(s) [!!] — review flagged findings
 
@@ -61,7 +60,6 @@ def test_data_cleaning_short_text_is_its_summary_health_and_steps(cleaned) -> No
   target-outliers     ok      no findings
   classwise-outliers  ok
   image-duplicates    ok
-  class-imbalance     ok
   clean               ok
 
 ================================================================================

@@ -189,6 +189,7 @@ _MINIMAL = {
         "factor-leakage": {"factors": ["site"]},
         "coverage": {"method": "naive"},
     },
+    "data-bias": {},
     "data-cleaning": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}},
     "data-coverage": {"coverage": {"method": "naive"}},
     "data-prioritization": {},

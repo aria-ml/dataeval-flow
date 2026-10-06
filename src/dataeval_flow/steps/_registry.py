@@ -50,6 +50,7 @@ _CHECK_BUILTINS: dict[str, str] = {
     "drift": "dataeval_flow.steps.checks._drift:DriftCheck",
     "eval-coverage": "dataeval_flow.steps.checks._ood:EvalCoverageCheck",
     "factor-coverage-gaps": "dataeval_flow.steps.checks._gaps:FactorCoverageGapsCheck",
+    "factor-parity": "dataeval_flow.steps.checks._bias:FactorParityCheck",
     "image-duplicates": "dataeval_flow.steps.checks._duplicates:ImageDuplicatesCheck",
     "image-outliers": "dataeval_flow.steps.checks._outliers:ImageOutliersCheck",
     "label-conformance": "dataeval_flow.steps.checks._label_space:LabelConformanceCheck",

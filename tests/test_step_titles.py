@@ -62,6 +62,7 @@ _TITLES = {
     "factor-gaps": "Factor Gaps",
     "factor-predictors": "Factor Predictors",
     "audit": "Audit",
+    "data-bias": "Data Bias",
     "data-cleaning": "Data Cleaning",
     "data-coverage": "Data Coverage",
     "data-prioritization": "Data Prioritization",

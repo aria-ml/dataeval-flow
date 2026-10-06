@@ -116,7 +116,6 @@ from dataeval_flow.config.extractors import BoVWExtractorConfig
 from dataeval_flow.workflows.data_cleaning import (
     ClasswiseOutliersSettings,
     DataCleaningChecks,
-    DataCleaningClassImbalanceSettings,
     DataCleaningConfig,
     DuplicatesSettings,
     ImageDuplicatesSettings,
@@ -152,9 +151,6 @@ workflow = DataCleaningConfig(
         ),
         classwise_outliers=ClasswiseOutliersSettings(
             warning=12.0  # Relaxed from 3% default for diverse class appearances
-        ),
-        class_imbalance=DataCleaningClassImbalanceSettings(
-            warning=5.0  # Default; the 300-frame sample sits at 2.4:1, well inside it
         ),
     ),
 )
@@ -244,7 +240,8 @@ for finding in result.findings:
 # | `image-outliers.warning` | 3% | Lower to 1% for safety-critical data; raise to 5–10% for visually diverse collections |
 # | `target-outliers.warning` | 3% | Lower to 1% for annotation reviews; raise to 5–10% for dense object detection |
 # | `classwise-outliers.warning` | 3% | Lower to 1% for label-quality reviews; raise to 5–10% for diverse classes |
-# | `class-imbalance.warning` | 5:1 | Lower to 3:1 for binary; raise to 10–20:1 for large hierarchies (25+ classes) |
+#
+# Class imbalance is judged by the `data-bias` preset, not this one.
 #
 # In this tutorial, thresholds are relaxed because SkySeaLand includes four distinct
 # capture sites with differing sensors, altitudes, and lighting conditions.
@@ -254,7 +251,6 @@ for finding in result.findings:
 # ```python
 # from dataeval_flow.workflows.data_cleaning import (
 #     DataCleaningChecks,
-#     DataCleaningClassImbalanceSettings,
 #     ImageDuplicatesSettings,
 #     ImageOutliersSettings,
 # )
@@ -262,7 +258,6 @@ for finding in result.findings:
 # strict = DataCleaningChecks(
 #     image_duplicates=ImageDuplicatesSettings(exact=0.0, near=2.0),
 #     image_outliers=ImageOutliersSettings(warning=1.0),
-#     class_imbalance=DataCleaningClassImbalanceSettings(warning=3.0),
 # )
 # ```
 

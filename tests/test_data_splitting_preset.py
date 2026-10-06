@@ -30,7 +30,7 @@ def _names(**settings: Any) -> list[str]:
     return [step["name"] for step in _steps(**settings)]
 
 
-_WHOLE = ["label-health", "class-imbalance", "balance", "diversity", "split"]
+_WHOLE = ["label-health", "split"]
 
 
 def test_the_default_chain() -> None:
@@ -78,9 +78,13 @@ def test_a_whole_dump_of_a_kfold_entry_reloads() -> None:
 
 
 def test_thresholds_are_keyed_by_check_type() -> None:
-    entry = DataSplittingConfig.model_validate({"checks": {"class-imbalance": {"warning": 3}}})
-    dumped = entry.model_dump(mode="json")["checks"]
-    assert dumped["class-imbalance"]["warning"] == 3
+    entry = DataSplittingConfig.model_validate({"checks": {"stratification": {"warning": 3.0}}})
+    assert entry.model_dump(mode="json")["checks"]["stratification"]["warning"] == 3.0
+
+
+def test_class_imbalance_is_refused_for_data_bias() -> None:
+    with pytest.raises(ValidationError, match=re.escape("run a `data-bias` entry on the source before splitting")):
+        DataSplittingConfig.model_validate({"checks": {"class-imbalance": {"warning": 3}}})
 
 
 def _task(dataset: Any, **settings: Any) -> ChainResult:
@@ -101,7 +105,7 @@ def test_a_task_splits_and_records_the_parts() -> None:
     assert result.success, result.errors
     indices = (result.steps["split"].details or {})["indices"]
     assert sorted(i for part in indices.values() for i in part) == list(range(60))
-    assert {"Class Imbalance", "Stratification"} <= {finding.title for finding in result.findings}
+    assert {finding.title for finding in result.findings} == {"Stratification"}
 
 
 def test_kfold_judges_stratification_per_fold() -> None:
@@ -130,9 +134,6 @@ class _NoFactors:
 def test_a_dataset_with_no_factors_still_splits() -> None:
     result = _task(_NoFactors())
     assert result.success, result.errors
-    for step in ("balance", "diversity"):
-        assert result.steps[step].status == "skipped"
-        assert "No factors" in (result.steps[step].reason or "")
     assert result.steps["split"].status == "ok"
 
 

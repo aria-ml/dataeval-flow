@@ -209,8 +209,7 @@
           "description": "The `factor-coverage-gaps` check's settings."
         },
         "shortcut-risk": {
-          "$ref": "#/$defs/ShortcutRiskSettings",
-          "description": "The `shortcut-risk` check's settings."
+          "$ref": "#/$defs/ShortcutRiskSettings"
         },
         "leakage": {
           "$ref": "#/$defs/LeakageSettings",
@@ -1483,6 +1482,87 @@
         "name"
       ],
       "title": "CheckStep_factor-coverage-gaps",
+      "type": "object"
+    },
+    "CheckStep_factor-parity": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `parity` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.3,
+          "description": "The bias-corrected Cram\u00e9r's V with the class, from 0 to 1, past which a significant factor warns; `null` judges nothing.",
+          "title": "Warning"
+        },
+        "p_value": {
+          "default": 0.05,
+          "description": "The chi-square p-value at or under which a factor's association counts as significant.",
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "P Value",
+          "type": "number"
+        },
+        "check": {
+          "const": "factor-parity",
+          "description": "`factor-parity`: Warns when a metadata factor is significantly associated with the class.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_factor-parity",
       "type": "object"
     },
     "CheckStep_image-duplicates": {
@@ -3926,6 +4006,9 @@
                 "$ref": "#/$defs/CheckStep_factor-coverage-gaps"
               },
               {
+                "$ref": "#/$defs/CheckStep_factor-parity"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_image-duplicates"
               },
               {
@@ -3993,6 +4076,136 @@
       "title": "CustomWorkflowConfig",
       "type": "object"
     },
+    "DataBiasChecks": {
+      "additionalProperties": false,
+      "description": "When data-bias's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "class-imbalance": {
+          "$ref": "#/$defs/DataBiasClassImbalanceSettings",
+          "description": "The `class-imbalance` check's thresholds."
+        },
+        "shortcut-risk": {
+          "$ref": "#/$defs/ShortcutRiskSettings",
+          "description": "The `shortcut-risk` check's threshold."
+        },
+        "factor-parity": {
+          "$ref": "#/$defs/FactorParitySettings",
+          "description": "The `factor-parity` check's thresholds."
+        },
+        "factor-coverage-gaps": {
+          "$ref": "#/$defs/FactorCoverageGapsSettings",
+          "description": "The `factor-coverage-gaps` check's threshold."
+        }
+      },
+      "title": "DataBiasChecks",
+      "type": "object"
+    },
+    "DataBiasClassImbalanceSettings": {
+      "additionalProperties": false,
+      "description": "The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset, so it reaches\nthe schema `$defs` apart from audit's limits.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "Largest class count over smallest, among the classes with labels, past which the Class Imbalance finding warns; `null` judges nothing but an empty class, which always warns.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 2.0,
+          "description": "The ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every ratio under `warning` information. Must not exceed `warning`. Defaults to 2.0, or `warning` where that is lower and `info` is unset.",
+          "title": "Info"
+        }
+      },
+      "title": "DataBiasClassImbalanceSettings",
+      "type": "object"
+    },
+    "DataBiasConfig": {
+      "additionalProperties": false,
+      "description": "The settings of one ``data-bias`` entry: each step type's settings, keyed by the step type, and when a finding\nwarns.\n\nExample YAML::\n\n    workflows:\n      - name: bias\n        type: data-bias\n        metadata: standard\n        factor-gaps: {mi_threshold: 0.2}\n        checks:\n          shortcut-risk: {warning: 0.2}",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "data-bias",
+          "default": "data-bias",
+          "description": "The workflow type this entry configures: `data-bias`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
+          "title": "Ontology"
+        },
+        "diversity": {
+          "$ref": "#/$defs/DiversitySettings"
+        },
+        "factor-gaps": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactorGapsSettings"
+            },
+            {
+              "const": false,
+              "type": "boolean"
+            }
+          ],
+          "description": "The `factor-gaps` step's settings; `false` leaves out the gap analysis and its check.",
+          "title": "Factor-Gaps"
+        },
+        "checks": {
+          "$ref": "#/$defs/DataBiasChecks",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "title": "DataBiasConfig",
+      "type": "object"
+    },
     "DataCleaningChecks": {
       "additionalProperties": false,
       "description": "When data-cleaning's findings warn: each check's settings, keyed by check type.",
@@ -4012,35 +4225,9 @@
         "image-duplicates": {
           "$ref": "#/$defs/ImageDuplicatesSettings",
           "description": "The `image-duplicates` check's settings."
-        },
-        "class-imbalance": {
-          "$ref": "#/$defs/DataCleaningClassImbalanceSettings",
-          "description": "The `class-imbalance` check's settings."
         }
       },
       "title": "DataCleaningChecks",
-      "type": "object"
-    },
-    "DataCleaningClassImbalanceSettings": {
-      "additionalProperties": false,
-      "description": "The `class-imbalance` check's settings in data-cleaning.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "minimum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 5.0,
-          "description": "Largest class count over smallest past which the finding warns; `null` judges nothing but an empty class. 3:1 is a common bar for two classes; raise to 10-20:1 for 25 or more classes, whose long tail raises it naturally.",
-          "title": "Warning"
-        }
-      },
-      "title": "DataCleaningClassImbalanceSettings",
       "type": "object"
     },
     "DataCleaningConfig": {
@@ -4124,14 +4311,6 @@
       "additionalProperties": false,
       "description": "When data-coverage's findings warn: each check's fields, keyed by check type.",
       "properties": {
-        "class-imbalance": {
-          "$ref": "#/$defs/DataCoverageClassImbalanceSettings",
-          "description": "The `class-imbalance` check's thresholds."
-        },
-        "factor-coverage-gaps": {
-          "$ref": "#/$defs/FactorCoverageGapsSettings",
-          "description": "The `factor-coverage-gaps` check's threshold."
-        },
         "class-coverage": {
           "$ref": "#/$defs/ClassCoverageSettings",
           "description": "The `class-coverage` check's thresholds."
@@ -4148,59 +4327,10 @@
       "title": "DataCoverageChecks",
       "type": "object"
     },
-    "DataCoverageClassImbalanceSettings": {
-      "additionalProperties": false,
-      "description": "The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset, so it\nreaches the schema `$defs` apart from data-splitting's and data-cleaning's limits.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "minimum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 5.0,
-          "description": "Largest class count over smallest, among the classes with labels, past which the Class Imbalance finding warns; `null` judges nothing but an empty class, which always warns.",
-          "title": "Warning"
-        },
-        "info": {
-          "anyOf": [
-            {
-              "minimum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 2.0,
-          "description": "The ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every ratio under `warning` information. Must not exceed `warning`. Defaults to 2.0, or `warning` where that is lower and `info` is unset.",
-          "title": "Info"
-        }
-      },
-      "title": "DataCoverageClassImbalanceSettings",
-      "type": "object"
-    },
     "DataCoverageConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``data-coverage`` entry: each step type's settings, keyed by the step type, and when a\nfinding warns.\n\nExample YAML::\n\n    workflows:\n      - name: coverage\n        type: data-coverage\n        metadata: standard\n        coverage: {method: adaptive, num_observations: 50}\n        wrap: {params: {padding: 0.1}}\n        factor-gaps: {mi_threshold: 0.1}",
+      "description": "The settings of one ``data-coverage`` entry: each step type's settings, keyed by the step type, and when a\nfinding warns.\n\nExample YAML::\n\n    workflows:\n      - name: coverage\n        type: data-coverage\n        coverage: {method: adaptive, num_observations: 50}\n        wrap: {params: {padding: 0.1}}",
       "properties": {
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
-        },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
           "title": "Name",
@@ -4247,22 +4377,6 @@
           "description": "Whether the completeness steps run, when the task names an extractor.",
           "title": "Completeness",
           "type": "boolean"
-        },
-        "diversity": {
-          "$ref": "#/$defs/DiversitySettings"
-        },
-        "factor-gaps": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/FactorGapsSettings"
-            },
-            {
-              "const": false,
-              "type": "boolean"
-            }
-          ],
-          "description": "The `factor-gaps` step's settings; `false` leaves out the gap analysis and its check.",
-          "title": "Factor-Gaps"
         },
         "checks": {
           "$ref": "#/$defs/DataCoverageChecks",
@@ -4361,7 +4475,7 @@
     },
     "DataCoverageUncoveredItemsSettings": {
       "additionalProperties": false,
-      "description": "The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.\nNamed for the preset, as `DataCoverageClassImbalanceSettings` is.",
+      "description": "The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.\nNamed for the preset, so it reaches the schema `$defs` apart from data-splitting's limits.",
       "properties": {
         "warning": {
           "anyOf": [
@@ -4431,38 +4545,12 @@
       "additionalProperties": false,
       "description": "When data-splitting's findings warn: each check's fields, keyed by check type.",
       "properties": {
-        "class-imbalance": {
-          "$ref": "#/$defs/DataSplittingClassImbalanceSettings",
-          "description": "The `class-imbalance` check's thresholds, on the whole set."
-        },
         "stratification": {
           "$ref": "#/$defs/StratificationThresholds",
           "description": "The `stratification` check's thresholds, on each fold."
         }
       },
       "title": "DataSplittingChecks",
-      "type": "object"
-    },
-    "DataSplittingClassImbalanceSettings": {
-      "additionalProperties": false,
-      "description": "The `class-imbalance` check's field, with legacy data-splitting's default.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "minimum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 10.0,
-          "description": "Largest class count over smallest that may hold before the whole set's Class Imbalance finding warns; `null` judges nothing but an empty class.",
-          "title": "Warning"
-        }
-      },
-      "title": "DataSplittingClassImbalanceSettings",
       "type": "object"
     },
     "DataSplittingConfig": {
@@ -6551,9 +6639,40 @@
       "title": "FactorLeakageSettings",
       "type": "object"
     },
+    "FactorParitySettings": {
+      "additionalProperties": false,
+      "description": "The `factor-parity` check's settings.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.3,
+          "description": "The bias-corrected Cram\u00e9r's V with the class, from 0 to 1, past which a significant factor warns; `null` judges nothing.",
+          "title": "Warning"
+        },
+        "p_value": {
+          "default": 0.05,
+          "description": "The chi-square p-value at or under which a factor's association counts as significant.",
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "P Value",
+          "type": "number"
+        }
+      },
+      "title": "FactorParitySettings",
+      "type": "object"
+    },
     "FactorSummaryConfig": {
       "additionalProperties": false,
-      "description": "Config for ``factor-summary``: each metadata factor's type, binning, nulls, and range or top values.\n\nA Flow-only evaluator over DataEval's ``Metadata``; data-coverage and audit run it.\n\nExample YAML::\n\n    evaluators:\n      - name: summary\n        type: factor-summary\n        metadata: standard",
+      "description": "Config for ``factor-summary``: each metadata factor's type, binning, nulls, and range or top values.\n\nA Flow-only evaluator over DataEval's ``Metadata``; data-bias and audit run it.\n\nExample YAML::\n\n    evaluators:\n      - name: summary\n        type: factor-summary\n        metadata: standard",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -7440,7 +7559,7 @@
     },
     "MetadataPolicyConfig": {
       "additionalProperties": false,
-      "description": "A named metadata policy, referenced by the workflows that share it.\n\nA bin edge is a claim about the world \u2014 *below 0 \u00b0C is freezing* \u2014 so where the cuts\nfell, and who chose them, is part of what a result means.  That makes the encoding a\ndecision worth writing down once and pointing several workflows at, rather than a\nsetting each of them spells out again: two workflows over one dataset that cut it\ndifferently produce numbers that merge into one result file and cannot be compared.\n\nDefined once under ``metadata:`` and referenced by name, like ``datasets``, ``views``,\n``sources`` and ``extractors``.\n\nYAML example::\n\n    metadata:\n      - name: standard\n        encoding: policy/factor_bins.json\n        strict: true\n        exclude: [id, filename]\n\n    workflows:\n      - name: coverage_check\n        type: data-coverage\n        metadata: standard",
+      "description": "A named metadata policy, referenced by the workflows that share it.\n\nA bin edge is a claim about the world \u2014 *below 0 \u00b0C is freezing* \u2014 so where the cuts\nfell, and who chose them, is part of what a result means.  That makes the encoding a\ndecision worth writing down once and pointing several workflows at, rather than a\nsetting each of them spells out again: two workflows over one dataset that cut it\ndifferently produce numbers that merge into one result file and cannot be compared.\n\nDefined once under ``metadata:`` and referenced by name, like ``datasets``, ``views``,\n``sources`` and ``extractors``.\n\nYAML example::\n\n    metadata:\n      - name: standard\n        encoding: policy/factor_bins.json\n        strict: true\n        exclude: [id, filename]\n\n    workflows:\n      - name: bias_check\n        type: data-bias\n        metadata: standard",
       "properties": {
         "name": {
           "description": "Identifier for this policy",
@@ -11072,7 +11191,7 @@
     },
     "ShortcutRiskSettings": {
       "additionalProperties": false,
-      "description": "The `shortcut-risk` check's settings, judged on train.",
+      "description": "The `shortcut-risk` check's settings.",
       "properties": {
         "warning": {
           "anyOf": [
@@ -12884,6 +13003,9 @@
             "oneOf": [
               {
                 "$ref": "#/$defs/AuditConfig"
+              },
+              {
+                "$ref": "#/$defs/DataBiasConfig"
               },
               {
                 "$ref": "#/$defs/DataCleaningConfig"

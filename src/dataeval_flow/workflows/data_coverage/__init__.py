@@ -7,8 +7,6 @@ __all__ = [
     "DataCoverageCoverageSettings",
     "DataCoverageRepresentationSettings",
     "DataCoverageWorkflow",
-    "DiversitySettings",
-    "FactorGapsSettings",
     "WrapSettings",
 ]
 
@@ -18,8 +16,6 @@ from dataeval_flow.workflows.data_coverage._config import (
     DataCoverageConfig,
     DataCoverageCoverageSettings,
     DataCoverageRepresentationSettings,
-    DiversitySettings,
-    FactorGapsSettings,
     WrapSettings,
 )
 from dataeval_flow.workflows.data_coverage._workflow import DataCoverageWorkflow

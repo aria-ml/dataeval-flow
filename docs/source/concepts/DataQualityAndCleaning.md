@@ -11,8 +11,8 @@ and flagging them so they can be reviewed or removed.
 
 In DataEval Flow, {term}`data cleaning <Data Cleaning>` is a workflow: you point
 the `data-cleaning` workflow at a source, and it flags {term}`outliers <Outlier>` and
-duplicates, judges class imbalance, lists the images with no labels, reports them, and
-hands on the dataset without the outliers and duplicates. The orchestration layer's
+duplicates, reports them with the source's label counts, and hands on the dataset
+without the outliers and duplicates. Class imbalance is the `data-bias` preset's. The orchestration layer's
 contribution is making this a declarative, reproducible step in a pipeline; the
 detection methods themselves — the statistical outlier tests, the duplicate-detection
 hashing and clustering, and the label statistics — are DataEval's.

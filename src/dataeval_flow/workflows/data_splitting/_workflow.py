@@ -1,11 +1,10 @@
-"""The ``data-splitting`` preset: the whole set's labels and bias, the split or folds, each train rebalanced
-where set, and each part's labels (data-splitting spec §4)."""
+"""The ``data-splitting`` preset: the whole set's labels, the split or folds, each train rebalanced where set, and
+each part's labels (data-splitting spec §4). The whole set's class balance and metadata factors are `data-bias`'s."""
 
 __all__ = ["DataSplittingWorkflow"]
 
 from typing import Any, ClassVar
 
-from dataeval_flow.evaluators.bias import BalanceConfig, DiversityConfig
 from dataeval_flow.evaluators.quality import LabelHealthConfig
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._result import ChainResult
@@ -24,8 +23,7 @@ class DataSplittingWorkflow(Preset, Workflow[DataSplittingConfig, ChainResult]):
 
     The settings expand to:
 
-    - ``label-health`` and ``class-imbalance`` on the whole set; ``balance`` and
-      ``diversity``, optional;
+    - ``label-health`` on the whole set, which ``stratification`` compares each part to;
     - ``split`` (``split``, or ``kfold`` with ``folds`` of 2 or more), and ``rebalanced`` (a ``view`` holding
       ``ClassBalance``) on each train where ``rebalance`` is set;
     - ``label-health-<part>`` on each part the settings fill, ``label-health-rebalanced`` where rebalancing, and
@@ -39,7 +37,7 @@ class DataSplittingWorkflow(Preset, Workflow[DataSplittingConfig, ChainResult]):
     name: ClassVar[str] = "data-splitting"
     title: ClassVar[str] = "Data Splitting"
     description: ClassVar[str] = (
-        "Splits a Dataset into train, val and test, or k folds, and judges its balance and stratification; "
+        "Splits a Dataset into train, val and test, or k folds, and judges each part's stratification; "
         "with `folds` of 2 or more, `train` and `val` are lists keyed by fold."
     )
     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
@@ -47,23 +45,13 @@ class DataSplittingWorkflow(Preset, Workflow[DataSplittingConfig, ChainResult]):
 
     @classmethod
     def chain(cls, config: DataSplittingConfig) -> PresetChain:
-        """The whole set's steps, the split, and each part's."""
+        """The whole set's labels, the split, and each part's steps."""
         limits = config.checks
         evaluators: list[Any] = [
             LabelHealthConfig(name="label-health", metadata=config.metadata),
-            BalanceConfig(name="balance", metadata=config.metadata),
-            DiversityConfig(name="diversity", metadata=config.metadata),
         ]
         steps: list[dict[str, Any]] = [
             {"name": "label-health", "evaluator": "label-health", "input": "data"},
-            {
-                "name": "class-imbalance",
-                "check": "class-imbalance",
-                "input": "label-health",
-                "warning": limits.class_imbalance.warning,
-            },
-            {"name": "balance", "evaluator": "balance", "input": "data", "optional": True},
-            {"name": "diversity", "evaluator": "diversity", "input": "data", "optional": True},
             _split(config),
         ]
         handed = {part: f"split.{part}" for part in _PARTS}

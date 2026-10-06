@@ -130,9 +130,9 @@ A preset's settings follow these rules. Each rule names its guard tests, or is m
   a subset of what that type's own entry would hold, leaving out what the preset fixes or does not offer, but never a
   setting the step does not take. `data-coverage`'s `coverage:` block holds `coverage`'s settings, and `data-cleaning`'s
   `duplicates:` block holds five of `duplicates`' settings. Setting a block to `false` switches its step off where the
-  preset already allows that, as `factor-gaps: false` does on `data-coverage`. Its `completeness: false` switches the
-  completeness steps off too, though `completeness` is a switch, `true` or `false`, rather than a block. Guard test that
-  a block holds no setting its step does not take:
+  preset already allows that, as `factor-gaps: false` does on `data-bias`. `data-coverage`'s `completeness: false`
+  switches the completeness steps off too, though `completeness` is a switch, `true` or `false`, rather than a block.
+  Guard test that a block holds no setting its step does not take:
   `test_a_presets_step_block_holds_only_that_steps_own_settings`. The `false` switch is a convention with no guard test.
 - **`checks:` is keyed by check type.** Each value holds that check's own settings, spelled in the check's words, and
   never a setting the check does not take. `data-cleaning`'s `checks:` has an `image-outliers` key holding

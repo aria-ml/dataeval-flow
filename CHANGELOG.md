@@ -12,6 +12,12 @@
   steps as `audit/...`, and the entry's `accepted:` keys, written without the prefix, cover them. `CollectConfig` and
   `CollectTransform` are the new transform's types; a splice that never started or failed as it started gives no
   verdict, and the result's `no_verdict` says why
+- The `data-bias` preset: one source's class balance and how its metadata factors relate to the class, with no
+  extractor. It runs `class-imbalance`, `shortcut-risk` on `balance`, `factor-parity` on `parity`, `diversity` and
+  `factor-summary` as report sections, and `factor-gaps` with `factor-coverage-gaps`
+- The `factor-parity` check: warns where a metadata factor's Cramér's V with the class is past `warning` (0.3) and
+  its chi-square p-value is at or under `p_value` (0.05), naming the factors whose p-values sparse tables make
+  unreliable
 - An audit's `accepted:` takes a check step as the verdict names it: a check step alone, such as
   `image-outliers-evals`, covers all its runs, and `step[split]`, such as `image-outliers-evals[test]`, covers that run
   alone, on a step that runs once per evaluation split
@@ -235,6 +241,15 @@
 
 ### Changed
 
+- Each preset but `audit` owns its checks alone, so presets run side by side report each finding once. Class balance and
+  the metadata factors move to `data-bias`: `data-coverage` drops `label-health`, `class-imbalance`, `factor-summary`,
+  `balance`, `diversity`, `factor-gaps` and `factor-coverage-gaps`, and refuses its `metadata`, `diversity` and
+  `factor-gaps` settings and `checks.class-imbalance` and `checks.factor-coverage-gaps`, naming `data-bias`;
+  `data-cleaning` drops `class-imbalance`, keeping `label-health` for `target-outliers`, and refuses
+  `checks.class-imbalance`; `data-splitting` drops the whole set's `class-imbalance`, `balance` and `diversity`, keeping
+  `label-health` for `stratification`, and refuses `checks.class-imbalance`. `audit`'s chain is unchanged.
+  `DiversitySettings`, `FactorGapsSettings` and `ShortcutRiskSettings` are importable from
+  `dataeval_flow.workflows.data_bias` alone, and `DataCleaningClassImbalanceSettings` is gone
 - data-prioritization's ranking settings, `method`, `k`, `c`, `n_init`, `max_cluster_size`, `order`, `policy` and
   `num_bins`, sit under a `prioritization:` block, as every preset holds a step's settings under its type, with
   `PrioritizationSettings` as its model

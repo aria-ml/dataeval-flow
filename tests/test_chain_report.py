@@ -1,7 +1,7 @@
 """A chain's report: each finding beside the evidence it judged, the other steps, then a table of every step.
 
 Measured on the toy datasets: data-cleaning on 24 toy images finds one image outlier, of class b, and one exact
-duplicate pair, and judges the two balanced classes; `target-outliers` finds nothing on classification data.
+duplicate pair; `target-outliers` finds nothing on classification data.
 """
 
 from typing import Any
@@ -91,7 +91,7 @@ def test_data_cleaning_puts_each_finding_beside_the_evidence_it_judged() -> None
         ("Image Outliers", "1 images (4.2%)", "warning"),
         ("Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
         ("Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "warning"),
-        ("Class Imbalance", "2 classes, 24 items, imbalance 1.0:1", "info"),
+        ("Label Health", None, None),
         ("Remove · clean", None, None),
         ("Steps", None, None),
         ("Metadata Factors", None, None),
@@ -102,7 +102,10 @@ def test_data_cleaning_puts_each_finding_beside_the_evidence_it_judged() -> None
     # already.
     assert _evidence(_section(result, "Classwise Outliers")) == ["Evidence: Outliers, under Image Outliers."]
     assert _evidence(_section(result, "Image Duplicates")) == ["From Duplicates"]
-    assert _evidence(_section(result, "Class Imbalance")) == ["From Label Health"]
+    # No finding reads `label-health` (`target-outliers` judged nothing), so it keeps its own section.
+    (_, counts) = _section(result, "Label Health").blocks
+    assert isinstance(counts, Table)
+    assert counts.rows == [{"class": "a", "labels": 12, "images": 12}, {"class": "b", "labels": 12, "images": 12}]
 
 
 def test_a_finding_s_evidence_follows_its_own_blocks() -> None:
@@ -115,7 +118,7 @@ def test_a_finding_s_evidence_follows_its_own_blocks() -> None:
 
 
 def test_the_header_counts_every_step_in_one_line() -> None:
-    assert _cleaning()._report_body(detailed=True)[0] == Fields(items=[("Steps", "10 ran")])
+    assert _cleaning()._report_body(detailed=True)[0] == Fields(items=[("Steps", "9 ran")])
     with patch.object(CountGroups, "run", side_effect=RuntimeError("no count")):
         failed = _chain(_DUPES, _COUNT, _JUDGE, {"name": "after", "transform": "toy-keep", "input": "a"})
     assert failed._report_body(detailed=True)[0] == Fields(items=[("Steps", "4 (3 ran, 1 failed)")])
@@ -137,7 +140,6 @@ def test_the_steps_table_says_what_each_step_is_what_it_read_and_why_it_made_not
         ("target-outliers", "Target Outliers", "target-outliers", "ok", "`outliers`\n`label-health`", "no findings"),
         ("classwise-outliers", "Classwise Outliers", "classwise-outliers", "ok", "`outliers-by-class`", ""),
         ("image-duplicates", "Image Duplicates", "image-duplicates", "ok", "`duplicates`", ""),
-        ("class-imbalance", "Class Imbalance", "class-imbalance", "ok", "`label-health`", ""),
         ("clean", "Remove", "remove", "ok", "`data` (src)\n`duplicates`\n`outliers`", ""),
     ]
 
@@ -166,8 +168,6 @@ def test_the_text_steps_table_leaves_out_the_title_each_step_s_section_already_g
         "",
         "  image-duplicates    image-duplicates    ok      `duplicates`",
         "",
-        "  class-imbalance     class-imbalance     ok      `label-health`",
-        "",
         "  clean               remove              ok      `data` (src)",
         "                                                  `duplicates`",
         "                                                  `outliers`",
@@ -185,7 +185,7 @@ def test_the_html_steps_panel_keeps_all_six_columns() -> None:
 
 def test_the_html_draws_one_card_per_finding() -> None:
     page = _cleaning().to_html()
-    assert page.count('<details class="card ') == 4
+    assert page.count('<details class="card ') == 3
     assert page.count('<details class="card warning"') == 3
 
 
@@ -290,7 +290,7 @@ def test_a_failed_check_is_listed_among_the_other_steps_with_its_failure() -> No
         ("Summary", None, None),
         ("Image Outliers", "1 images (4.2%)", "warning"),
         ("Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
-        ("Class Imbalance", "2 classes, 24 items, imbalance 1.0:1", "info"),
+        ("Label Health", None, None),
         ("Duplicates", None, None),
         ("Image Duplicates", "failed", None),
         ("Remove · clean", None, None),
@@ -461,13 +461,11 @@ _SPLIT_BRIEFS = {
         ("Image Outliers", "1 images (4.2%)", "warning"),
         ("Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
         ("Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "warning"),
-        ("Class Imbalance", "2 classes, 24 items, imbalance 1.0:1", "info"),
     ],
     "val": [
         ("Image Outliers", "1 images (8.3%)", "warning"),
         ("Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "warning"),
         ("Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "warning"),
-        ("Class Imbalance", "2 classes, 12 items, imbalance 1.0:1", "info"),
     ],
 }
 
@@ -478,6 +476,7 @@ def test_data_cleaning_over_two_splits_groups_its_findings_by_split() -> None:
         ("Summary", None, None),
         ("train", None, None),
         ("val", None, None),
+        ("Label Health · cleaning/label-health", None, None),
         ("Remove · cleaning/clean", None, None),
         ("Steps", None, None),
         ("Metadata Factors", None, None),
@@ -485,7 +484,7 @@ def test_data_cleaning_over_two_splits_groups_its_findings_by_split() -> None:
     ]
 
 
-def test_each_split_s_section_holds_its_four_findings_with_their_briefs_and_evidence() -> None:
+def test_each_split_s_section_holds_its_three_findings_with_their_briefs_and_evidence() -> None:
     result = _by_split()
     for key, briefs in _SPLIT_BRIEFS.items():
         section = _section(result, key)
@@ -495,7 +494,6 @@ def test_each_split_s_section_holds_its_four_findings_with_their_briefs_and_evid
             [f"From Outliers · cleaning/outliers [{key}]"],
             [f"Evidence: Outliers · cleaning/outliers [{key}], under Image Outliers [{key}]."],
             [f"From Duplicates · cleaning/duplicates [{key}]"],
-            [f"From Label Health · cleaning/label-health [{key}]"],
         ]
 
 
@@ -537,10 +535,9 @@ def test_findings_of_a_check_that_did_not_run_per_element_come_first_ungrouped()
 
 def test_the_html_keeps_each_grouped_finding_a_card_under_its_split_s_heading() -> None:
     page = _by_split().to_html()
-    assert page.count('<details class="card ') == 8
+    assert page.count('<details class="card ') == 6
     assert page.count('<details class="card warning"') == 6
     assert page.count('<details class="card warning" id="') == 6
-    assert page.count('<details class="card info" id="') == 2
     assert 'id="train-image-outliers"' in page
     assert 'id="val-image-outliers"' in page
     assert '<table class="summary">' not in page

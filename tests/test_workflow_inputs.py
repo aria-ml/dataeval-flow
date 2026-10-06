@@ -11,8 +11,9 @@ from dataeval_flow.workflows import list_workflows
 
 SPECS = {
     "audit": (SourceCount.ONE_OR_MORE, {InputKind.METADATA, InputKind.STATS}, {InputKind.EMBEDDINGS}),
+    "data-bias": (SourceCount.ONE, {InputKind.METADATA}, set()),
     "data-cleaning": (SourceCount.ONE, {InputKind.STATS, InputKind.METADATA}, {InputKind.CLUSTERS}),
-    "data-coverage": (SourceCount.ONE, {InputKind.METADATA}, {InputKind.EMBEDDINGS}),
+    "data-coverage": (SourceCount.ONE, {InputKind.LABELS}, {InputKind.EMBEDDINGS}),
     "data-prioritization": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, set()),
     "data-splitting": (SourceCount.ONE, {InputKind.METADATA}, set()),
     "drift-monitoring": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.LABELS}),

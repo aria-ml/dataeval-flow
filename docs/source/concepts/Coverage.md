@@ -26,10 +26,12 @@ sample count suggests.
 
 In DataEval Flow, each axis is a preset, a workflow type whose settings expand to a
 chain of steps. The `label-space` preset checks the observed labels against a
-declared ontology. The `data-coverage` preset evaluates class balance and metadata
-factor gaps and, when an {term}`extractor <Extractor>` is configured, adds per-class
-embedding variety and dimensional completeness analysis. Run both as two tasks on one
-source to measure both axes. As with every other workflow, the orchestration layer's
+declared ontology. The `data-coverage` preset lists the classes that fall short of
+their expected share and, when an {term}`extractor <Extractor>` is configured, adds
+per-class embedding variety and dimensional completeness analysis. Run both as two tasks
+on one source to measure both axes. Class balance and the metadata factors, including the
+class-factor combinations a factor tied to the class leaves under-represented, are the
+`data-bias` preset's; run it on the same source beside them. As with every other workflow, the orchestration layer's
 contribution is making this a declarative, reproducible, provenance-carrying
 pipeline step; the underlying measures are DataEval's.
 

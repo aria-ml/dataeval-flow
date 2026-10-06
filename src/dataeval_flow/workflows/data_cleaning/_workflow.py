@@ -1,5 +1,5 @@
-"""The ``data-cleaning`` preset: outliers, duplicates and label health in one dataset, judged by checks, and the
-dataset without what they flagged (spec §10)."""
+"""The ``data-cleaning`` preset: outliers and duplicates in one dataset, judged by checks, and the dataset without
+what they flagged (spec §10)."""
 
 __all__ = ["DataCleaningWorkflow"]
 
@@ -21,9 +21,9 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
 
     - ``outliers`` (the ``outliers`` evaluator, per box on detection data), ``label-health``,
       ``outliers-by-class`` and ``duplicates``;
-    - the checks ``image-outliers``, ``target-outliers``, ``classwise-outliers``, ``image-duplicates`` and
-      ``class-imbalance``, each judged
-      against its ``checks`` entry;
+    - the checks ``image-outliers``, ``target-outliers``, ``classwise-outliers`` and ``image-duplicates``, each judged
+      against its ``checks`` entry; ``label-health`` gives ``target-outliers`` its class counts, and class balance is
+      ``data-bias``'s;
     - ``clean`` (``remove``): the dataset without each flagged image and box, and without each duplicate but the
       first of its group.
 
@@ -92,12 +92,6 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
                 "check": "image-duplicates",
                 "input": "duplicates",
                 **limits.image_duplicates.model_dump(),
-            },
-            {
-                "name": "class-imbalance",
-                "check": "class-imbalance",
-                "input": "label-health",
-                **limits.class_imbalance.model_dump(),
             },
             {
                 "name": "clean",
