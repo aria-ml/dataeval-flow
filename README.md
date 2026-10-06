@@ -3,15 +3,11 @@
 
 # DataEval Flow
 
-DataEval Flow is a composable, containerized workflow engine for DataEval. It
-modularizes DataEval's analytic capabilities into steps that users chain into
-workflows of their own, and containerizes them so the same pipeline runs
-identically anywhere. Data
-cleaning, audit, coverage assessment, drift monitoring, OOD
-detection, splitting, and prioritization pipelines ship as
-presets built from those steps, behind a single declarative configuration format
-and both headless and interactive CLIs. A matrix on any task runs it once per
-combination of settings and compares the runs.
+DataEval Flow wraps DataEval's analytics in a containerized workflow engine.
+Its steps compose into pipelines that run identically locally or in a CUDA-
+enabled container. Cleaning, audit, coverage, drift, OOD, splitting, and
+prioritization ship as presets, driven by YAML or JSON from a headless or
+interactive CLI.
 
 📖 **Documentation:** <https://dataeval-flow.readthedocs.io/>
 
@@ -37,11 +33,11 @@ JSON, executed locally or in a CUDA-enabled container, and produce both
 human-readable reports and machine-readable result envelopes that satisfy JATIC
 interoperability requirements. It builds directly on the
 [DataEval](https://dataeval.readthedocs.io/) library, so the underlying
-evaluators — outlier and duplicate detection, coverage and gap analysis, drift
-and OOD monitoring, dataset splitting, prioritization, and statistical analysis —
-are the same algorithms DataEval exposes, wrapped in a reproducible
+evaluators, namely outlier and duplicate detection, coverage and gap analysis,
+drift and OOD monitoring, dataset splitting, prioritization, and statistical
+analysis, are the same algorithms DataEval exposes, wrapped in a reproducible
 orchestration layer. Each DataEval evaluator can also run on its own, as an
-*evaluator*: it reports what DataEval determined, with no health status — for
+*evaluator*: it reports what DataEval determined, with no health status. For
 example, duplicate detection without the rest of data cleaning.
 
 <!-- end needs -->
@@ -87,7 +83,7 @@ DataEval Flow is developed and tested on Linux (Ubuntu 22.04 and 24.04, includin
 WSL2). The Python package supports **Python 3.11–3.14**; the CI test matrix runs
 all four. The container images are all built on Ubuntu 24.04 (cpu, cu126, cu130).
 macOS and Windows are supported only through Docker or
-WSL2 and are not part of the CI test matrix — if you hit an issue on those hosts,
+WSL2 and are not part of the CI test matrix. If you hit an issue on those hosts,
 the OS/hardware may be the root cause.
 
 ### Architecture
@@ -143,7 +139,7 @@ docker run --gpus all \
 Pre-built, cosign-signed images are published to Harbor for every merge to
 `main` and every release tag. Pull one of these if you don't need to modify the code.
 
-**Release channel** — `latest-<variant>` points at the newest stable release. It
+**Release channel**: `latest-<variant>` points at the newest stable release. It
 is a retag of a version tag, not a separate build, so it carries that release's
 signature, scan report and SBOM.
 
@@ -151,20 +147,21 @@ signature, scan report and SBOM.
 docker pull harbor.jatic.net/aria/dataeval-flow:latest-cu126   # cpu / cu126 / cu130
 ```
 
-**Pinned release channel** — immutable, version-tagged images cut from `v*` git tags. Use these for reproducible workloads.
+**Pinned release channel**: immutable, version-tagged images cut from `v*` git tags.
+Use these for reproducible workloads.
 
 ```bash
 docker pull harbor.jatic.net/aria/dataeval-flow:0.2.1-cu126
 ```
 
-**Rolling channel** — `main-<variant>` tracks the latest commit on `main` and is
+**Rolling channel**: `main-<variant>` tracks the latest commit on `main` and is
 overwritten on every merge. Unstable; it is not a release.
 
 ```bash
 docker pull harbor.jatic.net/aria/dataeval-flow:main-cu126
 ```
 
-**Verifying the signature** — every published image is signed with
+**Verifying the signature**: every published image is signed with
 [cosign](https://docs.sigstore.dev/cosign/). The public key is committed at
 [docker/cosign.pub](docker/cosign.pub).
 
@@ -177,7 +174,7 @@ commands above with the fully-qualified `harbor.jatic.net/aria/dataeval-flow:lat
 (or pinned version) and skip step 1.
 
 > **Note on feature branches.** Containers are only built and published from
-> `main` and release tags — no image is produced for MRs or topic branches. If
+> `main` and release tags. No image is produced for MRs or topic branches. If
 > you want to run a feature branch as a container, check it out and follow the
 > Quick Start to build locally; the resulting image will pick up the branch's
 > version via `git describe`.
@@ -192,7 +189,7 @@ commands above with the fully-qualified `harbor.jatic.net/aria/dataeval-flow:lat
 | CUDA          | 12.6 (`cu126`) or 13.0 (`cu130`) — bundled in the image        |
 
 The CUDA runtime libraries ship inside the image via PyTorch and `onnxruntime-gpu`, so
-the host needs only the NVIDIA driver and the NVIDIA Container Toolkit — no host CUDA
+the host needs only the NVIDIA driver and the NVIDIA Container Toolkit, with no host CUDA
 install. The driver floors above are the CUDA major versions' minimums: any driver from
 the 525 series up runs a CUDA 12.x image under minor-version compatibility, and CUDA 13.0
 requires a 580-series or newer driver.
@@ -263,20 +260,20 @@ precedence over them (see [Input Precedence](#input-precedence) below).
 | `DATAEVAL_CACHE`        | Disk-backed computation cache (optional)        | `/cache` when that mount is present and writable          |
 | `DATAEVAL_REPORT_WIDTH` | Characters per line of the text report          | `80`; at least `40`                                       |
 
-No secret mounts or credentials are required — DataEval Flow uses no API keys,
+No secret mounts or credentials are required. DataEval Flow uses no API keys,
 tokens, or passwords. (`DATAEVAL_FLOW_VERSION` and `DATAEVAL_NOX_UV_EXTRAS_OVERRIDE`
 are build-time only and are not read at run time. `UV_EXTRAS_OVERRIDE` and
 `CONTAINER_MODE` are baked into the image by the build and read at run time by the
-entrypoint, purely to label the help text and decide whether to run the GPU check —
-neither is meant to be set by the caller.)
+entrypoint, purely to label the help text and decide whether to run the GPU check.
+Neither is meant to be set by the caller.)
 
 ## Input Precedence
 
 For any input, the resolution order is:
 
-1. **Command-line option** — `--config`, `--data`, `--output`, `--cache`
-2. **Environment variable** — `DATAEVAL_DATA`, `DATAEVAL_OUTPUT`, `DATAEVAL_CACHE`
-3. **Built-in default** — the container mount paths above (or the current
+1. **Command-line option**: `--config`, `--data`, `--output`, `--cache`
+2. **Environment variable**: `DATAEVAL_DATA`, `DATAEVAL_OUTPUT`, `DATAEVAL_CACHE`
+3. **Built-in default**: the container mount paths above (or the current
    directory outside the container)
 
 Dataset and model paths inside a config file are resolved relative to the data
@@ -285,8 +282,8 @@ root; a relative path not found directly is also looked up under the conventiona
 
 ## Interface Documentation
 
-The container prints its full interface — mounts, environment variables, CLI
-options, precedence, and examples — via its help command, which is also the
+The container prints its full interface (mounts, environment variables, CLI
+options, precedence, and examples) via its help command, which is also the
 default when the container runs with no pipeline arguments:
 
 ```bash
@@ -366,7 +363,7 @@ DataEval Flow has eight modes:
 | `dataeval-flow evaluators` | List the available evaluator types, or print one's parameter schema  |
 | `dataeval-flow steps`      | List every step a custom workflow can chain, or describe one         |
 
-`dataeval-flow --version` reports the installed build — useful for identifying
+`dataeval-flow --version` reports the installed build, which is useful for identifying
 which image produced a result.
 
 ### Headless execution
@@ -504,7 +501,7 @@ for the full matrix. In short:
 
 `pip` from PyPI (no source checkout). PyTorch arrives transitively via `dataeval`.
 To choose a variant, install `torch` from that variant's index **first**, then install
-DataEval Flow — it accepts the build already present (omit step 1 and you'll get the
+DataEval Flow, which accepts the build already present (omit step 1 and you'll get the
 CUDA-bundled manylinux build of torch from PyPI, which is much larger):
 
 ```bash
@@ -518,13 +515,13 @@ pip install dataeval-flow
 > **Use `--index-url`, not `--extra-index-url`, to pick a CUDA build.**
 > `--extra-index-url` *adds* an index instead of replacing PyPI, and pip then takes the
 > highest version across both. The CUDA indexes lag the latest PyTorch release, so PyPI
-> usually wins and you silently get the default CUDA-bundled build — the install
+> usually wins and you silently get the default CUDA-bundled build, so the install
 > succeeds with no warning. `--index-url` replaces the index outright, so it is
 > reliable. (For CPU only, `pip install dataeval-flow --extra-index-url
 > https://download.pytorch.org/whl/cpu` does work, because the CPU index tracks the
 > latest release.)
 
-`torchvision` is not installed by default — it is imported lazily and is only needed
+`torchvision` is not installed by default; it is imported lazily and is only needed
 for preprocessing pipelines, the torchvision dataset adapter, and the TUI's transform
 discovery. Install it together with `torch` in step 1 so both come from the same index.
 Feature extras (`onnx`, `onnx-cu126`, `onnx-cu130`, `opencv`, `app`, `ontology`) work normally under
@@ -537,7 +534,7 @@ pip install "dataeval-flow[onnx,opencv,app]"
 > **The `cpu` / `cu126` / `cu130` extras do not select a PyTorch variant under pip.**
 > All three declare the same requirements (`torch`, `torchvision`); what distinguishes
 > them is `[tool.uv.sources]`, which routes those packages to the right wheel index.
-> That is project metadata applied by uv when resolving **from source** — it is not
+> That is project metadata applied by uv when resolving **from source**, not
 > part of the published wheel. Under pip their only real effect is pulling in
 > `torchvision`. Select the variant with `--index-url` under pip, `--torch-backend`
 > under `uv pip`, and use the extras only for source installs.
@@ -548,7 +545,7 @@ pip install "dataeval-flow[onnx,opencv,app]"
 uv pip install dataeval-flow --torch-backend cpu     # or cu126 / cu130 / auto
 ```
 
-`uv` from source (default toolchain; uses committed `uv.lock`) — extras apply here:
+`uv` from source (default toolchain; uses committed `uv.lock`); extras apply here:
 
 ```bash
 git clone https://github.com/aria-ml/dataeval-flow.git
@@ -607,7 +604,7 @@ in `.cuda-version` so the other sessions match it, and installs the `onnx` and
 
 ## Versioning
 
-The package version is **derived from git tags** — there is no hardcoded version
+The package version is **derived from git tags**, with no hardcoded version
 anywhere in the source tree. `hatch-vcs` reads `git describe --tags` at
 build/install time and writes the resolved version to a generated
 `src/dataeval_flow/_version.py` (gitignored), which `dataeval_flow.__init__`
@@ -615,7 +612,7 @@ imports at runtime.
 
 **Release flow for container images:**
 
-1. Push a semver tag (e.g. `v0.2.0`) — this is the single source of truth for the release version.
+1. Push a semver tag (e.g. `v0.2.0`), the single source of truth for the release version.
 2. The `push:docker` CI job runs `git describe --tags --always --dirty | sed
    's/^v//'` to resolve `${VERSION}`, then passes `--build-arg
    DATAEVAL_FLOW_VERSION="${VERSION}"` to `docker buildx build` for both the
@@ -634,7 +631,7 @@ does not need to be regenerated at release time.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
 ## Contributing
 

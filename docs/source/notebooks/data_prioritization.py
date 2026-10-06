@@ -69,7 +69,8 @@
 # `Pantsir-S1`, `Rs-24`) to simulate encountering an unannotated operational category:
 #
 # - **Labeled pool**: 4,000 frames drawn from the 20 known vehicle types.
-# - **Unlabeled pool**: 1,500 frames drawn from remaining data, containing leftover known types and held-out Air Defense systems.
+# - **Unlabeled pool**: 1,500 frames drawn from remaining data, containing leftover known
+#   types and held-out Air Defense systems.
 
 # %% tags=["remove_output"]
 from pathlib import Path
@@ -284,7 +285,7 @@ print(f"Head trained: loss={loss.item():.3f}, accuracy on the labeled pool={accu
 # %% [markdown]
 # ### Save the trained model to disk
 #
-# Save the model to disk so `TorchExtractorConfig` can load it and hook the
+# Save the model so `TorchExtractorConfig` can load it and hook the
 # `embed` layer.
 
 # %% tags=["remove_output"]
@@ -574,8 +575,9 @@ except ImportError:
 # %% [markdown]
 # ## Step 7: Keep the top of the ranking
 #
-# Set `select: {n: ...}` or `select: {fraction: ...}` on the workflow and each pool's top items become `selected`, a Dataset
-# a custom workflow can hand to later steps. Here you keep the top 100 frames for a labeling batch.
+# Set `select: {n: ...}` or `select: {fraction: ...}` on the workflow and each pool's top
+# items become `selected`, a Dataset a custom workflow can hand to later steps. Here you keep
+# the top 100 frames for a labeling batch.
 
 # %%
 top_100 = config.model_copy(update={"workflows": [workflow.model_copy(update={"n": 100})]})
@@ -600,7 +602,8 @@ print(f"Selected for labeling: {len(batch)} frames, the first {len(batch)} of th
 #
 # - **Alternative ranking methods**: Evaluate `kmeans_distance` or `hdbscan_complexity` policies.
 # - **Class-balanced sampling**: Use `policy="class_balanced"` to balance ranking across known classes.
-# - **Threshold tuning**: Adjust `cleaning.outliers.outlier_threshold` and `cleaning.outliers.flags` to control pruning sensitivity.
+# - **Threshold tuning**: Adjust `cleaning.outliers.outlier_threshold` and
+#   `cleaning.outliers.flags` to control pruning sensitivity.
 
 # %% [markdown]
 # ## Related guides

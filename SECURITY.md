@@ -28,7 +28,7 @@ For non-security bugs, follow the regular process in [CONTRIBUTING.md](CONTRIBUT
 
 Only the latest minor release on the `main` line receives security
 backports today. Once `dataeval-flow` reaches JATIC Maturity I
-(target v1.0.0 — see [ROADMAP.md](ROADMAP.md)), supported-version
+(target v1.0.0, see [ROADMAP.md](ROADMAP.md)), supported-version
 windows will widen per JATIC SDP `RS-5-S-1`.
 
 | Version                 | Status      | Security backports |
@@ -54,10 +54,10 @@ downstream verification (CS-2-H-4).
 
 ## Base image trust (CS-1-S-2)
 
-All container base images referenced by this project — both the runtime
+All container base images referenced by this project, both the runtime
 variants in [docker/](docker/) and the helper images used by CI jobs in
 [.gitlab-ci.yml](.gitlab-ci.yml) (`python:slim`, `mambaorg/micromamba`,
-`ghcr.io/astral-sh/uv`, `docker:25.0.5-git`, `alpine:latest`, etc.) — are
+`ghcr.io/astral-sh/uv`, `docker:25.0.5-git`, `alpine:latest`, etc.), are
 pulled through the program-owned JATIC GitLab registry / pull-through
 proxy. The registry is the trust boundary: images that are not on the
 program's approved list cannot be fetched by the runners, regardless of
@@ -81,7 +81,7 @@ scanning, container scanning, or secret detection.
    discussion that supports the dismissal.
 
 3. **Record the suppression in the right place.** The justification text
-   must be specific to this project — generic statements like "not
+   must be specific to this project. Generic statements like "not
    exploitable in our case" without context will be rejected in review.
    - **Semgrep / SAST**
      - Per-line: add `# nosem: <rule-id>  # Justification: <reason>` on the
@@ -96,7 +96,7 @@ scanning, container scanning, or secret detection.
    - **Gemnasium / dependency scan**
      - Preferred fix is to bump the offending package in
        `[tool.uv].constraint-dependencies` (a constraint, not a runtime
-       dep — see existing CVE pins in [pyproject.toml](pyproject.toml)).
+       dep; see existing CVE pins in [pyproject.toml](pyproject.toml)).
      - When a fix is not yet available upstream, dismiss the finding in
        the GitLab vulnerability report with a comment containing:
        1. CVE ID
@@ -112,7 +112,7 @@ scanning, container scanning, or secret detection.
        reason → leave a comment containing:
        1. CVE ID
        2. Why the project is not exploitable (specific to how the
-          affected component is used in our images — generic statements
+          affected component is used in our images, generic statements
           will be rejected at audit)
        3. A re-evaluation date (90d for HIGH/CRITICAL, 180d for MEDIUM)
      - Severity gate is set via `CS_SEVERITY_THRESHOLD` in
@@ -130,7 +130,7 @@ scanning, container scanning, or secret detection.
 
 4. **Set an expiry.** All non-CVE-fixable dismissals carry a re-evaluation
    date (90 days for HIGH/CRITICAL, 180 days for MEDIUM). When the date
-   passes, the suppression must be removed or re-justified — there are no
+   passes, the suppression must be removed or re-justified; there are no
    indefinite dismissals.
 
 ## Audit and review
@@ -154,5 +154,5 @@ key used to sign container images is supplied via the
 `COSIGN_PRIVATE_KEY_B64` CI variable; only the corresponding public key
 is committed (see [docker/cosign.pub](docker/cosign.pub)). If you discover
 what looks like a credential, password, token, or private key in this
-repository — even in a test fixture — please report it via the channel
+repository, even in a test fixture, please report it via the channel
 above; do not file a public issue.

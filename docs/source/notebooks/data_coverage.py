@@ -35,10 +35,12 @@
 # %% [markdown]
 # ## What you will do
 #
-# - Load MilitaryVehicles and filter out the Air Defense category using `ClassFilter` to simulate missing collection categories.
+# - Load MilitaryVehicles and filter out the Air Defense category using `ClassFilter` to
+#   simulate missing collection categories.
 # - Run `data-coverage` without an extractor for a fast label and metadata pass.
 # - See why class counts alone do not reveal a missing category.
-# - Run `label-space` on the same source, with the dataset's taxonomy as its ontology, to name the unsampled concepts.
+# - Run `label-space` on the same source, with the dataset's taxonomy as its ontology, to name
+#   the unsampled concepts.
 # - Re-run `data-coverage` with a BoVW extractor to evaluate embedding coverage and dimensional completeness.
 # - Read each step's output from the result, and tune the checks' thresholds.
 
@@ -381,8 +383,8 @@ for row in representation.data().head(8).iter_rows(named=True):
 # %% [markdown]
 # ### Read the worklist with scope in mind
 #
-# The report flags `Air Defense` as a dark branch (4 leaves, 0 samples). This represents
-# an in-scope gap that requires targeted data collection.
+# The report flags `Air Defense` as a dark branch (4 leaves, 0 samples), an in-scope
+# gap that requires targeted data collection.
 #
 # The report also flags `aircraft` and `watercraft`. For a ground-vehicle system,
 # these categories represent ontology concepts outside operational scope. You should
@@ -546,7 +548,7 @@ with pl.Config(tbl_rows=-1, tbl_hide_dataframe_shape=True, tbl_hide_column_data_
 # - **near_duplicate_fraction**: Proportion of samples in near-identical pairs.
 #
 # Across all 20 classes, dispersion is balanced (0.96 to 1.03) and near-duplicate fractions
-# are 0.00, showing healthy feature-space coverage for sampled classes. Isotropy is `null`
+# are 0.00, so the sampled classes cover feature space well. Isotropy is `null`
 # for every class, since none has more than 256 samples.
 #
 # Adaptive coverage flags its `percent` of the items by construction, so 15 of 1,500

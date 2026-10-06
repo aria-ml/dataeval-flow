@@ -109,8 +109,8 @@ or an extractor parameter and the key changes, so a stale result is never silent
 returned. The custom preprocessors and extractors described in
 [Preprocessing and Feature Extraction](PreprocessingAndExtraction.md) are written
 to have deterministic representations precisely so they contribute stably to these
-keys. The consequence is the property that matters: **a cached run and a cold run
-of the same configuration are equivalent.** The cache changes how long a run
+keys. The bottom line: **a cached run and a cold run of the same configuration
+are equivalent.** The cache changes how long a run
 takes, never what it produces.
 
 ## Reproducibility and provenance

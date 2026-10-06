@@ -20,15 +20,11 @@
 :child-align: justify
 :class: sd-fs-5
 
-DataEval Flow is a composable, containerized workflow engine for DataEval. It
-modularizes DataEval's analytic capabilities into steps that users chain into
-workflows of their own, and containerizes them so the same pipeline runs
-identically anywhere. Data
-cleaning, audit, coverage assessment, drift monitoring, OOD
-detection, splitting, and prioritization pipelines ship as
-presets built from those steps, behind a single declarative configuration format
-and both headless and interactive CLIs. A matrix on any task runs it once per
-combination of settings and compares the runs.
+DataEval Flow wraps DataEval's analytics in a containerized workflow engine.
+Its steps compose into pipelines that run identically locally or in a CUDA-
+enabled container. Cleaning, audit, coverage, drift, OOD, splitting, and
+prioritization ship as presets, driven by YAML or JSON from a headless or
+interactive CLI.
 
 :::
 ::::
@@ -50,7 +46,7 @@ pipelines without Python glue code. Pipelines are described in YAML or
 JSON, executed locally or in a CUDA-enabled container, and produce both
 human-readable reports and machine-readable result envelopes that satisfy JATIC
 interoperability requirements. It is part of the JATIC suite of tools and builds
-directly on the [DataEval](https://dataeval.readthedocs.io/) library — the
+directly on the [DataEval](https://dataeval.readthedocs.io/) library; the
 underlying evaluators are the same algorithms DataEval exposes, wrapped in a
 reproducible orchestration layer with native MAITE interoperability.
 
@@ -75,16 +71,16 @@ behind each workflow.
 
 ## Critical limitations and requirements for use
 
-- **Computer-vision image datasets only** — no NLP or tabular data.
-- **MAITE for native interoperability** — non-MAITE sources are consumed through
+- **Computer-vision image datasets only**: no NLP or tabular data.
+- **MAITE for native interoperability**: non-MAITE sources are consumed through
   the built-in adapters (HuggingFace, COCO, YOLO, TorchVision, ImageFolder).
-- **Some workflows need metadata** — bias, parity, and metadata factor analyses
+- **Some workflows need metadata**: bias, parity, and metadata factor analyses
   require per-sample metadata factors.
-- **Some workflows need a model or embeddings** — embedding-space drift, OOD
+- **Some workflows need a model or embeddings**: embedding-space drift, OOD
   detection, and prioritization require a feature extractor or precomputed
   embeddings.
 - **Drift and OOD need a representative reference dataset.**
-- **Batch execution** — the container runs a pipeline to completion and exits; it
+- **Batch execution**: the container runs a pipeline to completion and exits; it
   is not a long-running service.
 
 Starting here? The [Quickstart](home/quickstart.md) installs the package and runs a first

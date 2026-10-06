@@ -69,7 +69,7 @@ The extractor defines the space every downstream evaluator measures in. A drift
 detector, an OOD scorer, a divergence estimate, or a prioritization ranking is
 only as informative as the embedding it operates on: if the extractor does not
 represent the dimension along which data actually varies, the evaluator cannot
-see it. Choosing an extractor whose training objective aligns with the task — and,
+see it. Choosing an extractor whose training objective matches the task — and,
 where possible, drawing embeddings from a model trained on the target task — is
 therefore one of the most consequential decisions in a pipeline. DataEval's
 [Embeddings explanation](https://dataeval.readthedocs.io/en/latest/concepts/Embeddings.html)

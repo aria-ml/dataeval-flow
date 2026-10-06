@@ -337,7 +337,7 @@ print(f"blocking: {triage['counts'].get('blocking', 0)} -> {after['counts'].get(
 #   stationary targets, `0.0` is a valid measurement, but you should be aware that high concentration
 #   at one value can affect binning.
 #
-# Additionally, you can see five factors reporting high missing rates where you remapped `-1.0`:
+# You can also see five factors reporting high missing rates where you remapped `-1.0`:
 #
 # ```text
 #   altitude         29% missing

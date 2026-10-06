@@ -17,14 +17,13 @@
 # # Use a torchvision dataset with DataEval Flow
 #
 # You can pass a torchvision dataset directly into the `data-cleaning`
-# workflow with the `"torchvision"` adapter. This adapter converts both
-# **image classification** and **object detection** datasets to the MAITE
-# protocol.
+# workflow with the `"torchvision"` adapter. This adapter converts image
+# classification and object detection datasets to the MAITE protocol.
 
 # %% [markdown]
 # ## Used in these tutorials
 #
-# You can reference this guide from:
+# This guide is used by:
 #
 # - {doc}`Clean a dataset <data_cleaning>`: Feed a `torchvision` classification or
 #   detection dataset directly into the `data-cleaning` workflow.
@@ -183,16 +182,16 @@ DatasetProtocolConfig(
 # %% [markdown]
 # ## Tips
 #
-# - **Do not apply transforms** to your torchvision dataset before passing it
+# - Do not apply transforms to your torchvision dataset before passing it
 #   to the adapter. The adapter expects raw PIL images or tensors in HWC
 #   or CHW layout. Configure DataEval preprocessors for required transforms.
-# - **Use `wrap_dataset_for_transforms_v2`** for detection datasets. The
+# - Use `wrap_dataset_for_transforms_v2` for detection datasets. The
 #   adapter converts structured targets (dictionaries with `"boxes"`) to the
 #   MAITE `ObjectDetectionTarget` protocol. Raw annotation formats are not
 #   supported directly.
-# - **Shuffle before you limit.** A bare `Limit` takes samples in disk storage
+# - Shuffle before you limit. A bare `Limit` takes samples in disk storage
 #   order. Apply `Shuffle` with an explicit `seed` to sample evenly across
 #   classes. See [Build dataset views](../how_to/build_dataset_views.md).
-# - **Class discovery** relies on the `.classes` attribute. If your dataset
+# - Class discovery relies on the `.classes` attribute. If your dataset
 #   lacks `.classes`, the adapter still works, but `index2label` will be empty
 #   and integer targets pass through as scalar arrays.

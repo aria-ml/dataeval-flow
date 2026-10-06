@@ -239,8 +239,8 @@ Families are lowercase: `visual`, `pixel`, `dimension`, `hash`. Naming anything 
 is read, listing the ones that exist. `hash` is accepted and measured but never injected — a digest is not a
 quantity, and binning one would produce a factor whose codes mean nothing.
 
-Because it lives on the policy, every workflow sharing that policy measures the same set. That is the point: a
-statistic injected for one workflow and not another produces two results that look comparable and are not.
+Because it lives on the policy, every workflow sharing that policy measures the same set. A statistic injected
+for one workflow and not another produces two results that look comparable and are not.
 
 ### A bare name reaches both levels on detection data
 
@@ -262,8 +262,7 @@ A declared bin that matches nothing is not silently dropped. The result envelope
 
 ## Declare the range of float image data
 
-`value_range` governs **image statistics**, not metadata factors — but it fails the same quiet way, so it belongs
-here.
+`value_range` governs **image statistics**, not metadata factors — but it fails the same quiet way.
 
 Integer encodings state the interval their values occupy. Float data does not. As of DataEval v1.1 the statistics
 that need one answer `NaN`. Declare it on the **dataset**: it is a fact about the imagery, not a setting of any one
@@ -323,7 +322,7 @@ Every result that built metadata records its binning decisions. The record appea
     file_name [categorical @ unit] — 250 levels, derived (one per sample)
 ```
 
-Each factor carries two things, and the distinction is the point:
+Each factor carries two things:
 
 `encoding` — **the policy.** The cut points or the vocabulary, who chose them, and how they were placed. `provenance`
 is the field to read: `edges declared` means you said where to cut, `count declared` means you said how many and
@@ -416,8 +415,7 @@ the cuts with `continuous_factor_bins` makes the splits share one encoding and t
 ### Diagnostics
 
 `metadata.diagnostics` carries the warnings DataEval raised during the run: the ranges it could not resolve, bin
-requests it ignored, and factors it dropped. These used to reach only the console and `result.log`. They are now
-part of the envelope, so an archived result records why a statistic came back `NaN`.
+requests it ignored, and factors it dropped. An archived result records why a statistic came back `NaN`.
 
 ## Why this matters for comparison
 

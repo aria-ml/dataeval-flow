@@ -10,8 +10,7 @@ DataEval Flow evaluation trustworthy: reproducibility, provenance, and the
 representation it measures in — are unique to DataEval Flow and are explained here
 in full. The **task-framing concepts** — data cleaning, distribution shift,
 splitting, prioritization — frame each evaluation at the orchestration level and
-then defer to DataEval for the underlying science, which is covered authoritatively
-in the
+then defer to DataEval for the underlying science, which is covered in the
 [DataEval explanation library](https://dataeval.readthedocs.io/en/latest/concepts/index.html)
 and linked from each page.
 

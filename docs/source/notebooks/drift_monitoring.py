@@ -64,7 +64,7 @@
 # %% [markdown]
 # ## Data Preparation: a reference campaign and an operational archive
 #
-# MILCO contains side-scan sonar imagery collected by autonomous underwater vehicles,
+# MILCO contains side-scan sonar imagery collected by AUVs,
 # annotated for `MILCO` (mine-like contacts) and `NOMBO` (non-mine-like bottom objects).
 # The imagery spans five collection years:
 #
@@ -73,7 +73,7 @@
 # | `train` | 2015, 2017, 2021 | 261 |
 # | `operational` | 2010, 2018 | 909 |
 #
-# You will use `train` as your baseline reference dataset and evaluate whether the
+# Use `train` as the baseline reference dataset and evaluate whether the
 # `operational` archive exhibits distribution drift.
 #
 # :::{important}
@@ -118,8 +118,8 @@ for name, path in (("reference", reference_path), ("operational", operational_pa
 # %% [markdown]
 # ### Look at the imagery
 #
-# Sonar is not photography, and it is worth seeing what the detectors are being asked
-# to compare before trusting any number they produce.
+# Sonar is not photography, so it is worth seeing what the detectors are being asked
+# to compare before trusting what they produce.
 
 # %%
 import matplotlib.pyplot as plt
@@ -197,7 +197,7 @@ operational_dataset = CocoDatasetConfig(name="operational", path=str(operational
 #
 # **K-Neighbors** drift detection checks whether incoming samples are farther
 # from their k-nearest reference neighbors than expected. It operates on pairwise
-# distances rather than per-feature statistics, which avoids the multiple-testing
+# distances rather than per feature statistics, which avoids the multiple-testing
 # burden that makes univariate tests noisy across many features.
 #
 # **CVM (Cramér-von Mises)** is a univariate test that measures the integrated
@@ -325,9 +325,9 @@ for chunk in mmd_chunks.iter_rows(named=True):
 #
 # The windows that drift are the ones made only of 416x416 frames. Every frame is
 # resized to 256x256 before BoVW sees it, but a change in the mix of native
-# resolutions is still a change in how the data was collected. You should confirm a
-# finding like this against the collection records before you treat it as a change in
-# the seafloor.
+# resolutions is still a change in how the data was collected. Confirm a
+# finding like this against the collection records before you treat it as a
+# change in the seafloor.
 #
 # The bounds are wide because the reference's own chunks differ from one another. Its
 # five chunks span the 2015, 2017, and 2021 campaigns, so the bounds already allow for
@@ -508,8 +508,8 @@ plt.show()
 # %% [markdown]
 # ## Results Exploration: Export results
 #
-# You can export results to JSON format for integration with monitoring dashboards
-# and pipeline automations.
+# You can export results to JSON for monitoring dashboards and
+# pipeline automations.
 
 # %%
 json_str = result.export(fmt="json")
@@ -519,7 +519,7 @@ print(json_str[:600] + "\n...")
 # %% [markdown]
 # ## Conclusion
 #
-# In this tutorial, you learned how to:
+# This tutorial shows how to:
 #
 # - Configure the `drift-monitoring` workflow across reference and operational datasets.
 # - Use BoVW feature extractors to generate fixed-length descriptors from variable-sized sonar frames.

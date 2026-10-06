@@ -407,8 +407,8 @@ tasks:
 
 ### Tasks
 
-Tasks tie everything together. Each task references a workflow, one or more
-sources, and an optional extractor:
+Each task references a workflow, one or more sources, and an optional
+extractor:
 
 ```yaml
 tasks:

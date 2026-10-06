@@ -523,9 +523,11 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # %% [markdown]
 # ## Next steps
 #
-# - {doc}`Triage a dataset's metadata <metadata_triage>`: Deep dive into reading triage findings, distribution charts, and remediation policies.
-# - {doc}`Clean a dataset <data_cleaning>`: Deep dive into outlier and duplicate detection.
-# - {doc}`Audit a set of splits before training <audit>`: A verdict on train and evaluation splits, and a record of what was audited.
+# - {doc}`Triage a dataset's metadata <metadata_triage>`: Reading triage findings,
+#   distribution charts, and remediation policies.
+# - {doc}`Clean a dataset <data_cleaning>`: Outlier and duplicate detection.
+# - {doc}`Audit a set of splits before training <audit>`: A verdict on train and
+#   evaluation splits, and a record of what was audited.
 # - [Split a dataset](dataset_splitting): Stratification, cross-validation folds, and group-aware splitting.
 
 # %% [markdown]

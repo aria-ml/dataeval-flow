@@ -36,7 +36,7 @@
 # %% [markdown]
 # ## Used in these tutorials
 #
-# You can reference this guide to configure higher-fidelity embeddings in:
+# This guide is used by:
 #
 # - {doc}`Clean a dataset <data_cleaning>`
 # - {doc}`Audit a set of splits before training <audit>`

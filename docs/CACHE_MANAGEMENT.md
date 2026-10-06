@@ -9,10 +9,10 @@ orphan branches following the pattern `docs-artifacts/<branch-name>`.
 
 ### Benefits
 
-- **Smaller repository**: Main branch doesn't contain large cache files
-- **Persistent cache**: Cache survives across CI runs (no 7-day expiration)
-- **Faster builds**: Reuse cached notebook execution results
-- **Branch isolation**: Each branch has its own cache
+- Smaller repository: main branch doesn't contain large cache files
+- Persistent cache: cache survives across CI runs (no 7-day expiration)
+- Faster builds: reuse cached notebook execution results
+- Branch isolation: each branch has its own cache
 
 ## Architecture
 
@@ -32,7 +32,7 @@ Orphan branches have no parent commits and are disconnected from main branch his
 - `docs-artifacts/release/1.0` - Cache for release/1.0 branch
 - `docs-artifacts/feature/xyz` - Cache for feature branches (optional)
 
-**Important**: These branches should NEVER be merged into working branches.
+**Important**: These branches should never be merged into working branches.
 
 ## Scripts
 
@@ -86,8 +86,8 @@ top-level `.gitlab-ci.yml`:
 
 - **`docs:preview`** (merge requests): builds docs with `nox -s docs`. nox internally
   calls `fetch-docs-cache.sh`, so the MR build reuses the cache from
-  `docs-artifacts/<mr-branch>` (or falls back to `docs-artifacts/main`). It does **not**
-  push — previews are read-only.
+  `docs-artifacts/<mr-branch>` (or falls back to `docs-artifacts/main`). It does not push;
+  previews are read-only.
 - **`pages`** (main branch only): builds docs with `nox -s docs`, then runs
   `push-docs-cache.sh` to update `docs-artifacts/main` before publishing to GitLab Pages.
 
@@ -100,7 +100,7 @@ The `.github/workflows/docs.yml` workflow:
 
 1. **Checkout** with full history (`fetch-depth: 0`)
 1. **Build docs** with nox (nox internally calls `fetch-docs-cache.sh`)
-1. **Push cache** is disabled — GitLab owns pushing the cache
+1. **Push cache** is disabled: GitLab owns pushing the cache
 
 ```yaml
 permissions:
@@ -194,10 +194,10 @@ git push origin --delete docs-artifacts/main
 
 ### Why orphan branches?
 
-- **Isolated history**: No commit ancestry, can't accidentally merge
-- **Simple structure**: Just cache files, no code
-- **Garbage collection**: Can delete entire branch without affecting main
-- **Atomic updates**: Each push is a complete snapshot
+- Isolated history: no commit ancestry, can't accidentally merge
+- Simple structure: just cache files, no code
+- Garbage collection: can delete entire branch without affecting main
+- Atomic updates: each push is a complete snapshot
 
 ### Why force push?
 

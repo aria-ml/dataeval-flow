@@ -32,7 +32,7 @@ uvx --with nox-uv nox -s dev -- --python 3.12 --device cu130
 | `-n`, `--name` | any directory | `.venv` |
 
 Alongside the device variant it installs the matching `onnx` extra (`onnx` for
-`cpu`, `onnx-cu126` / `onnx-cu130` for CUDA) and the `app` extra — the same set the `test` and
+`cpu`, `onnx-cu126` / `onnx-cu130` for CUDA) and the `app` extra, the same set the `test` and
 `type` sessions build against. The chosen device is written to `.cuda-version`,
 which the other sessions read so they build against the same PyTorch variant.
 
@@ -50,7 +50,7 @@ cannot load it.
 
 ### Running checks
 
-Every task is a nox session — `uvx --with nox-uv nox -l` lists them. Bare `nox` runs
+Every task is a nox session; `uvx --with nox-uv nox -l` lists them. Bare `nox` runs
 the default set (`lint`, `type`, `test`, `schema`, `check`). Individually:
 
 ```bash
