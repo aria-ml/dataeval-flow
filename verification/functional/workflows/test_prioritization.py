@@ -8,7 +8,7 @@ import pytest
 
 from dataeval_flow import run_tasks
 from dataeval_flow.config import TaskConfig
-from dataeval_flow.workflows.prioritization import PrioritizationConfig
+from dataeval_flow.workflows.prioritization import PrioritizationWorkflowConfig
 
 pytestmark = pytest.mark.required
 
@@ -29,7 +29,7 @@ class TestDataPrioritizationWorkflow:
             sources=(("ref", 0), ("pool", 11)),
             n_per_class=8,
             workflows=[
-                PrioritizationConfig(
+                PrioritizationWorkflowConfig(
                     name="prio_main",
                     type="prioritization",
                     prioritization={"method": "knn", "k": 3, "order": "hard_first", "policy": "difficulty"},
