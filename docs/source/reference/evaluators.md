@@ -975,20 +975,23 @@ detection data `target`, one row per box. A statistic is profiled in each scope 
 own level. Each field counts its rows, its missing values (nulls) and its non-finite ones (NaN, infinity). A number
 adds its range, mean, median, population standard deviation and an equal-width histogram, whose bins are each closed
 on the left and the last closed on both sides; a constant number has one bin, `[v, v]`, and a number with no finite
-value has no summary. Anything else names its `categories` most frequent values, by JSON, so `1`, `"1"` and `true`
-stay apart, and counts the rest as one other group. A vector-valued statistic, a hash, and a factor DataEval dropped
-are listed as unsupported, with the reason. DataEval has no such evaluator, so `bins` and `categories` are Flow's own
-defaults.
+value has no summary. Anything else names its `categories` most frequent values, by JSON, so values of different
+types never merge, and counts the rest as one other group. The types are DataEval's: it reads numeral text as a number
+and holds back a factor that mixes booleans, numbers and text as `mixed_types`. A vector-valued statistic, a hash, and
+a factor DataEval dropped are listed as unsupported, with the reason. DataEval has no such evaluator, so `bins` and
+`categories` are Flow's own defaults.
 
 The Output also keeps every row's value, `output.frames()`, in memory only. With `--output`, the command writes them
 under `results/profiles/<task>/<scope>.parquet`: `item`, `target` (null on the `image` scope) and one column per field,
-a number as a float and anything else as its value's JSON. `dataeval-flow serve` reads them to select a bin's or a
-category's rows exactly; see [the service reference](service.md#selections).
+named by its `column`, `computed:<name>` or `supplied:<name>`, so a metadata field named like a statistic is a field of
+its own; a number as a float and anything else as its value's JSON. `dataeval-flow serve` reads them to select a
+bin's or a category's rows exactly; see [the service reference](service.md#selections).
 
 - **Reads:** `input`: one Dataset; Flow derives its image statistics under the `stats:` policy and its metadata under
   the `metadata:` policy the evaluator names.
 - **Makes:** a `profile` Output: a mapping of `schema`, `source`, `binning`, `std`, `categories`, `scopes`, the rows of
-  each scope, and `fields`, each with its `name`, `scope`, `origin`, `group`, `family`, `type`, counts and summary.
+  each scope, and `fields`, each with its `name`, `scope`, `origin`, `column`, `group`, `family`, `type`, counts and
+  summary.
 
 **Settings** ({py:class}`~dataeval_flow.evaluators.quality.ProfileConfig`):
 

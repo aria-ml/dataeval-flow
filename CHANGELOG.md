@@ -15,6 +15,13 @@
   - `/healthz`, `/livez` and `/readyz` (IR-2.3-H-2, IR-2.3-S-1), and `/openapi.json` (IR-2.4-S-1)
   - Run output is logged to the service console, tagged with the run's ID
   - Images set `DATAEVAL_SERVICE_HOST=0.0.0.0` and expose port 8001
+  - `/v1/runs/{id}/items/{source}` serves the items a run read, each checked against the run's manifest first
+  - An item that changed, can't be read, or was never recorded says so, and is never served in its place
+  - `.../items/{source}/{index}/image` serves an item's image, or one box cropped from it, as a PNG
+  - `/v1/runs/{id}/selections` selects a profile's bin, range, categories or missing values, or a table's flagged rows
+  - A selection's members are exact and paged, its ID is stable, and `.../view` turns its images into a source
+  - `/v1/capabilities` lists the service's `features` and `limits`, and `/v1/schema` gives the pipeline's JSON Schema
+  - A `422` names where in the request it failed, as `loc`
 - `run_tasks(..., on_result=...)`, called with each task's name and result as soon as the task finishes
 - `judges` and `judged_by` in the step catalog link each check to the Outputs it judges
   - `dataeval-flow steps <type>` shows both
@@ -46,8 +53,16 @@
   - `content` covers its images, labels and class names, and `metadata` its metadata
 - `dataset_manifest()` and `DatasetManifest`: per-item hashes, saved as JSON, that compare to show which items changed
   - The `dataeval-flow` command writes each `content-digest` run's manifest under `results/manifests/`
+  - Written as each task finishes, so a run stopped later keeps them
+  - Each entry also holds the item's position beneath the source's view and its metadata hash
+  - A manifest a `content-digest` task writes names its source
 - `dataeval-flow verify`: checks a source still holds a manifest's items, naming changed, missing and added ones
 - `content-digest` evaluator: a source's `dataset_digest()`, read uncached through a new `dataset` input kind
+- `profile` evaluator: how each statistic and metadata field is distributed, per image and per box
+  - Each field's missing and non-finite counts, then a number's range, mean, median, standard deviation and histogram
+  - Anything else names its most frequent values, by JSON so values of different types stay apart, and counts the rest
+  - `bins` (10) and `categories` (20) set the histogram's bins and how many values each field names
+  - Every row's value is written under `results/profiles/<task>/`, for exact selections
 - `load_source()` loads a configured source the way a run reads it, with its view and merge applied
   - It refuses a view that would draw different items on each load
 - Exports record the digest of what they wrote, read back as a training job would load it
@@ -500,6 +515,7 @@
 
 ### Fixed
 
+- COCO's `annotations_file` and `images_dir`, and YOLO's `yaml_file` and `ann_dir`, can no longer leave the data root
 - A dataset whose class names change but whose items don't gets its own cache entry, so old names aren't served
   - A dataset that declares class names is computed once more, under its new key
 - The config builder keeps an explicit `null`, such as `checks.leakage.near: null`, instead of restoring the default
