@@ -20,6 +20,7 @@ from dataeval_flow._orchestrator import select_tasks
 from dataeval_flow._runner import _requirement
 from dataeval_flow._service._evidence import PAGE_SIZE, Evidence, UnknownItemError
 from dataeval_flow._service._manager import RunManager
+from dataeval_flow._service._selections import SelectionError, SelectionRequest, Selections
 from dataeval_flow._service._store import RunStore, UnknownRunError
 from dataeval_flow.config import PipelineConfig, ResultConfig
 from dataeval_flow.steps import list_steps
@@ -80,6 +81,7 @@ def create_app(  # noqa: C901 - one nested route per endpoint
     store = RunStore(output_root / "runs")
     manager = RunManager(store, data_root, cache_root or output_root / "cache")
     evidence = Evidence(store, data_root)
+    selections = Selections(store)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -105,6 +107,13 @@ def create_app(  # noqa: C901 - one nested route per endpoint
     @app.exception_handler(UnknownItemError)
     async def unknown_item(_request: Request, error: UnknownItemError) -> JSONResponse:
         return JSONResponse({"detail": str(error)}, status_code=404)
+
+    @app.exception_handler(SelectionError)
+    async def unanswerable(_request: Request, error: SelectionError) -> JSONResponse:
+        if error.status == 422:
+            refusal = {"type": "value_error", "loc": error.loc, "msg": str(error)}
+            return JSONResponse({"detail": [refusal]}, status_code=422)
+        return JSONResponse({"detail": str(error)}, status_code=error.status)
 
     def probe(reasons: list[str]) -> JSONResponse:
         if reasons:
@@ -232,6 +241,28 @@ def create_app(  # noqa: C901 - one nested route per endpoint
         if picture is None:
             return JSONResponse(evidence.item(run_id, source, index), status_code=409)
         return Response(picture, media_type="image/png")
+
+    @app.post("/v1/runs/{run_id}/selections", tags=["selections"])
+    def select(run_id: str, request: SelectionRequest) -> dict[str, Any]:
+        """Resolve a selection over what the run wrote: its id, definition, scope, and how many rows, images and boxes
+        it holds. The same request always gives the same id."""
+        return selections.create(run_id, request)
+
+    @app.get("/v1/runs/{run_id}/selections/{selection_id}", tags=["selections"])
+    def selection(
+        run_id: str,
+        selection_id: str,
+        offset: int = Query(0, ge=0),
+        limit: int = Query(24, ge=1, le=PAGE_SIZE),
+    ) -> dict[str, Any]:
+        """A selection's summary and a page of its members, each naming its source, item and box."""
+        return selections.page(run_id, selection_id, offset, limit)
+
+    @app.get("/v1/runs/{run_id}/selections/{selection_id}/view", tags=["selections"])
+    def selection_view(run_id: str, selection_id: str, parents: bool = False) -> dict[str, Any]:
+        """The selection's images as a `views:` entry and a `sources:` entry to merge into the run's pipeline; with
+        `parents`, the images holding a selection of boxes."""
+        return selections.view(run_id, selection_id, parents=parents)
 
     return app
 

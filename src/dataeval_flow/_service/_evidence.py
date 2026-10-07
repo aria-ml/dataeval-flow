@@ -53,8 +53,15 @@ class Evidence:
             return {"schema": SCHEMA, "source": source, "offset": offset, "limit": limit, **page}
         total = len(manifest.entries)
         items = [self.item(run_id, source, index) for index in range(offset, min(offset + limit, total))]
-        return {"schema": SCHEMA, "source": source, "status": "recorded", "total": total, "offset": offset,
-                "limit": limit, "items": items}  # fmt: skip
+        return {
+            "schema": SCHEMA,
+            "source": source,
+            "status": "recorded",
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "items": items,
+        }
 
     def item(self, run_id: str, source: str, index: int) -> dict[str, Any]:
         """One item: its boxes or label, metadata and size where it still matches the run's record, else why not."""
