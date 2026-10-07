@@ -44,8 +44,8 @@ A blocking check that could not run is a caveat, not a block. An acceptance keye
 every split; one keyed by a check step covers all that step's runs, and `step[split]` one run. Copy a step key from the
 verdict's `warnings[].step`. Only a step that runs once per evaluation split takes `[split]`: `class-imbalance-evals`,
 `image-outliers-evals`, `image-duplicates-evals`, `factor-issues-evals`, `label-conformance-evals`, `eval-coverage`,
-`embedding-divergence` and `class-stratification`. Each acceptance holds on this run and later ones; the accepted finding keeps
-its severity and its evidence, and health still counts it.
+`embedding-divergence` and `class-stratification`. Each acceptance holds on this run and later ones; the accepted
+finding keeps its severity and its evidence, and health still counts it.
 
 A `blocking` entry that names no check the chain runs, or an `accepted` key that names neither a check nor a check step
 it runs, is refused as the config loads: `label-conformance` without `ontology`, `uncovered-items` unless
@@ -675,7 +675,8 @@ tasks:
 
 Reports unreadable and unpinned metadata factors, with suggested corrections.
 
-Checks what can be read from metadata and annotations alone, without pixels or embeddings, so it is cheap and runs first. Label and box checks are planned.
+Checks what can be read from metadata and annotations alone, without pixels or embeddings, so it is cheap and runs
+first. Label and box checks are planned.
 
 - **Answers:** [Is the metadata readable?](index.md#is-the-metadata-readable)
 - **Reads:** `data`, the task's one source.
