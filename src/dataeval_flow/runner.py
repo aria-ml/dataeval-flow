@@ -99,6 +99,7 @@ def run(
     cache_dir: Path | None = None,
     tasks: str | Sequence[str] | None = None,
     fail_on_warning: bool = False,
+    max_processes: int | None = None,
 ) -> int:
     """Load config, execute the selected tasks, and write reports.
 
@@ -127,6 +128,10 @@ def run(
         findings at ``severity="warning"``.  Off by default: a warning is a prompt
         to look, and only the caller knows whether their pipeline should stop for one.
 
+    max_processes : int | None
+        Upper bound on DataEval worker processes, overriding the config's
+        ``max_processes``.  ``None`` keeps the config's value.
+
     Returns
     -------
     int
@@ -141,6 +146,8 @@ def run(
 
     resolved_data = get_data_dir(data_dir)
     config = _resolve_config(config_arg, resolved_data)
+    if max_processes is not None:
+        config = config.model_copy(update={"max_processes": max_processes})
 
     if config.logging:
         configure_log_levels(config.logging.app_level, config.logging.lib_level)

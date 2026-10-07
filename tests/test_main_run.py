@@ -350,6 +350,7 @@ class TestMain:
         args.cache = None
         args.task = None
         args.fail_on_warning = False
+        args.max_processes = None
         mock_parse.return_value = args
         mock_run_tasks.return_value = 0
 
@@ -364,6 +365,7 @@ class TestMain:
             cache_dir=None,
             tasks=None,
             fail_on_warning=False,
+            max_processes=None,
         )
 
     @patch("dataeval_flow.runner.run")

@@ -1409,3 +1409,50 @@ class TestResolvedDatasetBackfill:
         assert result.sources is not None
         assert list(result.sources) == ["src_ds_a", "src_ds_b"]
         assert result.sources["src_ds_a"] is datasets[0]
+
+
+class TestMaxProcesses:
+    """``max_processes`` reaches DataEval's configuration and the result envelope."""
+
+    def test_applied_through_dataeval_config(self):
+        from dataeval.config import get_max_processes, set_max_processes
+
+        from dataeval_flow.config import PipelineConfig
+        from dataeval_flow.workflow.orchestrator import _apply_max_processes
+
+        before = get_max_processes()
+        try:
+            _apply_max_processes(PipelineConfig(max_processes=3))
+            assert get_max_processes() == 3
+        finally:
+            set_max_processes(before)
+
+    def test_unset_leaves_dataeval_default(self):
+        from dataeval.config import get_max_processes
+
+        from dataeval_flow.config import PipelineConfig
+        from dataeval_flow.workflow.orchestrator import _apply_max_processes
+
+        before = get_max_processes()
+        _apply_max_processes(PipelineConfig())
+        assert get_max_processes() == before
+
+    def test_must_be_positive(self):
+        from pydantic import ValidationError
+
+        from dataeval_flow.config import PipelineConfig
+
+        with pytest.raises(ValidationError):
+            PipelineConfig(max_processes=0)
+
+    def test_recorded_in_resolved_config(self):
+        from dataeval_flow.config import PipelineConfig
+        from dataeval_flow.workflow.orchestrator import _build_resolved_config
+
+        cfg = _build_resolved_config(
+            sources=[],
+            workflow_instance=None,
+            extractor_cfg=None,
+            pipeline_config=PipelineConfig(max_processes=3),
+        )
+        assert cfg["max_processes"] == 3

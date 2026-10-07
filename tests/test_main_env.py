@@ -130,3 +130,22 @@ class TestFailOnWarning:
         """--no-fail-on-warning overrides DATAEVAL_FAIL_ON_WARNING."""
         monkeypatch.setenv("DATAEVAL_FAIL_ON_WARNING", "true")
         assert _parsed(["--no-fail-on-warning"]).fail_on_warning is False
+
+
+class TestMaxProcessesOption:
+    def test_defaults_to_unset(self, monkeypatch):
+        monkeypatch.delenv("DATAEVAL_MAX_PROCESSES", raising=False)
+        assert _build_parser().parse_args([]).max_processes is None
+
+    def test_environment_sets_the_limit(self, monkeypatch):
+        monkeypatch.setenv("DATAEVAL_MAX_PROCESSES", "4")
+        assert _build_parser().parse_args([]).max_processes == 4
+
+    def test_command_line_beats_environment(self, monkeypatch):
+        monkeypatch.setenv("DATAEVAL_MAX_PROCESSES", "4")
+        assert _build_parser().parse_args(["--max-processes", "2"]).max_processes == 2
+
+    def test_non_integer_environment_value_is_rejected(self, monkeypatch):
+        monkeypatch.setenv("DATAEVAL_MAX_PROCESSES", "many")
+        with pytest.raises(ValueError, match="DATAEVAL_MAX_PROCESSES"):
+            _build_parser()

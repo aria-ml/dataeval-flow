@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `max_processes` config setting, `--max-processes` CLI option, and `DATAEVAL_MAX_PROCESSES` environment variable bound
+  the worker processes and the value is recorded in each result's `resolved_config`
+
 ## v0.2.4
 
 ### Added
@@ -10,7 +17,7 @@
 
 - Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of `harbor.jatic.net/aria/dataeval`
 - `main-<variant>` tracks the default branch; `latest-<variant>` is a retag of the newest stable release
-- Images are scanned before publication, and a HIGH or CRITICAL finding fails the build instead of being reported after the push
+- Images are scanned before publication, and HIGH or CRITICAL findings fail the build instead of being reported after
 - All variants build on `ubuntu:24.04` and the CUDA runtime and cuDNN install from Python wheels
 
 ### Fixed

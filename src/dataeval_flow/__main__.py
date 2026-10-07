@@ -102,6 +102,17 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    parser.add_argument(
+        "--max-processes",
+        type=int,
+        default=env_int("DATAEVAL_MAX_PROCESSES"),
+        metavar="N",
+        help=(
+            "Upper bound on DataEval worker processes (default: $DATAEVAL_MAX_PROCESSES, else the "
+            "config's max_processes, else DataEval's default of one process)."
+        ),
+    )
+
     subparsers = parser.add_subparsers(dest="command")
 
     # --- workflows (discovery) ---
@@ -319,6 +330,7 @@ def main() -> NoReturn:
                 cache_dir=args.cache,
                 tasks=args.task,
                 fail_on_warning=args.fail_on_warning,
+                max_processes=args.max_processes,
             )
         )
     except (FileNotFoundError, ValueError, ImportError) as e:

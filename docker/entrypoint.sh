@@ -71,6 +71,8 @@ ENVIRONMENT VARIABLES
   DATAEVAL_TASKS     Comma-separated task names to run (default: every enabled task).
   DATAEVAL_FAIL_ON_WARNING
                      Exit non-zero on health warnings: true/false (default: false).
+  DATAEVAL_MAX_PROCESSES
+                     Upper bound on DataEval worker processes (default: one).
   DATAEVAL_LOG_FORMAT
                      Console format: structured or plain (default: structured).
                      'structured' prefixes each record with an ISO-8601 UTC
@@ -90,6 +92,8 @@ COMMAND-LINE OPTIONS
   -o, --output PATH   Output directory for artifacts (default: \$DATAEVAL_OUTPUT).
   -k, --cache PATH    Disk-backed computation cache (default: \$DATAEVAL_CACHE).
   -t, --task NAME     Run only this task. Repeat to run several, in order.
+      --max-processes N
+                      Upper bound on DataEval worker processes (default: one).
       --log-format F  Console format: structured (default) or plain.
       --fail-on-warning / --no-fail-on-warning
                       Exit non-zero when a task reports health warnings.

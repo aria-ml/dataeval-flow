@@ -144,6 +144,20 @@ def _apply_seed(config: "PipelineConfig") -> None:
     )
 
 
+def _apply_max_processes(config: "PipelineConfig") -> None:
+    """Apply the pipeline's process limit through DataEval's configuration.
+
+    A ``max_processes`` of ``None`` is a no-op and leaves DataEval's default in place.
+    """
+    if config.max_processes is None:
+        return
+
+    from dataeval.config import set_max_processes
+
+    set_max_processes(config.max_processes)
+    _logger.info("Limiting DataEval to max_processes=%d", config.max_processes)
+
+
 def _run_single_task(
     task: "TaskConfig",
     config: "PipelineConfig",
@@ -168,6 +182,7 @@ def _run_single_task(
     # 0. Seed every stochastic component [CR-7-S-1]. Applied per task rather than
     #    once per pipeline so a task's result does not depend on what ran before it.
     _apply_seed(config)
+    _apply_max_processes(config)
 
     # 1. Normalize sources to list
     source_names: list[str] = [task.sources] if isinstance(task.sources, str) else list(task.sources)
@@ -414,6 +429,8 @@ def _build_resolved_config(
     if pipeline_config is not None and pipeline_config.seed is not None:
         cfg["seed"] = pipeline_config.seed
         cfg["deterministic"] = pipeline_config.deterministic
+    if pipeline_config is not None and pipeline_config.max_processes is not None:
+        cfg["max_processes"] = pipeline_config.max_processes
 
     return _relativize_paths(cfg, root=data_dir)
 

@@ -279,3 +279,17 @@ class TestFailOnWarning:
 
         assert (tmp_path / "out" / "results" / "result.json").exists()
         assert (tmp_path / "out" / "results" / "result.txt").exists()
+
+
+class TestMaxProcessesOverride:
+    def test_argument_overrides_the_config(self, tmp_path: Path):
+        import dataeval_flow.runner as runner_mod
+
+        config = _write_config(tmp_path)
+        with (
+            patch.object(runner_mod, "_collect_results", side_effect=RuntimeError("stop")),
+            patch("dataeval_flow.workflow.run_tasks") as mock_run_tasks,
+            pytest.raises(RuntimeError),
+        ):
+            runner_mod.run(config, tmp_path / "out", data_dir=tmp_path, max_processes=2)
+        assert mock_run_tasks.call_args.args[0].max_processes == 2
