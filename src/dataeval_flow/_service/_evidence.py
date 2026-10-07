@@ -150,7 +150,10 @@ class Evidence:
     def _load_manifest(self, run_id: str, source: str) -> DatasetManifest:
         """The manifest a ``content-digest`` task of the run wrote for `source`; ``LookupError`` where none did."""
         for path in sorted((self._store.directory(run_id) / "results" / "manifests").glob(f"*/{_MANIFEST}")):
-            manifest = DatasetManifest.load(path)
+            try:
+                manifest = DatasetManifest.load(path)
+            except (KeyError, ValueError):  # one a run is writing, or another scheme's: not this source's yet
+                continue
             if manifest.source == source:
                 return manifest
         raise LookupError(source)

@@ -255,7 +255,12 @@ def create_app(  # noqa: C901 - one nested route per endpoint
         max_side: int | None = Query(None, ge=16, le=8192, description="Shrink to fit this many pixels across"),
     ) -> Response:
         """The item's image as a PNG, or one box cropped from it; 409 unless the item matches the run's manifest."""
-        picture = evidence.image(run_id, source, index, target, max_side)
+        try:
+            picture = evidence.image(run_id, source, index, target, max_side)
+        except LookupError as error:  # no such source, item or box
+            raise HTTPException(404, str(error)) from None
+        except (TypeError, ValueError) as error:  # not an image, or a box with no area inside it
+            raise _refused(["query", "target"] if target is not None else ["path", "index"], str(error)) from None
         if picture is None:
             return JSONResponse(evidence.item(run_id, source, index), status_code=409)
         return Response(picture, media_type="image/png")

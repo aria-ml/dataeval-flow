@@ -100,7 +100,8 @@ class DatasetManifest:
     """The source the items were read from, where a run recorded one."""
 
     def save(self, path: str | os.PathLike[str]) -> None:
-        """Write the manifest to `path` as JSON, making its directory."""
+        """Write the manifest to `path` as JSON, making its directory. It is replaced whole, so a reader never sees one
+        half-written."""
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         payload = {
@@ -121,7 +122,9 @@ class DatasetManifest:
                 for entry in self.entries
             ],
         }
-        target.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
+        temporary = target.with_name(f".{target.name}.tmp")
+        temporary.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
+        temporary.replace(target)
 
     @classmethod
     def load(cls, path: str | os.PathLike[str]) -> "DatasetManifest":

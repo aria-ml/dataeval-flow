@@ -145,3 +145,15 @@ def test_unknown_sources_and_indices_are_not_found(data_root, tmp_path, pipeline
     assert client.get(f"/v1/runs/{run_id}/items/other/0").status_code == 404
     assert client.get(f"/v1/runs/{run_id}/items/data/12").status_code == 404
     assert client.get(f"/v1/runs/{run_id}/items/data", params={"limit": 101}).status_code == 422
+
+
+def test_a_box_the_item_does_not_hold_is_not_found(data_root, tmp_path, pipeline, client) -> None:
+    run_id = _finished(data_root, tmp_path / "out", _inspection(pipeline))
+    assert client.get(f"/v1/runs/{run_id}/items/data/3/image", params={"target": 5}).status_code == 404
+
+
+def test_a_manifest_still_being_written_reads_as_not_yet_recorded(data_root, tmp_path, pipeline, client) -> None:
+    run_id = _finished(data_root, tmp_path / "out", _inspection(pipeline))
+    manifest = tmp_path / "out" / "runs" / run_id / "results" / "manifests" / "digest" / "content-digest.json"
+    manifest.write_text(manifest.read_text()[:100])
+    assert client.get(f"/v1/runs/{run_id}/items/data/0").json()["status"] == "evidence_unavailable"

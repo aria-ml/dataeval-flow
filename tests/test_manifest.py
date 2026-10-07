@@ -231,3 +231,36 @@ def test_a_content_digest_task_s_manifest_names_its_source_and_lands_as_the_task
     manifest = DatasetManifest.load(path)
     assert manifest.source == "train"
     assert [entry.root for entry in manifest.entries] == list(range(12))
+
+
+def test_a_task_s_manifest_lands_before_its_result_names_it(tmp_path: Path) -> None:
+    from dataeval_flow import _runner
+
+    config = chain_pipeline(
+        evaluators=[{"name": "digest", "type": "content-digest"}],
+        tasks=[{"name": "d", "evaluator": "digest", "sources": "train"}],
+        datasets={"train": ToyImages()},
+    )
+    path = tmp_path / "out" / "results" / "manifests" / "d" / "content-digest.json"
+    landed: list[bool] = []
+    real = _runner._write_results
+
+    def spy(*args: Any, **kwargs: Any) -> Any:
+        landed.append(path.exists())
+        return real(*args, **kwargs)
+
+    with (
+        patch("dataeval_flow._runner._resolve_config", return_value=config),
+        patch.object(_runner, "_write_results", spy),
+    ):
+        run("pipeline.yaml", tmp_path / "out", data_dir=tmp_path)
+    assert landed == [True]
+
+
+def test_a_manifest_is_written_whole(tmp_path: Path) -> None:
+    path = tmp_path / "manifests" / "train.json"
+    dataset_manifest(ToyImages()).save(path)
+    assert sorted(p.name for p in path.parent.iterdir()) == ["train.json"]
+    with patch("pathlib.Path.replace", side_effect=OSError("disk full")), pytest.raises(OSError, match="disk full"):
+        dataset_manifest(ToyImages(seed=1)).save(path)
+    assert DatasetManifest.load(path) == dataset_manifest(ToyImages())

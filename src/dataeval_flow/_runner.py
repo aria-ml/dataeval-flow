@@ -462,12 +462,12 @@ def run(
         later keeps them."""
         _collect_result(name, result, collected, verbosity=verbosity, report_width=width)
         if results_dir is not None:
+            if name in collected.reported:  # before the result names them, so a reader of the result finds them
+                manifests.append(_write_manifests({name: result}, results_dir))
+                _write_profile_rows(name, result, results_dir)
             # ponytail: rewrites every finished task's files after each task, O(tasks²) rendering; write per task
             # files instead if runs grow to many heavy tasks.
             written[:] = _write_results(collected, results_dir, config.result, width)
-            if name in collected.reported:
-                manifests.append(_write_manifests({name: result}, results_dir))
-                _write_profile_rows(name, result, results_dir)
 
     # Keyed by the executed tasks' names, so a disabled task cannot misalign a result
     # with the task that produced it.
