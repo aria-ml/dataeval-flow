@@ -43,8 +43,12 @@ Convention, no guard test. No test reads a step type for a suffix, so the check 
   - `ontology-` for the ontology (`ontology-validation`);
   - `content-` for item bytes (`content-digest`).
 - **A combine** is named for what it makes: `outliers-by-class`, `ood-union`, `factor-gaps`.
-- **A check** is named for what it judges, never for the statistic it uses, so it carries no `-rate` or `-score` suffix:
-  `image-outliers`, `uncovered-items`, `dimensional-completeness`.
+- **A check** is named for what it judges, never for the statistic it uses. As a guideline, its subject comes first
+  where it has one (`class-imbalance`, `image-outliers`). A check built on one evaluator takes that evaluator's subject
+  prefix, and its stem where the stem already names the problem (`factor-triage` -> `factor-issues`, `outliers` ->
+  `image-outliers`). Where the evaluator names a measurement, the check names the risk (`balance` -> `shortcut-risk`).
+  Its description opens with what it judges: "Judges `balance`'s output: ...". Guard test:
+  `test_a_check_s_description_names_what_it_judges`.
 - **A transform** is a verb: `split`, `select`, `remove`, `merge`.
 - **A preset** whose question is a DataEval module's takes the module's name: `bias`, `quality`, `scope`, `shift`.
   Any other preset is named for its question or what it makes: `taxonomy`, `triage`, `prioritization`, `splits`,
@@ -137,6 +141,12 @@ A preset's settings follow these rules. Each rule names its guard tests, or is m
 - **`checks:` is keyed by check type.** Each value holds that check's own settings, spelled in the check's words, and
   never a setting the check does not take. `quality`'s `checks:` has an `image-outliers` key holding
   `warning`. Guard test: `test_a_presets_checks_are_keyed_by_check_type_in_each_checks_own_words`.
+- **One model per step type.** A block keyed by a step type is `<Type>Settings`, defined once and shared by every
+  preset that offers it, with the step's fields and defaults. A preset may leave a field out or require it, but never
+  gives it another default. Guard tests: `test_a_settings_block_takes_its_step_s_defaults`,
+  `test_a_preset_passes_each_step_its_own_defaults`.
+- **One default per setting, DataEval's.** Flow departs from DataEval only where the setting's description says so:
+  `prioritization.order` (`hard_first`) and `split`/`kfold`'s fractions.
 - **Preset-wide settings stay flat.** `metadata`, `stats` and `ontology` apply to the whole chain. So do choices that
   no single step takes verbatim: `splits`'s `rebalance` and `shift`'s `classwise`. Convention, no
   guard test.
@@ -185,7 +195,6 @@ fails these is logged and left out, and a plugin can never take a built-in's nam
 | Flow's own Output | `<Type>Output` | `FactorSummaryOutput`, `OutliersByClassOutput` | `test_an_output_flow_defines_is_named_for_its_type` |
 | A preset's `checks:` model | `<Preset>Checks` | `QualityChecks`, `TriageChecks` | convention, no guard test |
 | A block keyed by a step type | `<Type>Settings` | `OutliersSettings` | convention, no guard test |
-| The same, where presets differ | `<Preset><Type>Settings` | `SplitsClassImbalanceSettings` | convention, no guard test |
 
 - **Step classes** are `<Type><Kind>`, with the kind as the suffix. A class's name lowercased equals its type squashed
   plus its kind.
@@ -197,9 +206,7 @@ fails these is logged and left out, and a plugin can never take a built-in's nam
   rules have no guard test: an evaluator whose Output is DataEval's class keeps DataEval's name, such as
   `BalanceOutput`, and evaluators that share one Output name it for their family.
 - **Preset settings models** are named for the key they model. A preset's `checks:` map is `<Preset>Checks`. A block
-  keyed by a step type is `<Type>Settings`. Where more than one preset defines its own model for one type, each is
-  `<Preset><Type>Settings`, because the config schema keys its `$defs` by class name and two models with one name
-  would get mangled names. Where two presets take the same block they share one model: `audit`'s `outliers:` reuses
+  keyed by a step type is `<Type>Settings`, shared by every preset that offers it: `audit`'s `outliers:` reuses
   `quality`'s `OutliersSettings`.
 - **One home per public name.** A name is exported from one package. `Finding` is exported from `dataeval_flow.steps`,
   beside `Check`, `CheckConfig` and `StepResult`, and not from `dataeval_flow.workflows`. Guard test:
