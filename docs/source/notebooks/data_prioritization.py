@@ -320,14 +320,14 @@ from dataeval_flow.config import (
 from dataeval_flow.config.extractors import TorchExtractorConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
 from dataeval_flow.steps import CustomWorkflowConfig, StepEntry
-from dataeval_flow.workflows.prioritization import PrioritizationConfig
+from dataeval_flow.workflows.prioritization import PrioritizationWorkflowConfig
 
 ref_dataset = labeled_dataset
 
 # The adaptive bound is lower than the default 3.5, to catch subtler corruptions.
 outliers = OutliersConfig(name="outliers", flags=["dimension", "pixel", "visual"], outlier_threshold=("adaptive", 3.0))
 duplicates = DuplicatesConfig(name="duplicates", merge_near_duplicates=True)
-ranking = PrioritizationConfig(
+ranking = PrioritizationWorkflowConfig(
     name="ranking", prioritization={"method": "knn", "k": 5, "order": "hard_first", "policy": "difficulty"}
 )
 

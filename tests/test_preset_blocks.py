@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from dataeval_flow.workflows.bias import BiasConfig, BiasWorkflow
 from dataeval_flow.workflows.ood_detection import OODDetectionConfig, OODDetectionWorkflow
-from dataeval_flow.workflows.prioritization import PrioritizationConfig, PrioritizationWorkflow
+from dataeval_flow.workflows.prioritization import PrioritizationWorkflow, PrioritizationWorkflowConfig
 from dataeval_flow.workflows.quality import QualityConfig, QualityWorkflow
 from dataeval_flow.workflows.scope import ScopeConfig, ScopeWorkflow
 from dataeval_flow.workflows.taxonomy import TaxonomyConfig, TaxonomyWorkflow
@@ -60,7 +60,7 @@ def test_data_cleaning_hands_its_duplicates_block_to_the_duplicates_entry() -> N
 
 
 def test_data_prioritization_ranks_by_its_prioritization_block() -> None:
-    config = PrioritizationConfig.model_validate(
+    config = PrioritizationWorkflowConfig.model_validate(
         {"prioritization": {"method": "kmeans_distance", "c": 4, "n_init": 3, "policy": "stratified", "num_bins": 9}}
     )
     entry = _entry(PrioritizationWorkflow.chain(config), "prioritization")
@@ -69,7 +69,7 @@ def test_data_prioritization_ranks_by_its_prioritization_block() -> None:
 
 
 def test_data_prioritization_selects_by_its_select_block() -> None:
-    config = PrioritizationConfig.model_validate({"select": {"n": 7}})
+    config = PrioritizationWorkflowConfig.model_validate({"select": {"n": 7}})
     assert _step(PrioritizationWorkflow.chain(config), "selected")["n"] == 7
 
 

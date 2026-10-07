@@ -16,7 +16,11 @@ _STEPS = [
     cls for registry in (EVALUATORS, TRANSFORMS, COMBINES, CHECKS, WORKFLOWS) for cls in registry.list(plugins=False)
 ]
 # The two step configs whose `<Type>Config` name a pipeline pool entry already holds (`views:`, `exports:`).
-_POOL_NAMED = {"view": "ViewTransformConfig", "export": "ExportTransformConfig"}
+_POOL_NAMED = {
+    ("transform", "view"): "ViewTransformConfig",
+    ("transform", "export"): "ExportTransformConfig",
+    ("workflow", "prioritization"): "PrioritizationWorkflowConfig",
+}
 
 
 def _squashed(text: str) -> str:
@@ -43,7 +47,7 @@ def test_a_step_class_is_named_for_its_type_and_kind(cls: type) -> None:
 
 @pytest.mark.parametrize("cls", _STEPS, ids=_id)
 def test_a_step_config_is_named_for_its_type(cls: type) -> None:
-    expected = _POOL_NAMED.get(cls.name)
+    expected = _POOL_NAMED.get((cls.kind, cls.name))
     if expected is not None:
         assert cls.config_type.__name__ == expected
     else:

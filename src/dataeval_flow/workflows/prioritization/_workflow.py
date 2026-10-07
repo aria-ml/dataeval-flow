@@ -5,16 +5,16 @@ __all__ = ["PrioritizationWorkflow"]
 
 from typing import Any, ClassVar
 
-from dataeval_flow.evaluators.scope import PrioritizationConfig as PrioritizationEvaluatorConfig
+from dataeval_flow.evaluators.scope import PrioritizationConfig
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._preset import Preset, PresetChain
-from dataeval_flow.workflows.prioritization._config import PrioritizationConfig
+from dataeval_flow.workflows.prioritization._config import PrioritizationWorkflowConfig
 
 
-class PrioritizationWorkflow(Preset, Workflow[PrioritizationConfig, ChainResult]):
+class PrioritizationWorkflow(Preset, Workflow[PrioritizationWorkflowConfig, ChainResult]):
     """Ranks each pool against the reference, and keeps the top of each ranking.
 
     The task's first source is ``reference``; every later one is an element of ``pools``. The settings expand to:
@@ -37,9 +37,9 @@ class PrioritizationWorkflow(Preset, Workflow[PrioritizationConfig, ChainResult]
     outputs: ClassVar[tuple[Port, ...]] = (Port("selected", DataType.DATASET),)
 
     @classmethod
-    def chain(cls, config: PrioritizationConfig) -> PresetChain:
+    def chain(cls, config: PrioritizationWorkflowConfig) -> PresetChain:
         """The ranking, and the selection."""
-        evaluators = [PrioritizationEvaluatorConfig(name="prioritization", **config.prioritization.model_dump())]
+        evaluators = [PrioritizationConfig(name="prioritization", **config.prioritization.model_dump())]
         amount: dict[str, Any] = (
             {"n": config.select.n} if config.select.n is not None else {"fraction": config.select.fraction or 1.0}
         )

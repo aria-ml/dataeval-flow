@@ -8,7 +8,7 @@ from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
 
-__all__ = ["PrioritizationConfig", "PrioritizationSettings", "SelectSettings"]
+__all__ = ["PrioritizationSettings", "PrioritizationWorkflowConfig", "SelectSettings"]
 
 MethodType = Literal["knn", "kmeans_distance", "kmeans_complexity", "hdbscan_distance", "hdbscan_complexity"]
 OrderType = Literal["easy_first", "hard_first"]
@@ -96,7 +96,7 @@ class SelectSettings(BaseModel):
         return self
 
 
-class PrioritizationConfig(WorkflowConfig[ChainResult]):
+class PrioritizationWorkflowConfig(WorkflowConfig[ChainResult]):
     """The settings of one ``prioritization`` entry: how data is ranked against a reference.
 
     Requires at least two sources: the first is the reference (labeled) dataset,

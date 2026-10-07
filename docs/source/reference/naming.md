@@ -27,9 +27,9 @@ Guard test: `test_a_step_type_and_its_title_name_one_thing`.
 
 ### A name may repeat across kinds
 
-Every entry point names the kind: a config's `workflows:` or `evaluators:` key, a chain step's `evaluator:`,
-`check:` or `workflow:` key, and `dataeval-flow run`'s positional (a workflow) versus `--evaluator`. So
-`prioritization` names a preset and an evaluator. `dataeval-flow steps KIND:NAME` picks one where both exist.
+Every entry point names the kind: a config's `workflows:` or `evaluators:` key, and a chain step's `evaluator:`,
+`check:` or `workflow:` key. So `prioritization` names a preset and an evaluator. `dataeval-flow steps KIND:NAME`
+picks one where a name is shared.
 
 ### Each kind has a pattern
 
@@ -191,9 +191,10 @@ fails these is logged and left out, and a plugin can never take a built-in's nam
 
 - **Step classes** are `<Type><Kind>`, with the kind as the suffix. A class's name lowercased equals its type squashed
   plus its kind.
-- **Step configs** are `<Type>Config`. Two are named `<Type><Kind>Config`, because `<Type>Config` already names a
-  pipeline pool entry: `ViewTransformConfig` (`ViewConfig` is the `views:` entry) and `ExportTransformConfig`
-  (`ExportConfig` is the `exports:` entry). The guard test names both exceptions.
+- **Step configs** are `<Type>Config`. Three are named `<Type><Kind>Config`, because `<Type>Config` already names
+  something else: `ViewTransformConfig` (`ViewConfig` is the `views:` entry), `ExportTransformConfig` (`ExportConfig`
+  is the `exports:` entry) and `PrioritizationWorkflowConfig` (a preset and an evaluator share the type
+  `prioritization`, and the evaluator keeps `PrioritizationConfig`). The guard test names all three exceptions.
 - **Outputs.** Flow's own Output is `<Type>Output`. The guard test checks only an Output that one type makes. Two
   rules have no guard test: an evaluator whose Output is DataEval's class keeps DataEval's name, such as
   `BalanceOutput`, and evaluators that share one Output name it for their family.

@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from dataeval_flow import run, run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.prioritization import PrioritizationConfig
+from dataeval_flow.workflows.prioritization import PrioritizationWorkflowConfig
 from tests.chain_toys import FLAT, chain_pipeline
 from tests.evaluator_toys import ToyImages
 
@@ -70,7 +70,7 @@ def test_fraction_keeps_its_share_rounded_up() -> None:
 def test_n_and_fraction_together_are_refused() -> None:
     message = "`select` takes `n:` or `fraction:`, not both."
     with pytest.raises(ValidationError, match=re.escape(message)):
-        PrioritizationConfig(select={"n": 5, "fraction": 0.5})  # type: ignore[arg-type]
+        PrioritizationWorkflowConfig(select={"n": 5, "fraction": 0.5})  # type: ignore[arg-type]
 
 
 def test_each_pool_is_ranked_on_its_own_against_the_one_reference() -> None:
@@ -105,12 +105,12 @@ def test_a_task_naming_one_source_is_refused() -> None:
 )
 def test_a_config_that_still_writes_a_removed_key_is_refused(key: str, value: object) -> None:
     with pytest.raises(ValidationError) as info:
-        PrioritizationConfig.model_validate({"name": "prio", key: value})
+        PrioritizationWorkflowConfig.model_validate({"name": "prio", key: value})
     assert [error["loc"] for error in info.value.errors() if error["type"] == "extra_forbidden"] == [(key,)]
 
 
 def test_run_takes_a_data_prioritization_config() -> None:
-    result = run(PrioritizationConfig(prioritization=_KNN), _pair(), extractor=FLAT)  # type: ignore[arg-type]
+    result = run(PrioritizationWorkflowConfig(prioritization=_KNN), _pair(), extractor=FLAT)  # type: ignore[arg-type]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
     assert _selected(result) == {"pool": 20}

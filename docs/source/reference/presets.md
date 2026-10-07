@@ -652,7 +652,7 @@ Ranks each pool against a reference for labeling, and keeps the top.
 | `prioritization` | evaluator | [`prioritization`](evaluators.md#prioritization) | `input`: `pools`, `reference` |
 | `selected` | transform | [`select`](transforms.md#select) | `input`: `pools`; `ranking`: `prioritization` |
 
-**Settings** ({py:class}`~dataeval_flow.workflows.prioritization.PrioritizationConfig`):
+**Settings** ({py:class}`~dataeval_flow.workflows.prioritization.PrioritizationWorkflowConfig`):
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |

@@ -181,7 +181,7 @@ a label space, that record's digest is used instead.
 
 ## Related material
 
-- [Dataset Coverage](../concepts/Coverage.md) — the taxonomy and embedding-space axes coverage measures
+- [Dataset Coverage](../concepts/Coverage.md) — the label-space and embedding-space axes coverage measures
 - [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html) — the
   authoritative treatment of ontologies and the reconciliation, alignment, and validation operations over them
 - [Preset Catalog: `taxonomy`](../reference/presets.md#taxonomy) — every setting and `checks:` default of
