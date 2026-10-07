@@ -60,47 +60,52 @@ def _collect_results(
 
     ``results`` is keyed by the task that produced each result, as ``run_tasks`` returns it.
     """
+    collected = _Collected()
+    for name, result in results.items():
+        _collect_result(name, result, collected, verbosity=verbosity, report_width=report_width)
+    return collected
+
+
+def _collect_result(
+    name: str, result: Result[Any, Any], collected: _Collected, *, verbosity: int, report_width: int
+) -> None:
+    """Print one task's report and add its failure, warnings, and payloads to `collected`."""
     from dataeval_flow._logging import flush_logs
     from dataeval_flow._matrix._result import MatrixResult
     from dataeval_flow.steps._result import ChainResult
 
-    collected = _Collected()
-
-    for name, result in results.items():
-        collected.everything[name] = result
-        if not result.success:
-            _logger.error("  FAILED: %s", name)
-            for error in result.errors:
-                _logger.error("    %s", error)
-            collected.failures += 1
-            flush_logs()
-            if not isinstance(result, ChainResult | MatrixResult):
-                continue
-
-        # --- Text report: summary (no flag) or full detail (-v) ---
-        text = result.report(detailed=verbosity >= 1, width=report_width)
-        print(text)
-        collected.printed[name] = (verbosity >= 1, text)
-
-        # --- Collect for file output ---
-        collected.merged[name] = result.to_dict()
-        collected.reported[name] = result
-        if isinstance(result, MatrixResult):
-            _collect_matrix_binning(name, result, collected)
-        elif record := getattr(result.metadata, "metadata_binning", None):
-            collected.binning[name] = record
-
-        # Only a workflow judges health; an evaluator makes determinations, never a verdict.
-        if isinstance(result, ChainResult | MatrixResult) and result.warning_count:
-            collected.warned.append(name)
-
-        # A failed chain already logged FAILED above; its partial steps are still printed and written, but it
-        # never gets to claim OK too.
-        if result.success:
-            _logger.info("  OK: %s", name)
+    collected.everything[name] = result
+    if not result.success:
+        _logger.error("  FAILED: %s", name)
+        for error in result.errors:
+            _logger.error("    %s", error)
+        collected.failures += 1
         flush_logs()
+        if not isinstance(result, ChainResult | MatrixResult):
+            return
 
-    return collected
+    # --- Text report: summary (no flag) or full detail (-v) ---
+    text = result.report(detailed=verbosity >= 1, width=report_width)
+    print(text)
+    collected.printed[name] = (verbosity >= 1, text)
+
+    # --- Collect for file output ---
+    collected.merged[name] = result.to_dict()
+    collected.reported[name] = result
+    if isinstance(result, MatrixResult):
+        _collect_matrix_binning(name, result, collected)
+    elif record := getattr(result.metadata, "metadata_binning", None):
+        collected.binning[name] = record
+
+    # Only a workflow judges health; an evaluator makes determinations, never a verdict.
+    if isinstance(result, ChainResult | MatrixResult) and result.warning_count:
+        collected.warned.append(name)
+
+    # A failed chain already logged FAILED above; its partial steps are still printed and written, but it
+    # never gets to claim OK too.
+    if result.success:
+        _logger.info("  OK: %s", name)
+    flush_logs()
 
 
 def _collect_matrix_binning(name: str, result: Any, collected: _Collected) -> None:
@@ -125,7 +130,8 @@ def _write_results(collected: _Collected, results_dir: Path, settings: ResultCon
     """Write the results in each configured format, one file for the run or one per task; return the names written.
 
     The JSON, text and HTML files hold the tasks that succeeded, and none is written where no task did. The
-    JUnit and Markdown files, which a CI job reads, name the failed tasks too.
+    JUnit and Markdown files, which a CI job reads, name the failed tasks too. Each file is replaced whole, so a reader
+    never sees one half-written.
     """
     tasks = list(collected.everything)
     groups = [(f"{settings.name}-{task}", [task]) for task in tasks] if settings.per_task else [(settings.name, tasks)]
@@ -136,10 +142,10 @@ def _write_results(collected: _Collected, results_dir: Path, settings: ResultCon
             if text is not None:
                 results_dir.mkdir(parents=True, exist_ok=True)
                 path = results_dir / f"{stem}.{_EXTENSIONS[kind]}"
-                path.write_text(text, encoding="utf-8")
+                temporary = path.with_name(f".{path.name}.tmp")
+                temporary.write_text(text, encoding="utf-8")
+                temporary.replace(path)
                 written.append(path.name)
-    if not collected.reported and (unwritten := [kind for kind in settings.formats if kind in _SUCCEEDED_ONLY]):
-        _logger.warning("  No task succeeded, so no file was written for: %s.", ", ".join(unwritten))
     return written
 
 
@@ -417,22 +423,27 @@ def run(
         export_failures = _write_declared_exports(config, output_dir, resolved_data)
         return 1 if export_failures and _gate(config.result.fail_on, fail_on_warning) != "never" else 0
 
+    width = config.result.width if report_width is None else report_width
+    collected = _Collected()
+    results_dir = output_dir / "results" if output_dir is not None else None
+    written: list[str] = []
+
+    def finished(name: str, result: Result[Any, Any]) -> None:
+        """Report a task as it finishes, and rewrite the result files to hold it: a run killed later keeps it."""
+        _collect_result(name, result, collected, verbosity=verbosity, report_width=width)
+        if results_dir is not None:
+            # ponytail: rewrites every finished task's files after each task, O(tasks²) rendering; write per task
+            # files instead if runs grow to many heavy tasks.
+            written[:] = _write_results(collected, results_dir, config.result, width)
+
     # Keyed by the executed tasks' names, so a disabled task cannot misalign a result
     # with the task that produced it.
-    results = run_tasks(config, tasks, data_dir=resolved_data, cache_dir=cache_dir, output_dir=output_dir)
+    results = run_tasks(
+        config, tasks, data_dir=resolved_data, cache_dir=cache_dir, output_dir=output_dir, on_result=finished
+    )
 
-    width = config.result.width if report_width is None else report_width
-    collected = _collect_results(results, verbosity=verbosity, report_width=width)
-
-    # --- Write file artifacts (only when output_dir is set) ---
-    if output_dir is not None:
-        results_dir = output_dir / "results"
-        if written := _write_results(collected, results_dir, config.result, width):
-            _logger.info("  Wrote %s to %s", ", ".join(written), results_dir)
-        if count := _write_manifests(collected.reported, results_dir):
-            _logger.info("  Wrote %d manifest(s) to %s", count, results_dir / "manifests")
-        if collected.merged and not collected.disagreeing:
-            _write_encoding_descriptor(collected.binning, results_dir)
+    if results_dir is not None:
+        _write_run_files(collected, results_dir, config.result, written)
 
     export_failures = _write_declared_exports(config, output_dir, resolved_data)
 
@@ -446,6 +457,19 @@ def run(
 
     short = _short_of(requirement or "", results, judged)  # no requirement judges no task
     return _gate_exit(warned, gate, short, requirement)
+
+
+def _write_run_files(collected: _Collected, results_dir: Path, settings: ResultConfig, written: Sequence[str]) -> None:
+    """Say which result files the run wrote, and write what is written once every task has run: the manifests and the
+    encoding descriptor."""
+    if written:
+        _logger.info("  Wrote %s to %s", ", ".join(written), results_dir)
+    if not collected.reported and (unwritten := [kind for kind in settings.formats if kind in _SUCCEEDED_ONLY]):
+        _logger.warning("  No task succeeded, so no file was written for: %s.", ", ".join(unwritten))
+    if count := _write_manifests(collected.reported, results_dir):
+        _logger.info("  Wrote %d manifest(s) to %s", count, results_dir / "manifests")
+    if collected.merged and not collected.disagreeing:
+        _write_encoding_descriptor(collected.binning, results_dir)
 
 
 def _write_declared_exports(config: PipelineConfig, output_dir: Path | None, data_dir: Path) -> int:

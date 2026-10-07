@@ -12,6 +12,18 @@ from dataeval_flow.config import ResultConfig
 pytestmark = pytest.mark.required
 
 
+def _finishing(results):
+    """A `run_tasks` stand-in that reports each result as it finishes, as the real one does, then returns them."""
+
+    def run_tasks(*_args, on_result=None, **_kwargs):
+        for name, result in results.items():
+            if on_result is not None:
+                on_result(name, result)
+        return results
+
+    return run_tasks
+
+
 class TestRunTasks:
     @patch("dataeval_flow._orchestrator.run_tasks")
     @patch("dataeval_flow._runner._resolve_config")
@@ -60,9 +72,20 @@ class TestRunTasks:
         result2._html_reports.return_value = [(Section(title="task2 report"), [])]
         result2.to_dict.return_value = {"metadata": {}, "score": 0.8}
 
-        mock_run.return_value = {"task1": result1, "task2": result2}
+        between = []
+
+        def run_tasks(*_args, on_result, **_kwargs):
+            on_result("task1", result1)
+            between.append(json.loads((tmp_path / "results" / "result.json").read_text()))
+            on_result("task2", result2)
+            return {"task1": result1, "task2": result2}
+
+        mock_run.side_effect = run_tasks
 
         assert run(Path("/fake/config"), tmp_path) == 0
+        # Each task's results are on disk once it finishes, before the next task starts, and no temporary is left.
+        assert list(between[0]) == ["task1"]
+        assert not list((tmp_path / "results").glob(".*.tmp"))
         # Single merged result files in the results folder
         assert (tmp_path / "results" / "result.json").exists()
         assert (tmp_path / "results" / "result.txt").exists()
@@ -97,7 +120,7 @@ class TestRunTasks:
         result.report.return_value = "text report"
         result.to_dict.return_value = {"metadata": {}}
 
-        mock_run.return_value = {"task1": result}
+        mock_run.side_effect = _finishing({"task1": result})
 
         assert run(Path("/fake/config"), None) == 0
         # No files should be written anywhere
@@ -127,7 +150,7 @@ class TestRunTasks:
 
         result.report.return_value = "== Full Report =="
 
-        mock_run.return_value = {"task1": result}
+        mock_run.side_effect = _finishing({"task1": result})
 
         run(Path("/fake/config"), None, verbosity=1)
         captured = capsys.readouterr()
@@ -152,7 +175,7 @@ class TestRunTasks:
         result.report.return_value = "report"
         result._html_reports.return_value = [(Section(title="report"), [])]
         result.to_dict.return_value = {"metadata": {}}
-        mock_run.return_value = {"task1": result}
+        mock_run.side_effect = _finishing({"task1": result})
 
         run(Path("/fake/config"), tmp_path, verbosity=1, report_width=64)
         widths = {call.kwargs["width"] for call in result.report.call_args_list}
@@ -193,7 +216,7 @@ class TestRunTasks:
 
         result.report.return_value = "== Summary =="
 
-        mock_run.return_value = {"task1": result}
+        mock_run.side_effect = _finishing({"task1": result})
 
         run(Path("/fake/config"), None, verbosity=0)
         captured = capsys.readouterr()
@@ -219,7 +242,7 @@ class TestRunTasks:
         result = MagicMock()
         result.success = False
         result.errors = ["Something went wrong"]
-        mock_run.return_value = {"task1": result}
+        mock_run.side_effect = _finishing({"task1": result})
 
         assert run(Path("/fake/config"), Path("/fake/output")) == 1
         assert "FAILED" in caplog.text
@@ -254,7 +277,7 @@ class TestRunTasks:
         result.to_dict.return_value = {"metadata": {}, "data": "test"}
         result._html_reports.return_value = [(Section(title="task1 report"), [])]
 
-        mock_run.return_value = {"task1": result}
+        mock_run.side_effect = _finishing({"task1": result})
 
         assert run(Path("/fake/config"), tmp_path) == 0
         assert (tmp_path / "results" / "result.json").exists()
@@ -359,7 +382,7 @@ class TestCacheDir:
         mock_load.return_value = config
 
         r1 = MagicMock(success=False, errors=["e"])
-        mock_run.return_value = {"task1": r1}
+        mock_run.side_effect = _finishing({"task1": r1})
 
         run(Path("/fake/config"), cache_dir=Path("/global/cache"))
 
@@ -382,7 +405,7 @@ class TestCacheDir:
         mock_load.return_value = config
 
         r1 = MagicMock(success=False, errors=["e"])
-        mock_run.return_value = {"task1": r1}
+        mock_run.side_effect = _finishing({"task1": r1})
 
         run(Path("/fake/config"))
 

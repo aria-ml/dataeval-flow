@@ -4,6 +4,8 @@
 
 ### Added
 
+- `run_tasks(..., on_result=...)`: a callable given each task's name and result as soon as the task finishes,
+  before the next one starts
 - The step catalog's `judges` (on a check, the evaluator and combine types whose Outputs it judges) and `judged_by`
   (on an evaluator or combine, the checks that judge it); `dataeval-flow steps <type>` shows both
 - The `collect` transform: one or more Datasets gathered into one list, keyed by name, each element its input
@@ -247,6 +249,8 @@
 
 ### Changed
 
+- The `dataeval-flow` command writes each task's result files as soon as the task finishes, so a run killed
+  partway keeps the tasks it completed; each file is replaced whole, so a reader never sees one half-written
 - Every check's description opens with what it judges, such as "Judges `balance`'s output: …"
 - `drift-monitoring` and `ood-detection` are one `shift` preset: one `detectors:` list takes drift and OOD detectors,
   each judged by its family's check; `classwise` takes drift detectors; the OOD union, agreement and factor steps run
