@@ -111,7 +111,6 @@ def test_a_detector_s_extractor_goes_on_its_step_not_its_evaluator_entry() -> No
 @pytest.mark.parametrize(
     ("detector", "wanted"),
     [
-        ({"method": "kneighbors"}, "Legacy's `method: kneighbors` is now `type: ood-kneighbors`"),
         ({"k": 5}, "Each detector needs a `type`, one of ood-kneighbors, ood-domain-classifier"),
         ({"type": "drift-mmd"}, "`detectors:` takes ood-kneighbors, ood-domain-classifier entries, not `drift-mmd`"),
     ],

@@ -560,6 +560,9 @@
 
 ### Removed
 
+- The per-key migration messages for keys earlier versions took (`audit`'s data-analysis fields, `data-coverage`'s
+  legacy fields and `health_thresholds`, `checks.class-imbalance` on `data-cleaning` and `data-splitting`, a
+  detector's `method:`) and the `type: data-analysis` message: each now fails as an unknown key or workflow
 - Workflow types that run their own code: every workflow type is now a preset, whose settings expand to a chain of
   steps. `Workflow.run`, `WorkflowOutput`, `WorkflowRawOutput`, `WorkflowReport` and `WorkflowResult` go, with the
   `workflow_result` port type. A workflow type mixes in `Preset`, now exported from `dataeval_flow.workflows` with

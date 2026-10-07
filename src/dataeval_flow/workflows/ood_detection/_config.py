@@ -50,11 +50,7 @@ def _detector_entry(entry: Any) -> Any:
     """One `detectors:` item, validated with the OOD evaluator config its `type` names."""
     type_id = entry.get("type") if isinstance(entry, Mapping) else getattr(entry, "type", None)
     if not isinstance(type_id, str):
-        legacy = " Legacy's `method: kneighbors` is now `type: ood-kneighbors`: see the CHANGELOG for every rename."
-        raise ValueError(
-            f"Each detector needs a `type`, one of {', '.join(_DETECTORS)}."
-            + (legacy if isinstance(entry, Mapping) and "method" in entry else "")
-        )
+        raise ValueError(f"Each detector needs a `type`, one of {', '.join(_DETECTORS)}.")
     if type_id not in _DETECTORS:
         raise ValueError(f"`detectors:` takes {', '.join(_DETECTORS)} entries, not `{type_id}`.")
     return _DETECTORS[type_id].model_validate(entry if isinstance(entry, Mapping) else entry.model_dump())

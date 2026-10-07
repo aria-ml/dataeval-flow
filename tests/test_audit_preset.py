@@ -19,7 +19,6 @@ from dataeval_flow.steps import ChainResult
 from dataeval_flow.steps._result import ChainMetadata, ChainOutput, StepResult
 from dataeval_flow.workflows._registry import get_workflow, list_workflows
 from dataeval_flow.workflows.audit import AuditConfig, AuditWorkflow
-from dataeval_flow.workflows.audit._config import CHECKS_MOVED, MOVED
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 from tests.test_naming_conventions import _MINIMAL
@@ -172,23 +171,6 @@ def test_blocking_and_accepted_name_only_checks_in_the_chain(entry: dict[str, An
         _config(entry)
 
 
-@pytest.mark.parametrize(
-    ("entry", "message"),
-    [
-        *(({key: 1}, f"audit's `{key}` is refused: {MOVED[key]}.") for key in sorted(MOVED)),
-        *(
-            ({"health_thresholds": {key: 1}}, f"`health_thresholds.{key}` is refused: it is {CHECKS_MOVED[key]}.")
-            for key in sorted(CHECKS_MOVED)
-        ),
-        ({"health_thresholds": {}}, "`health_thresholds` is now `checks:`, keyed by check type"),
-    ],
-    ids=[*sorted(MOVED), *(f"health_thresholds.{key}" for key in sorted(CHECKS_MOVED)), "health_thresholds"],
-)
-def test_each_data_analysis_field_is_refused_with_its_replacement(entry: dict[str, Any], message: str) -> None:
-    with pytest.raises(ValidationError, match=re.escape(message)):
-        _config(entry)
-
-
 def test_distribution_shift_derives_its_info_band() -> None:
     config = _config({"checks": {"distribution-shift": {"warning": 0.2}}})
     (shift,) = [step for step in _steps(config) if step["name"] == "distribution-shift"]
@@ -240,21 +222,6 @@ def test_blocking_and_accepted_round_trip_through_load_and_save() -> None:
     assert result.success, result.errors
     recorded = result.metadata.resolved_config["workflow"]
     assert (recorded["blocking"], recorded["accepted"]) == (entry["blocking"], entry["accepted"])
-
-
-def test_a_data_analysis_entry_is_refused_naming_audit_and_each_moved_key() -> None:
-    pipeline = _pipeline({})
-    pipeline["workflows"] = [{"name": "w", "type": "data-analysis", "outlier_method": "zscore"}]
-    with pytest.raises(ValidationError) as caught:
-        PipelineConfig.model_validate(pipeline)
-    message = caught.value.errors()[0]["msg"].removeprefix("Value error, ")
-    assert message.startswith("`data-analysis` is now `audit`. ")
-    for key in [*MOVED, *(f"health_thresholds.{key}" for key in CHECKS_MOVED)]:
-        assert f"`{key}` → " in message
-    assert "`health_thresholds.image_outliers` → `checks.image-outliers.warning`" in message
-    assert "`health_thresholds` → `checks:`" in message
-    assert "`balance` → refused: `balance` always runs, and is skipped on metadata with no factors" in message
-    assert "`outlier_flags` → `outliers.flags`;" in message
 
 
 def test_data_analysis_is_no_workflow_type() -> None:

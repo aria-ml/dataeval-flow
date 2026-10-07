@@ -203,67 +203,6 @@ _NO_ONTOLOGY = (
     "(and `ontology-validation.label_pattern:`)"
 )
 
-_BIAS = (
-    "class balance and the metadata factors moved to the `data-bias` preset; run a `data-bias` entry on the same source"
-)
-
-_MOVED: dict[str, str] = {
-    "coverage_method": "it is `coverage.method`",
-    "coverage_percent": "it is `coverage.percent`",
-    "num_observations": "it is `coverage.num_observations`",
-    "min_class_samples": "it is `coverage.min_class_samples`",
-    "isotropy_min_samples": "it is `coverage.isotropy_min_samples`",
-    "near_duplicate_factor": "it is `coverage.near_duplicate_factor`",
-    "crop_padding": "it is `wrap.params.padding`",
-    "crop_min_size": "it is `wrap.params.min_size`",
-    "run_completeness": "it is `completeness`",
-    "balance": _BIAS,
-    "diversity_method": f"{_BIAS}, as its `diversity.method`",
-    "run_gap_analysis": f"{_BIAS}, where `factor-gaps: false` leaves out the gap analysis",
-    "gap_mi_threshold": f"{_BIAS}, as its `factor-gaps.mi_threshold`",
-    "gap_min_representation": f"{_BIAS}, as its `factor-gaps.min_representation`",
-    "ontology_label_pattern": _NO_ONTOLOGY,
-    "ontology_expected": (
-        "it is `representation.expected`, or `label-space`'s `representation.expected` where an ontology is set"
-    ),
-    "metadata_auto_bin_method": _BIAS,
-    "metadata_exclude": _BIAS,
-    "metadata_continuous_factor_bins": _BIAS,
-    "metadata_factor_source": _BIAS,
-    "diversity": f"{_BIAS}, as its `diversity`",
-    "factor-gaps": f"{_BIAS}, as its `factor-gaps`",
-    "factor_gaps": f"{_BIAS}, as its `factor-gaps`",
-    "value_range": "set `value_range` on the dataset",
-    "stats": "no step of data-coverage reads statistics",
-}
-
-_CHECKS_MOVED = ("class-imbalance", "class_imbalance", "factor-coverage-gaps", "factor_coverage_gaps")
-"""The check types whose `checks:` settings moved to data-bias with their checks."""
-
-_THRESHOLDS_MOVED: dict[str, str] = {
-    "class_imbalance_ratio": "`data-bias`'s `checks.class-imbalance.warning`",
-    "gap_count": (
-        "`data-bias`'s `checks.factor-coverage-gaps.warning`, set one less: legacy warned at `gap_count` gaps, this "
-        "warns past the bound, so `gap_count: N` is `warning: N-1`"
-    ),
-    "min_dispersion": "`checks.class-coverage.dispersion`",
-    "min_isotropy": "`checks.class-coverage.isotropy`",
-    "max_near_duplicate_fraction": "`checks.class-coverage.near_duplicates`",
-    "uncovered_rate": "`checks.uncovered-items.warning`",
-    "completeness_score": "`checks.dimensional-completeness.warning`",
-    "leaf_coverage": "`label-space`'s `checks.leaf-coverage.coverage`",
-    "dark_branch_count": "`label-space`'s `checks.leaf-coverage.empty_branches`",
-    "unmatched_class_count": "`label-space`'s `checks.label-conformance.warning`",
-}
-
-
-def _refuse_moved_checks(checks: Any) -> None:
-    """Refuse the `checks:` settings of each check that moved to data-bias, naming it."""
-    if isinstance(checks, dict):
-        for key in _CHECKS_MOVED:
-            if key in checks:
-                raise ValueError(f"data-coverage's `checks.{key}` is refused: {_BIAS}, under its `checks:`.")
-
 
 class DataCoverageConfig(WorkflowConfig[ChainResult]):
     """The settings of one ``data-coverage`` entry: each step type's settings, keyed by the step type, and when a
@@ -303,25 +242,11 @@ class DataCoverageConfig(WorkflowConfig[ChainResult]):
 
     @model_validator(mode="before")
     @classmethod
-    def _refuse_legacy_fields(cls, data: Any) -> Any:
-        """Refuse every legacy data-coverage field by name, saying what replaced it (coverage spec §4.3)."""
-        if not isinstance(data, dict):
-            return data
-        if data.get("ontology") is not None:
+    def _refuse_ontology(cls, data: Any) -> Any:
+        """Refuse an `ontology`: no step of this preset judges labels against one."""
+        if isinstance(data, dict) and data.get("ontology") is not None:
             raise ValueError(
                 f"{_NO_ONTOLOGY}. A data-coverage run on a conformed source then records no label space of its own; "
                 "`label-space` carries the join key."
             )
-        if data.get("metadata") is not None:
-            raise ValueError(f"data-coverage's `metadata` is refused: no step of it reads metadata factors; {_BIAS}.")
-        for key, message in _MOVED.items():
-            if key in data:
-                raise ValueError(f"data-coverage's `{key}` is refused: {message}.")
-        _refuse_moved_checks(data.get("checks"))
-        thresholds = data.get("health_thresholds")
-        if isinstance(thresholds, dict):
-            for key, replacement in _THRESHOLDS_MOVED.items():
-                # legacy's values were numbers; a mapping under a snake_case name is a check type's own limits
-                if key in thresholds and not isinstance(thresholds[key], dict):
-                    raise ValueError(f"`health_thresholds.{key}` is refused: it is {replacement}.")
         return data

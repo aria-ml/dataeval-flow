@@ -73,11 +73,7 @@ def _detector_entry(entry: Any) -> Any:
     """One `detectors:` item, validated with the drift evaluator config its `type` names."""
     type_id = entry.get("type") if isinstance(entry, Mapping) else getattr(entry, "type", None)
     if not isinstance(type_id, str):
-        legacy = " Legacy's `method: mmd` is now `type: drift-mmd`: see the CHANGELOG for every rename."
-        raise ValueError(
-            f"Each detector needs a `type`, one of {', '.join(_DETECTORS)}."
-            + (legacy if isinstance(entry, Mapping) and "method" in entry else "")
-        )
+        raise ValueError(f"Each detector needs a `type`, one of {', '.join(_DETECTORS)}.")
     if type_id == "drift-wasserstein":
         raise ValueError(
             "`drift-wasserstein` needs a validation set, a third source drift-monitoring does not take: run it as a "

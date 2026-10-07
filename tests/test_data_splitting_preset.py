@@ -82,11 +82,6 @@ def test_thresholds_are_keyed_by_check_type() -> None:
     assert entry.model_dump(mode="json")["checks"]["stratification"]["warning"] == 3.0
 
 
-def test_class_imbalance_is_refused_for_data_bias() -> None:
-    with pytest.raises(ValidationError, match=re.escape("run a `data-bias` entry on the source before splitting")):
-        DataSplittingConfig.model_validate({"checks": {"class-imbalance": {"warning": 3}}})
-
-
 def _task(dataset: Any, **settings: Any) -> ChainResult:
     task: dict[str, Any] = {"name": "t", "workflow": "split", "sources": ["src"]}
     config = chain_pipeline(

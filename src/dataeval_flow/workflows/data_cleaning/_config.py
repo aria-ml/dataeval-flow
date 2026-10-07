@@ -1,9 +1,9 @@
 """The ``data-cleaning`` workflow's config and check settings."""
 
 from collections.abc import Mapping, Sequence
-from typing import Any, ClassVar, Literal
+from typing import ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
@@ -124,17 +124,6 @@ class DataCleaningChecks(BaseModel):
         alias="image-duplicates",
         description="The `image-duplicates` check's settings.",
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _refuse_class_imbalance(cls, data: Any) -> Any:
-        """Refuse `class-imbalance`, whose check moved to data-bias, saying where it went."""
-        if isinstance(data, dict) and ("class-imbalance" in data or "class_imbalance" in data):
-            raise ValueError(
-                "data-cleaning's `checks.class-imbalance` is refused: class balance moved to the `data-bias` preset; "
-                "run a `data-bias` entry on the same source, with this under its `checks:`."
-            )
-        return data
 
 
 class OutliersSettings(BaseModel):

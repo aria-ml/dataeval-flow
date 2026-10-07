@@ -93,7 +93,6 @@ def test_checks_hold_the_drift_check_s_fields() -> None:
         ({"detectors": [{"name": "x-check", "type": "drift-mmd"}]}, "-check"),
         ({"detectors": [{"name": "x-by-class", "type": "drift-mmd"}]}, "`x-by-class` ends in"),
         ({"detectors": [{"name": "x-unchunked", "type": "drift-mmd"}]}, "`x-unchunked` ends in"),
-        ({"detectors": [{"method": "mmd"}]}, "needs a `type`.*`method: mmd` is now `type: drift-mmd`"),
         ({"detectors": [{"type": ["drift-mmd"]}]}, "needs a `type`, one of drift-univariate"),
         ({"detectors": [{"type": "drift-wasserstein"}]}, "validation set"),
         ({"detectors": [{"type": "outliers"}]}, "drift-univariate"),

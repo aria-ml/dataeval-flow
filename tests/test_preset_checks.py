@@ -19,11 +19,6 @@ def test_data_cleaning_keys_its_checks_by_type_with_todays_defaults() -> None:
     }
 
 
-def test_health_thresholds_is_refused() -> None:
-    with pytest.raises(ValidationError, match="health_thresholds"):
-        DataCleaningConfig(**_CLEANING, health_thresholds={"image_outliers": 1.0})  # type: ignore[call-arg]
-
-
 def test_metadata_triage_takes_max_examples_under_its_check() -> None:
     config = MetadataTriageConfig.model_validate({"checks": {"metadata-issues": {"max_examples": 5}}})
     assert config.checks.metadata_issues.max_examples == 5

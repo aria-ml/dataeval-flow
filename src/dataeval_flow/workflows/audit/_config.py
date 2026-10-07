@@ -16,7 +16,7 @@ __all__ = [
 ]
 
 from collections.abc import Mapping
-from typing import Annotated, Any, ClassVar, Literal, Self
+from typing import Annotated, ClassVar, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -307,33 +307,6 @@ class AuditChecks(BaseModel):
     )
 
 
-_POLICY = "name a policy under `metadata:`"
-
-MOVED: dict[str, str] = {
-    "outlier_method": "it is `outliers.outlier_threshold`: the method, or `[method, threshold]`",
-    "outlier_threshold": "it is `outliers.outlier_threshold`: the method, or `[method, threshold]`",
-    "outlier_flags": "it is `outliers.flags`",
-    "balance": "`balance` always runs, and is skipped on metadata with no factors",
-    "diversity_method": "it is `diversity.method`",
-    "divergence_method": "it is `divergence.method`",
-    "include_image_stats": "it is the metadata policy's `intrinsic_factors`",
-    "value_range": "set `value_range` on the dataset",
-    "metadata_auto_bin_method": _POLICY,
-    "metadata_exclude": _POLICY,
-    "metadata_continuous_factor_bins": _POLICY,
-    "metadata_factor_source": _POLICY,
-}
-"""Each data-analysis field audit refuses, and where it went (audit spec §8.2)."""
-
-CHECKS_MOVED: dict[str, str] = {
-    "image_outliers": "`checks.image-outliers.warning`",
-    "exact_duplicates": "`checks.image-duplicates.exact`",
-    "near_duplicates": "`checks.image-duplicates.near`",
-    "class_label_imbalance": "`checks.class-imbalance.warning`",
-    "distribution_shift": "`checks.distribution-shift.warning`",
-}
-"""Each data-analysis `health_thresholds` field, and the check setting it went to (audit spec §8.2)."""
-
 _Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
@@ -406,23 +379,6 @@ class AuditConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, StatsConfigM
         ),
     )
     checks: AuditChecks = Field(default_factory=AuditChecks, description="When findings warn, keyed by check type.")
-
-    @model_validator(mode="before")
-    @classmethod
-    def _refuse_legacy_fields(cls, data: Any) -> Any:
-        """Refuse every data-analysis field by name, saying where it went (audit spec §8.2)."""
-        if not isinstance(data, dict):
-            return data
-        for key, message in MOVED.items():
-            if key in data:
-                raise ValueError(f"audit's `{key}` is refused: {message}.")
-        if "health_thresholds" in data:
-            thresholds = data["health_thresholds"]
-            for key, replacement in CHECKS_MOVED.items():
-                if isinstance(thresholds, dict) and key in thresholds:
-                    raise ValueError(f"`health_thresholds.{key}` is refused: it is {replacement}.")
-            raise ValueError("`health_thresholds` is now `checks:`, keyed by check type.")
-        return data
 
     @model_validator(mode="after")
     def _blocking_and_accepted_name_checks(self) -> Self:

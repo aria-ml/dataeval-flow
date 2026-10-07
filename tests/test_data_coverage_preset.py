@@ -11,7 +11,6 @@ from dataeval_flow._cache import DatasetCache
 from dataeval_flow.config import PipelineConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows.data_coverage import DataCoverageConfig, DataCoverageWorkflow
-from dataeval_flow.workflows.data_coverage._config import _MOVED, _THRESHOLDS_MOVED
 from tests.chain_toys import chain_pipeline
 from tests.golden.coverage import CoverageDetections, CoverageImages
 
@@ -58,33 +57,9 @@ def test_settings_leave_out_their_steps() -> None:
     assert not {"completeness", "dimensional-completeness"} & set(names)
 
 
-@pytest.mark.parametrize("key", sorted(_MOVED))
-def test_a_legacy_field_is_refused_with_its_replacement(key: str) -> None:
-    with pytest.raises(ValidationError, match=re.escape(f"data-coverage's `{key}` is refused: {_MOVED[key]}.")):
-        DataCoverageConfig.model_validate({"name": "w", key: 1})
-
-
-@pytest.mark.parametrize("key", sorted(_THRESHOLDS_MOVED))
-def test_a_flat_threshold_is_refused_with_its_check_type_key(key: str) -> None:
-    message = f"`health_thresholds.{key}` is refused: it is {_THRESHOLDS_MOVED[key]}."
-    with pytest.raises(ValidationError, match=re.escape(message)):
-        DataCoverageConfig.model_validate({"name": "w", "health_thresholds": {key: 1}})
-
-
-@pytest.mark.parametrize(
-    ("legacy", "names"),
-    [
-        ({"ontology": {"a": None}}, "label-space"),
-        ({"metadata_exclude": ["id"]}, "data-bias"),
-        ({"metadata": "standard"}, "data-bias"),
-        ({"factor-gaps": False}, "data-bias"),
-        ({"checks": {"class-imbalance": {"warning": 2.0}}}, "data-bias"),
-        ({"checks": {"factor-coverage-gaps": {"warning": 1}}}, "data-bias"),
-    ],
-)
-def test_a_refusal_names_what_replaced_it(legacy: dict[str, Any], names: str) -> None:
-    with pytest.raises(ValidationError, match=re.escape(names)):
-        DataCoverageConfig(name="w", **legacy)
+def test_an_ontology_is_refused_naming_label_space() -> None:
+    with pytest.raises(ValidationError, match="label-space"):
+        DataCoverageConfig(name="w", ontology={"a": None})  # type: ignore[arg-type]
 
 
 def test_a_dumped_config_reloads() -> None:
@@ -135,11 +110,6 @@ def test_a_matrix_over_a_warning_that_crosses_the_fixed_band_runs() -> None:
 def test_snake_case_threshold_names_reload() -> None:
     config = DataCoverageConfig(name="w")
     assert DataCoverageConfig.model_validate(config.model_dump(by_alias=False)) == config
-
-
-def test_a_flat_number_under_a_snake_case_name_is_still_refused() -> None:
-    with pytest.raises(ValidationError, match=re.escape("`health_thresholds.uncovered_rate` is refused: it is")):
-        DataCoverageConfig.model_validate({"name": "w", "health_thresholds": {"uncovered_rate": 5}})
 
 
 def test_every_box_dropped_says_there_is_nothing_to_embed() -> None:

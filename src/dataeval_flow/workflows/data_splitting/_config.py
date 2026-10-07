@@ -2,7 +2,7 @@
 
 __all__ = ["DataSplittingConfig", "DataSplittingChecks"]
 
-from typing import Any, ClassVar, Literal, Self
+from typing import ClassVar, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -21,17 +21,6 @@ class DataSplittingChecks(BaseModel):
     stratification: StratificationThresholds = Field(
         default_factory=StratificationThresholds, description="The `stratification` check's thresholds, on each fold."
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _refuse_class_imbalance(cls, data: Any) -> Any:
-        """Refuse `class-imbalance`, whose check moved to data-bias, saying where it went."""
-        if isinstance(data, dict) and ("class-imbalance" in data or "class_imbalance" in data):
-            raise ValueError(
-                "data-splitting's `checks.class-imbalance` is refused: class balance moved to the `data-bias` "
-                "preset; run a `data-bias` entry on the source before splitting, with this under its `checks:`."
-            )
-        return data
 
 
 class DataSplittingConfig(WorkflowConfig[ChainResult], MetadataConfigMixin):

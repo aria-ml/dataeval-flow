@@ -294,11 +294,6 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
     ) == (6.0, 7.0, 8.0, 1.0, 9.0)
 
 
-def test_class_imbalance_is_refused_for_data_bias() -> None:
-    with pytest.raises(ValidationError, match=re.escape("run a `data-bias` entry on the same source")):
-        DataCleaningConfig.model_validate({**_BASE, "checks": {"class-imbalance": {"warning": 3.0}}})
-
-
 @pytest.mark.parametrize(
     ("field", "value"),
     [
