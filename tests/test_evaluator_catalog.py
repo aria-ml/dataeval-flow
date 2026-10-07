@@ -21,6 +21,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "factor-leakage": ("2", "refused"),
     "factor-triage": ("1", "refused"),
     "content-digest": ("1", "refused"),
+    "profile": ("1", "refused"),
     "factor-summary": ("1", "refused"),
     "outliers": ("1+", "optional"),
     "balance": ("1", "refused"),

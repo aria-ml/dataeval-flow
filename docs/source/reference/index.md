@@ -151,6 +151,13 @@ Records SHA-256 digests of every item's image and labels, and of its metadata.
   what was audited
 - **Evaluators:** [`content-digest`](evaluators.md#content-digest)
 
+## How is each statistic and field distributed?
+
+Summarizes and bins every measured statistic and metadata field, keeping each row's value for exact selections.
+
+- **Preset:** none; run it as an evaluator task, as the [service reference](service.md#selections) does
+- **Evaluators:** [`profile`](evaluators.md#profile)
+
 ## Preparing data
 
 Shapes, combines and writes out Datasets, for the steps that read them.

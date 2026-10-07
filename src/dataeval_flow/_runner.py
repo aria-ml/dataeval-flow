@@ -290,6 +290,28 @@ def _write_manifests(results: Mapping[str, Result[Any, Any]], results_dir: Path)
     return written
 
 
+def _write_profile_rows(task: str, result: Result[Any, Any], results_dir: Path) -> None:
+    """Save a ``profile`` evaluator task's rows under ``results_dir/profiles/<task>/<scope>.parquet``, each replaced
+    whole, so a reader never sees one half-written."""
+    from dataeval_flow.config._schemas._export import one_directory_segment
+    from dataeval_flow.evaluators.quality._result import ProfileOutput
+
+    output = result.output if result.success else None
+    if not isinstance(output, ProfileOutput):
+        return
+    try:
+        one_directory_segment(task, what="task name")
+    except ValueError as error:
+        _logger.warning("  Skipped task '%s' profile rows: %s", task, error)
+        return
+    directory = results_dir / "profiles" / task
+    directory.mkdir(parents=True, exist_ok=True)
+    for scope, frame in output.frames().items():
+        temporary = directory / f".{scope}.parquet.tmp"
+        frame.write_parquet(temporary)
+        temporary.replace(directory / f"{scope}.parquet")
+
+
 def _safe_segments(task: str, step: str, key: Any) -> bool:
     """Whether `step` and `key` each name one directory; where not, warn and say no."""
     from dataeval_flow.config._schemas._export import one_directory_segment
@@ -445,6 +467,7 @@ def run(
             written[:] = _write_results(collected, results_dir, config.result, width)
             if name in collected.reported:
                 manifests.append(_write_manifests({name: result}, results_dir))
+                _write_profile_rows(name, result, results_dir)
 
     # Keyed by the executed tasks' names, so a disabled task cannot misalign a result
     # with the task that produced it.

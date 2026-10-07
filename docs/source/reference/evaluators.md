@@ -39,6 +39,7 @@ chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md). Each
 | `prioritization` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
 | `factor-triage` | `dataeval.Metadata` | metadata | 1 | refused |
 | `content-digest` | `dataeval_flow.dataset_digest` | the Dataset itself, every item | 1 | refused |
+| `profile` | `dataeval.core.compute_stats`, `dataeval.Metadata` | stats; metadata | 1 | refused |
 
 A task's `extractor:` still lands in the result envelope's `model_id`, whether or not that run's mode actually reads it.
 
@@ -963,6 +964,51 @@ evaluators:
 
 tasks:
   - {name: content-digest, evaluator: content-digest, sources: [train]}
+```
+
+### `profile`
+
+How each statistic and metadata field is distributed: counts, summaries, histograms.
+
+A field is a statistic the stats policy measures or a metadata factor, in a scope: `image`, one row per item, and on
+detection data `target`, one row per box. A statistic is profiled in each scope it was measured in, and a factor at its
+own level. Each field counts its rows, its missing values (nulls) and its non-finite ones (NaN, infinity). A number
+adds its range, mean, median, population standard deviation and an equal-width histogram, whose bins are each closed
+on the left and the last closed on both sides; a constant number has one bin, `[v, v]`, and a number with no finite
+value has no summary. Anything else names its `categories` most frequent values, by JSON, so `1`, `"1"` and `true`
+stay apart, and counts the rest as one other group. A vector-valued statistic, a hash, and a factor DataEval dropped
+are listed as unsupported, with the reason. DataEval has no such evaluator, so `bins` and `categories` are Flow's own
+defaults.
+
+The Output also keeps every row's value, `output.frames()`, in memory only. With `--output`, the command writes them
+under `results/profiles/<task>/<scope>.parquet`: `item`, `target` (null on the `image` scope) and one column per field,
+a number as a float and anything else as its value's JSON. `dataeval-flow serve` reads them to select a bin's or a
+category's rows exactly; see [the service reference](service.md#selections).
+
+- **Reads:** `input`: one Dataset; Flow derives its image statistics under the `stats:` policy and its metadata under
+  the `metadata:` policy the evaluator names.
+- **Makes:** a `profile` Output: a mapping of `schema`, `source`, `binning`, `std`, `categories`, `scopes`, the rows of
+  each scope, and `fields`, each with its `name`, `scope`, `origin`, `group`, `family`, `type`, counts and summary.
+
+**Settings** ({py:class}`~dataeval_flow.evaluators.quality.ProfileConfig`):
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `stats` | (DataEval Flow) the name of a `stats:` policy; every view it measures is profiled | the whole image is measured |
+| `flags` | (DataEval Flow) the families to measure without a `stats` policy: `dimension`, `pixel`, `visual` | what `outliers` measures by default |
+| `metadata` | (DataEval Flow) the name of a `metadata:` policy | DataEval's default encoding |
+| `bins` | (DataEval Flow) equal-width bins in each number's histogram | 10 |
+| `categories` | (DataEval Flow) the most frequent values each field names | 20 |
+
+- **Judged by:** none
+- **Used in:** none
+
+```yaml
+evaluators:
+  - {name: profile, type: profile}
+
+tasks:
+  - {name: profile, evaluator: profile, sources: [train]}
 ```
 
 ## Not in the catalog yet

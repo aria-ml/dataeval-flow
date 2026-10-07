@@ -29,6 +29,7 @@ _TITLES = {
     "factor-leakage": "Factor Leakage",
     "factor-triage": "Factor Triage",
     "content-digest": "Content Digest",
+    "profile": "Profile",
     "factor-summary": "Factor Summary",
     "coverage": "Coverage",
     "label-alignment": "Label Alignment",

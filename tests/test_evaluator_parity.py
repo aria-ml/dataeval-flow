@@ -48,7 +48,7 @@ _WIRING: dict[str, frozenset[str]] = {
 
 # Flow's own evaluators: their settings are Flow's, not a DataEval `Config`'s, so they have no wiring list.
 _FLOW_ONLY: frozenset[str] = frozenset(
-    {"content-digest", "divergence", "factor-leakage", "factor-triage", "factor-summary"}
+    {"content-digest", "divergence", "factor-leakage", "factor-triage", "factor-summary", "profile"}
 )
 
 # Fields Flow converts before DataEval sees them, whose types are Flow's by design.

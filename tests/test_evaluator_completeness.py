@@ -65,6 +65,7 @@ _ECHOES: dict[str, frozenset[str]] = {
     "factor-leakage": frozenset(),
     "factor-triage": frozenset(),
     "content-digest": frozenset(),
+    "profile": frozenset(),
     "factor-summary": frozenset(),
     "balance": frozenset({"plot_type"}),
     "diversity": frozenset({"plot_type"}),
