@@ -2,7 +2,6 @@
 rules are written out for plugin authors in reference/naming.md."""
 
 import re
-from collections import Counter
 from typing import Any, get_args
 
 import pytest
@@ -35,10 +34,6 @@ def test_a_step_type_and_its_title_name_one_thing(cls: type) -> None:
         f"{cls.kind} `{cls.name}` is titled {cls.title!r}: a type and its title agree once case, spaces, hyphens and "
         "parentheses are dropped (reference/naming.md)"
     )
-
-
-def test_no_two_step_types_share_a_name_across_kinds() -> None:
-    assert sorted(name for name, n in Counter(cls.name for cls in _STEPS).items() if n > 1) == []
 
 
 @pytest.mark.parametrize("cls", _STEPS, ids=_id)
@@ -189,17 +184,17 @@ _MINIMAL = {
         "factor-leakage": {"factors": ["site"]},
         "coverage": {"method": "naive"},
     },
-    "data-bias": {},
-    "data-cleaning": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}},
-    "data-coverage": {"coverage": {"method": "naive"}},
-    "data-prioritization": {},
-    "data-splitting": {"rebalance": "interclass"},
+    "bias": {},
+    "quality": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}},
+    "scope": {"coverage": {"method": "naive"}},
+    "prioritization": {},
+    "splits": {"rebalance": "interclass"},
     "drift-monitoring": {
         "detectors": [{"name": "mmd", "type": "drift-mmd", "chunking": {"chunk_count": 5}}],
         "classwise": {"mmd": "class"},
     },
-    "label-space": {"ontology": {"animal": {"cat": None}}},
-    "metadata-triage": {},
+    "taxonomy": {"ontology": {"animal": {"cat": None}}},
+    "triage": {},
     "ood-detection": {
         "detectors": [
             {"name": "knn", "type": "ood-kneighbors", "distance_metric": "euclidean"},

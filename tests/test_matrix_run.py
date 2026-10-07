@@ -17,7 +17,7 @@ from tests.evaluator_toys import ToyImages
 
 _CLEANING = {
     "name": "cleaning",
-    "type": "data-cleaning",
+    "type": "quality",
     "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"},
 }
 
@@ -60,7 +60,7 @@ def _drawn(result: Any) -> Any:
 def test_a_matrix_task_returns_one_result_holding_every_run() -> None:
     result = _matrix(_config({"outliers.outlier_threshold": [2.0, 3.0]}))
     assert result.kind == "matrix"
-    assert result.type == "data-cleaning"
+    assert result.type == "quality"
     assert result.keys == ["outliers.outlier_threshold"]
     assert [(run.number, run.label) for run in result.runs] == [
         (1, "outliers.outlier_threshold=2.0"),
@@ -247,14 +247,14 @@ def test_a_run_that_raised_keeps_its_envelope_and_the_matrix_its_entry(monkeypat
     assert raised.metadata.source_descriptions == ["src (src_data)"]
     assert raised._entry == "cleaning"
     assert result._entry == "cleaning"
-    assert "cleaning (data-cleaning), matrix of 2 runs" in result.report()
+    assert "cleaning (quality), matrix of 2 runs" in result.report()
 
 
 def test_the_json_holds_each_run_s_result_as_its_type_writes_it() -> None:
     result = _matrix(_config({"outliers.outlier_threshold": [2.0, 3.0]}))
     payload = cast("dict[str, Any]", result.to_dict())
     assert payload["kind"] == "matrix"
-    assert payload["type"] == "data-cleaning"
+    assert payload["type"] == "quality"
     assert payload["keys"] == ["outliers.outlier_threshold"]
     assert payload["health"] == result.health
     assert [run["number"] for run in payload["runs"]] == [1, 2]

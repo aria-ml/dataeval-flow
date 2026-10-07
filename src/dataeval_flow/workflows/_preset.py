@@ -83,7 +83,7 @@ class Preset:
     workflow type is one.
 
     Mix it in ahead of the workflow base, with ``ChainResult`` as the result:
-    ``class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult])``. The config class stays the
+    ``class QualityWorkflow(Preset, Workflow[QualityConfig, ChainResult])``. The config class stays the
     type's settings. Declare:
 
     - ``slots``: what the steps call the task's sources, in the order a task names them. The last may be a list slot,

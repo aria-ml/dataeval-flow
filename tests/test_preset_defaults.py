@@ -127,7 +127,7 @@ def test_a_settings_block_takes_its_step_s_defaults(model: type[BaseModel], step
 
 
 def test_a_partly_written_coverage_block_leaves_the_rest_to_dataeval() -> None:
-    from dataeval_flow.workflows.data_coverage import CoverageSettings
+    from dataeval_flow.workflows.scope import CoverageSettings
 
     written = CoverageSettings.model_validate({"method": "naive"})
     assert written.num_observations is None

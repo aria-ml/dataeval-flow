@@ -1,4 +1,4 @@
-"""`label-space` agrees with what legacy data-coverage made with `ontology:` set: each finding's severity, title,
+"""`taxonomy` agrees with what legacy data-coverage made with `ontology:` set: each finding's severity, title,
 brief and description, in order, and what they were computed from (coverage spec §8.1).
 
 Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), each with its reason:
@@ -13,7 +13,7 @@ Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), e
   The golden's datasets declare every label, in index order, so they agree.
 - **The digest's precedence is reversed** (coverage spec §3.5): on a source whose view applies a `Relabel`, the
   source's record wins over the alignment's, where legacy's own stamp won.
-- **No "Class Shortfall" without an ontology**: that finding is data-coverage's.
+- **No "Class Shortfall" without an ontology**: that finding is scope's.
 - **The ignored-entries note says `expected`,** the preset's field, where legacy said `ontology_expected`.
 - **Names follow the naming pass** (naming spec §3.2): recorded titles are read through `tests/golden/_renames.py`.
 """

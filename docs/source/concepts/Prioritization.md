@@ -14,10 +14,10 @@ spends a labeling budget on territory the dataset does not yet cover; ranking by
 difficulty concentrates review where a model is most likely to fail. Either way,
 prioritization turns a fixed budget into the largest improvement.
 
-In DataEval Flow, `data-prioritization` is a preset: it ranks each pool source against the
+In DataEval Flow, `prioritization` is a preset: it ranks each pool source against the
 reference, and its `selected` output keeps the top of each ranking (`n:` or `fraction:`). Run as
-a step of a custom workflow after a `data-cleaning` step, it ranks clean data. See
-[the preset's chain](../reference/presets.md#data-prioritization).
+a step of a custom workflow after a `quality` step, it ranks clean data. See
+[the preset's chain](../reference/presets.md#prioritization).
 It supports different prioritization methods and orderings (hardest-first or easiest-first). The
 orchestration layer makes this a declarative, reproducible step; the ranking
 methods — and the embedding and performance-estimation machinery they rest on —
@@ -47,7 +47,7 @@ retrains.
 ### Tutorials
 
 - [Prioritizing data](../notebooks/data_prioritization.py) — ranking a pool with the
-  `data-prioritization` workflow
+  `prioritization` workflow
 
 ### Authoritative reference
 

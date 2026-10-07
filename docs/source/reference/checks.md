@@ -12,7 +12,7 @@ your own](../how_to/write_a_custom_workflow.md). See the [Preset Catalog](preset
 [`audit`](presets.md#audit) runs up to sixteen of these checks to audit a set of splits before training, among them
 `class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage` and `embedding-divergence`; its
 chain table lists them all. [Check a set of
-splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) runs `audit` as a step after `data-splitting`
+splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) runs `audit` as a step after `splits`
 and gives every one of these checks to the splits; chain the checks yourself only to audit one fold or a subset. Each
 example assumes the pipeline defines
 `datasets:`, the sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor
@@ -98,7 +98,7 @@ With nothing flagged, the finding is `ok`.
 | `warning` | a percentage, or `null` | `3.0` | Most images, as a percentage of the Dataset, that may be flagged before the finding warns |
 
 - **Judges:** [`outliers`](evaluators.md#outliers)
-- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning)
+- **Used in:** [`audit`](presets.md#audit), [`quality`](presets.md#quality)
 
 ```yaml
 evaluators:
@@ -132,7 +132,7 @@ A box counts when it has at least one outlier flag.
 | `warning` | a percentage, or `null` | `3.0` | Most boxes, as a percentage of all, that may be flagged before the finding warns |
 
 - **Judges:** [`label-health`](evaluators.md#label-health), [`outliers`](evaluators.md#outliers)
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning)
+- **Used in:** [`quality`](presets.md#quality)
 
 ```yaml
 evaluators:
@@ -165,7 +165,7 @@ It judges the worst class's share, how many classes pass the limit, and whether 
 | `warning` | a percentage, or `null` | `3.0` | Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too |
 
 - **Judges:** [`outliers-by-class`](combines.md#outliers-by-class)
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning)
+- **Used in:** [`quality`](presets.md#quality)
 
 ```yaml
 evaluators:
@@ -198,7 +198,7 @@ The shares of images in exact and in near duplicate groups are judged apart.
 | `near` | a percentage, or `null` | `5.0` | Most images that may sit in near-duplicate groups before the finding warns |
 
 - **Judges:** [`duplicates`](evaluators.md#duplicates)
-- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning)
+- **Used in:** [`audit`](presets.md#audit), [`quality`](presets.md#quality)
 
 ```yaml
 evaluators:
@@ -230,11 +230,11 @@ The ratio is taken over the classes with labels. A class with none is named and 
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-health` Output |
 | `warning` | a ratio of at least 1, or `null` | `5.0` | Largest class count over smallest that may hold before the finding warns; an empty class warns unless `empty` is `false` |
-| `info` | a ratio, or `null` | `null` | A ratio at or under which the finding is ok; must not exceed `warning`. `null`, which data-cleaning and data-splitting keep, makes every ratio that does not warn `info` |
+| `info` | a ratio, or `null` | `null` | A ratio at or under which the finding is ok; must not exceed `warning`. `null`, which quality and splits keep, makes every ratio that does not warn `info` |
 | `empty` | `true` or `false` | `true` | Whether a declared class with no labels warns; `false` leaves it to `untrained-classes` and `class-sufficiency` |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)
-- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
+- **Used in:** [`audit`](presets.md#audit), [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:
@@ -346,7 +346,7 @@ acquire, and is `ok` otherwise.
 | `empty_branches` | a count, or `null` | `0` | Wholly empty branches tolerated; `null` turns it off |
 
 - **Judges:** [`representation`](evaluators.md#representation)
-- **Used in:** [`label-space`](presets.md#label-space)
+- **Used in:** [`taxonomy`](presets.md#taxonomy)
 
 ```yaml
 ontologies:
@@ -383,7 +383,7 @@ It warns on more unmatched names than `warning`, or on any ambiguous name, and i
 | `warning` | a count, or `null` | `0` | Unmatched names tolerated; `null` turns it off |
 
 - **Judges:** [`label-reconciliation`](evaluators.md#label-reconciliation)
-- **Used in:** [`audit`](presets.md#audit), [`label-space`](presets.md#label-space)
+- **Used in:** [`audit`](presets.md#audit), [`taxonomy`](presets.md#taxonomy)
 
 ```yaml
 ontologies:
@@ -421,7 +421,7 @@ concepts share always warns: the stanza cannot be used until the ontology is fix
 | `input` | an address | required | A `label-alignment` Output |
 
 - **Judges:** [`label-alignment`](evaluators.md#label-alignment)
-- **Used in:** [`label-space`](presets.md#label-space)
+- **Used in:** [`taxonomy`](presets.md#taxonomy)
 
 ```yaml
 ontologies:
@@ -458,7 +458,7 @@ warns, because it is what makes reconciliation ambiguous.
 | `input` | an address | required | An `ontology-validation` Output |
 
 - **Judges:** [`ontology-validation`](evaluators.md#ontology-validation)
-- **Used in:** [`label-space`](presets.md#label-space)
+- **Used in:** [`taxonomy`](presets.md#taxonomy)
 
 ```yaml
 ontologies:
@@ -501,7 +501,7 @@ detections dropped.
 | `near_duplicates` | a fraction, or `null` | `0.1` | The near-duplicate share over which a class is padded; `null` turns it off |
 
 - **Judges:** [`coverage`](evaluators.md#coverage)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`scope`](presets.md#scope)
 
 ```yaml
 evaluators:
@@ -535,7 +535,7 @@ skipped with "failed: OverflowError".
 | `warning` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
 
 - **Judges:** [`coverage`](evaluators.md#coverage)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`scope`](presets.md#scope)
 
 ```yaml
 evaluators:
@@ -568,7 +568,7 @@ informs, and above both it is `ok`. With both bands `null` nothing is judged and
 | `info` | a score from 0 to 1, or `null` | `0.8` | The score under which the finding informs |
 
 - **Judges:** [`completeness`](evaluators.md#completeness)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`scope`](presets.md#scope)
 
 ```yaml
 evaluators:
@@ -599,7 +599,7 @@ It warns past `warning` gaps, is `info` up to that many, and is `ok` with none.
 | `warning` | a count, or `null` | `2` | The most under-represented class-factor-value combinations before the finding warns; `null` never warns |
 
 - **Judges:** [`factor-gaps`](combines.md#factor-gaps)
-- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
+- **Used in:** [`audit`](presets.md#audit), [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:
@@ -631,7 +631,7 @@ while any class is short, and is `ok` otherwise.
 | `input` | an address | required | A `representation` Output, computed with no ontology |
 
 - **Judges:** [`representation`](evaluators.md#representation)
-- **Used in:** [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`scope`](presets.md#scope)
 
 ```yaml
 evaluators:
@@ -667,7 +667,7 @@ assessed (`no factor to score`). With `warning: null` the finding is `info`.
 | `warning` | 0 to 1, or `null` | `0.1` | The mutual information with the class past which a factor warns; `null` judges nothing |
 
 - **Judges:** [`balance`](evaluators.md#balance)
-- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
+- **Used in:** [`audit`](presets.md#audit), [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:
@@ -704,7 +704,7 @@ to score`). With `warning: null` the finding is `info`.
 | `p_value` | a number in (0, 1] | `0.05` | The p-value at or under which a factor's association counts as significant |
 
 - **Judges:** [`parity`](evaluators.md#parity)
-- **Used in:** [`data-bias`](presets.md#data-bias)
+- **Used in:** [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:
@@ -743,7 +743,7 @@ passes train as `input` and the evaluation splits as `parts`, so each evaluation
 | `warning` | percentage points, or `null` | `10.0` | The largest deviation above which the finding warns; `null` never warns |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)
-- **Used in:** [`audit`](presets.md#audit), [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`splits`](presets.md#splits)
 
 ```yaml
 evaluators:
@@ -1014,7 +1014,7 @@ It has no thresholds.
 | `max_examples` | an integer of at least 1 | `20` | Distinct values shown per kind per factor; display only |
 
 - **Judges:** [`factor-triage`](evaluators.md#factor-triage)
-- **Used in:** [`audit`](presets.md#audit), [`metadata-triage`](presets.md#metadata-triage)
+- **Used in:** [`audit`](presets.md#audit), [`triage`](presets.md#triage)
 
 ```yaml
 evaluators:

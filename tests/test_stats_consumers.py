@@ -74,7 +74,7 @@ class TestOutlierColumnsAreDeclared:
     """What flags an outlier is what `outliers.flags` and `outliers_from` name.
 
     The cold/warm tests and `test_only_the_declared_families_flag` run `find_outliers`,
-    the production call site data-cleaning's `outliers` step reaches, on statistics
+    the production call site quality's `outliers` step reaches, on statistics
     computed as the engine computes them for that step with no `stats:` block named — the
     derived-policy path. The regression was measured on that path.
     `test_a_band_group_does_not_flag_unless_outliers_from_names_it` and
@@ -83,12 +83,12 @@ class TestOutlierColumnsAreDeclared:
     """
 
     def _params(self):
-        """The `outliers` evaluator that data-cleaning's `outliers: {flags: [visual], outlier_threshold: modzscore}`
+        """The `outliers` evaluator that quality's `outliers: {flags: [visual], outlier_threshold: modzscore}`
         configures, with no `stats:` policy named."""
         return OutliersConfig(name="outliers", flags=["visual"], outlier_threshold="modzscore", per_target=True)
 
     def _issues(self, dataset):
-        """Flag outliers as data-cleaning's `outliers` step does: statistics, then `find_outliers`."""
+        """Flag outliers as quality's `outliers` step does: statistics, then `find_outliers`."""
         config = self._params()
         return find_outliers(config, [_computed_as_the_engine_does(config, dataset)]).data()
 
@@ -176,7 +176,7 @@ class TestDuplicateColumnsAreDeclared:
         return _Toy()
 
     def _groups(self, dataset, duplicate_flags):
-        """Run the duplicate path through production code: data-cleaning's `dupes` step.
+        """Run the duplicate path through production code: quality's `dupes` step.
 
         Call `find_duplicates`, not a local reimplementation of the filter. A helper that
         calls `restrict_columns` itself tests the machinery only, and passes whether or

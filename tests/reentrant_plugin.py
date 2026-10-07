@@ -2,4 +2,4 @@
 
 from dataeval_flow.workflows import get_workflow
 
-DataCleaning = get_workflow("data-cleaning")
+DataCleaning = get_workflow("quality")

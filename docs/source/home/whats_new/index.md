@@ -31,7 +31,7 @@ v0.1
   - A patch release. The published CUDA image tags moved to `cu126` / `cu130`, and YOLO datasets can select a
     single split again.
 - - {doc}`v0.2 <v0.2>`
-  - The upgrade to DataEval v1.1, a new `data-coverage` workflow, committed metadata encoding policies, and a
+  - The upgrade to DataEval v1.1, a new `scope` workflow, committed metadata encoding policies, and a
     round of configuration and result-field renames. **Breaking** — read this one before upgrading from v0.1.
 - - {doc}`v0.1 <v0.1>`
   - The first public release: the workflow registry and task runner, seven workflows, the TUI and CLI, dataset

@@ -1,4 +1,4 @@
-# Data Cleaning
+# Quality
 # Mirrors the configuration in data_cleaning.py
 # All paths are relative to the data root (docs/source/notebooks/)
 #
@@ -38,7 +38,7 @@ extractors:
 
 workflows:
   - name: skysealand_cleaning
-    type: data-cleaning
+    type: quality
     # Outlier detection
     outliers:
       outlier_threshold: [adaptive, 3.5]
@@ -58,7 +58,7 @@ workflows:
       target-outliers: {warning: 10.0}
       class-outliers: {warning: 12.0}
 
-  # data-cleaning as a step: `cleaning.clean` is the dataset without what it flagged
+  # quality as a step: `cleaning.clean` is the dataset without what it flagged
   - name: clean_export
     inputs: [data]
     steps:

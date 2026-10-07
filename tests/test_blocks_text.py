@@ -89,11 +89,11 @@ class TestProse:
         assert " ".join(line.strip() for line in lines) == _LONG
 
     def test_identifiers_are_never_split(self):
-        text = "set coverage_method='adaptive' and data-coverage/label-space-digest together"
+        text = "set coverage_method='adaptive' and scope/label-space-digest together"
         lines = render_text([Paragraph(text=text)], Frame(width=30))
         words = {word for line in lines for word in line.split()}
         assert "coverage_method='adaptive'" in words
-        assert "data-coverage/label-space-digest" in words
+        assert "scope/label-space-digest" in words
 
     def test_a_single_newline_is_a_hard_break(self):
         assert render_text([Paragraph(text="first\nsecond")], Frame(indent="  ")) == ["  first", "  second"]

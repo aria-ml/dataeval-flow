@@ -389,7 +389,7 @@ class FactorTriageConfig(EvaluatorConfig[FactorTriageResult], MetadataConfigMixi
 
     Reads the Dataset's metadata under its policy and finds each factor the run could not read as configured. It
     suggests a correction or a bin count where one repairs it, and, with ``verify``, reads the metadata back under the
-    suggestions. The ``factor-issues`` check reads its output; ``metadata-triage`` runs both.
+    suggestions. The ``factor-issues`` check reads its output; ``triage`` runs both.
 
     Example YAML::
 

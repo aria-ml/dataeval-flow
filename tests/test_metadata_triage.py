@@ -1,4 +1,4 @@
-"""Tests for the metadata-triage workflow."""
+"""Tests for the triage workflow."""
 
 from typing import Any
 from unittest.mock import MagicMock
@@ -16,14 +16,14 @@ from dataeval_flow._triage_report import build_findings, minority_kind, summariz
 from dataeval_flow.config import ParseValueCorrectionConfig
 from dataeval_flow.evaluators.quality import VerificationEntry
 from dataeval_flow.evaluators.quality._triage import _factor_recovered, places, verify
-from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig, MetadataTriageWorkflow
+from dataeval_flow.workflows.triage import TriageConfig, TriageWorkflow
 from tests.finding_blocks import blocks_of, bullets, column, fields, paragraphs, rendered, sections, tables
 from tests.test_triage import _numeric, _record
 from tests.triage_toys import AltitudeDataset, LatitudeDataset, MixedWeightDataset, OcclusionDataset
 
 
 def test_parameters_default_to_verifying():
-    params = MetadataTriageConfig()
+    params = TriageConfig()
     assert params.verify is True
     assert params.checks.factor_issues.max_examples == 20
     assert params.default_bins == 10
@@ -32,7 +32,7 @@ def test_parameters_default_to_verifying():
 
 def test_parameters_accept_a_named_policy():
     # MetadataConfigMixin is what makes `metadata: standard` resolve.
-    assert MetadataTriageConfig(metadata="standard").metadata == "standard"
+    assert TriageConfig(metadata="standard").metadata == "standard"
 
 
 def _mixed_metadata(n: int = 60) -> Metadata:
@@ -52,7 +52,7 @@ def _describe(metadata: Metadata) -> dict:
 
 
 def test_the_workflow_reports_its_name():
-    assert MetadataTriageWorkflow().name == "metadata-triage"
+    assert TriageWorkflow().name == "triage"
 
 
 def test_a_mixed_column_is_found_and_a_correction_suggested():
@@ -66,7 +66,7 @@ def test_a_mixed_column_is_found_and_a_correction_suggested():
 
 
 def test_the_preset_runs_end_to_end_on_a_real_dataset():
-    result = run(MetadataTriageConfig(), MixedWeightDataset())
+    result = run(TriageConfig(), MixedWeightDataset())
 
     assert result.success is True
     data = result.steps["factor-triage"].output.data()
@@ -192,15 +192,15 @@ def test_a_factor_the_descriptor_pins_is_not_unpinned_whatever_its_provenance():
 def test_the_workflow_is_discoverable():
     from dataeval_flow.workflows import get_workflow, list_workflows
 
-    assert get_workflow("metadata-triage").name == "metadata-triage"
-    assert any(w.name == "metadata-triage" for w in list_workflows())
+    assert get_workflow("triage").name == "triage"
+    assert any(w.name == "triage" for w in list_workflows())
 
 
 def test_the_workflow_config_parses():
-    from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
+    from dataeval_flow.workflows.triage import TriageConfig
 
-    cfg = MetadataTriageConfig(name="triage", metadata="standard")
-    assert cfg.type == "metadata-triage"
+    cfg = TriageConfig(name="triage", metadata="standard")
+    assert cfg.type == "triage"
     assert cfg.verify is True
 
 
@@ -209,7 +209,7 @@ def test_a_pipeline_config_accepts_a_triage_workflow():
 
     PipelineConfig.model_validate(
         {
-            "workflows": [{"name": "triage", "type": "metadata-triage", "metadata": "standard"}],
+            "workflows": [{"name": "triage", "type": "triage", "metadata": "standard"}],
         }
     )
 
@@ -527,7 +527,7 @@ def test_a_box_plot_in_a_triage_finding_fits_the_width():
 
 def _unreadable(dataset: Any) -> Any:
     DatasetCache.clear_instances()
-    result = run(MetadataTriageConfig(), dataset)
+    result = run(TriageConfig(), dataset)
     return next(f for f in result.findings if f.title == "Unreadable factors")
 
 

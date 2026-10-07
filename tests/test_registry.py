@@ -21,15 +21,15 @@ from tests.example_plugin import BrightnessConfig, CountConfig, CountWorkflow
 
 BUILTIN_WORKFLOWS = [
     "audit",
-    "data-bias",
-    "data-cleaning",
-    "data-coverage",
-    "data-prioritization",
-    "data-splitting",
+    "bias",
     "drift-monitoring",
-    "label-space",
-    "metadata-triage",
     "ood-detection",
+    "prioritization",
+    "quality",
+    "scope",
+    "splits",
+    "taxonomy",
+    "triage",
 ]
 
 # `example.count` with the combine and check its chain runs, which a pipeline holding it validates against.
@@ -64,18 +64,18 @@ def test_the_schema_has_a_branch_per_type_with_a_const_type(plugins) -> None:
     plugins["dataeval_flow.workflows"] = [("example.count", "tests.example_plugin:CountWorkflow")]
     schema = PipelineConfig.model_json_schema()
     assert schema["$defs"]["CountConfig"]["properties"]["type"]["const"] == "example.count"
-    assert schema["$defs"]["DataCleaningConfig"]["properties"]["type"]["const"] == "data-cleaning"
+    assert schema["$defs"]["QualityConfig"]["properties"]["type"]["const"] == "quality"
 
 
 def test_an_unknown_type_lists_the_installed_ones() -> None:
-    with pytest.raises(ValidationError, match="data-cleaning"):
+    with pytest.raises(ValidationError, match="quality"):
         PipelineConfig.model_validate({"workflows": [{"type": "no-such-thing"}]})
 
 
 def test_an_invalid_entry_is_located_by_its_index() -> None:
     entries = [
-        {"type": "data-splitting"},
-        {"type": "data-cleaning", "outliers": {"flags": [], "outlier_threshold": "bogus"}},
+        {"type": "splits"},
+        {"type": "quality", "outliers": {"flags": [], "outlier_threshold": "bogus"}},
     ]
     with pytest.raises(ValidationError) as caught:
         PipelineConfig.model_validate({"workflows": entries})
@@ -87,15 +87,15 @@ def test_a_broken_plugin_is_left_out_and_explains_itself(plugins, caplog) -> Non
     with caplog.at_level(logging.WARNING):
         names = [cls.name for cls in list_workflows()]
     assert "example.gone" not in names
-    assert "data-cleaning" in names
+    assert "quality" in names
     assert "example.gone" in caplog.text
     with pytest.raises(ValueError, match="example_plugin_missing"):
         get_workflow("example.gone")
 
 
 def test_a_plugin_cannot_shadow_a_builtin(plugins) -> None:
-    plugins["dataeval_flow.workflows"] = [("data-cleaning", "tests.example_plugin:CountWorkflow")]
-    assert get_workflow("data-cleaning").__name__ == "DataCleaningWorkflow"
+    plugins["dataeval_flow.workflows"] = [("quality", "tests.example_plugin:CountWorkflow")]
+    assert get_workflow("quality").__name__ == "QualityWorkflow"
 
 
 def test_a_plugin_whose_name_disagrees_with_its_class_is_refused(plugins) -> None:
@@ -110,17 +110,17 @@ def test_an_evaluator_plugin_is_listed(plugins) -> None:
 
 
 def test_a_clash_names_both_sides(plugins, caplog) -> None:
-    plugins["dataeval_flow.workflows"] = [("data-cleaning", "tests.example_plugin:CountWorkflow")]
+    plugins["dataeval_flow.workflows"] = [("quality", "tests.example_plugin:CountWorkflow")]
     with caplog.at_level(logging.WARNING):
         list_workflows()
-    assert "'data-cleaning' from an unknown package clashes with the one from dataeval-flow" in caplog.text
+    assert "'quality' from an unknown package clashes with the one from dataeval-flow" in caplog.text
 
 
 @pytest.mark.parametrize(
     ("name", "target", "reason"),
     [
         ("x.gone", "tests.example_plugin_missing:Nope", "example_plugin_missing"),
-        ("data-cleaning", "dataeval_flow.workflows.data_cleaning._workflow:DataCleaningWorkflow", "not a subclass"),
+        ("quality", "dataeval_flow.workflows.quality._workflow:QualityWorkflow", "not a subclass"),
     ],
 )
 def test_a_broken_builtin_raises_and_leaves_nothing_half_loaded(name: str, target: str, reason: str) -> None:
@@ -202,7 +202,7 @@ def test_a_plugin_looking_up_its_own_registry_while_it_loads_is_refused(plugins,
         monkeypatch.setattr(registry_module, "_LOAD_LOCK", threading.RLock())
         pytest.fail("Listing workflows hung on a plugin that looked up the workflow registry while it loaded.")
     assert "example.reentrant" not in listed
-    assert {"example.count", "data-cleaning"} <= set(listed)
+    assert {"example.count", "quality"} <= set(listed)
     with pytest.raises(ValueError, match="looked up the workflow registry while it was loading"):
         get_workflow("example.reentrant")
 
@@ -287,7 +287,7 @@ def test_the_checked_in_schema_holds_the_builtins_alone(plugins) -> None:
     rendered = sync_schema.render()
     assert "example.count" not in rendered
     assert "example.mean" not in rendered
-    assert '"const": "data-cleaning"' in rendered
+    assert '"const": "quality"' in rendered
     assert '"const": "bovw"' in rendered
     installed = PipelineConfig.model_json_schema()["$defs"]
     assert "CountConfig" in installed

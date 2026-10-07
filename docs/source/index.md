@@ -54,16 +54,16 @@ reproducible orchestration layer with native MAITE interoperability.
 
 | T&E task | Workflow type | What it produces |
 | --- | --- | --- |
-| Find and flag dataset quality issues | [`data-cleaning`](reference/presets.md#data-cleaning) | Outliers and duplicates, removed |
+| Find and flag dataset quality issues | [`quality`](reference/presets.md#quality) | Outliers and duplicates, removed |
 | Audit a set of splits before training | [`audit`](reference/presets.md#audit) | A verdict, a record of what was audited, and findings under five questions; also a step after a split ([how-to](how_to/write_a_custom_workflow.md#11-check-a-set-of-splits)) |
-| Check labels against a declared ontology | [`label-space`](reference/presets.md#label-space) | Leaf coverage, conformance, alignment and structure findings |
-| Find gaps in dataset coverage before training | [`data-coverage`](reference/presets.md#data-coverage) | Embedding blind spots and what to acquire per class |
-| Find shortcuts and imbalance in labels and metadata | [`data-bias`](reference/presets.md#data-bias) | Class imbalance, metadata factors tied to the class, and under-represented class-factor combinations |
-| Build stratified or grouped train/val/test splits | [`data-splitting`](reference/presets.md#data-splitting) | Train, val and test splits, stratified or grouped, or k folds, with each part's stratification judged |
+| Check labels against a declared ontology | [`taxonomy`](reference/presets.md#taxonomy) | Leaf coverage, conformance, alignment and structure findings |
+| Find gaps in dataset coverage before training | [`scope`](reference/presets.md#scope) | Embedding blind spots and what to acquire per class |
+| Find shortcuts and imbalance in labels and metadata | [`bias`](reference/presets.md#bias) | Class imbalance, metadata factors tied to the class, and under-represented class-factor combinations |
+| Build stratified or grouped train/val/test splits | [`splits`](reference/presets.md#splits) | Train, val and test splits, stratified or grouped, or k folds, with each part's stratification judged |
 | Monitor operational data for population drift | [`drift-monitoring`](reference/presets.md#drift-monitoring) | Per-batch drift flags and p-values |
 | Flag anomalous individual samples | [`ood-detection`](reference/presets.md#ood-detection) | Per-sample out-of-distribution scores |
-| Rank abundant/unlabeled data for labeling | [`data-prioritization`](reference/presets.md#data-prioritization) | Ranked sample ordering |
-| Find metadata the run could not read | [`metadata-triage`](reference/presets.md#metadata-triage) | Unreadable and unpinned metadata factors, with suggested corrections |
+| Rank abundant/unlabeled data for labeling | [`prioritization`](reference/presets.md#prioritization) | Ranked sample ordering |
+| Find metadata the run could not read | [`triage`](reference/presets.md#triage) | Unreadable and unpinned metadata factors, with suggested corrections |
 | Tune workflow parameters across a grid | Any workflow, with a task matrix | One table comparing every run's findings |
 
 See [Find the Right Step](reference/index.md) to go from a question to the preset or steps that answer it, the

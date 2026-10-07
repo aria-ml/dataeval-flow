@@ -89,7 +89,7 @@ def test_an_evaluator_reading_labels_alone_records_no_encoding() -> None:
 
 
 def test_a_part_read_for_its_labels_leaves_the_whole_s_record_alone() -> None:
-    """data-splitting's shape: the whole set's balance reads its factors, and each part's label-health its labels."""
+    """splits's shape: the whole set's balance reads its factors, and each part's label-health its labels."""
     result = _chain(
         [
             _READ_BALANCE,
@@ -185,7 +185,7 @@ def _read(address: str, policy: ResolvedPolicy | None, name: str | None = None) 
 
 
 def test_reads_whose_policies_differ_only_in_value_range_are_one_record() -> None:
-    """data-cleaning's `label-health` carries the dataset's value range on its policy, and its combine reads with none;
+    """quality's `label-health` carries the dataset's value range on its policy, and its combine reads with none;
     both read one encoding."""
     envelope = ResultMetadata()
     attach_reads(envelope, [_read("data", ResolvedPolicy(value_range=(0.0, 255.0))), _read("data", None)])

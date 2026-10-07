@@ -32,7 +32,7 @@
         "stats": null,
         "metadata": null,
         "name": "skysealand_cleaning",
-        "type": "data-cleaning",
+        "type": "quality",
         "ontology": null,
         "outliers": {
           "flags": [

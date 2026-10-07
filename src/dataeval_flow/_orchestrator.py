@@ -1125,7 +1125,7 @@ def _populate_result_metadata(
         result.metadata.label_space = records
         digests = {record.digest for record in records}
         # Set the scalar only where the run read one vocabulary. A chain whose `label-alignment`
-        # step stamped the digest keeps it, as `label-space`'s does.
+        # step stamped the digest keeps it, as `taxonomy`'s does.
         if len(digests) == 1 and not result.metadata.label_space_digest:
             result.metadata.label_space_digest = records[0].digest
 

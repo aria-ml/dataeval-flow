@@ -33,7 +33,7 @@
 # ## What you will do
 #
 # 1. **Load a dataset**: Fetch SkySeaLand and export it in a layout supported by DataEval Flow.
-# 2. **Analyze the metadata**: Run `metadata-triage` to decide which factors to drop and how to bin the rest.
+# 2. **Analyze the metadata**: Run `triage` to decide which factors to drop and how to bin the rest.
 # 3. **Write the configuration**: Define datasets, sources, extractor, workflows, and tasks in `end_to_end.yaml`.
 # 4. **Run the pipeline**: Execute all tasks in a single call with `run_tasks()`.
 # 5. **Display results**: Inspect text reports, structured findings, and flagged images.
@@ -45,14 +45,14 @@
 #
 # | Task | Workflow | Sources | Extractor | Answers |
 # | --- | --- | --- | --- | --- |
-# | `clean_train` | `data-cleaning` | train | BoVW | Are training samples free of severe outliers and duplicates? |
+# | `clean_train` | `quality` | train | BoVW | Are training samples free of severe outliers and duplicates? |
 # | `audit_splits` | `audit` | train + test | BoVW | Is the data ready to train on, with no leakage between train and test? |
-# | `split_train` | `data-splitting` | train | (none) | How should you partition training data into cross-validation folds? |
+# | `split_train` | `splits` | train | (none) | How should you partition training data into cross-validation folds? |
 
 # %% [markdown]
 # ## What you will learn
 #
-# - How to run `metadata-triage` to decide which factors to exclude and how to bin the rest.
+# - How to run `triage` to decide which factors to exclude and how to bin the rest.
 # - How to declare multiple evaluation workflows in a single YAML configuration file.
 # - How to run end-to-end pipelines using `run_tasks()` in Python.
 # - How to inspect text reports and query structured findings programmatically.
@@ -117,7 +117,7 @@ print(f"Classes:     {train_ds.metadata['index2label']}")
 # %% [markdown]
 # ## Step 2: Analyze the metadata
 #
-# Before you commit to a `metadata:` policy, run the `metadata-triage` preset. It flags factors
+# Before you commit to a `metadata:` policy, run the `triage` preset. It flags factors
 # that carry no information and factors whose bin counts would otherwise be derived silently
 # (and unstably) at run time.
 #
@@ -138,7 +138,7 @@ from dataeval_flow.config import (
     ViewConfig,
     ViewOperation,
 )
-from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
+from dataeval_flow.workflows.triage import TriageConfig
 
 triage_config = PipelineConfig(
     metadata=[MetadataPolicyConfig(name="skysealand_factors", intrinsic_factors=["visual", "pixel"])],
@@ -153,7 +153,7 @@ triage_config = PipelineConfig(
         )
     ],
     sources=[SourceConfig(name="train_src", dataset="skysealand_train", view="sample300")],
-    workflows=[MetadataTriageConfig(name="triage", metadata="skysealand_factors")],
+    workflows=[TriageConfig(name="triage", metadata="skysealand_factors")],
     tasks=[TaskConfig(name="triage_train", workflow="triage", sources="train_src")],
 )
 
@@ -171,7 +171,7 @@ print(f"Degenerate (exclude): {degenerate}")
 print(f"Need explicit bins:   {len(unbinned)} factors")
 
 # %% [markdown]
-# `metadata-triage` flags `label_file_exists`, `instance_missing`, and `unit_missing` as
+# `triage` flags `label_file_exists`, `instance_missing`, and `unit_missing` as
 # degenerate: every frame holds the same value, so the factor separates nothing. It also flags
 # `instance_zeros` for a sentinel-value remap before it can be binned — that judgment call is
 # exactly what the {doc}`metadata triage tutorial <metadata_triage>` covers, so this pipeline excludes
@@ -513,7 +513,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # In this tutorial, you learned how to:
 #
 # - Stage dataset splits in isolated disk directories.
-# - Run `metadata-triage` to decide which factors to exclude and how to bin the rest.
+# - Run `triage` to decide which factors to exclude and how to bin the rest.
 # - Define multi-workflow pipelines in a single YAML configuration file.
 # - Execute pipelines using `run_tasks()` and the container CLI.
 # - Inspect formatted reports and extract structured findings.

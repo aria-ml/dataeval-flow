@@ -15,8 +15,8 @@ every preset that takes it:
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space the preset's labels are read under: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children, read as an inline hierarchy. It is recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` requires it and judges labels against it, and `audit` judges each split's labels against it with `label-conformance`. `data-coverage` refuses it as the config loads, so a data-coverage run on a conformed source records no label space of its own; judge its labels with a `label-space` entry on the same source. |
-| `stats` | a stats policy name, or `null` | `null` | The name of a policy under the top-level `stats:` key, which the preset's image statistics are measured under. Declare one to measure named band groups or the image background; leave it unset to measure the whole image. `audit` and `data-cleaning` pass it to their `outliers` and `duplicates` steps, and outlier detection reads the policy's `outliers_from` views. `ood-detection` passes it to `factor-predictors` and `factor-deviation`, which read the statistics beside the metadata factors. |
+| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space the preset's labels are read under: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children, read as an inline hierarchy. It is recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` requires it and judges labels against it, and `audit` judges each split's labels against it with `label-conformance`. `scope` refuses it as the config loads, so a scope run on a conformed source records no label space of its own; judge its labels with a `taxonomy` entry on the same source. |
+| `stats` | a stats policy name, or `null` | `null` | The name of a policy under the top-level `stats:` key, which the preset's image statistics are measured under. Declare one to measure named band groups or the image background; leave it unset to measure the whole image. `audit` and `quality` pass it to their `outliers` and `duplicates` steps, and outlier detection reads the policy's `outliers_from` views. `ood-detection` passes it to `factor-predictors` and `factor-deviation`, which read the statistics beside the metadata factors. |
 | `metadata` | a metadata policy name, or `null` | `null` | The name of a policy under the top-level `metadata:` key, which the preset's metadata factors are read under. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave it unset for DataEval's defaults. The preset passes it to every step of its chain that reads metadata. |
 
 ## `audit`
@@ -197,7 +197,7 @@ tasks:
   - {name: audit-splits, workflow: release-audit, sources: [train, validation, test], extractor: bovw_ext}
 ```
 
-## `data-cleaning`
+## `quality`
 
 Outlier and duplicate detection for image datasets, and the dataset without them.
 
@@ -219,7 +219,7 @@ Outlier and duplicate detection for image datasets, and the dataset without them
 | `image-duplicates` | check | [`image-duplicates`](checks.md#image-duplicates) | `input`: `duplicates` |
 | `clean` | transform | [`remove`](transforms.md#remove) | `input`: `data`; `plans`: `duplicates`, `outliers` |
 
-**Settings** ({py:class}`~dataeval_flow.workflows.data_cleaning.DataCleaningConfig`):
+**Settings** ({py:class}`~dataeval_flow.workflows.quality.QualityConfig`):
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -230,7 +230,7 @@ Outlier and duplicate detection for image datasets, and the dataset without them
 | `duplicates` | a block | `merge_near_duplicates: true`, and the step's own defaults otherwise | [`duplicates`](evaluators.md#duplicates)'s `flags`, `merge_near_duplicates`, `cluster_sensitivity`, `cluster_algorithm` and `n_clusters` |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
-**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.data_cleaning.DataCleaningChecks`):
+**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.quality.QualityChecks`):
 
 | Check | Default settings |
 | --- | --- |
@@ -246,7 +246,7 @@ removes each image and box with at least one outlier flag, and each exact or nea
 
 Its report gives each finding a section, with the evaluators it judged below it: the flagged images and boxes under
 Image Outliers, and the duplicate groups under Image Duplicates. The class counts sit under Target Outliers where any box
-was flagged, else in a Label Health section of their own; class balance is [`data-bias`](#data-bias)'s. A finding
+was flagged, else in a Label Health section of their own; class balance is [`bias`](#bias)'s. A finding
 that read a step shown
 already names the finding it is under, as Class Outliers names Image Outliers for the outliers `outliers-by-class`
 counted. `clean`'s section follows, saying how many images it kept and what each plan named. On MILCO's reference
@@ -260,7 +260,7 @@ Run as a step of a custom workflow, `<step>.clean` reads the cleaned Dataset. Se
 ```yaml
 workflows:
   - name: cleaning
-    type: data-cleaning
+    type: quality
     outliers: {flags: [pixel, visual], outlier_threshold: zscore}
     checks:
       image-outliers: {warning: 5.0}
@@ -269,7 +269,7 @@ tasks:
   - {name: clean-train, workflow: cleaning, sources: [train]}
 ```
 
-## `label-space`
+## `taxonomy`
 
 Judges a Dataset's labels against a declared ontology: leaf coverage, conformance, alignment and structure.
 
@@ -290,7 +290,7 @@ Judges a Dataset's labels against a declared ontology: leaf coverage, conformanc
 | `ontology-validation` | evaluator | [`ontology-validation`](evaluators.md#ontology-validation) | `input`: `data` |
 | `ontology-structure` | check | [`ontology-structure`](checks.md#ontology-structure) | `input`: `ontology-validation` |
 
-**Settings** ({py:class}`~dataeval_flow.workflows.label_space.LabelSpaceConfig`):
+**Settings** ({py:class}`~dataeval_flow.workflows.taxonomy.TaxonomyConfig`):
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -299,7 +299,7 @@ Judges a Dataset's labels against a declared ontology: leaf coverage, conformanc
 | `ontology-validation` | a block | the step's own defaults | [`ontology-validation`](evaluators.md#ontology-validation)'s `label_pattern`; the preset sets its `ontology` |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
-**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.label_space.LabelSpaceChecks`):
+**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.taxonomy.TaxonomyChecks`):
 
 | Check | Default settings |
 | --- | --- |
@@ -308,14 +308,14 @@ Judges a Dataset's labels against a declared ontology: leaf coverage, conformanc
 
 The `label-mergeability` and `ontology-structure` checks take no `checks:` entry. The ontology is the sanctioned label space,
 so the preset can name a class that was never collected, which counting the dataset's own labels cannot. It is the only
-preset that judges labels against an ontology: `data-coverage` refuses `ontology:`, so run a `label-space` entry on the
+preset that judges labels against an ontology: `scope` refuses `ontology:`, so run a `taxonomy` entry on the
 same source beside it. The ontology is declared inline, loaded from an RDF file, or named from the shared `ontologies:`
 block; `ontology:` has no default. See [Declare an ontology](../how_to/declare_an_ontology.md).
 
 ```yaml
 workflows:
   - name: vocab-check
-    type: label-space
+    type: taxonomy
     ontology:
       animal:
         mammal: [cat, dog]
@@ -325,7 +325,7 @@ tasks:
   - {name: vocab, workflow: vocab-check, sources: [train]}
 ```
 
-## `data-coverage`
+## `scope`
 
 Judges how a Dataset's embeddings cover their space, and what to acquire per class; detections are cropped first.
 
@@ -347,18 +347,18 @@ detection data and passes other Datasets through:
 | `representation` | evaluator | [`representation`](evaluators.md#representation) | `input`: `data` |
 | `class-shortfall` | check | [`class-shortfall`](checks.md#class-shortfall) | `input`: `representation` |
 
-**Settings** ({py:class}`~dataeval_flow.workflows.data_coverage.DataCoverageConfig`):
+**Settings** ({py:class}`~dataeval_flow.workflows.scope.ScopeConfig`):
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
-| `ontology` | `null`; any other value is refused | `null` | Refused when set, as the config loads: judge the labels with a `label-space` entry on the same source; see [Settings every preset shares](#settings-every-preset-shares) |
+| `ontology` | `null`; any other value is refused | `null` | Refused when set, as the config loads: judge the labels with a `taxonomy` entry on the same source; see [Settings every preset shares](#settings-every-preset-shares) |
 | `representation` | a block | the step's own defaults | [`representation`](evaluators.md#representation)'s `expected`: each class's minimum share |
 | `coverage` | a block | `method: adaptive`, `num_observations: 50` where the step's own default is DataEval's 20, and the step's other defaults | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples` and `near_duplicate_factor`; the step runs when the task names an extractor |
 | `wrap` | a block | `params: {padding: 0.0, min_size: 1}` | [`wrap`](transforms.md#wrap)'s `params`, used on detection data only; the preset fixes the wrapper |
 | `completeness` | `true` or `false` | `true` | Whether the completeness steps run, when the task names an extractor |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
-**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.data_coverage.DataCoverageChecks`):
+**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.scope.ScopeChecks`):
 
 | Check | Default settings |
 | --- | --- |
@@ -372,14 +372,14 @@ sound. The preset lists the classes that fall short of their expected share. Whe
 plentiful by count and still occupy little of the representation space, which the embedding steps show. `naive` coverage
 is judged by an `uncovered-items` step. The chain is the same without an extractor, but the `coverage` and
 `completeness` steps are then skipped with "requires an extractor". Class balance and the metadata factors, with the
-class-factor combinations a factor tied to the class leaves under-represented, are [`data-bias`](#data-bias)'s; run it
+class-factor combinations a factor tied to the class leaves under-represented, are [`bias`](#bias)'s; run it
 on the same source. Run both before training and before fixing a reference set, while a gap can still be closed by
 collecting more data. See [Dataset Coverage](../concepts/Coverage.md).
 
 ```yaml
 workflows:
   - name: coverage
-    type: data-coverage
+    type: scope
     coverage: {method: naive}
     checks:
       uncovered-items: {warning: 5.0}
@@ -388,7 +388,7 @@ tasks:
   - {name: coverage-train, workflow: coverage, sources: [train], extractor: bovw_ext}
 ```
 
-## `data-bias`
+## `bias`
 
 Judges a Dataset's class balance and how its metadata factors relate to the class: shortcuts, association and
 under-represented combinations.
@@ -413,7 +413,7 @@ under-represented combinations.
 | `factor-gaps` | combine | [`factor-gaps`](combines.md#factor-gaps) | `input`: `data`; `balance`: `balance` |
 | `factor-coverage-gaps` | check | [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `input`: `factor-gaps` |
 
-**Settings** ({py:class}`~dataeval_flow.workflows.data_bias.DataBiasConfig`):
+**Settings** ({py:class}`~dataeval_flow.workflows.bias.BiasConfig`):
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -423,7 +423,7 @@ under-represented combinations.
 | `factor-gaps` | a block, or `false` | `mi_threshold: 0.1`, `min_representation: 5` | [`factor-gaps`](combines.md#factor-gaps)'s `mi_threshold` and `min_representation`; `false` leaves out the gap analysis and its check |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
-**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.data_bias.DataBiasChecks`):
+**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.bias.BiasChecks`):
 
 | Check | Default settings |
 | --- | --- |
@@ -438,14 +438,14 @@ information) and whether that association is significant (`factor-parity`, by Cr
 the factors tied to the class, `factor-coverage-gaps` lists the class-factor-value combinations held too rarely, which
 collecting more data can close. Diversity and the factor summary are report sections. It reads labels and metadata
 only, so it needs no extractor; a source with no metadata factors still judges its class balance, and its factor checks
-are not assessed. Run it beside [`data-coverage`](#data-coverage) on the same source: each judges what the other
+are not assessed. Run it beside [`scope`](#scope) on the same source: each judges what the other
 leaves out. See DataEval's [Dataset Bias
 explanation](https://dataeval.readthedocs.io/en/latest/concepts/DatasetBias.html).
 
 ```yaml
 workflows:
   - name: bias
-    type: data-bias
+    type: bias
     checks:
       shortcut-risk: {warning: 0.2}
 
@@ -453,7 +453,7 @@ tasks:
   - {name: bias-train, workflow: bias, sources: [train]}
 ```
 
-## `data-splitting`
+## `splits`
 
 Splits a Dataset into train, val and test, or k folds, and judges each part's stratification; with `folds` of 2 or
 more, `train` and `val` are lists keyed by fold.
@@ -475,7 +475,7 @@ more, `train` and `val` are lists keyed by fold.
 | `label-health-rebalanced` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `rebalanced` |
 | `class-stratification` | check | [`class-stratification`](checks.md#class-stratification) | `input`: `label-health`; `parts`: `label-health-train`, `label-health-val`, `label-health-test`; `shown`: `label-health-rebalanced` |
 
-**Settings** ({py:class}`~dataeval_flow.workflows.data_splitting.DataSplittingConfig`):
+**Settings** ({py:class}`~dataeval_flow.workflows.splits.SplitsConfig`):
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -489,7 +489,7 @@ more, `train` and `val` are lists keyed by fold.
 | `rebalance` | `global`, `interclass`, or `null` | `null` | DataEval's `ClassBalance` method applied to each train; unset rebalances nothing. |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
-**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.data_splitting.DataSplittingChecks`):
+**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.splits.SplitsChecks`):
 
 | Check | Default settings |
 | --- | --- |
@@ -498,7 +498,7 @@ more, `train` and `val` are lists keyed by fold.
 The chain reads the whole set's labels, splits it (`folds: 1`) or cuts it into k folds (`folds` of 2 or more) with a
 shared test part, optionally rebalances each train, and judges each part's labels and its stratification against the
 whole. Its findings are Class Stratification for each fold. The whole set's class balance and metadata factors are
-[`data-bias`](#data-bias)'s; run it on the source before splitting it. The result is a `ChainResult`, and each part's
+[`bias`](#bias)'s; run it on the source before splitting it. The result is a `ChainResult`, and each part's
 indices into the source are in `result.steps["split"].details["indices"]`. Run as a step of a custom workflow, the
 entry hands on three Datasets: `<step>.train` (the rebalanced train, where the entry sets `rebalance:`), `<step>.val`
 and `<step>.test`. The preset does not judge coverage, leakage or shift: run [`audit`](#audit) as a step after it, as
@@ -508,7 +508,7 @@ and `<step>.test`. The preset does not judge coverage, leakage or shift: run [`a
 ```yaml
 workflows:
   - name: splitting
-    type: data-splitting
+    type: splits
     test_frac: 0.2
     rebalance: interclass
 
@@ -635,7 +635,7 @@ tasks:
   - {name: ood-operational, workflow: ood, sources: [train, operational], extractor: bovw_ext}
 ```
 
-## `data-prioritization`
+## `prioritization`
 
 Ranks each pool against a reference for labeling, and keeps the top.
 
@@ -652,7 +652,7 @@ Ranks each pool against a reference for labeling, and keeps the top.
 | `prioritization` | evaluator | [`prioritization`](evaluators.md#prioritization) | `input`: `pools`, `reference` |
 | `selected` | transform | [`select`](transforms.md#select) | `input`: `pools`; `ranking`: `prioritization` |
 
-**Settings** ({py:class}`~dataeval_flow.workflows.data_prioritization.DataPrioritizationConfig`):
+**Settings** ({py:class}`~dataeval_flow.workflows.prioritization.PrioritizationConfig`):
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -668,7 +668,7 @@ See [Data Prioritization](../concepts/Prioritization.md).
 ```yaml
 workflows:
   - name: prioritization
-    type: data-prioritization
+    type: prioritization
     prioritization: {method: knn, k: 5}
     select: {n: 200}
 
@@ -676,18 +676,18 @@ tasks:
   - {name: next-labels, workflow: prioritization, sources: [labeled, unlabeled], extractor: bovw_ext}
 ```
 
-To rank clean data, run the preset as a step of a custom workflow, after a [`data-cleaning`](#data-cleaning) step on
+To rank clean data, run the preset as a step of a custom workflow, after a [`quality`](#quality) step on
 the reference and one on the pools. A step over the pools runs once per pool, so `pool-clean.clean` is a list keyed by
 pool, and `rank.selected` is too:
 
 ```yaml
 workflows:
   - name: cleaning
-    type: data-cleaning
+    type: quality
     outliers: {flags: [pixel, visual], outlier_threshold: zscore}
 
   - name: prioritization
-    type: data-prioritization
+    type: prioritization
     prioritization: {method: knn, k: 5}
     select: {n: 200}
 
@@ -702,13 +702,15 @@ tasks:
   - {name: next-labels, workflow: clean_then_rank, sources: [labeled, unlabeled], extractor: bovw_ext}
 ```
 
-`data-cleaning` removes exact and near duplicates. To keep near duplicates, clean with an `outliers` step, a
+`quality` removes exact and near duplicates. To keep near duplicates, clean with an `outliers` step, a
 `duplicates` step and a `remove` step whose duplicates plan sets `dup_types: [exact]`; see
 [`remove`](transforms.md#remove).
 
-## `metadata-triage`
+## `triage`
 
 Reports unreadable and unpinned metadata factors, with suggested corrections.
+
+Checks what can be read from metadata and annotations alone, without pixels or embeddings, so it is cheap and runs first. Label and box checks are planned.
 
 - **Answers:** [Is the metadata readable?](index.md#is-the-metadata-readable)
 - **Reads:** `data`, the task's one source.
@@ -721,7 +723,7 @@ Reports unreadable and unpinned metadata factors, with suggested corrections.
 | `factor-triage` | evaluator | [`factor-triage`](evaluators.md#factor-triage) | `input`: `data` |
 | `factor-issues` | check | [`factor-issues`](checks.md#factor-issues) | `input`: `factor-triage` |
 
-**Settings** ({py:class}`~dataeval_flow.workflows.metadata_triage.MetadataTriageConfig`):
+**Settings** ({py:class}`~dataeval_flow.workflows.triage.TriageConfig`):
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -732,7 +734,7 @@ Reports unreadable and unpinned metadata factors, with suggested corrections.
 | `default_bins` | a count | `10` | Bin count a suggestion falls back to where the run left no fit to read. Where there is one, the populated bins of the derived cut are carried forward instead, which pins the cut the run used rather than substituting a different one. |
 | `min_missing_fraction` | a fraction | `0.2` | Share of rows recording no value above which a factor is called degenerate. |
 
-**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.metadata_triage.MetadataTriageChecks`):
+**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.triage.TriageChecks`):
 
 | Check | Default settings |
 | --- | --- |
@@ -747,7 +749,7 @@ records the encoding `factor-triage` read, which `dataeval-flow encoding` writes
 ```yaml
 workflows:
   - name: triage
-    type: metadata-triage
+    type: triage
     verify: true
     checks:
       factor-issues: {max_examples: 10}

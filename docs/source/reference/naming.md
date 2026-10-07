@@ -25,12 +25,11 @@ A check's findings carry its title, so the name a user reads in a report is the 
 
 Guard test: `test_a_step_type_and_its_title_name_one_thing`.
 
-### Types are unique across kinds
+### A name may repeat across kinds
 
-No two registered step types share a name, whatever their kinds. `outliers` is an evaluator, and the combine that
-groups it by class is `outliers-by-class`, so each name picks out one step.
-
-Guard test: `test_no_two_step_types_share_a_name_across_kinds`.
+Every entry point names the kind: a config's `workflows:` or `evaluators:` key, a chain step's `evaluator:`,
+`check:` or `workflow:` key, and `dataeval-flow run`'s positional (a workflow) versus `--evaluator`. So
+`prioritization` names a preset and an evaluator. `dataeval-flow steps KIND:NAME` picks one where both exist.
 
 ### Each kind has a pattern
 
@@ -47,7 +46,10 @@ Convention, no guard test. No test reads a step type for a suffix, so the check 
 - **A check** is named for what it judges, never for the statistic it uses, so it carries no `-rate` or `-score` suffix:
   `image-outliers`, `uncovered-items`, `dimensional-completeness`.
 - **A transform** is a verb: `split`, `select`, `remove`, `merge`.
-- **A preset** is named for the question it answers: `data-cleaning`, `drift-monitoring`.
+- **A preset** whose question is a DataEval module's takes the module's name: `bias`, `quality`, `scope`, `shift`.
+  Any other preset is named for its question or what it makes: `taxonomy`, `triage`, `prioritization`, `splits`,
+  `audit`. One lowercase word where one word is unambiguous; never a `data-` prefix, and never a chain-wide setting
+  key (`metadata`, `stats`, `ontology`).
 
 ### A description is one sentence
 
@@ -121,22 +123,22 @@ A preset's settings follow these rules. Each rule names its guard tests, or is m
   `outlier_` or `duplicate_` prefix) and `test_a_presets_step_block_holds_only_that_steps_own_settings` (a block holds
   only settings its step takes). The meaning and the narrowing rules are conventions with no guard test.
 - **The main step's settings sit at the top level.** A preset built around one main step keeps that step's settings at
-  the top, though its chain runs more steps: `data-splitting` takes its `split` or `kfold` step's `test_frac`,
-  `val_frac` and `folds`, and `metadata-triage` takes its `factor-triage` step's `verify` and `default_bins`. The
+  the top, though its chain runs more steps: `splits` takes its `split` or `kfold` step's `test_frac`,
+  `val_frac` and `folds`, and `triage` takes its `factor-triage` step's `verify` and `default_bins`. The
   `detectors:` lists of `drift-monitoring` and `ood-detection` sit there too. Convention, no guard test.
 - **Other steps sit under their type.** Every other step's settings sit under a key named for its type. A block may take
   a subset of what that type's own entry would hold, leaving out what the preset fixes or does not offer, but never a
-  setting the step does not take. `data-coverage`'s `coverage:` block holds `coverage`'s settings, and `data-cleaning`'s
+  setting the step does not take. `scope`'s `coverage:` block holds `coverage`'s settings, and `quality`'s
   `duplicates:` block holds five of `duplicates`' settings. Setting a block to `false` switches its step off where the
-  preset already allows that, as `factor-gaps: false` does on `data-bias`. `data-coverage`'s `completeness: false`
+  preset already allows that, as `factor-gaps: false` does on `bias`. `scope`'s `completeness: false`
   switches the completeness steps off too, though `completeness` is a switch, `true` or `false`, rather than a block.
   Guard test that a block holds no setting its step does not take:
   `test_a_presets_step_block_holds_only_that_steps_own_settings`. The `false` switch is a convention with no guard test.
 - **`checks:` is keyed by check type.** Each value holds that check's own settings, spelled in the check's words, and
-  never a setting the check does not take. `data-cleaning`'s `checks:` has an `image-outliers` key holding
+  never a setting the check does not take. `quality`'s `checks:` has an `image-outliers` key holding
   `warning`. Guard test: `test_a_presets_checks_are_keyed_by_check_type_in_each_checks_own_words`.
 - **Preset-wide settings stay flat.** `metadata`, `stats` and `ontology` apply to the whole chain. So do choices that
-  no single step takes verbatim: `data-splitting`'s `rebalance` and `drift-monitoring`'s `classwise`. Convention, no
+  no single step takes verbatim: `splits`'s `rebalance` and `drift-monitoring`'s `classwise`. Convention, no
   guard test.
 
 The [preset catalog](presets.md) lists each preset's settings and `checks:` defaults.
@@ -148,12 +150,12 @@ banners, so they follow one rule. Guard test for the first two rules:
 `test_a_presets_steps_are_named_for_their_types`.
 
 - **Named for its type.** An evaluator, combine or check step is named for its type, and a preset's own evaluator
-  entries are named for their type. `data-cleaning` runs `outliers`, then `image-outliers`.
+  entries are named for their type. `quality` runs `outliers`, then `image-outliers`.
 - **`<type>-<role>` for a second role.** When one type serves several roles in a chain, the role is appended:
-  `data-prioritization` runs `outliers-reference` and `outliers-pool`. The test accepts
+  `prioritization` runs `outliers-reference` and `outliers-pool`. The test accepts
   `<type>` or `<type>-<anything>`, so it does not check the role's name.
-- **A transform is named for the Dataset it makes.** `data-cleaning`'s `remove` step is named `clean`, and
-  `data-prioritization`'s `select` step is named `selected`. The test skips transforms, so
+- **A transform is named for the Dataset it makes.** `quality`'s `remove` step is named `clean`, and
+  `prioritization`'s `select` step is named `selected`. The test skips transforms, so
   this rule is a convention with no guard test.
 - **A detector entry keeps its name.** A step over a user-named detector entry takes the entry's name, and the steps
   made per entry add a suffix: `<entry>-check`, `<entry>-by-class` and `<entry>-by-class-check`. Two presets refuse
@@ -183,9 +185,9 @@ fails these is logged and left out, and a plugin can never take a built-in's nam
 | Step class | `<Type><Kind>` | `ImageOutliersCheck`, `OutliersByClassCombine` | `test_a_step_class_is_named_for_its_type_and_kind` |
 | Step config | `<Type>Config` | `ImageOutliersConfig`, `DriftConfig` | `test_a_step_config_is_named_for_its_type` |
 | Flow's own Output | `<Type>Output` | `FactorSummaryOutput`, `OutliersByClassOutput` | `test_an_output_flow_defines_is_named_for_its_type` |
-| A preset's `checks:` model | `<Preset>Checks` | `DataCleaningChecks`, `MetadataTriageChecks` | convention, no guard test |
+| A preset's `checks:` model | `<Preset>Checks` | `QualityChecks`, `TriageChecks` | convention, no guard test |
 | A block keyed by a step type | `<Type>Settings` | `OutliersSettings` | convention, no guard test |
-| The same, where presets differ | `<Preset><Type>Settings` | `DataSplittingClassImbalanceSettings` | convention, no guard test |
+| The same, where presets differ | `<Preset><Type>Settings` | `SplitsClassImbalanceSettings` | convention, no guard test |
 
 - **Step classes** are `<Type><Kind>`, with the kind as the suffix. A class's name lowercased equals its type squashed
   plus its kind.
@@ -199,7 +201,7 @@ fails these is logged and left out, and a plugin can never take a built-in's nam
   keyed by a step type is `<Type>Settings`. Where more than one preset defines its own model for one type, each is
   `<Preset><Type>Settings`, because the config schema keys its `$defs` by class name and two models with one name
   would get mangled names. Where two presets take the same block they share one model: `audit`'s `outliers:` reuses
-  `data-cleaning`'s `OutliersSettings`.
+  `quality`'s `OutliersSettings`.
 - **One home per public name.** A name is exported from one package. `Finding` is exported from `dataeval_flow.steps`,
   beside `Check`, `CheckConfig` and `StepResult`, and not from `dataeval_flow.workflows`. Guard test:
   `test_finding_is_exported_beside_check_and_only_there`. The `list_<kind>s` and `get_<kind>` helpers stay with their

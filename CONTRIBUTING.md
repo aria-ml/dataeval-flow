@@ -78,7 +78,7 @@ Every public name has one home. Take the first rule that fits:
 2. **A doer → `dataeval_flow.workflows` or `dataeval_flow.evaluators`.** The package
    holds its kind's framework: the base class, config and result bases, context,
    `get_*` and `list_*`. Each built-in type has a subpackage named after its type id
-   (`data-cleaning` → `.data_cleaning`, `quality.*` → `.quality`) exporting what typed
+   (`quality` → `.data_cleaning`, `quality.*` → `.quality`) exporting what typed
    code names: its config, its result and the models inside them.
 3. **Anything else a pipeline file describes → `dataeval_flow.config`.** The plain
    sections share one flat list: datasets, sources, views, preprocessors, metadata,

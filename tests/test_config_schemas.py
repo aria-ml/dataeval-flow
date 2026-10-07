@@ -26,7 +26,7 @@ from dataeval_flow.config.extractors import (
 )
 from dataeval_flow.steps import Finding
 from dataeval_flow.workflows import WorkflowConfig
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.quality import QualityConfig
 
 pytestmark = pytest.mark.required
 
@@ -37,53 +37,53 @@ VALID_REQUIRED_PARAMS = {
 
 
 class TestDataCleaningConfig:
-    """Test DataCleaningConfig schema."""
+    """Test QualityConfig schema."""
 
     def test_required_fields_missing(self):
         """Missing required fields raise ValidationError (CR-4.14-G-1)."""
         with pytest.raises(ValidationError, match="outliers"):
-            DataCleaningConfig()  # type: ignore[call-arg]
+            QualityConfig()  # type: ignore[call-arg]
 
     def test_required_fields_partial(self):
         """Partial required fields raise ValidationError."""
         with pytest.raises(ValidationError, match="flags"):
-            DataCleaningConfig(outliers={"outlier_threshold": "iqr"})  # type: ignore[typeddict-item]
+            QualityConfig(outliers={"outlier_threshold": "iqr"})  # type: ignore[typeddict-item]
 
     def test_required_fields_complete(self):
         """All required fields provided succeeds."""
-        params = DataCleaningConfig(**VALID_REQUIRED_PARAMS)  # type: ignore[arg-type]
+        params = QualityConfig(**VALID_REQUIRED_PARAMS)  # type: ignore[arg-type]
         assert params.outliers.outlier_threshold == "modzscore"
         assert params.outliers.flags == ["dimension", "pixel", "visual"]
 
     def test_optional_defaults(self):
         """Optional fields have safe defaults."""
-        params = DataCleaningConfig(**VALID_REQUIRED_PARAMS)  # type: ignore[arg-type]
+        params = QualityConfig(**VALID_REQUIRED_PARAMS)  # type: ignore[arg-type]
         assert params.outliers.cluster_threshold is None
         assert params.duplicates.flags is None
         assert params.duplicates.merge_near_duplicates is None
 
     def test_custom_values(self):
         """Parameters accept custom values."""
-        params = DataCleaningConfig(outliers={"outlier_threshold": ("iqr", 2.5), "flags": ["pixel", "visual"]})  # type: ignore[arg-type]
+        params = QualityConfig(outliers={"outlier_threshold": ("iqr", 2.5), "flags": ["pixel", "visual"]})  # type: ignore[arg-type]
         assert params.outliers.outlier_threshold == ("iqr", 2.5)
         assert params.outliers.flags == ["pixel", "visual"]
 
     def test_empty_outlier_flags_rejected(self):
         """Empty outliers flags list raises ValidationError."""
         with pytest.raises(ValidationError, match="flags"):
-            DataCleaningConfig(outliers={"outlier_threshold": "modzscore", "flags": []})  # type: ignore[arg-type]
+            QualityConfig(outliers={"outlier_threshold": "modzscore", "flags": []})  # type: ignore[arg-type]
 
     def test_invalid_duplicate_flag_rejected(self):
         """Invalid duplicates flags value raises ValidationError."""
         with pytest.raises(ValidationError, match="flags"):
-            DataCleaningConfig(
+            QualityConfig(
                 outliers={"outlier_threshold": "modzscore", "flags": ["dimension"]},  # type: ignore[arg-type]
                 duplicates={"flags": ["invalid_hash"]},  # type: ignore[list-item]
             )
 
     def test_valid_hash_flags_accepted(self):
         """Valid duplicates flags values are accepted."""
-        params = DataCleaningConfig(
+        params = QualityConfig(
             outliers={"outlier_threshold": "modzscore", "flags": ["dimension"]},  # type: ignore[arg-type]
             duplicates={"flags": ["hash_basic", "hash_d4"]},  # type: ignore[arg-type]
         )
@@ -96,7 +96,7 @@ class TestYAMLValidationEdgeCases:
     def test_unknown_field_name_raises(self):
         """An unknown setting (typo) in a block is refused, naming it."""
         with pytest.raises(ValidationError, match="outler_threshold"):
-            DataCleaningConfig(
+            QualityConfig(
                 outliers={
                     "outler_threshold": "iqr",
                     "flags": ["dimension", "pixel", "visual"],
@@ -106,14 +106,14 @@ class TestYAMLValidationEdgeCases:
     def test_wrong_type_instead_of_number(self):
         """An outlier_threshold of the wrong type raises ValidationError."""
         with pytest.raises(ValidationError, match="outlier_threshold"):
-            DataCleaningConfig(
+            QualityConfig(
                 outliers={"outlier_threshold": [1, 2, 3, 4, 5], "flags": ["dimension", "pixel", "visual"]},  # type: ignore[arg-type]
             )
 
     def test_invalid_outlier_flag_value(self):
         """Invalid outlier flag value raises ValidationError."""
         with pytest.raises(ValidationError, match="flags"):
-            DataCleaningConfig(outliers={"outlier_threshold": "iqr", "flags": ["invalid_flag"]})  # type: ignore[arg-type]
+            QualityConfig(outliers={"outlier_threshold": "iqr", "flags": ["invalid_flag"]})  # type: ignore[arg-type]
 
 
 class TestUnifiedConfig:
@@ -132,7 +132,7 @@ class TestUnifiedConfig:
             "    dataset: train\n"
             "workflows:\n"
             "  - name: iqr_clean\n"
-            "    type: data-cleaning\n"
+            "    type: quality\n"
             "    outliers:\n"
             "      outlier_threshold: iqr\n"
             "      flags: [dimension, pixel, visual]\n"
@@ -149,7 +149,7 @@ class TestUnifiedConfig:
         assert config.tasks[0].workflow == "iqr_clean"
         assert config.workflows is not None
         wf = config.workflows[0]
-        assert isinstance(wf, DataCleaningConfig)
+        assert isinstance(wf, QualityConfig)
         assert wf.outliers.outlier_threshold == "iqr"
 
     def test_load_config_file_not_found(self):
@@ -566,16 +566,16 @@ class TestP1SchemaClasses:
         """TaskConfig accepts sources as a list."""
         from dataeval_flow.config import TaskConfig
 
-        task = TaskConfig(name="multi", workflow="data-cleaning", sources=["src_a", "src_b"])
+        task = TaskConfig(name="multi", workflow="quality", sources=["src_a", "src_b"])
         assert task.sources == ["src_a", "src_b"]
 
     def test_task_config_minimal(self):
         """TaskConfig with only required fields."""
         from dataeval_flow.config import TaskConfig
 
-        task = TaskConfig(name="minimal", workflow="data-cleaning", sources="test_src")
+        task = TaskConfig(name="minimal", workflow="quality", sources="test_src")
         assert task.name == "minimal"
-        assert task.workflow == "data-cleaning"
+        assert task.workflow == "quality"
         assert task.sources == "test_src"
         assert task.extractor is None
 
@@ -610,11 +610,11 @@ class TestP1SchemaClasses:
             "    output_name: flatten0\n"
             "    batch_size: 64\n"
             "workflows:\n"
-            "  - type: data-cleaning\n"
+            "  - type: quality\n"
             "    outliers: {flags: [pixel], outlier_threshold: zscore}\n"
             "tasks:\n"
             "  - name: clean\n"
-            "    workflow: data-cleaning\n"
+            "    workflow: quality\n"
             "    sources: cppe5_src\n"
             "    extractor: resnet_ext\n"
         )
@@ -775,7 +775,7 @@ class TestResultConfig:
             f"result:\n  per_task: {str(per_task).lower()}\n"
             "datasets:\n  - name: ds\n    format: image_folder\n    path: ./d\n"
             "sources:\n  - name: src\n    dataset: ds\n"
-            "workflows:\n  - name: wf\n    type: data-cleaning\n"
+            "workflows:\n  - name: wf\n    type: quality\n"
             "    outliers: {flags: [dimension], outlier_threshold: iqr}\n"
             "tasks:\n  - name: train/clean\n    workflow: wf\n    sources: src\n"
         )
@@ -790,20 +790,20 @@ class TestWorkflowConfig:
     """Workflow config entries, alone and in a pipeline."""
 
     def test_cleaning_workflow_config_basic(self):
-        """DataCleaningConfig stores name, type, and its blocks."""
-        wc = DataCleaningConfig(
+        """QualityConfig stores name, type, and its blocks."""
+        wc = QualityConfig(
             name="aggressive_clean",
             outliers={"flags": ["dimension", "pixel"], "outlier_threshold": "zscore"},  # type: ignore[arg-type]
         )
         assert wc.name == "aggressive_clean"
-        assert wc.type == "data-cleaning"
+        assert wc.type == "quality"
         assert wc.outliers.outlier_threshold == "zscore"
         assert wc.outliers.flags == ["dimension", "pixel"]
 
     def test_cleaning_workflow_config_requires_fields(self):
-        """DataCleaningConfig requires its outliers block."""
+        """QualityConfig requires its outliers block."""
         with pytest.raises(ValidationError):
-            DataCleaningConfig(name="empty")  # type: ignore[call-arg]
+            QualityConfig(name="empty")  # type: ignore[call-arg]
 
     def test_drift_workflow_config_basic(self):
         """DriftMonitoringConfig stores name, type, and flat params."""
@@ -821,10 +821,10 @@ class TestWorkflowConfig:
         config_file.write_text(
             "workflows:\n"
             "  - name: standard_clean\n"
-            "    type: data-cleaning\n"
+            "    type: quality\n"
             "    outliers: {flags: [dimension, pixel, visual], outlier_threshold: adaptive}\n"
             "  - name: strict_clean\n"
-            "    type: data-cleaning\n"
+            "    type: quality\n"
             "    outliers: {flags: [dimension], outlier_threshold: zscore}\n"
         )
 
@@ -834,7 +834,7 @@ class TestWorkflowConfig:
         assert config.workflows[0].name == "standard_clean"
         assert config.workflows[1].name == "strict_clean"
         wf = config.workflows[0]
-        assert isinstance(wf, DataCleaningConfig)
+        assert isinstance(wf, QualityConfig)
         assert wf.outliers.outlier_threshold == "adaptive"
 
     def test_full_config_with_workflows(self, tmp_path: Path):
@@ -850,7 +850,7 @@ class TestWorkflowConfig:
             "    dataset: train\n"
             "workflows:\n"
             "  - name: standard_clean\n"
-            "    type: data-cleaning\n"
+            "    type: quality\n"
             "    outliers: {flags: [dimension, pixel, visual], outlier_threshold: adaptive}\n"
             "tasks:\n"
             "  - name: clean_train\n"
@@ -864,20 +864,20 @@ class TestWorkflowConfig:
         assert config.tasks[0].workflow == "standard_clean"
 
     def test_invalid_params_rejected(self):
-        """DataCleaningConfig rejects invalid field values."""
+        """QualityConfig rejects invalid field values."""
         with pytest.raises(ValidationError):
-            DataCleaningConfig(
+            QualityConfig(
                 name="bad",
                 outliers={"flags": ["not_a_real_flag"], "outlier_threshold": "zscore"},  # type: ignore[list-item]
             )
 
     def test_metadata_triage_workflow_config_basic(self):
-        """MetadataTriageConfig stores name, type, and flat params."""
-        from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
+        """TriageConfig stores name, type, and flat params."""
+        from dataeval_flow.workflows.triage import TriageConfig
 
-        wc = MetadataTriageConfig(name="triage", metadata="standard", checks={"factor-issues": {"max_examples": 5}})  # type: ignore[arg-type]
+        wc = TriageConfig(name="triage", metadata="standard", checks={"factor-issues": {"max_examples": 5}})  # type: ignore[arg-type]
         assert wc.name == "triage"
-        assert wc.type == "metadata-triage"
+        assert wc.type == "triage"
         assert wc.verify is True
         assert wc.checks.factor_issues.max_examples == 5
 
@@ -891,7 +891,7 @@ class TestResolveWorkflow:
 
         config = PipelineConfig(
             workflows=[
-                DataCleaningConfig(
+                QualityConfig(
                     name="standard_clean",
                     outliers={"flags": ["dimension", "pixel"], "outlier_threshold": "adaptive"},  # type: ignore[arg-type]
                 ),
@@ -899,8 +899,8 @@ class TestResolveWorkflow:
         )
         result = _resolve_workflow("standard_clean", config)
         assert result.name == "standard_clean"
-        assert isinstance(result, DataCleaningConfig)
-        assert result.type == "data-cleaning"
+        assert isinstance(result, QualityConfig)
+        assert result.type == "quality"
         assert result.outliers.outlier_threshold == "adaptive"
 
     def test_resolve_workflow_not_found(self):
@@ -909,7 +909,7 @@ class TestResolveWorkflow:
 
         config = PipelineConfig(
             workflows=[
-                DataCleaningConfig(name="existing", outliers={"flags": ["dimension"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
+                QualityConfig(name="existing", outliers={"flags": ["dimension"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
             ]
         )
         with pytest.raises(ValueError, match="Unknown workflow: 'nonexistent'"):
@@ -963,8 +963,8 @@ class TestPipelineConfigDuplicateNames:
         with pytest.raises(ValidationError, match="Duplicate name 'wf' in workflows"):
             PipelineConfig(
                 workflows=[
-                    DataCleaningConfig(name="wf", outliers={"flags": ["dimension"], "outlier_threshold": "zscore"}),  # type: ignore[arg-type]
-                    DataCleaningConfig(name="wf", outliers={"flags": ["pixel"], "outlier_threshold": "iqr"}),  # type: ignore[arg-type]
+                    QualityConfig(name="wf", outliers={"flags": ["dimension"], "outlier_threshold": "zscore"}),  # type: ignore[arg-type]
+                    QualityConfig(name="wf", outliers={"flags": ["pixel"], "outlier_threshold": "iqr"}),  # type: ignore[arg-type]
                 ]
             )
 
@@ -1465,11 +1465,11 @@ class TestStatsPoolWiring:
         assert cfg.stats[0].name == "p"
 
     def test_stats_mixin_carries_a_reference(self):
-        from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+        from dataeval_flow.workflows.quality import QualityConfig
 
-        params = DataCleaningConfig(
+        params = QualityConfig(
             name="c",  # type: ignore[call-arg]
-            type="data-cleaning",  # type: ignore[call-arg]
+            type="quality",  # type: ignore[call-arg]
             outliers={"flags": ["visual"], "outlier_threshold": "modzscore"},  # type: ignore[arg-type]
             stats="p",
         )

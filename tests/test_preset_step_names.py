@@ -3,14 +3,14 @@
 import pytest
 from pydantic import ValidationError
 
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningWorkflow
 from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig, DriftMonitoringWorkflow
 from dataeval_flow.workflows.ood_detection import OODDetectionConfig
+from dataeval_flow.workflows.quality import QualityConfig, QualityWorkflow
 
 
 def test_data_cleanings_steps() -> None:
-    config = DataCleaningConfig.model_validate({"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}})
-    assert [step["name"] for step in DataCleaningWorkflow.chain(config).steps] == [  # type: ignore[index]
+    config = QualityConfig.model_validate({"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}})
+    assert [step["name"] for step in QualityWorkflow.chain(config).steps] == [  # type: ignore[index]
         "outliers",
         "label-health",
         "outliers-by-class",

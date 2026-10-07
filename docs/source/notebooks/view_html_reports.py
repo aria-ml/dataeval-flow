@@ -39,7 +39,7 @@
 # The page draws whatever a result's findings hold. To show most of what it can draw, you will run two workflows on
 # MILCO, side-scan sonar imagery of mine-like objects collected over several survey campaigns:
 #
-# - `data-cleaning` on the reference campaigns. It runs as a chain of steps, and its `outliers` step lists every
+# - `quality` on the reference campaigns. It runs as a chain of steps, and its `outliers` step lists every
 #   flagged image and every flagged bounding box with the metrics that flagged it;
 # - `drift-monitoring` of the operational archive against the reference, in chunks of 50 frames, so each chunk's
 #   distance is drawn against the drift thresholds, and its finding is drawn as a card.
@@ -63,8 +63,8 @@ from dataeval_flow.config import (
 )
 from dataeval_flow.config.extractors import BoVWExtractorConfig
 from dataeval_flow.evaluators.shift import ChunkedDriftConfig, DriftKNeighborsConfig
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
+from dataeval_flow.workflows.quality import QualityConfig
 
 data_root = Path("./data")
 
@@ -97,7 +97,7 @@ config = PipelineConfig(
     ],
     extractors=[BoVWExtractorConfig(name="bovw", vocab_size=256, batch_size=32, preprocessor="sonar")],
     workflows=[
-        DataCleaningConfig(
+        QualityConfig(
             name="clean", outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}, metadata="milco"
         ),
         DriftMonitoringConfig(
@@ -142,8 +142,8 @@ def show(page: str, height: int = 720) -> None:
 # %% [markdown]
 # ## The same report, as text and as HTML
 #
-# `report()` gives the text report, 80 columns wide, for a terminal or a log. The data-cleaning report opens with its
-# banner, `Data Cleaning`, then the run's metadata, which opens with `Workflow: clean (data-cleaning)`, how many of its
+# `report()` gives the text report, 80 columns wide, for a terminal or a log. The quality report opens with its
+# banner, `Quality`, then the run's metadata, which opens with `Workflow: clean (quality)`, how many of its
 # steps ran, and a summary line per finding. Then it gives each finding a section, with the steps it judged below it,
 # and ends with the `clean` step's section, a table of every step, and the configuration:
 
@@ -176,7 +176,7 @@ show(clean.to_html())
 #
 # - **The header.** The header names what ran, with the entry and type id below it, and gives the report's health:
 #   the number of warnings, `passed`, or `failed` and the steps that failed where a required step did.
-# - **The findings.** `data-cleaning` runs as a chain of steps. Under the header come how many steps ran, then a card
+# - **The findings.** `quality` runs as a chain of steps. Under the header come how many steps ran, then a card
 #   per finding, badged with its severity, so the cards read as the report's summary. Each card holds the steps its
 #   finding judged, each headed *From* and the step's title, with its name where that differs from its type:
 #   *From Duplicates*. The Image Outliers card lists the `outliers` step's flagged images and boxes, and the

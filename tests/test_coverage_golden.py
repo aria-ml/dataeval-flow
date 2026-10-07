@@ -1,4 +1,4 @@
-"""data-coverage agrees with what it produced before its port: each finding's severity, title, brief and description
+"""scope agrees with what it produced before its port: each finding's severity, title, brief and description
 where the step reproduces legacy's, and what they were computed from (coverage spec §8.2).
 
 Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), each with its reason:
@@ -19,18 +19,18 @@ Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), e
   golden's 192 dimensions do not overflow.
 - **Skip reasons are the steps' own.**
 - **"Metadata Distribution", always info, is the `factor-summary` section,** and balance and diversity are
-  sections, as in data-splitting.
+  sections, as in splits.
 - **Class Imbalance's brief, notes and description are the `class-imbalance` check's;** an ImageFolder source's
   finding is titled "Class Imbalance". Its severity agrees.
 - **The unlabelled case's Class Shortfall reports "not assessed",** where legacy ran Representation on zero
   counts: `representation` raises on a Dataset with no labels, and the step is optional.
-- **Class Shortfall's description points to `label-space`,** where legacy's said "configure an `ontology`",
-  which data-coverage now refuses; its ignored-entries note says `expected`.
-- **Ontology findings are `label-space`'s;** the summary line and `metadata.has_extractor` go.
+- **Class Shortfall's description points to `taxonomy`,** where legacy's said "configure an `ontology`",
+  which scope now refuses; its ignored-entries note says `expected`.
+- **Ontology findings are `taxonomy`'s;** the summary line and `metadata.has_extractor` go.
 - **Names follow the naming pass** (naming spec §3.2): recorded titles are read through `tests/golden/_renames.py`.
-- **Class balance and the metadata factors are data-bias's:** each case runs data-coverage and data-bias on the same
+- **Class balance and the metadata factors are bias's:** each case runs scope and bias on the same
   source, and legacy's Class Imbalance and Factor Coverage Gaps, with the label counts, factor summary and gaps they
-  read, come from data-bias. Each preset's findings follow legacy's order among themselves, and data-bias's Shortcut
+  read, come from bias. Each preset's findings follow legacy's order among themselves, and bias's Shortcut
   Risk and Factor Parity, which legacy did not make, are left out of the comparison.
 """
 
@@ -59,7 +59,7 @@ _NEW = ("Shortcut Risk", "Factor Parity")
 
 
 def _run(name: str) -> tuple[ChainResult, ChainResult]:
-    """The case's data-coverage result and its data-bias result."""
+    """The case's scope result and its bias result."""
     results = run_tasks(pipeline(name, legacy=False))
     coverage, bias = results["t"], results["b"]
     assert isinstance(coverage, ChainResult)

@@ -82,7 +82,7 @@ Coverage
 Data Cleaning
     The process of identifying and flagging quality issues in a dataset, such as
     {term}`outliers<Outlier>`, {term}`duplicates<Duplicates>` and label anomalies.
-    The `data-cleaning` preset flags outliers and duplicates, judges class
+    The `quality` preset flags outliers and duplicates, judges class
     imbalance and lists the images with no labels. Its `clean` step hands on the
     dataset without the outliers and duplicates, which an `export` step of a custom
     workflow can write to disk. See the
@@ -137,7 +137,7 @@ Embeddings
 
 Evaluation Split
     A `val` or `test` split whose labels, leakage and coverage `audit` judges against `train`'s: a split
-    `data-splitting` makes, or a source after the first that `audit` names. `class-sufficiency` and `untrained-classes`
+    `splits` makes, or a source after the first that `audit` names. `class-sufficiency` and `untrained-classes`
     read them. It is not a {term}`test source<Test Source>`, which is tested against a
     {term}`reference<Reference Dataset>`, the data a detector fits on. See
     [Are the splits fit to evaluate on?](index.md#are-the-splits-fit-to-evaluate-on).
@@ -196,7 +196,7 @@ Maximum Mean Discrepancy (MMD)
 
 Metadata
     Everything a dataset carries for each item beyond its image and label. A {term}`factor<Factor>` is one field of it
-    that an evaluator reads: a metadata field is a factor once an evaluator analyzes it. `metadata-triage` reports which
+    that an evaluator reads: a metadata field is a factor once an evaluator analyzes it. `triage` reports which
     fields Flow could read.
 
 Metadata Level
@@ -219,7 +219,7 @@ ONNX
 
 Ontology
     A machine-readable statement of the sanctioned label space — the concepts in a
-    domain and how they relate. Declaring one lets the `label-space` workflow
+    domain and how they relate. Declaring one lets the `taxonomy` workflow
     validate a dataset's labels and name classes missing entirely. See the
     [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html).
 
@@ -258,7 +258,7 @@ Preset
     A {term}`workflow<Workflow>` type whose settings expand to a chain of steps:
     evaluators, the combines that join their Outputs, the checks that judge what
     they found, and the transforms that make Datasets. Every built-in workflow
-    type, such as `data-cleaning`, is one. See the [Preset Catalog](presets.md) and
+    type, such as `quality`, is one. See the [Preset Catalog](presets.md) and
     [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md).
 
 Prioritization

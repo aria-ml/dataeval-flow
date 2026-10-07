@@ -477,7 +477,7 @@ class TestWorkflowDiscovery:
     def test_get_workflow_returns_registered(self):
         from dataeval_flow.workflows import Workflow, get_workflow
 
-        wf = get_workflow("data-cleaning")
+        wf = get_workflow("quality")
         assert issubclass(wf, Workflow)
 
     def test_get_workflow_unknown_raises(self):
@@ -491,7 +491,7 @@ class TestWorkflowDiscovery:
 
         workflows = list_workflows()
         names = [w.name for w in workflows]
-        assert "data-cleaning" in names
+        assert "quality" in names
 
 
 # ---------------------------------------------------------------------------
@@ -1911,7 +1911,7 @@ class TestAuditToRunJoin:
         assert records[0].ontology == "vehicles"
 
     def test_any_workflow_can_declare_an_ontology(self):
-        """Not only data-coverage. A conformed run of any type must be able to join."""
+        """Not only scope. A conformed run of any type must be able to join."""
         instance = AuditConfig.model_validate(
             {"name": "a", "outliers": {"flags": ["dimension"], "outlier_threshold": "zscore"}, "ontology": "vehicles"}
         )
@@ -2108,7 +2108,7 @@ class TestResolveStatsPolicy:
     def test_none_for_a_workflow_that_computes_no_statistics(self):
         from dataeval_flow._orchestrator import _resolve_stats_policy
         from dataeval_flow.config import PipelineConfig
-        from dataeval_flow.workflows.data_coverage import DataCoverageConfig
+        from dataeval_flow.workflows.scope import ScopeConfig
 
-        instance = DataCoverageConfig(name="c", type="data-coverage")
+        instance = ScopeConfig(name="c", type="scope")
         assert _resolve_stats_policy(instance, PipelineConfig(), {}) is None

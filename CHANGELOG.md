@@ -241,6 +241,12 @@
 
 ### Changed
 
+- Presets are named for the DataEval module whose question they answer, or else for their question: `data-bias` →
+  `bias`, `data-cleaning` → `quality`, `data-coverage` → `scope`, `data-prioritization` → `prioritization`,
+  `data-splitting` → `splits`, `metadata-triage` → `triage` (metadata and annotations only), `label-space` →
+  `taxonomy`; their packages, classes (`QualityConfig`, …) and titles follow, and the old ids fail as unknown
+  workflows
+- A type id may repeat across kinds: `prioritization` is a preset and an evaluator
 - Five checks renamed to show their subject or the evaluator they judge: `classwise-outliers` → `class-outliers`,
   `stratification` → `class-stratification`, `metadata-issues` → `factor-issues`, `mergeability` →
   `label-mergeability`, `distribution-shift` → `embedding-divergence`, with their classes, titles, preset chain step

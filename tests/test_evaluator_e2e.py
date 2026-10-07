@@ -9,10 +9,10 @@ from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators import EvaluatorResult
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.quality import QualityConfig
 from tests.evaluator_toys import ToyImages, exact_groups, output_json, toy_pipeline
 
-_CLEAN = DataCleaningConfig(
+_CLEAN = QualityConfig(
     name="clean",
     outliers={"flags": ["dimension", "pixel", "visual"], "outlier_threshold": "zscore"},  # type: ignore[arg-type]
 )
@@ -81,7 +81,7 @@ class TestRunTask:
         assert re.search(r"Task 'dupes_task2' runs evaluator 'dupes' \(duplicates\), which", result.errors[0])
 
     def test_run_task_checks_a_workflow_task_outside_config_tasks(self):
-        """The same out-of-`config.tasks` check, for a workflow task: `data-cleaning` takes
+        """The same out-of-`config.tasks` check, for a workflow task: `quality` takes
         exactly one source, and this task names two; it is refused as a failed
         `ChainResult`."""
         task = TaskConfig(name="clean_task2", workflow="clean", sources=["a", "b"])
@@ -90,7 +90,7 @@ class TestRunTask:
         assert isinstance(result, ChainResult)
         assert not result.success
         assert re.search(
-            r"Task 'clean_task2' runs workflow 'clean' \(data-cleaning\), which takes exactly one source, "
+            r"Task 'clean_task2' runs workflow 'clean' \(quality\), which takes exactly one source, "
             r"but the task names 2\.",
             result.errors[0],
         )

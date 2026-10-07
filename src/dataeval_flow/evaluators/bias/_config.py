@@ -175,7 +175,7 @@ class ParityConfig(EvaluatorConfig[ParityResult], MetadataConfigMixin):
 class FactorSummaryConfig(EvaluatorConfig[FactorSummaryResult], MetadataConfigMixin):
     """Config for ``factor-summary``: each metadata factor's type, binning, nulls, and range or top values.
 
-    A Flow-only evaluator over DataEval's ``Metadata``; data-bias and audit run it.
+    A Flow-only evaluator over DataEval's ``Metadata``; bias and audit run it.
 
     Example YAML::
 

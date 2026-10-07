@@ -132,7 +132,7 @@ code per format.
       surface from `dataeval` (frame-level drift / OOD / quality) behind a
       `dataeval-flow` workflow type with the same config / orchestration /
       caching contract as the existing eight.
-- [ ] **Standalone ontology workflow**: the `data-coverage` workflow already
+- [ ] **Standalone ontology workflow**: the `scope` workflow already
       consumes an ontology (inline hierarchy or RDF artifact) for label-space gap
       analysis; this promotes the remaining `dataeval` taxonomy surface
       (class-mapping audits, cross-dataset label alignment) to a workflow of its own.

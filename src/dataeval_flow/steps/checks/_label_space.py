@@ -1,4 +1,4 @@
-"""The label-space checks: legacy data-coverage's Label Space Coverage (now Leaf Coverage), Label Conformance and
+"""The taxonomy checks: legacy data-coverage's Label Space Coverage (now Leaf Coverage), Label Conformance and
 Ontology Structure findings, as steps (coverage spec §3.4)."""
 
 __all__ = [
@@ -304,7 +304,7 @@ class ClassShortfallCheck(Check[ClassShortfallConfig]):
                 description=(
                     f"{len(worklist)} class(es) fall short of an even spread, by {deficit} labels in total. Targets "
                     "come from a uniform expectation over the classes the dataset itself declares — run a "
-                    "`label-space` entry with a declared `ontology` to measure coverage of a sanctioned label space "
+                    "`taxonomy` entry with a declared `ontology` to measure coverage of a sanctioned label space "
                     "instead, which is what reveals classes that were never collected at all."
                 ),
                 blocks=[*(Paragraph(text=note) for note in notes), *worklist_table(worklist)],

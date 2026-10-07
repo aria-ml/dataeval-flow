@@ -25,22 +25,22 @@ from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps.checks._ood import OODThresholds
 from dataeval_flow.steps.checks._stratification import ClassStratificationThresholds
 from dataeval_flow.workflows._base import WorkflowConfig
-from dataeval_flow.workflows.data_bias import (
+from dataeval_flow.workflows.bias import (
     ClassImbalanceSettings,
     DiversitySettings,
     FactorGapsSettings,
     ShortcutRiskSettings,
 )
-from dataeval_flow.workflows.data_bias._config import FactorCoverageGapsSettings
-from dataeval_flow.workflows.data_cleaning import ImageDuplicatesSettings, ImageOutliersSettings, OutliersSettings
-from dataeval_flow.workflows.data_coverage import CoverageSettings, WrapSettings
-from dataeval_flow.workflows.data_coverage._config import (
+from dataeval_flow.workflows.bias._config import FactorCoverageGapsSettings
+from dataeval_flow.workflows.quality import ImageDuplicatesSettings, ImageOutliersSettings, OutliersSettings
+from dataeval_flow.workflows.scope import CoverageSettings, WrapSettings
+from dataeval_flow.workflows.scope._config import (
     ClassCoverageSettings,
     DimensionalCompletenessSettings,
     UncoveredItemsSettings,
 )
-from dataeval_flow.workflows.label_space import LabelConformanceSettings
-from dataeval_flow.workflows.metadata_triage import FactorIssuesSettings
+from dataeval_flow.workflows.taxonomy import LabelConformanceSettings
+from dataeval_flow.workflows.triage import FactorIssuesSettings
 
 
 class FactorLeakageSettings(BaseModel):

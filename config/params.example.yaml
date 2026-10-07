@@ -260,13 +260,13 @@
 #
 # workflows:
 #   - name: standard_clean
-#     type: data-cleaning
+#     type: quality
 #     outliers:
 #       flags: [dimension, pixel, visual]
 #       outlier_threshold: adaptive
 #
 #   - name: strict_clean
-#     type: data-cleaning
+#     type: quality
 #     outliers:
 #       flags: [dimension, pixel, visual]
 #       outlier_threshold: [zscore, 2.0]
@@ -289,7 +289,7 @@
 #       drift: {warn_on_drift: true, chunk_percent: 10.0, consecutive_chunks: 3}
 #
 #   - name: clean
-#     type: data-cleaning
+#     type: quality
 #     stats: multispectral
 #     outliers:
 #       flags: [visual]

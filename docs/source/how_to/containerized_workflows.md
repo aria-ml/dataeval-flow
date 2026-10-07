@@ -223,14 +223,14 @@ Nine workflow types are built in. Define named instances in the `workflows`
 section, then reference them from tasks.
 
 `````{tab-set}
-````{tab-item} data-cleaning
+````{tab-item} quality
 Outlier and duplicate detection with configurable thresholds.
 See the {doc}`Data Cleaning tutorial <../notebooks/data_cleaning>` for a full walkthrough.
 
 ```yaml
 workflows:
   - name: standard_clean
-    type: data-cleaning
+    type: quality
     outliers:
       flags: [dimension, pixel, visual]
       outlier_threshold: [adaptive, 3.5]   # method | [method, bound]: adaptive | zscore | modzscore | iqr
@@ -264,13 +264,13 @@ workflows:
       class-imbalance: "Rare class by design; weighted loss in training."
 ```
 ````
-````{tab-item} data-splitting
+````{tab-item} splits
 Partition a dataset into train/val/test splits.
 
 ```yaml
 workflows:
   - name: stratified_split
-    type: data-splitting
+    type: splits
     folds: 1                # 1 splits once; 2 or more run k-fold
     test_frac: 0.2
     val_frac: 0.1           # with folds: 1 only
@@ -311,29 +311,29 @@ workflows:
 ```
 ````
 
-````{tab-item} data-coverage
-Embedding blind spots and the classes short of their share; a `data-bias` entry on the same source judges class
-balance and metadata gaps, and a `label-space` entry judges the labels against an ontology.
+````{tab-item} scope
+Embedding blind spots and the classes short of their share; a `bias` entry on the same source judges class
+balance and metadata gaps, and a `taxonomy` entry judges the labels against an ontology.
 See the {doc}`Data Coverage tutorial <../notebooks/data_coverage>` for a full walkthrough.
 
 ```yaml
 workflows:
   - name: coverage_check
-    type: data-coverage
+    type: scope
     coverage: {method: adaptive}     # adaptive | naive; embeds only when the task names an extractor
     checks:
       dimensional-completeness: {warning: 0.5}
 ```
 ````
 
-````{tab-item} data-bias
+````{tab-item} bias
 Class balance, and how the metadata factors relate to the class: shortcut risk, association and under-represented
 combinations. It needs no extractor.
 
 ```yaml
 workflows:
   - name: bias_check
-    type: data-bias
+    type: bias
     factor-gaps: {mi_threshold: 0.1, min_representation: 5}   # false leaves out the gap analysis
     checks:
       class-imbalance: {warning: 5.0}
@@ -342,14 +342,14 @@ workflows:
 ```
 ````
 
-````{tab-item} label-space
+````{tab-item} taxonomy
 Judge a dataset's labels against a declared ontology: leaf coverage, conformance, alignment and structure.
 See {doc}`Declare an ontology <declare_an_ontology>` for the options.
 
 ```yaml
 workflows:
   - name: vocab_check
-    type: label-space
+    type: taxonomy
     ontology: config/taxonomy.ttl    # an ontologies: entry, an RDF file, or an inline hierarchy
     checks:
       leaf-coverage: {coverage: 0.9, empty_branches: 0}
@@ -357,14 +357,14 @@ workflows:
 ```
 ````
 
-````{tab-item} metadata-triage
+````{tab-item} triage
 Find the metadata a run failed to read, and the policy stanza that repairs it.
 See the {doc}`Metadata Triage tutorial <../notebooks/metadata_triage>` for a full walkthrough.
 
 ```yaml
 workflows:
   - name: triage
-    type: metadata-triage
+    type: triage
     metadata: standard             # the policy under triage
     checks:
       factor-issues: {max_examples: 20}
@@ -372,14 +372,14 @@ workflows:
 ```
 ````
 
-````{tab-item} data-prioritization
+````{tab-item} prioritization
 Rank an abundant or unlabeled pool so the most informative samples come first.
 See the {doc}`Prioritization tutorial <../notebooks/data_prioritization>` for a full walkthrough.
 
 ```yaml
 workflows:
   - name: label_next
-    type: data-prioritization
+    type: prioritization
     prioritization:
       method: knn                  # knn | kmeans_distance | kmeans_complexity
                                    # | hdbscan_distance | hdbscan_complexity
@@ -389,8 +389,8 @@ workflows:
       n: 200                       # keep each pool's top 200 as `selected`; omit to keep all
 ```
 
-To rank clean data, run it as a step after a `data-cleaning` step, as the
-[Preset Catalog](../reference/presets.md#data-prioritization) shows.
+To rank clean data, run it as a step after a `quality` step, as the
+[Preset Catalog](../reference/presets.md#prioritization) shows.
 ````
 
 ````{tab-item} matrix
@@ -404,7 +404,7 @@ tutorial for a worked run.
 ```yaml
 workflows:
   - name: threshold_tuning
-    type: data-cleaning
+    type: quality
     outliers:
       flags: [dimension, pixel, visual]
       outlier_threshold: modzscore
@@ -466,7 +466,7 @@ extractors:
 
 workflows:
   - name: clean
-    type: data-cleaning
+    type: quality
     outliers:
       flags: [dimension, pixel, visual]
       outlier_threshold: adaptive
@@ -643,7 +643,7 @@ docker run --rm harbor.jatic.net/aria/dataeval-flow:latest-cpu \
     python -m dataeval_flow workflows
 
 docker run --rm harbor.jatic.net/aria/dataeval-flow:latest-cpu \
-    python -m dataeval_flow workflows data-cleaning
+    python -m dataeval_flow workflows quality
 ```
 
 `python -m dataeval_flow --version` reports the build inside the image.
@@ -662,7 +662,7 @@ find workspace/output -type f
 
 `result.json` is keyed by task name — each entry holds that task's `metadata`, `health`,
 `raw`, and `report` sections, the same data `result.to_dict()` returns in the Python
-API. A `data-cleaning` task's entry, like a custom workflow's, holds `steps` and
+API. A `quality` task's entry, like a custom workflow's, holds `steps` and
 `findings` in place of `raw` and `report`: each step's outcome, and the findings its
 checks made. `health` is the roll-up `--fail-on-warning` gates on. A pipeline can read it
 directly:
@@ -678,8 +678,8 @@ offline in any browser, and prints or saves to PDF as it shows.
 `encoding.json` is the metadata encoding descriptor the run was computed under, ready
 to review and commit — see
 {doc}`Configure metadata binning <configure_metadata_binning>`. It is written only where
-a task records an encoding, as `audit`, `data-bias` and `ood-detection` do, so
-the `data-cleaning` run above writes none. It is also omitted when a run's tasks encoded
+a task records an encoding, as `audit`, `bias` and `ood-detection` do, so
+the `quality` run above writes none. It is also omitted when a run's tasks encoded
 their factors differently, since no single descriptor describes it.
 `manifests/` holds each `content-digest` step's manifest, one hash per item, under
 `manifests/<task>/`. It is written only where a task digests a split, as `audit` does; see

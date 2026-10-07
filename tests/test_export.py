@@ -32,8 +32,8 @@ from dataeval_flow.config import (
     ViewOperation,
 )
 from dataeval_flow.workflows import ResolvedOntology
-from dataeval_flow.workflows.data_coverage import DataCoverageConfig
-from dataeval_flow.workflows.label_space import LabelSpaceConfig
+from dataeval_flow.workflows.scope import ScopeConfig
+from dataeval_flow.workflows.taxonomy import TaxonomyConfig
 from tests.test_sources import _PNG, _merge_config, _od_dataset
 
 _CAR = ObjectDetectionAnnotation(bbox=(1.0, 2.0, 3.0, 4.0), category_id=0, category_name="Car")
@@ -686,7 +686,7 @@ class TestOntologyDivergenceWarning:
     def _config_with_workflow_ontology(self) -> PipelineConfig:
         config = _merge_config()
         config.ontologies = [OntologyConfig(name="vehicles", concepts=[OntologyConceptConfig(id="Car", label="Car")])]
-        config.workflows = [LabelSpaceConfig(name="audit", ontology="vehicles")]
+        config.workflows = [TaxonomyConfig(name="audit", ontology="vehicles")]
         return config
 
     def test_it_warns_and_names_the_workflow(self, tmp_path: Path, caplog):
@@ -703,7 +703,7 @@ class TestOntologyDivergenceWarning:
 
     def test_it_is_silent_when_no_workflow_declares_one(self, tmp_path: Path, caplog):
         config = _merge_config()
-        config.workflows = [DataCoverageConfig(name="plain")]
+        config.workflows = [ScopeConfig(name="plain")]
         with caplog.at_level(logging.WARNING):
             write_export(ExportConfig(name="dataset", source="merged"), config, tmp_path)
         assert "declares no ontology" not in caplog.text

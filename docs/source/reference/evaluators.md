@@ -81,8 +81,8 @@ It runs `dataeval.quality.Outliers`, flagging the statistics that sit outside th
 
 - **Judged by:** [`image-outliers`](checks.md#image-outliers), [`target-outliers`](checks.md#target-outliers)
 - **Combined by:** [`outliers-by-class`](combines.md#outliers-by-class)
-- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning),
-  [`data-prioritization`](presets.md#data-prioritization)
+- **Used in:** [`audit`](presets.md#audit), [`quality`](presets.md#quality),
+  [`prioritization`](presets.md#prioritization)
 
 ```yaml
 evaluators:
@@ -126,8 +126,8 @@ It runs `dataeval.quality.Duplicates` across every source the task names.
 | `per_target` | `from_stats(per_target=...)` | DataEval's default |
 
 - **Judged by:** [`image-duplicates`](checks.md#image-duplicates), [`leakage`](checks.md#leakage)
-- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning),
-  [`data-prioritization`](presets.md#data-prioritization)
+- **Used in:** [`audit`](presets.md#audit), [`quality`](presets.md#quality),
+  [`prioritization`](presets.md#prioritization)
 
 ```yaml
 evaluators:
@@ -161,8 +161,8 @@ and the items that carry none.
 - **Judged by:** [`class-imbalance`](checks.md#class-imbalance), [`class-sufficiency`](checks.md#class-sufficiency),
   [`class-stratification`](checks.md#class-stratification), [`target-outliers`](checks.md#target-outliers),
   [`untrained-classes`](checks.md#untrained-classes)
-- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias),
-  [`data-cleaning`](presets.md#data-cleaning), [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`bias`](presets.md#bias),
+  [`quality`](presets.md#quality), [`splits`](presets.md#splits)
 
 ```yaml
 metadata:
@@ -204,7 +204,7 @@ It finds the classes that fall short of their share of the source, and what to a
 | `expected` | `expected`: class name to its minimum share, a fraction | a uniform share for every leaf |
 
 - **Judged by:** [`class-shortfall`](checks.md#class-shortfall), [`leaf-coverage`](checks.md#leaf-coverage)
-- **Used in:** [`data-coverage`](presets.md#data-coverage), [`label-space`](presets.md#label-space)
+- **Used in:** [`scope`](presets.md#scope), [`taxonomy`](presets.md#taxonomy)
 
 ```yaml
 ontologies:
@@ -239,7 +239,7 @@ several concepts. The names are the Dataset's `index2label` values, in index ord
 | `ontology` | `ontology`: a name under `ontologies:`, a path, or an inline hierarchy | required |
 
 - **Judged by:** [`label-conformance`](checks.md#label-conformance)
-- **Used in:** [`audit`](presets.md#audit), [`label-space`](presets.md#label-space)
+- **Used in:** [`audit`](presets.md#audit), [`taxonomy`](presets.md#taxonomy)
 
 ```yaml
 ontologies:
@@ -274,7 +274,7 @@ A `conform` step applies the remap, gated by how much loss it declares it will a
 | `threshold` | `threshold`: the lowest confidence a fuzzy match keeps | DataEval's default (`0.0`) |
 
 - **Judged by:** [`label-mergeability`](checks.md#label-mergeability)
-- **Used in:** [`label-space`](presets.md#label-space)
+- **Used in:** [`taxonomy`](presets.md#taxonomy)
 
 ```yaml
 ontologies:
@@ -309,7 +309,7 @@ Only a shared label is a defect: it is what makes reconciliation ambiguous. It r
 | `label_pattern` | `label_pattern`: a regex every concept label should match | no naming check |
 
 - **Judged by:** [`ontology-structure`](checks.md#ontology-structure)
-- **Used in:** [`label-space`](presets.md#label-space)
+- **Used in:** [`taxonomy`](presets.md#taxonomy)
 
 ```yaml
 ontologies:
@@ -335,7 +335,7 @@ Embedding-space coverage, broken down by class (DataEval Coverage).
 
 It finds the items in sparse regions of the embedding space, uncovered by the rest of the data. With no label per item
 (a dataset without labels, or a detection dataset's labels per target), it runs over every item as one class, `0`, and
-logs a warning. Crop detections first with a `wrap` step, as `data-coverage` does. It runs `dataeval.scope.Coverage`.
+logs a warning. Crop detections first with a `wrap` step, as `scope` does. It runs `dataeval.scope.Coverage`.
 
 - **Reads:** `input`: one Dataset; Flow derives its embeddings through the task's extractor, and its labels where there
   is one per item.
@@ -356,7 +356,7 @@ logs a warning. Crop detections first with a `wrap` step, as `data-coverage` doe
 | `near_duplicate_factor` | `near_duplicate_factor` | DataEval's default (`0.5`) |
 
 - **Judged by:** [`class-coverage`](checks.md#class-coverage), [`uncovered-items`](checks.md#uncovered-items)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`scope`](presets.md#scope)
 
 ```yaml
 evaluators:
@@ -381,7 +381,7 @@ The embeddings are rescaled to the unit interval per dimension first, a constant
 It takes no parameters.
 
 - **Judged by:** [`dimensional-completeness`](checks.md#dimensional-completeness)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`scope`](presets.md#scope)
 
 ```yaml
 evaluators:
@@ -422,7 +422,7 @@ It runs `dataeval.bias.Balance` on the Dataset's metadata.
 
 - **Judged by:** [`shortcut-risk`](checks.md#shortcut-risk)
 - **Combined by:** [`factor-gaps`](combines.md#factor-gaps)
-- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
+- **Used in:** [`audit`](presets.md#audit), [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:
@@ -452,7 +452,7 @@ It runs `dataeval.bias.Parity` on the Dataset's metadata.
 | `label` | `label`: a factor, or a list of factors, to condition on | the class labels |
 
 - **Judged by:** [`factor-parity`](checks.md#factor-parity)
-- **Used in:** [`data-bias`](presets.md#data-bias)
+- **Used in:** [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:
@@ -482,7 +482,7 @@ It runs `dataeval.bias.Diversity` on the Dataset's metadata, overall and within 
 | `label` | `label`: a factor, or a list of factors, to condition on | the class labels |
 
 - **Judged by:** none
-- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
+- **Used in:** [`audit`](presets.md#audit), [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:
@@ -509,7 +509,7 @@ It reads the Dataset's metadata through DataEval's `Metadata`.
 | `metadata` | (DataEval Flow) the name of a `metadata:` policy | DataEval's default encoding |
 
 - **Judged by:** none
-- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
+- **Used in:** [`audit`](presets.md#audit), [`bias`](presets.md#bias)
 
 ```yaml
 metadata:
@@ -852,7 +852,7 @@ Items ranked by difficulty, optionally against a reference (DataEval Prioritize)
 
 Items are ranked from easiest to hardest, or the reverse. A second source is the reference, and the ranking is then
 relative to it, as when choosing what to label next beside data already labeled. It runs `dataeval.scope.Prioritize`.
-The [`data-prioritization`](presets.md#data-prioritization) preset reads its sources the other way round, the
+The [`prioritization`](presets.md#prioritization) preset reads its sources the other way round, the
 reference first and then the pools, and hands each pool to this evaluator first.
 
 - **Reads:** `input`: one Dataset, or two: the data to rank, then a reference; Flow derives their embeddings through the
@@ -874,7 +874,7 @@ reference first and then the pools, and hands each pool to this evaluator first.
 | `num_bins` | `num_bins` (`stratified`) | DataEval's default (`50`) |
 
 - **Judged by:** none
-- **Used in:** [`data-prioritization`](presets.md#data-prioritization)
+- **Used in:** [`prioritization`](presets.md#prioritization)
 
 ```yaml
 evaluators:
@@ -919,7 +919,7 @@ without a second walk.
 | `min_missing_fraction` | (DataEval Flow) the share of rows recording no value above which a factor is degenerate | `0.2` |
 
 - **Judged by:** [`factor-issues`](checks.md#factor-issues)
-- **Used in:** [`audit`](presets.md#audit), [`metadata-triage`](presets.md#metadata-triage)
+- **Used in:** [`audit`](presets.md#audit), [`triage`](presets.md#triage)
 
 ```yaml
 evaluators:

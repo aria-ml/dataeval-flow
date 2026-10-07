@@ -9,7 +9,7 @@ import pytest
 from dataeval_flow import run_tasks
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.data_splitting import DataSplittingConfig
+from dataeval_flow.workflows.splits import SplitsConfig
 
 pytestmark = pytest.mark.required
 
@@ -30,7 +30,7 @@ class TestDataSplittingWorkflow:
             n_per_class=8,
             include_extractor=False,
             workflows=[
-                DataSplittingConfig(name="split_main", test_frac=0.25, val_frac=0.25, stratify=False),
+                SplitsConfig(name="split_main", test_frac=0.25, val_frac=0.25, stratify=False),
             ],
             tasks=[
                 TaskConfig(

@@ -208,7 +208,7 @@ def _build(
 
 
 def _where(key: str, target: Target, root: Any) -> str:
-    """How a refusal names the entry a key walks: a bare key's by its type (``data-cleaning``), as the task's own
+    """How a refusal names the entry a key walks: a bare key's by its type (``quality``), as the task's own
     entry; a pool-qualified or ``steps.`` key's by pool and name (``evaluator 'dupes'``)."""
     if key.split(".")[0] in ("evaluators", "workflows", "extractors", "steps"):
         return f"{target.pool[:-1]} '{target.entry}'"

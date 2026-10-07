@@ -1,4 +1,4 @@
-"""The metadata triage check: metadata-triage's findings, as a step (spec §10.10)."""
+"""The metadata triage check: triage's findings, as a step (spec §10.10)."""
 
 __all__ = ["FactorIssuesCheck", "FactorIssuesConfig"]
 
@@ -39,5 +39,5 @@ class FactorIssuesCheck(Check[FactorIssuesConfig]):
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(FactorTriageOutput,)),)
 
     def run(self, config: FactorIssuesConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
-        """metadata-triage's findings, from the `factor-triage` Output's data."""
+        """Triage's findings, from the `factor-triage` Output's data."""
         return build_findings(inputs["input"].value.data(), config.max_examples)

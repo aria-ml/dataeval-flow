@@ -25,13 +25,13 @@ signals that the class occupies far less of the representation space than its
 sample count suggests.
 
 In DataEval Flow, each axis is a preset, a workflow type whose settings expand to a
-chain of steps. The `label-space` preset checks the observed labels against a
-declared ontology. The `data-coverage` preset lists the classes that fall short of
+chain of steps. The `taxonomy` preset checks the observed labels against a
+declared ontology. The `scope` preset lists the classes that fall short of
 their expected share and, when an {term}`extractor <Extractor>` is configured, adds
 per-class embedding variety and dimensional completeness analysis. Run both as two tasks
 on one source to measure both axes. Class balance and the metadata factors, including the
 class-factor combinations a factor tied to the class leaves under-represented, are the
-`data-bias` preset's; run it on the same source beside them. As with every other workflow, the orchestration layer's
+`bias` preset's; run it on the same source beside them. As with every other workflow, the orchestration layer's
 contribution is making this a declarative, reproducible, provenance-carrying
 pipeline step; the underlying measures are DataEval's.
 
@@ -67,18 +67,18 @@ be recognized as familiar or flagged as strange in any principled way.
 
 ### Tutorials
 
-- [Assess dataset coverage](../notebooks/data_coverage.py) — the `data-coverage`
-  and `label-space` presets end to end on one source, with and without an extractor
+- [Assess dataset coverage](../notebooks/data_coverage.py) — the `scope`
+  and `taxonomy` presets end to end on one source, with and without an extractor
 
 ### How-tos
 
 - [Declare an ontology](../how_to/declare_an_ontology.md) — define the sanctioned
-  label space `label-space` checks against
+  label space `taxonomy` checks against
 
 ### Reference
 
-- [Preset Catalog: `data-coverage`](../reference/presets.md#data-coverage) and
-  [Preset Catalog: `label-space`](../reference/presets.md#label-space): each preset's chain, settings and `checks:`
+- [Preset Catalog: `scope`](../reference/presets.md#scope) and
+  [Preset Catalog: `taxonomy`](../reference/presets.md#taxonomy): each preset's chain, settings and `checks:`
   defaults
 
 ### Authoritative reference

@@ -73,7 +73,7 @@ def _custom(steps: list[dict[str, Any]], inputs: list[Any] | None = None, **data
 def test_a_data_cleaning_task_computes_its_statistics_once() -> None:
     cleaning = {
         "name": "cleaning",
-        "type": "data-cleaning",
+        "type": "quality",
         "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
     }
     config = chain_pipeline(
@@ -169,7 +169,7 @@ def test_a_step_whose_stats_request_is_refused_fails_alone_and_the_others_still_
 def test_steps_reading_a_preset_step_s_output_compute_once_on_the_node_it_names() -> None:
     cleaning = {
         "name": "cleaning",
-        "type": "data-cleaning",
+        "type": "quality",
         "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
     }
     steps = [
@@ -185,7 +185,7 @@ def test_steps_reading_a_preset_step_s_output_compute_once_on_the_node_it_names(
     result, computed = _run(config)
     _all_ok(result)
     union = {None: ImageStats.PIXEL | ImageStats.VISUAL | ImageStats.HASH_DUPLICATES_BASIC}
-    # `data` holds 12 toy images; `cleaning/clean`, the node `cleaning.clean` names, the 10 data-cleaning keeps.
+    # `data` holds 12 toy images; `cleaning/clean`, the node `cleaning.clean` names, the 10 quality keeps.
     assert computed == [(12, union), (10, union)]
 
 

@@ -26,5 +26,5 @@ class TestTypeSafety:
     def test_get_workflow_returns_a_workflow_subclass(self) -> None:
         from dataeval_flow.workflows import Workflow, get_workflow
 
-        wf = get_workflow("data-cleaning")
+        wf = get_workflow("quality")
         assert issubclass(wf, Workflow)

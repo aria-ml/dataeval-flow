@@ -1,4 +1,4 @@
-"""data-cleaning's checks: each on its own, and the preset agreeing with the chain the Check Catalog documents
+"""quality's checks: each on its own, and the preset agreeing with the chain the Check Catalog documents
 (spec §9.2, §10.3)."""
 
 from collections.abc import Callable
@@ -33,7 +33,7 @@ from tests.evaluator_toys import ToyImages
 _CONTEXT = CheckContext(task="t", step="s")
 _CLEANING = {
     "name": "cleaning",
-    "type": "data-cleaning",
+    "type": "quality",
     "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
 }
 _EVALUATORS = [
@@ -58,7 +58,7 @@ _OUTLIER_STEPS = [
 _OUTLIER_TITLES = {"Image Outliers", "Target Outliers", "Class Outliers"}
 
 # 24 classification images, labelled and not; 20 detection images with 28 boxes, a copied image (9 of 4) and two
-# bright boxes. On these, data-cleaning finds (severity, title, brief):
+# bright boxes. On these, quality finds (severity, title, brief):
 #   classification: warning Image Outliers 1 images (4.2%); warning Class Outliers worst: b (8.3%), 1/1 classes
 #     over 3.0%; warning Duplicates 2 exact (8.3%), 0 near (0.0%); info Class Imbalance 2 classes, 24 items,
 #     imbalance 1.0:1
@@ -90,7 +90,7 @@ def _fresh_caches():
 
 
 def _both(steps: list[dict[str, Any]], dataset: Any) -> tuple[list[Finding], list[Finding]]:
-    """data-cleaning's findings and the chain's, each run as its own task over the same source."""
+    """quality's findings and the chain's, each run as its own task over the same source."""
     config = chain_pipeline(
         workflows=[_CLEANING, {"name": "judged", "inputs": ["data"], "steps": steps}],
         evaluators=_EVALUATORS,

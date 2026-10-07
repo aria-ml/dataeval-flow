@@ -287,7 +287,7 @@
             }
           ],
           "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
         "outliers": {
@@ -478,6 +478,100 @@
         }
       },
       "title": "BalanceConfig",
+      "type": "object"
+    },
+    "BiasChecks": {
+      "additionalProperties": false,
+      "description": "When bias's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "class-imbalance": {
+          "$ref": "#/$defs/ClassImbalanceSettings",
+          "description": "The `class-imbalance` check's thresholds."
+        },
+        "shortcut-risk": {
+          "$ref": "#/$defs/ShortcutRiskSettings",
+          "description": "The `shortcut-risk` check's threshold."
+        },
+        "factor-parity": {
+          "$ref": "#/$defs/FactorParitySettings",
+          "description": "The `factor-parity` check's thresholds."
+        },
+        "factor-coverage-gaps": {
+          "$ref": "#/$defs/FactorCoverageGapsSettings",
+          "description": "The `factor-coverage-gaps` check's threshold."
+        }
+      },
+      "title": "BiasChecks",
+      "type": "object"
+    },
+    "BiasConfig": {
+      "additionalProperties": false,
+      "description": "The settings of one ``bias`` entry: each step type's settings, keyed by the step type, and when a finding\nwarns.\n\nExample YAML::\n\n    workflows:\n      - name: bias\n        type: bias\n        metadata: standard\n        factor-gaps: {mi_threshold: 0.2}\n        checks:\n          shortcut-risk: {warning: 0.2}",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "bias",
+          "default": "bias",
+          "description": "The workflow type this entry configures: `bias`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
+          "title": "Ontology"
+        },
+        "diversity": {
+          "$ref": "#/$defs/DiversitySettings"
+        },
+        "factor-gaps": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactorGapsSettings"
+            },
+            {
+              "const": false,
+              "type": "boolean"
+            }
+          ],
+          "description": "The `factor-gaps` step's settings; `false` leaves out the gap analysis and its check.",
+          "title": "Factor-Gaps"
+        },
+        "checks": {
+          "$ref": "#/$defs/BiasChecks",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "title": "BiasConfig",
       "type": "object"
     },
     "BoVWExtractorConfig": {
@@ -916,7 +1010,7 @@
             }
           ],
           "default": 2.0,
-          "description": "The largest deviation, in percentage points, above which the finding is `info`; at or below it, `ok`. `null` has no `info` band: deviations up to `warning` are `ok`. data-splitting's 2.",
+          "description": "The largest deviation, in percentage points, above which the finding is `info`; at or below it, `ok`. `null` has no `info` band: deviations up to `warning` are `ok`. splits's 2.",
           "title": "Info"
         },
         "warning": {
@@ -931,7 +1025,7 @@
             }
           ],
           "default": 10.0,
-          "description": "The largest deviation above which the finding warns; `null` never warns. With both `null`, the finding is `info` and judges nothing. data-splitting's 10.",
+          "description": "The largest deviation above which the finding warns; `null` never warns. With both `null`, the finding is `info` and judges nothing. splits's 10.",
           "title": "Warning"
         },
         "input": {
@@ -3192,7 +3286,7 @@
     },
     "ClassOutliersSettings": {
       "additionalProperties": false,
-      "description": "The `class-outliers` check's settings in data-cleaning.",
+      "description": "The `class-outliers` check's settings in quality.",
       "properties": {
         "warning": {
           "anyOf": [
@@ -3229,7 +3323,7 @@
             }
           ],
           "default": 2.0,
-          "description": "The largest deviation, in percentage points, above which the finding is `info`; at or below it, `ok`. `null` has no `info` band: deviations up to `warning` are `ok`. data-splitting's 2.",
+          "description": "The largest deviation, in percentage points, above which the finding is `info`; at or below it, `ok`. `null` has no `info` band: deviations up to `warning` are `ok`. splits's 2.",
           "title": "Info"
         },
         "warning": {
@@ -3244,7 +3338,7 @@
             }
           ],
           "default": 10.0,
-          "description": "The largest deviation above which the finding warns; `null` never warns. With both `null`, the finding is `info` and judges nothing. data-splitting's 10.",
+          "description": "The largest deviation above which the finding warns; `null` never warns. With both `null`, the finding is `info` and judges nothing. splits's 10.",
           "title": "Warning"
         }
       },
@@ -4210,460 +4304,6 @@
       "title": "CustomWorkflowConfig",
       "type": "object"
     },
-    "DataBiasChecks": {
-      "additionalProperties": false,
-      "description": "When data-bias's findings warn: each check's fields, keyed by check type.",
-      "properties": {
-        "class-imbalance": {
-          "$ref": "#/$defs/ClassImbalanceSettings",
-          "description": "The `class-imbalance` check's thresholds."
-        },
-        "shortcut-risk": {
-          "$ref": "#/$defs/ShortcutRiskSettings",
-          "description": "The `shortcut-risk` check's threshold."
-        },
-        "factor-parity": {
-          "$ref": "#/$defs/FactorParitySettings",
-          "description": "The `factor-parity` check's thresholds."
-        },
-        "factor-coverage-gaps": {
-          "$ref": "#/$defs/FactorCoverageGapsSettings",
-          "description": "The `factor-coverage-gaps` check's threshold."
-        }
-      },
-      "title": "DataBiasChecks",
-      "type": "object"
-    },
-    "DataBiasConfig": {
-      "additionalProperties": false,
-      "description": "The settings of one ``data-bias`` entry: each step type's settings, keyed by the step type, and when a finding\nwarns.\n\nExample YAML::\n\n    workflows:\n      - name: bias\n        type: data-bias\n        metadata: standard\n        factor-gaps: {mi_threshold: 0.2}\n        checks:\n          shortcut-risk: {warning: 0.2}",
-      "properties": {
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
-        },
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "data-bias",
-          "default": "data-bias",
-          "description": "The workflow type this entry configures: `data-bias`.",
-          "title": "Type",
-          "type": "string"
-        },
-        "ontology": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
-          "title": "Ontology"
-        },
-        "diversity": {
-          "$ref": "#/$defs/DiversitySettings"
-        },
-        "factor-gaps": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/FactorGapsSettings"
-            },
-            {
-              "const": false,
-              "type": "boolean"
-            }
-          ],
-          "description": "The `factor-gaps` step's settings; `false` leaves out the gap analysis and its check.",
-          "title": "Factor-Gaps"
-        },
-        "checks": {
-          "$ref": "#/$defs/DataBiasChecks",
-          "description": "When findings warn, keyed by check type."
-        }
-      },
-      "title": "DataBiasConfig",
-      "type": "object"
-    },
-    "DataCleaningChecks": {
-      "additionalProperties": false,
-      "description": "When data-cleaning's findings warn: each check's settings, keyed by check type.",
-      "properties": {
-        "image-outliers": {
-          "$ref": "#/$defs/ImageOutliersSettings",
-          "description": "The `image-outliers` check's settings."
-        },
-        "target-outliers": {
-          "$ref": "#/$defs/TargetOutliersSettings",
-          "description": "The `target-outliers` check's settings."
-        },
-        "class-outliers": {
-          "$ref": "#/$defs/ClassOutliersSettings",
-          "description": "The `class-outliers` check's settings."
-        },
-        "image-duplicates": {
-          "$ref": "#/$defs/ImageDuplicatesSettings",
-          "description": "The `image-duplicates` check's settings."
-        }
-      },
-      "title": "DataCleaningChecks",
-      "type": "object"
-    },
-    "DataCleaningConfig": {
-      "additionalProperties": false,
-      "description": "The settings of one ``data-cleaning`` entry: how outliers and duplicates are detected, and when a finding warns.\n\nThe type is a preset: these settings expand to a chain of steps, whose checks make the findings and whose\n``clean`` step removes each flagged item and each duplicate but the first (see ``DataCleaningWorkflow``).\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: data-cleaning\n        outliers:\n          flags: [pixel, visual]\n          outlier_threshold: zscore",
-      "properties": {
-        "stats": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
-          "title": "Stats"
-        },
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
-        },
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "data-cleaning",
-          "default": "data-cleaning",
-          "description": "The workflow type this entry configures: `data-cleaning`.",
-          "title": "Type",
-          "type": "string"
-        },
-        "ontology": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
-          "title": "Ontology"
-        },
-        "outliers": {
-          "$ref": "#/$defs/OutliersSettings",
-          "description": "The `outliers` step's settings."
-        },
-        "duplicates": {
-          "$ref": "#/$defs/DuplicatesSettings"
-        },
-        "checks": {
-          "$ref": "#/$defs/DataCleaningChecks",
-          "description": "When findings warn, keyed by check type."
-        }
-      },
-      "required": [
-        "outliers"
-      ],
-      "title": "DataCleaningConfig",
-      "type": "object"
-    },
-    "DataCoverageChecks": {
-      "additionalProperties": false,
-      "description": "When data-coverage's findings warn: each check's fields, keyed by check type.",
-      "properties": {
-        "class-coverage": {
-          "$ref": "#/$defs/ClassCoverageSettings",
-          "description": "The `class-coverage` check's thresholds."
-        },
-        "uncovered-items": {
-          "$ref": "#/$defs/UncoveredItemsSettings",
-          "description": "The `uncovered-items` check's threshold, under `naive` coverage."
-        },
-        "dimensional-completeness": {
-          "$ref": "#/$defs/DimensionalCompletenessSettings",
-          "description": "The `dimensional-completeness` check's thresholds."
-        }
-      },
-      "title": "DataCoverageChecks",
-      "type": "object"
-    },
-    "DataCoverageConfig": {
-      "additionalProperties": false,
-      "description": "The settings of one ``data-coverage`` entry: each step type's settings, keyed by the step type, and when a\nfinding warns.\n\nExample YAML::\n\n    workflows:\n      - name: coverage\n        type: data-coverage\n        coverage: {method: adaptive, num_observations: 50}\n        wrap: {params: {padding: 0.1}}",
-      "properties": {
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "data-coverage",
-          "default": "data-coverage",
-          "description": "The workflow type this entry configures: `data-coverage`.",
-          "title": "Type",
-          "type": "string"
-        },
-        "ontology": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
-          "title": "Ontology"
-        },
-        "representation": {
-          "$ref": "#/$defs/RepresentationSettings",
-          "description": "The `representation` step's settings."
-        },
-        "coverage": {
-          "$ref": "#/$defs/CoverageSettings",
-          "description": "The `coverage` step's settings, run when the task names an extractor."
-        },
-        "wrap": {
-          "$ref": "#/$defs/WrapSettings",
-          "description": "The `wrap` step's settings, used on detection data only."
-        },
-        "completeness": {
-          "default": true,
-          "description": "Whether the completeness steps run, when the task names an extractor.",
-          "title": "Completeness",
-          "type": "boolean"
-        },
-        "checks": {
-          "$ref": "#/$defs/DataCoverageChecks",
-          "description": "When findings warn, keyed by check type."
-        }
-      },
-      "title": "DataCoverageConfig",
-      "type": "object"
-    },
-    "DataPrioritizationConfig": {
-      "additionalProperties": false,
-      "description": "The settings of one ``data-prioritization`` entry: how data is ranked against a reference.\n\nRequires at least two sources: the first is the reference (labeled) dataset,\nand each later source is a pool, ranked against it on its own.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: data-prioritization\n        prioritization:\n          method: knn\n          k: 10\n          order: hard_first\n        select:\n          n: 200\n\nTo clean the data first, run the preset as a step of a custom workflow, after a ``data-cleaning`` step or the\n``outliers``, ``duplicates`` and ``remove`` steps.",
-      "properties": {
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "data-prioritization",
-          "default": "data-prioritization",
-          "description": "The workflow type this entry configures: `data-prioritization`.",
-          "title": "Type",
-          "type": "string"
-        },
-        "ontology": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
-          "title": "Ontology"
-        },
-        "prioritization": {
-          "$ref": "#/$defs/PrioritizationSettings",
-          "description": "The `prioritization` step's settings."
-        },
-        "select": {
-          "$ref": "#/$defs/SelectSettings",
-          "description": "The `select` step's settings."
-        }
-      },
-      "title": "DataPrioritizationConfig",
-      "type": "object"
-    },
-    "DataSplittingChecks": {
-      "additionalProperties": false,
-      "description": "When data-splitting's findings warn: each check's fields, keyed by check type.",
-      "properties": {
-        "class-stratification": {
-          "$ref": "#/$defs/ClassStratificationThresholds",
-          "description": "The `class-stratification` check's thresholds, on each fold."
-        }
-      },
-      "title": "DataSplittingChecks",
-      "type": "object"
-    },
-    "DataSplittingConfig": {
-      "additionalProperties": false,
-      "description": "The settings of one ``data-splitting`` entry: the split or folds, rebalancing, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: splits\n        type: data-splitting\n        folds: 3\n        test_frac: 0.2\n        rebalance: interclass",
-      "properties": {
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
-        },
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "data-splitting",
-          "default": "data-splitting",
-          "description": "The workflow type this entry configures: `data-splitting`.",
-          "title": "Type",
-          "type": "string"
-        },
-        "ontology": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
-          "title": "Ontology"
-        },
-        "folds": {
-          "default": 1,
-          "description": "`1` splits once into train, val and test; 2 or more make that many train and val folds and one test.",
-          "minimum": 1,
-          "title": "Folds",
-          "type": "integer"
-        },
-        "test_frac": {
-          "default": 0.2,
-          "description": "The share held out as `test`; `0` holds out none.",
-          "exclusiveMaximum": 1.0,
-          "minimum": 0.0,
-          "title": "Test Frac",
-          "type": "number"
-        },
-        "val_frac": {
-          "anyOf": [
-            {
-              "exclusiveMaximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The share held out as `val` with `folds: 1`; unset is 0.1. With `folds` 2 or more, each fold's val is its 1/k, and setting this is refused.",
-          "title": "Val Frac"
-        },
-        "stratify": {
-          "default": true,
-          "description": "Whether each part keeps the whole's class proportions.",
-          "title": "Stratify",
-          "type": "boolean"
-        },
-        "split_on": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Metadata factors whose values never straddle parts, such as a scene or site. Classification data only: DataEval ignores it on detection data, with a warning in the log.",
-          "title": "Split On"
-        },
-        "rebalance": {
-          "anyOf": [
-            {
-              "enum": [
-                "global",
-                "interclass"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "DataEval's `ClassBalance` method applied to each train; unset rebalances nothing.",
-          "title": "Rebalance"
-        },
-        "checks": {
-          "$ref": "#/$defs/DataSplittingChecks",
-          "description": "When findings warn, keyed by check type."
-        }
-      },
-      "title": "DataSplittingConfig",
-      "type": "object"
-    },
     "DatasetProtocolConfig": {
       "additionalProperties": false,
       "description": "Dataset Configuration schema for an in-memory dataset.\n\nNot serializable \u2014 for programmatic use only. Cannot be loaded from\nYAML/JSON config files or edited in the builder UI.",
@@ -5565,7 +5205,7 @@
             }
           ],
           "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
         "detectors": {
@@ -6506,7 +6146,7 @@
             }
           ],
           "default": null,
-          "description": "Label space the emitted dataset's labels are read under, by name under the top-level `ontologies:` key or as a path. Written into the dataset's provenance so the emitted dataset carries the same digest as the run and the label-space run. An export names no workflow, so it cannot inherit one.",
+          "description": "Label space the emitted dataset's labels are read under, by name under the top-level `ontologies:` key or as a path. Written into the dataset's provenance so the emitted dataset carries the same digest as the run and the taxonomy run. An export names no workflow, so it cannot inherit one.",
           "title": "Ontology"
         }
       },
@@ -6578,7 +6218,7 @@
     },
     "FactorIssuesSettings": {
       "additionalProperties": false,
-      "description": "The `factor-issues` check's settings in metadata-triage.",
+      "description": "The `factor-issues` check's settings in triage.",
       "properties": {
         "max_examples": {
           "default": 20,
@@ -6689,7 +6329,7 @@
     },
     "FactorSummaryConfig": {
       "additionalProperties": false,
-      "description": "Config for ``factor-summary``: each metadata factor's type, binning, nulls, and range or top values.\n\nA Flow-only evaluator over DataEval's ``Metadata``; data-bias and audit run it.\n\nExample YAML::\n\n    evaluators:\n      - name: summary\n        type: factor-summary\n        metadata: standard",
+      "description": "Config for ``factor-summary``: each metadata factor's type, binning, nulls, and range or top values.\n\nA Flow-only evaluator over DataEval's ``Metadata``; bias and audit run it.\n\nExample YAML::\n\n    evaluators:\n      - name: summary\n        type: factor-summary\n        metadata: standard",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -6722,7 +6362,7 @@
     },
     "FactorTriageConfig": {
       "additionalProperties": false,
-      "description": "Config for ``factor-triage``: what a Dataset's metadata failed to read, and a policy that repairs it.\n\nReads the Dataset's metadata under its policy and finds each factor the run could not read as configured. It\nsuggests a correction or a bin count where one repairs it, and, with ``verify``, reads the metadata back under the\nsuggestions. The ``factor-issues`` check reads its output; ``metadata-triage`` runs both.\n\nExample YAML::\n\n    evaluators:\n      - name: triage\n        type: factor-triage\n        metadata: standard",
+      "description": "Config for ``factor-triage``: what a Dataset's metadata failed to read, and a policy that repairs it.\n\nReads the Dataset's metadata under its policy and finds each factor the run could not read as configured. It\nsuggests a correction or a bin count where one repairs it, and, with ``verify``, reads the metadata back under the\nsuggestions. The ``factor-issues`` check reads its output; ``triage`` runs both.\n\nExample YAML::\n\n    evaluators:\n      - name: triage\n        type: factor-triage\n        metadata: standard",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -6952,7 +6592,7 @@
     },
     "ImageDuplicatesSettings": {
       "additionalProperties": false,
-      "description": "The `image-duplicates` check's settings in data-cleaning.",
+      "description": "The `image-duplicates` check's settings in quality.",
       "properties": {
         "exact": {
           "anyOf": [
@@ -7109,7 +6749,7 @@
     },
     "ImageOutliersSettings": {
       "additionalProperties": false,
-      "description": "The `image-outliers` check's settings in data-cleaning.",
+      "description": "The `image-outliers` check's settings in quality.",
       "properties": {
         "warning": {
           "anyOf": [
@@ -7302,69 +6942,6 @@
       "title": "LabelReconciliationConfig",
       "type": "object"
     },
-    "LabelSpaceChecks": {
-      "additionalProperties": false,
-      "description": "When label-space's findings warn: each check's fields, keyed by check type.",
-      "properties": {
-        "leaf-coverage": {
-          "$ref": "#/$defs/LeafCoverageSettings",
-          "description": "The `leaf-coverage` check's thresholds."
-        },
-        "label-conformance": {
-          "$ref": "#/$defs/LabelConformanceSettings",
-          "description": "The `label-conformance` check's threshold."
-        }
-      },
-      "title": "LabelSpaceChecks",
-      "type": "object"
-    },
-    "LabelSpaceConfig": {
-      "additionalProperties": false,
-      "description": "The settings of one ``label-space`` entry: the ontology to judge labels against, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: vocab\n        type: label-space\n        ontology: vehicles\n        representation: {expected: {truck: 0.2}}",
-      "properties": {
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "label-space",
-          "default": "label-space",
-          "description": "The workflow type this entry configures: `label-space`.",
-          "title": "Type",
-          "type": "string"
-        },
-        "ontology": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "The ontology to judge labels against: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children.",
-          "title": "Ontology"
-        },
-        "representation": {
-          "$ref": "#/$defs/RepresentationSettings",
-          "description": "The `representation` step's settings."
-        },
-        "ontology-validation": {
-          "$ref": "#/$defs/OntologyValidationSettings"
-        },
-        "checks": {
-          "$ref": "#/$defs/LabelSpaceChecks",
-          "description": "When findings warn, keyed by check type."
-        }
-      },
-      "required": [
-        "ontology"
-      ],
-      "title": "LabelSpaceConfig",
-      "type": "object"
-    },
     "LeafCoverageSettings": {
       "additionalProperties": false,
       "description": "The `leaf-coverage` check's fields, with legacy data-coverage's defaults.",
@@ -7535,7 +7112,7 @@
     },
     "MetadataPolicyConfig": {
       "additionalProperties": false,
-      "description": "A named metadata policy, referenced by the workflows that share it.\n\nA bin edge is a claim about the world \u2014 *below 0 \u00b0C is freezing* \u2014 so where the cuts\nfell, and who chose them, is part of what a result means.  That makes the encoding a\ndecision worth writing down once and pointing several workflows at, rather than a\nsetting each of them spells out again: two workflows over one dataset that cut it\ndifferently produce numbers that merge into one result file and cannot be compared.\n\nDefined once under ``metadata:`` and referenced by name, like ``datasets``, ``views``,\n``sources`` and ``extractors``.\n\nYAML example::\n\n    metadata:\n      - name: standard\n        encoding: policy/factor_bins.json\n        strict: true\n        exclude: [id, filename]\n\n    workflows:\n      - name: bias_check\n        type: data-bias\n        metadata: standard",
+      "description": "A named metadata policy, referenced by the workflows that share it.\n\nA bin edge is a claim about the world \u2014 *below 0 \u00b0C is freezing* \u2014 so where the cuts\nfell, and who chose them, is part of what a result means.  That makes the encoding a\ndecision worth writing down once and pointing several workflows at, rather than a\nsetting each of them spells out again: two workflows over one dataset that cut it\ndifferently produce numbers that merge into one result file and cannot be compared.\n\nDefined once under ``metadata:`` and referenced by name, like ``datasets``, ``views``,\n``sources`` and ``extractors``.\n\nYAML example::\n\n    metadata:\n      - name: standard\n        encoding: policy/factor_bins.json\n        strict: true\n        exclude: [id, filename]\n\n    workflows:\n      - name: bias_check\n        type: bias\n        metadata: standard",
       "properties": {
         "name": {
           "description": "Identifier for this policy",
@@ -7736,93 +7313,6 @@
       "title": "MetadataPolicyConfig",
       "type": "object"
     },
-    "MetadataTriageChecks": {
-      "additionalProperties": false,
-      "description": "metadata-triage's check settings, keyed by check type.",
-      "properties": {
-        "factor-issues": {
-          "$ref": "#/$defs/FactorIssuesSettings",
-          "description": "The `factor-issues` check's settings."
-        }
-      },
-      "title": "MetadataTriageChecks",
-      "type": "object"
-    },
-    "MetadataTriageConfig": {
-      "additionalProperties": false,
-      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``factor-triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``factor-issues`` check, which takes ``max_examples``\nunder ``checks``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        checks:\n          factor-issues:\n            max_examples: 20",
-      "properties": {
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
-        },
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "metadata-triage",
-          "default": "metadata-triage",
-          "description": "The workflow type this entry configures: `metadata-triage`.",
-          "title": "Type",
-          "type": "string"
-        },
-        "ontology": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
-          "title": "Ontology"
-        },
-        "checks": {
-          "$ref": "#/$defs/MetadataTriageChecks",
-          "description": "The `factor-issues` check's settings, keyed by check type."
-        },
-        "verify": {
-          "default": true,
-          "description": "Re-read the metadata under the complete suggestions and report what they recover. Costs no second dataset walk: `repair` returns a copy sharing the store.",
-          "title": "Verify",
-          "type": "boolean"
-        },
-        "default_bins": {
-          "default": 10,
-          "description": "Bin count a suggestion falls back to where the run left no fit to read. Where there is one, the populated bins of the derived cut are carried forward instead, which pins the cut the run used rather than substituting a different one.",
-          "minimum": 2,
-          "title": "Default Bins",
-          "type": "integer"
-        },
-        "min_missing_fraction": {
-          "default": 0.2,
-          "description": "Share of rows recording no value above which a factor is called degenerate.",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Min Missing Fraction",
-          "type": "number"
-        }
-      },
-      "title": "MetadataTriageConfig",
-      "type": "object"
-    },
     "OODDetectionChecks": {
       "additionalProperties": false,
       "description": "When ood-detection's findings warn: each check's fields, keyed by check type.",
@@ -7895,7 +7385,7 @@
             }
           ],
           "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `label-space` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `label-space` judges labels against it; `data-coverage` refuses it, so a data-coverage run on a conformed source records no label space of its own.",
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
           "title": "Ontology"
         },
         "detectors": {
@@ -8552,7 +8042,7 @@
     },
     "OntologyConfig": {
       "additionalProperties": false,
-      "description": "A named label space, referenced by the workflows that share it.\n\nDefine an ontology once here and reference it by name so workflows meant to be compared\nread the same vocabulary. Two tasks reading different ontologies produce worklists you\ncannot compare.\n\nYAML example::\n\n    ontologies:\n      - name: vehicles\n        source: config/label_ontology.jsonld\n        concepts:\n          - id: http://example.org/cv#FreightCar\n            label: Freight Car\n            synonyms: [freight_car, freight car]\n            parents: [http://example.org/cv#LandVehicle]\n\n    workflows:\n      - name: vehicle-labels\n        type: label-space\n        ontology: vehicles",
+      "description": "A named label space, referenced by the workflows that share it.\n\nDefine an ontology once here and reference it by name so workflows meant to be compared\nread the same vocabulary. Two tasks reading different ontologies produce worklists you\ncannot compare.\n\nYAML example::\n\n    ontologies:\n      - name: vehicles\n        source: config/label_ontology.jsonld\n        concepts:\n          - id: http://example.org/cv#FreightCar\n            label: Freight Car\n            synonyms: [freight_car, freight car]\n            parents: [http://example.org/cv#LandVehicle]\n\n    workflows:\n      - name: vehicle-labels\n        type: taxonomy\n        ontology: vehicles",
       "properties": {
         "name": {
           "description": "Identifier for this ontology",
@@ -10292,147 +9782,6 @@
       "title": "PreprocessorConfig",
       "type": "object"
     },
-    "PrioritizationConfig": {
-      "additionalProperties": false,
-      "description": "Config for ``prioritization``, DataEval's Prioritize.\n\nRanks the first source's items from easiest to hardest, or the reverse, by where they sit in the embedding space.\nA second source is the reference: the items are then ranked relative to it, as when choosing what to label next\nbeside data already labeled. Needs an extractor on the task.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators prioritization`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: next_to_label\n        type: prioritization\n        order: hard_first\n\n    tasks:\n      - name: rank_unlabeled\n        evaluator: next_to_label\n        sources: [unlabeled, labeled]\n        extractor: bovw_ext",
-      "properties": {
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "prioritization",
-          "default": "prioritization",
-          "description": "The evaluator type this entry configures: `prioritization`.",
-          "title": "Type",
-          "type": "string"
-        },
-        "method": {
-          "anyOf": [
-            {
-              "enum": [
-                "knn",
-                "kmeans_distance",
-                "kmeans_complexity",
-                "hdbscan_distance",
-                "hdbscan_complexity"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How items are ranked: `knn`, by distance to their nearest neighbors; `kmeans_distance` or `hdbscan_distance`, by distance to their cluster's center; `kmeans_complexity` or `hdbscan_complexity`, by weighted sampling over the cluster structure. Unset uses DataEval's default (`knn`).",
-          "title": "Method"
-        },
-        "k": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Nearest neighbors, for `knn`. Unset uses the square root of the item count.",
-          "title": "K"
-        },
-        "c": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Clusters, for the clustering methods. Unset uses the square root of the item count.",
-          "title": "C"
-        },
-        "n_init": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "const": "auto",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "K-means initializations, for the `kmeans_*` methods: a count, or `auto`. Unset uses DataEval's default (`auto`).",
-          "title": "N Init"
-        },
-        "max_cluster_size": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Largest cluster, for the `hdbscan_*` methods. Unset leaves it unbounded.",
-          "title": "Max Cluster Size"
-        },
-        "order": {
-          "default": "hard_first",
-          "description": "Sort direction: `easy_first` puts prototypical items first, `hard_first` challenging ones. Flow defaults to `hard_first`, the usual choice for deciding what to label or review next; DataEval's default is `easy_first`.",
-          "enum": [
-            "easy_first",
-            "hard_first"
-          ],
-          "title": "Order",
-          "type": "string"
-        },
-        "policy": {
-          "anyOf": [
-            {
-              "enum": [
-                "difficulty",
-                "stratified",
-                "class_balanced"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How the ranking is reordered: `difficulty` keeps it, `stratified` balances it across difficulty bins, and `class_balanced` across class labels, which needs a dataset with one label per item. Unset uses DataEval's default (`difficulty`).",
-          "title": "Policy"
-        },
-        "num_bins": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Difficulty bins, for the `stratified` policy. Unset uses DataEval's default (50).",
-          "title": "Num Bins"
-        }
-      },
-      "title": "PrioritizationConfig",
-      "type": "object"
-    },
     "PrioritizationSettings": {
       "additionalProperties": false,
       "description": "The `prioritization` step's settings: how each pool is ranked against the reference.",
@@ -10560,6 +9909,107 @@
         }
       },
       "title": "PrioritizationSettings",
+      "type": "object"
+    },
+    "QualityChecks": {
+      "additionalProperties": false,
+      "description": "When quality's findings warn: each check's settings, keyed by check type.",
+      "properties": {
+        "image-outliers": {
+          "$ref": "#/$defs/ImageOutliersSettings",
+          "description": "The `image-outliers` check's settings."
+        },
+        "target-outliers": {
+          "$ref": "#/$defs/TargetOutliersSettings",
+          "description": "The `target-outliers` check's settings."
+        },
+        "class-outliers": {
+          "$ref": "#/$defs/ClassOutliersSettings",
+          "description": "The `class-outliers` check's settings."
+        },
+        "image-duplicates": {
+          "$ref": "#/$defs/ImageDuplicatesSettings",
+          "description": "The `image-duplicates` check's settings."
+        }
+      },
+      "title": "QualityChecks",
+      "type": "object"
+    },
+    "QualityConfig": {
+      "additionalProperties": false,
+      "description": "The settings of one ``quality`` entry: how outliers and duplicates are detected, and when a finding warns.\n\nThe type is a preset: these settings expand to a chain of steps, whose checks make the findings and whose\n``clean`` step removes each flagged item and each duplicate but the first (see ``QualityWorkflow``).\n\nRequired fields have no default and must be set, per CR-4.14-G-1\n(avoid application-specific defaults).\n\nExample YAML::\n\n    workflows:\n      - name: clean_zscore_stats\n        type: quality\n        outliers:\n          flags: [pixel, visual]\n          outlier_threshold: zscore",
+      "properties": {
+        "stats": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
+          "title": "Stats"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "quality",
+          "default": "quality",
+          "description": "The workflow type this entry configures: `quality`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
+          "title": "Ontology"
+        },
+        "outliers": {
+          "$ref": "#/$defs/OutliersSettings",
+          "description": "The `outliers` step's settings."
+        },
+        "duplicates": {
+          "$ref": "#/$defs/DuplicatesSettings"
+        },
+        "checks": {
+          "$ref": "#/$defs/QualityChecks",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "required": [
+        "outliers"
+      ],
+      "title": "QualityConfig",
       "type": "object"
     },
     "ReductionOptionsConfig": {
@@ -11178,6 +10628,85 @@
       "title": "ResultConfig",
       "type": "object"
     },
+    "ScopeChecks": {
+      "additionalProperties": false,
+      "description": "When scope's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "class-coverage": {
+          "$ref": "#/$defs/ClassCoverageSettings",
+          "description": "The `class-coverage` check's thresholds."
+        },
+        "uncovered-items": {
+          "$ref": "#/$defs/UncoveredItemsSettings",
+          "description": "The `uncovered-items` check's threshold, under `naive` coverage."
+        },
+        "dimensional-completeness": {
+          "$ref": "#/$defs/DimensionalCompletenessSettings",
+          "description": "The `dimensional-completeness` check's thresholds."
+        }
+      },
+      "title": "ScopeChecks",
+      "type": "object"
+    },
+    "ScopeConfig": {
+      "additionalProperties": false,
+      "description": "The settings of one ``scope`` entry: each step type's settings, keyed by the step type, and when a\nfinding warns.\n\nExample YAML::\n\n    workflows:\n      - name: coverage\n        type: scope\n        coverage: {method: adaptive, num_observations: 50}\n        wrap: {params: {padding: 0.1}}",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "scope",
+          "default": "scope",
+          "description": "The workflow type this entry configures: `scope`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
+          "title": "Ontology"
+        },
+        "representation": {
+          "$ref": "#/$defs/RepresentationSettings",
+          "description": "The `representation` step's settings."
+        },
+        "coverage": {
+          "$ref": "#/$defs/CoverageSettings",
+          "description": "The `coverage` step's settings, run when the task names an extractor."
+        },
+        "wrap": {
+          "$ref": "#/$defs/WrapSettings",
+          "description": "The `wrap` step's settings, used on detection data only."
+        },
+        "completeness": {
+          "default": true,
+          "description": "Whether the completeness steps run, when the task names an extractor.",
+          "title": "Completeness",
+          "type": "boolean"
+        },
+        "checks": {
+          "$ref": "#/$defs/ScopeChecks",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "title": "ScopeConfig",
+      "type": "object"
+    },
     "SelectSettings": {
       "additionalProperties": false,
       "description": "The `select` step's settings: how much of each pool's ranking is kept.",
@@ -11296,6 +10825,141 @@
       "title": "SourceConfig",
       "type": "object"
     },
+    "SplitsChecks": {
+      "additionalProperties": false,
+      "description": "When splits's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "class-stratification": {
+          "$ref": "#/$defs/ClassStratificationThresholds",
+          "description": "The `class-stratification` check's thresholds, on each fold."
+        }
+      },
+      "title": "SplitsChecks",
+      "type": "object"
+    },
+    "SplitsConfig": {
+      "additionalProperties": false,
+      "description": "The settings of one ``splits`` entry: the split or folds, rebalancing, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: splits\n        type: splits\n        folds: 3\n        test_frac: 0.2\n        rebalance: interclass",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "splits",
+          "default": "splits",
+          "description": "The workflow type this entry configures: `splits`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
+          "title": "Ontology"
+        },
+        "folds": {
+          "default": 1,
+          "description": "`1` splits once into train, val and test; 2 or more make that many train and val folds and one test.",
+          "minimum": 1,
+          "title": "Folds",
+          "type": "integer"
+        },
+        "test_frac": {
+          "default": 0.2,
+          "description": "The share held out as `test`; `0` holds out none.",
+          "exclusiveMaximum": 1.0,
+          "minimum": 0.0,
+          "title": "Test Frac",
+          "type": "number"
+        },
+        "val_frac": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The share held out as `val` with `folds: 1`; unset is 0.1. With `folds` 2 or more, each fold's val is its 1/k, and setting this is refused.",
+          "title": "Val Frac"
+        },
+        "stratify": {
+          "default": true,
+          "description": "Whether each part keeps the whole's class proportions.",
+          "title": "Stratify",
+          "type": "boolean"
+        },
+        "split_on": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Metadata factors whose values never straddle parts, such as a scene or site. Classification data only: DataEval ignores it on detection data, with a warning in the log.",
+          "title": "Split On"
+        },
+        "rebalance": {
+          "anyOf": [
+            {
+              "enum": [
+                "global",
+                "interclass"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "DataEval's `ClassBalance` method applied to each train; unset rebalances nothing.",
+          "title": "Rebalance"
+        },
+        "checks": {
+          "$ref": "#/$defs/SplitsChecks",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "title": "SplitsConfig",
+      "type": "object"
+    },
     "StatsMeasureConfig": {
       "additionalProperties": false,
       "description": "One view of the imagery and the statistic families measured over it.",
@@ -11337,7 +11001,7 @@
     },
     "StatsPolicyConfig": {
       "additionalProperties": false,
-      "description": "A named statement of what is measured and which views each consumer reads.\n\nDefine a policy once here and reference it by name so workflows meant to be compared\nmeasure the same things. Two workflows reading different views produce numbers you\ncannot compare.\n\n`measure` is a complete statement: a view with no entry is not measured, and nothing is\ninferred for a missing whole-image entry.\n\nYAML example::\n\n    stats:\n      - name: multispectral\n        measure:\n          - {bands: ~,   families: [dimension, visual, hash]}\n          - {bands: rgb, families: [visual]}\n          - {bands: ir,  families: [visual, pixel]}\n        background: true\n        outliers_from: [~]\n        factors_from:  [~, rgb, ir]\n\n    workflows:\n      - name: clean\n        type: data-cleaning\n        stats: multispectral",
+      "description": "A named statement of what is measured and which views each consumer reads.\n\nDefine a policy once here and reference it by name so workflows meant to be compared\nmeasure the same things. Two workflows reading different views produce numbers you\ncannot compare.\n\n`measure` is a complete statement: a view with no entry is not measured, and nothing is\ninferred for a missing whole-image entry.\n\nYAML example::\n\n    stats:\n      - name: multispectral\n        measure:\n          - {bands: ~,   families: [dimension, visual, hash]}\n          - {bands: rgb, families: [visual]}\n          - {bands: ir,  families: [visual, pixel]}\n        background: true\n        outliers_from: [~]\n        factors_from:  [~, rgb, ir]\n\n    workflows:\n      - name: clean\n        type: quality\n        stats: multispectral",
       "properties": {
         "name": {
           "description": "Identifier for this policy",
@@ -11405,7 +11069,7 @@
     },
     "TargetOutliersSettings": {
       "additionalProperties": false,
-      "description": "The `target-outliers` check's settings in data-cleaning.",
+      "description": "The `target-outliers` check's settings in quality.",
       "properties": {
         "warning": {
           "anyOf": [
@@ -11543,6 +11207,69 @@
         "sources"
       ],
       "title": "TaskConfig",
+      "type": "object"
+    },
+    "TaxonomyChecks": {
+      "additionalProperties": false,
+      "description": "When taxonomy's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "leaf-coverage": {
+          "$ref": "#/$defs/LeafCoverageSettings",
+          "description": "The `leaf-coverage` check's thresholds."
+        },
+        "label-conformance": {
+          "$ref": "#/$defs/LabelConformanceSettings",
+          "description": "The `label-conformance` check's threshold."
+        }
+      },
+      "title": "TaxonomyChecks",
+      "type": "object"
+    },
+    "TaxonomyConfig": {
+      "additionalProperties": false,
+      "description": "The settings of one ``taxonomy`` entry: the ontology to judge labels against, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: vocab\n        type: taxonomy\n        ontology: vehicles\n        representation: {expected: {truck: 0.2}}",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "taxonomy",
+          "default": "taxonomy",
+          "description": "The workflow type this entry configures: `taxonomy`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "The ontology to judge labels against: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children.",
+          "title": "Ontology"
+        },
+        "representation": {
+          "$ref": "#/$defs/RepresentationSettings",
+          "description": "The `representation` step's settings."
+        },
+        "ontology-validation": {
+          "$ref": "#/$defs/OntologyValidationSettings"
+        },
+        "checks": {
+          "$ref": "#/$defs/TaxonomyChecks",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "required": [
+        "ontology"
+      ],
+      "title": "TaxonomyConfig",
       "type": "object"
     },
     "TorchExtractorConfig": {
@@ -12326,6 +12053,93 @@
       "title": "TransformStep_wrap",
       "type": "object"
     },
+    "TriageChecks": {
+      "additionalProperties": false,
+      "description": "triage's check settings, keyed by check type.",
+      "properties": {
+        "factor-issues": {
+          "$ref": "#/$defs/FactorIssuesSettings",
+          "description": "The `factor-issues` check's settings."
+        }
+      },
+      "title": "TriageChecks",
+      "type": "object"
+    },
+    "TriageConfig": {
+      "additionalProperties": false,
+      "description": "The settings of one ``triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``factor-triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``factor-issues`` check, which takes ``max_examples``\nunder ``checks``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: triage\n        metadata: standard\n        checks:\n          factor-issues:\n            max_examples: 20",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "triage",
+          "default": "triage",
+          "description": "The workflow type this entry configures: `triage`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
+          "title": "Ontology"
+        },
+        "checks": {
+          "$ref": "#/$defs/TriageChecks",
+          "description": "The `factor-issues` check's settings, keyed by check type."
+        },
+        "verify": {
+          "default": true,
+          "description": "Re-read the metadata under the complete suggestions and report what they recover. Costs no second dataset walk: `repair` returns a copy sharing the store.",
+          "title": "Verify",
+          "type": "boolean"
+        },
+        "default_bins": {
+          "default": 10,
+          "description": "Bin count a suggestion falls back to where the run left no fit to read. Where there is one, the populated bins of the derived cut are carried forward instead, which pins the cut the run used rather than substituting a different one.",
+          "minimum": 2,
+          "title": "Default Bins",
+          "type": "integer"
+        },
+        "min_missing_fraction": {
+          "default": 0.2,
+          "description": "Share of rows recording no value above which a factor is called degenerate.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Missing Fraction",
+          "type": "number"
+        }
+      },
+      "title": "TriageConfig",
+      "type": "object"
+    },
     "UncertaintyExtractorConfig": {
       "additionalProperties": false,
       "description": "Extractor config for model uncertainty: the normalized entropy of an ONNX classifier's or detector's\npredictions, one row per image for a classifier and one per detection for a detector.\n\nOnly drift and OOD evaluators read it, since a detector's rows are detections rather than items.\n\nYAML example::\n\n    extractors:\n      - name: yolo-uncertainty\n        model: uncertainty\n        model_path: yolo.onnx\n        metadata_path: yolo.json\n        preds_type: sigmoid\n        confidence: 0.25\n        batch_size: 16",
@@ -12619,7 +12433,7 @@
     },
     "WrapSettings": {
       "additionalProperties": false,
-      "description": "The `wrap` step's settings, for the crops data-coverage measures detection data on: `DetectionCrops`' `params`.\nThe preset fixes the wrapper and `other_kinds`.",
+      "description": "The `wrap` step's settings, for the crops scope measures detection data on: `DetectionCrops`' `params`.\nThe preset fixes the wrapper and `other_kinds`.",
       "properties": {
         "params": {
           "$ref": "#/$defs/CropParams",
@@ -12773,6 +12587,192 @@
         "path"
       ],
       "title": "YoloDatasetConfig",
+      "type": "object"
+    },
+    "dataeval_flow__evaluators__scope___config__PrioritizationConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``prioritization``, DataEval's Prioritize.\n\nRanks the first source's items from easiest to hardest, or the reverse, by where they sit in the embedding space.\nA second source is the reference: the items are then ranked relative to it, as when choosing what to label next\nbeside data already labeled. Needs an extractor on the task.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators prioritization`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: next_to_label\n        type: prioritization\n        order: hard_first\n\n    tasks:\n      - name: rank_unlabeled\n        evaluator: next_to_label\n        sources: [unlabeled, labeled]\n        extractor: bovw_ext",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "prioritization",
+          "default": "prioritization",
+          "description": "The evaluator type this entry configures: `prioritization`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "enum": [
+                "knn",
+                "kmeans_distance",
+                "kmeans_complexity",
+                "hdbscan_distance",
+                "hdbscan_complexity"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How items are ranked: `knn`, by distance to their nearest neighbors; `kmeans_distance` or `hdbscan_distance`, by distance to their cluster's center; `kmeans_complexity` or `hdbscan_complexity`, by weighted sampling over the cluster structure. Unset uses DataEval's default (`knn`).",
+          "title": "Method"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nearest neighbors, for `knn`. Unset uses the square root of the item count.",
+          "title": "K"
+        },
+        "c": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Clusters, for the clustering methods. Unset uses the square root of the item count.",
+          "title": "C"
+        },
+        "n_init": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "const": "auto",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "K-means initializations, for the `kmeans_*` methods: a count, or `auto`. Unset uses DataEval's default (`auto`).",
+          "title": "N Init"
+        },
+        "max_cluster_size": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Largest cluster, for the `hdbscan_*` methods. Unset leaves it unbounded.",
+          "title": "Max Cluster Size"
+        },
+        "order": {
+          "default": "hard_first",
+          "description": "Sort direction: `easy_first` puts prototypical items first, `hard_first` challenging ones. Flow defaults to `hard_first`, the usual choice for deciding what to label or review next; DataEval's default is `easy_first`.",
+          "enum": [
+            "easy_first",
+            "hard_first"
+          ],
+          "title": "Order",
+          "type": "string"
+        },
+        "policy": {
+          "anyOf": [
+            {
+              "enum": [
+                "difficulty",
+                "stratified",
+                "class_balanced"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the ranking is reordered: `difficulty` keeps it, `stratified` balances it across difficulty bins, and `class_balanced` across class labels, which needs a dataset with one label per item. Unset uses DataEval's default (`difficulty`).",
+          "title": "Policy"
+        },
+        "num_bins": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Difficulty bins, for the `stratified` policy. Unset uses DataEval's default (50).",
+          "title": "Num Bins"
+        }
+      },
+      "title": "PrioritizationConfig",
+      "type": "object"
+    },
+    "dataeval_flow__workflows__prioritization___config__PrioritizationConfig": {
+      "additionalProperties": false,
+      "description": "The settings of one ``prioritization`` entry: how data is ranked against a reference.\n\nRequires at least two sources: the first is the reference (labeled) dataset,\nand each later source is a pool, ranked against it on its own.\n\nExample YAML::\n\n    workflows:\n      - name: prioritize_knn\n        type: prioritization\n        prioritization:\n          method: knn\n          k: 10\n          order: hard_first\n        select:\n          n: 200\n\nTo clean the data first, run the preset as a step of a custom workflow, after a ``quality`` step or the\n``outliers``, ``duplicates`` and ``remove`` steps.",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "prioritization",
+          "default": "prioritization",
+          "description": "The workflow type this entry configures: `prioritization`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
+          "title": "Ontology"
+        },
+        "prioritization": {
+          "$ref": "#/$defs/PrioritizationSettings",
+          "description": "The `prioritization` step's settings."
+        },
+        "select": {
+          "$ref": "#/$defs/SelectSettings",
+          "description": "The `select` step's settings."
+        }
+      },
+      "title": "PrioritizationConfig",
       "type": "object"
     }
   },
@@ -13016,31 +13016,31 @@
                 "$ref": "#/$defs/AuditConfig"
               },
               {
-                "$ref": "#/$defs/DataBiasConfig"
-              },
-              {
-                "$ref": "#/$defs/DataCleaningConfig"
-              },
-              {
-                "$ref": "#/$defs/DataCoverageConfig"
-              },
-              {
-                "$ref": "#/$defs/DataPrioritizationConfig"
-              },
-              {
-                "$ref": "#/$defs/DataSplittingConfig"
+                "$ref": "#/$defs/BiasConfig"
               },
               {
                 "$ref": "#/$defs/DriftMonitoringConfig"
               },
               {
-                "$ref": "#/$defs/LabelSpaceConfig"
-              },
-              {
-                "$ref": "#/$defs/MetadataTriageConfig"
-              },
-              {
                 "$ref": "#/$defs/OODDetectionConfig"
+              },
+              {
+                "$ref": "#/$defs/dataeval_flow__workflows__prioritization___config__PrioritizationConfig"
+              },
+              {
+                "$ref": "#/$defs/QualityConfig"
+              },
+              {
+                "$ref": "#/$defs/ScopeConfig"
+              },
+              {
+                "$ref": "#/$defs/SplitsConfig"
+              },
+              {
+                "$ref": "#/$defs/TaxonomyConfig"
+              },
+              {
+                "$ref": "#/$defs/TriageConfig"
               },
               {
                 "$ref": "#/$defs/CustomWorkflowConfig"
@@ -13132,7 +13132,7 @@
                 "$ref": "#/$defs/ParityConfig"
               },
               {
-                "$ref": "#/$defs/PrioritizationConfig"
+                "$ref": "#/$defs/dataeval_flow__evaluators__scope___config__PrioritizationConfig"
               },
               {
                 "$ref": "#/$defs/RepresentationConfig"

@@ -1,4 +1,4 @@
-"""The data-coverage runs the agreement golden records: one pipeline per case, in legacy's settings and the preset's.
+"""The scope runs the agreement golden records: one pipeline per case, in legacy's settings and the preset's.
 
 The generator ran each case once on legacy data-coverage and recorded what it produced; the agreement test runs the
 preset's settings (coverage spec §8.2, §17). No existing toy combines factors, a declared class with no samples and
@@ -134,7 +134,7 @@ _BIAS_CHECKS = ("class-imbalance", "factor-coverage-gaps")
 
 
 def _split(settings: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """The preset's settings parted into data-coverage's and data-bias's, which took legacy's class balance and
+    """The preset's settings parted into scope's and bias's, which took legacy's class balance and
     metadata factors."""
     coverage = {key: value for key, value in settings.items() if key not in (*_BIAS_SETTINGS, "checks")}
     bias = {key: settings[key] for key in _BIAS_SETTINGS if key in settings}
@@ -148,20 +148,20 @@ def _split(settings: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
 
 def pipeline(name: str, *, legacy: bool) -> PipelineConfig:
     """Case `name` as a pipeline: one task of legacy data-coverage's settings, or the preset's as two tasks on the same
-    source, `t` running data-coverage and `b` data-bias."""
+    source, `t` running scope and `b` bias."""
     case = CASES[name]
     DatasetCache.clear_instances()
     task: dict[str, Any] = {"name": "t", "workflow": "w", "sources": ["src"]}
     if case.extractor:
         task["extractor"] = "flat"
     if legacy:
-        entries = [{"name": "w", "type": "data-coverage", **case.legacy}]
+        entries = [{"name": "w", "type": "scope", **case.legacy}]
         tasks = [task]
     else:
         coverage, bias = _split(case.preset)
-        # Legacy data-coverage defaulted `coverage.num_observations` to 50; the preset now takes DataEval's 20 (preset
+        # Legacy scope defaulted `coverage.num_observations` to 50; the preset now takes DataEval's 20 (preset
         # naming spec R9), so the cases recorded under 50 name it.
         coverage["coverage"] = {"num_observations": 50, **coverage.get("coverage", {})}
-        entries = [{"name": "w", "type": "data-coverage", **coverage}, {"name": "b", "type": "data-bias", **bias}]
+        entries = [{"name": "w", "type": "scope", **coverage}, {"name": "b", "type": "bias", **bias}]
         tasks = [task, {"name": "b", "workflow": "b", "sources": ["src"]}]
     return chain_pipeline(workflows=entries, tasks=tasks, datasets={"src": case.dataset()}, extractor=case.extractor)

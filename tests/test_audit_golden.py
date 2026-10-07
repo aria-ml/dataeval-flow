@@ -25,7 +25,7 @@ values below, so the rest are listed to say they are not compared:
   compared in every case that has factors, `detection` included (`ToyDetections` has a `site` factor).
 - **Outliers count items, not targets:** audit pins `per_target: false`, as data-analysis counted each flagged
   image once.
-- **Duplicate and outlier findings are per split, with data-cleaning's wording; `factor-issues`, the verdict, the
+- **Duplicate and outlier findings are per split, with quality's wording; `factor-issues`, the verdict, the
   record, grouping by question, next steps and the coverage, completeness, gaps, sufficiency, untrained-classes,
   leakage-by-group, evaluation-coverage and digest checks are new.**
 """

@@ -1,7 +1,7 @@
-"""The data-prioritization runs the agreement golden records: one pipeline per case.
+"""The prioritization runs the agreement golden records: one pipeline per case.
 
 The generator ran each case once on the legacy workflow and recorded what it produced; the agreement test runs the same
-pipelines on whatever `data-prioritization` names today (spec §10.9). A case with cleaning runs the steps the preset's
+pipelines on whatever `prioritization` names today (spec §10.9). A case with cleaning runs the steps the preset's
 removed `cleaning:` expanded to, in a custom workflow, then the preset as its step `rank`.
 """
 
@@ -14,7 +14,7 @@ from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 
 _KNN: dict[str, Any] = {"method": "knn", "k": 3}
-_BASE: dict[str, Any] = {"name": "prio", "type": "data-prioritization", "prioritization": _KNN}
+_BASE: dict[str, Any] = {"name": "prio", "type": "prioritization", "prioritization": _KNN}
 _CLEANING: dict[str, Any] = {"dup_types": ["exact", "near"]}
 _EVALUATORS = [
     {"name": "outliers", "type": "outliers", "flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
@@ -61,7 +61,7 @@ def _cleaned(prefix: str, source: str, dup_types: list[str]) -> list[dict[str, A
 
 def pipeline(name: str) -> PipelineConfig:
     """Case `name`'s pipeline: one task over its sources, reference first, with an extractor. It runs
-    `data-prioritization`, or with cleaning, a custom workflow that cleans each source and runs it as step `rank`."""
+    `prioritization`, or with cleaning, a custom workflow that cleans each source and runs it as step `rank`."""
     settings, datasets = CASES[name]
     sources = datasets()
     # Two toy datasets can share an id, and a dataset's cache is one per id within a process.

@@ -25,8 +25,8 @@ from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesResult,
 from dataeval_flow.evaluators.shift import DriftMMDConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows import DatasetContext, WorkflowConfig, WorkflowContext
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
+from dataeval_flow.workflows.quality import QualityConfig
 from tests.evaluator_toys import ToyImages, toy_pipeline
 
 
@@ -148,7 +148,7 @@ def test_two_protocol_extractors_never_share_embeddings_or_clusters(monkeypatch:
 
 
 _CLUSTERING_CLEANERS = [
-    DataCleaningConfig(
+    QualityConfig(
         outliers={  # type: ignore[arg-type]
             "flags": ["dimension"],
             "outlier_threshold": "zscore",
@@ -268,7 +268,7 @@ def test_load_config_reads_a_file_named_as_a_string(tmp_path: Path) -> None:
 def test_a_cleaning_run_carries_a_thumbnail_of_each_item_its_report_names() -> None:
     """The white image its outliers flag (7), and both members of its exact (0, 5) and near (3, 9) duplicate groups,
     each captured once. Each is named by ``data``, the preset's name for the Dataset ``run`` hands it."""
-    config = DataCleaningConfig(outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
+    config = QualityConfig(outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
     result = run(config, ToyImages(count=40, near_duplicate=True))
     assert sorted(asset.item.index for asset in result.assets) == [0, 3, 5, 7, 9]
     assert {(asset.item.source, asset.media_type, asset.width, asset.height) for asset in result.assets} == {
@@ -314,7 +314,7 @@ def test_with_images_off_no_item_is_read_for_a_thumbnail(monkeypatch: pytest.Mon
         raise AssertionError("captured with images off")
 
     monkeypatch.setattr(capture_module, "capture", refuse)
-    config = DataCleaningConfig(outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
+    config = QualityConfig(outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
     result = run(config, ToyImages(count=40, near_duplicate=True), report_images=False)
     assert result.assets == []
     assert "assets" not in result.to_dict()
@@ -456,7 +456,7 @@ def test_the_result_block_limits_a_run_s_tables() -> None:
 
     config = toy_pipeline(
         workflows=[
-            DataCleaningConfig(name="clean", outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
+            QualityConfig(name="clean", outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
         ],
         tasks=[TaskConfig(name="t", workflow="clean", sources="src")],
         dataset=ToyImages(count=40, near_duplicate=True),

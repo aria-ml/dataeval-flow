@@ -179,9 +179,9 @@ class TestResolveStatsPolicy:
         return PipelineConfig(stats=[{**base, **policy}])  # type: ignore[arg-type]
 
     def _params(self, name):
-        from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+        from dataeval_flow.workflows.quality import QualityConfig
 
-        return DataCleaningConfig(
+        return QualityConfig(
             name="c",
             outliers={"flags": ["visual"], "outlier_threshold": "modzscore"},  # type: ignore[arg-type]
             stats=name,

@@ -8,7 +8,7 @@ import pytest
 
 from dataeval_flow import run_tasks
 from dataeval_flow.config import TaskConfig
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.quality import QualityConfig
 
 pytestmark = pytest.mark.required
 
@@ -28,9 +28,9 @@ class TestDataCleaningWorkflow:
         cfg, data_dir = image_folder_pipeline_builder(
             extractor_batch_size=None,
             workflows=[
-                DataCleaningConfig(
+                QualityConfig(
                     name="clean_main",
-                    type="data-cleaning",
+                    type="quality",
                     outliers={"flags": ["dimension", "pixel"], "outlier_threshold": "zscore"},
                 ),
             ],

@@ -33,11 +33,11 @@ class TestRunTasks:
 
         task1 = MagicMock()
         task1.name = "task1"
-        task1.workflow = "data-cleaning"
+        task1.workflow = "quality"
         task1.sources = "src1"
         task2 = MagicMock()
         task2.name = "task2"
-        task2.workflow = "data-cleaning"
+        task2.workflow = "quality"
         task2.sources = "src2"
 
         config = MagicMock()
@@ -81,7 +81,7 @@ class TestRunTasks:
 
         task = MagicMock()
         task.name = "task1"
-        task.workflow = "data-cleaning"
+        task.workflow = "quality"
         task.sources = "src1"
 
         config = MagicMock()
@@ -112,7 +112,7 @@ class TestRunTasks:
 
         task = MagicMock()
         task.name = "task1"
-        task.workflow = "data-cleaning"
+        task.workflow = "quality"
         task.sources = "src1"
 
         config = MagicMock()
@@ -178,7 +178,7 @@ class TestRunTasks:
 
         task = MagicMock()
         task.name = "task1"
-        task.workflow = "data-cleaning"
+        task.workflow = "quality"
         task.sources = "src1"
 
         config = MagicMock()
@@ -208,7 +208,7 @@ class TestRunTasks:
 
         task1 = MagicMock()
         task1.name = "task1"
-        task1.workflow = "data-cleaning"
+        task1.workflow = "quality"
 
         config = MagicMock()
         config.tasks = [task1]
@@ -233,7 +233,7 @@ class TestRunTasks:
 
         task = MagicMock()
         task.name = "task1"
-        task.workflow = "data-cleaning"
+        task.workflow = "quality"
         task.sources = "src1"
 
         config = MagicMock()
@@ -549,7 +549,7 @@ class TestWorkflowsCommand:
     def test_named_workflow_prints_its_config_schema(self, capsys: pytest.CaptureFixture):
         from dataeval_flow.__main__ import _list_workflows
 
-        assert _list_workflows("data-cleaning", as_json=False) == 0
+        assert _list_workflows("quality", as_json=False) == 0
         schema = json.loads(capsys.readouterr().out)
         assert "outliers" in schema["properties"]
 
@@ -566,7 +566,7 @@ class TestWorkflowsCommand:
 
         args = MagicMock()
         args.command = "workflows"
-        args.name = "data-cleaning"
+        args.name = "quality"
         args.json = False
         mock_parse.return_value = args
 
@@ -574,7 +574,7 @@ class TestWorkflowsCommand:
             main()
 
         assert exc_info.value.code == 0
-        mock_list.assert_called_once_with("data-cleaning", as_json=False)
+        mock_list.assert_called_once_with("quality", as_json=False)
 
 
 class TestEvaluatorsCommand:

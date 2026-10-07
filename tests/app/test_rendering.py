@@ -245,22 +245,22 @@ class TestSnippetExtractor:
 
 class TestSnippetWorkflow:
     def test_basic(self) -> None:
-        item: dict[str, Any] = {"name": "wf1", "type": "data-cleaning"}
+        item: dict[str, Any] = {"name": "wf1", "type": "quality"}
         result = _snippet_workflow(item)
         assert "[bold]wf1[/bold]" in result
-        assert "[dim]data-cleaning[/dim]" in result
+        assert "[dim]quality[/dim]" in result
 
     def test_with_extras(self) -> None:
         item: dict[str, Any] = {
             "name": "wf1",
-            "type": "data-cleaning",
+            "type": "quality",
             "outliers": {"flags": ["pixel"], "outlier_threshold": "adaptive"},
         }
         result = _snippet_workflow(item)
         assert "outliers: {'flags': ['pixel'], 'outlier_threshold': 'adaptive'}" in result
 
     def test_empty_extras_not_shown(self) -> None:
-        item: dict[str, Any] = {"name": "wf1", "type": "data-cleaning", "extra": ""}
+        item: dict[str, Any] = {"name": "wf1", "type": "quality", "extra": ""}
         result = _snippet_workflow(item)
         lines = result.split("\n")
         assert len(lines) == 1
@@ -394,7 +394,7 @@ class TestItemToYamlSnippet:
         assert "ext1" in result
 
     def test_known_category_workflows(self) -> None:
-        item: dict[str, Any] = {"name": "wf1", "type": "data-cleaning"}
+        item: dict[str, Any] = {"name": "wf1", "type": "quality"}
         result = _item_to_yaml_snippet("workflows", item)
         assert "wf1" in result
 
@@ -577,10 +577,10 @@ class TestSnippetConfigItem:
     # -- workflows --
 
     def test_workflows(self) -> None:
-        item: dict[str, Any] = {"name": "wf1", "type": "data-cleaning"}
+        item: dict[str, Any] = {"name": "wf1", "type": "quality"}
         result = snippet_config_item("workflows", item)
         assert "[bold]wf1[/bold]" in result
-        assert "[dim]data-cleaning[/dim]" in result
+        assert "[dim]quality[/dim]" in result
 
     def test_workflows_missing_type(self) -> None:
         item: dict[str, Any] = {"name": "wf1"}

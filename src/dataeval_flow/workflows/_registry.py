@@ -10,15 +10,15 @@ __all__ = ["WORKFLOWS", "get_workflow", "list_workflows"]
 
 _BUILTINS = {
     "audit": "dataeval_flow.workflows.audit._workflow:AuditWorkflow",
-    "data-bias": "dataeval_flow.workflows.data_bias._workflow:DataBiasWorkflow",
-    "data-cleaning": "dataeval_flow.workflows.data_cleaning._workflow:DataCleaningWorkflow",
-    "data-coverage": "dataeval_flow.workflows.data_coverage._workflow:DataCoverageWorkflow",
-    "data-prioritization": "dataeval_flow.workflows.data_prioritization._workflow:DataPrioritizationWorkflow",
-    "data-splitting": "dataeval_flow.workflows.data_splitting._workflow:DataSplittingWorkflow",
+    "bias": "dataeval_flow.workflows.bias._workflow:BiasWorkflow",
     "drift-monitoring": "dataeval_flow.workflows.drift_monitoring._workflow:DriftMonitoringWorkflow",
-    "label-space": "dataeval_flow.workflows.label_space._workflow:LabelSpaceWorkflow",
-    "metadata-triage": "dataeval_flow.workflows.metadata_triage._workflow:MetadataTriageWorkflow",
     "ood-detection": "dataeval_flow.workflows.ood_detection._workflow:OODDetectionWorkflow",
+    "prioritization": "dataeval_flow.workflows.prioritization._workflow:PrioritizationWorkflow",
+    "quality": "dataeval_flow.workflows.quality._workflow:QualityWorkflow",
+    "scope": "dataeval_flow.workflows.scope._workflow:ScopeWorkflow",
+    "splits": "dataeval_flow.workflows.splits._workflow:SplitsWorkflow",
+    "taxonomy": "dataeval_flow.workflows.taxonomy._workflow:TaxonomyWorkflow",
+    "triage": "dataeval_flow.workflows.triage._workflow:TriageWorkflow",
 }
 
 
@@ -37,7 +37,7 @@ def get_workflow(name: str) -> type[Workflow[Any, Any]]:
     Parameters
     ----------
     name : str
-        The workflow's name: its type id, e.g. ``"data-cleaning"``.
+        The workflow's name: its type id, e.g. ``"quality"``.
 
     Returns
     -------

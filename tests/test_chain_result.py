@@ -267,9 +267,9 @@ def test_each_step_is_a_top_level_section_in_chain_order_with_its_elements_neste
 
 
 def test_a_chain_carries_a_thumbnail_of_each_item_its_steps_name_read_from_the_dataset_the_step_read() -> None:
-    from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+    from dataeval_flow.workflows.quality import QualityConfig
 
-    clean = DataCleaningConfig(name="clean", outliers={"flags": ["pixel"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
+    clean = QualityConfig(name="clean", outliers={"flags": ["pixel"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
     steps = [
         {"name": "few", "transform": "view", "input": "a", "operations": [{"type": "Limit", "params": {"size": 10}}]},
         {"name": "cleaned", "workflow": "clean", "input": "few"},

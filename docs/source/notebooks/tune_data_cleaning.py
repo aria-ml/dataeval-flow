@@ -16,12 +16,12 @@
 # %% [markdown]
 # # Tune data cleaning with a matrix
 #
-# Run one `data-cleaning` entry over a grid of outlier thresholds and near-duplicate sensitivities, and compare what
+# Run one `quality` entry over a grid of outlier thresholds and near-duplicate sensitivities, and compare what
 # each combination finds in one table.
 
 # %% [markdown]
 # **Target audience**: You are a T&E engineer or data scientist tuning a
-# data-cleaning configuration who needs to see how sensitive its findings are to the
+# quality configuration who needs to see how sensitive its findings are to the
 # detection thresholds before choosing operational settings.
 #
 # **Workflow role**: You can run a matrix during the data-quality stage of your T&E
@@ -34,10 +34,10 @@
 # ## What you will do
 #
 # - Load a subset of the MilitaryVehicles classification dataset.
-# - Configure a `data-cleaning` entry, and a task whose `matrix` varies two of its settings.
+# - Configure a `quality` entry, and a task whose `matrix` varies two of its settings.
 # - Run the task once per combination, sharing the statistics, embeddings and clusters across runs.
 # - Read the comparison table, and one run's result in full.
-# - Choose data-cleaning settings from what the table shows.
+# - Choose quality settings from what the table shows.
 
 # %% [markdown]
 # ## What you will learn
@@ -91,7 +91,7 @@ print(f"Reading from {data_path}")
 # %% [markdown]
 # ## Step 1: Build the configuration
 #
-# The `data-cleaning` entry is an ordinary one, and must be valid on its own: it sets
+# The `quality` entry is an ordinary one, and must be valid on its own: it sets
 # `outliers.outlier_threshold` and `outliers.flags`, which have no defaults. Its cluster settings,
 # `duplicates.cluster_algorithm` here, turn on cluster-based near-duplicate detection,
 # which reads the BoVW embeddings.
@@ -116,9 +116,9 @@ from dataeval_flow.config import (
     ViewOperation,
 )
 from dataeval_flow.config.extractors import BoVWExtractorConfig
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.quality import QualityConfig
 
-cleaning = DataCleaningConfig(
+cleaning = QualityConfig(
     name="mv_cleaning",
     outliers={"flags": ["dimension", "pixel", "visual"], "outlier_threshold": "adaptive"},
     duplicates={"cluster_algorithm": "hdbscan", "merge_near_duplicates": True},
@@ -222,7 +222,7 @@ for finding in run.result.findings:
 
 # %% [markdown]
 # Its findings are row 4 of the table. Its steps hold each step's output, as a lone
-# `data-cleaning` run's do. The `duplicates` step's output is DataEval's duplicates output, and
+# `quality` run's do. The `duplicates` step's output is DataEval's duplicates output, and
 # its `data()` lists the groups behind the Image Duplicates finding, with the methods that found
 # each:
 
@@ -259,10 +259,10 @@ print(run.result.steps["duplicates"].output.data())
 #
 # In this tutorial, you learned how to:
 #
-# - Vary a `data-cleaning` entry's settings with a `matrix` on its task.
+# - Vary a `quality` entry's settings with a `matrix` on its task.
 # - Run every combination over one draw of the data, sharing the statistics, embeddings and clusters.
 # - Read the comparison table, and reach each run's result.
-# - Choose data-cleaning settings from the settings that change the findings.
+# - Choose quality settings from the settings that change the findings.
 
 # %% [markdown]
 # ## Next steps
@@ -279,7 +279,7 @@ print(run.result.steps["duplicates"].output.data())
 # - **Concept**: [Reproducibility](../concepts/Reproducibility.md) explains how
 #   config-keyed caching reuses embeddings and statistics across runs.
 # - **Tutorial**: {doc}`Clean a dataset <data_cleaning>` shows how to apply chosen
-#   settings in an operational `data-cleaning` run.
+#   settings in an operational `quality` run.
 # - **How-to**: [Configure outlier detection](../how_to/configure_outlier_detection.md)
 #   explains outlier settings and how to choose them.
 # - **How-to**: [Reuse results with the disk cache](../how_to/reuse_results_with_cache.md)

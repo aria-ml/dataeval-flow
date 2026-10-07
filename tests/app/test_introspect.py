@@ -98,9 +98,9 @@ def test_optional_bool_is_tri_state_plain_bool_is_not():
 
 
 def test_real_cleaning_params():
-    from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+    from dataeval_flow.workflows.quality import QualityConfig
 
-    descriptors = introspect_model(DataCleaningConfig)
+    descriptors = introspect_model(QualityConfig)
     by_name = {d.name: d for d in descriptors}
 
     assert by_name["outliers"].kind == FieldKind.NESTED

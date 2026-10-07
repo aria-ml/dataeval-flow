@@ -9,7 +9,7 @@ import pytest
 from dataeval_flow import run_tasks
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.data_coverage import DataCoverageConfig
+from dataeval_flow.workflows.scope import ScopeConfig
 
 pytestmark = pytest.mark.required
 
@@ -27,7 +27,7 @@ class TestDataCoverageWorkflow:
         image_folder_pipeline_builder: Callable[..., tuple[PipelineConfig, Path]],
     ) -> None:
         cfg, data_dir = image_folder_pipeline_builder(
-            workflows=[DataCoverageConfig(name="coverage_main")],
+            workflows=[ScopeConfig(name="coverage_main")],
             tasks=[TaskConfig(name="coverage_task", workflow="coverage_main", sources="main", extractor="flat")],
         )
         result = run_tasks(cfg, data_dir=data_dir)["coverage_task"]
@@ -45,7 +45,7 @@ class TestDataCoverageWorkflow:
         """Embedding analyses are not assessed, not fatal, when no extractor is configured."""
         cfg, data_dir = image_folder_pipeline_builder(
             include_extractor=False,
-            workflows=[DataCoverageConfig(name="coverage_meta")],
+            workflows=[ScopeConfig(name="coverage_meta")],
             tasks=[TaskConfig(name="coverage_meta_task", workflow="coverage_meta", sources="main")],
         )
         result = run_tasks(cfg, data_dir=data_dir)["coverage_meta_task"]

@@ -56,7 +56,7 @@ cells, such as its *Item*, name each item.
 
 ### A chain's report
 
-A chain's report, a custom workflow's or a {term}`preset <Preset>`'s such as `data-cleaning`'s, puts each finding
+A chain's report, a custom workflow's or a {term}`preset <Preset>`'s such as `quality`'s, puts each finding
 beside the evidence it judged:
 
 1. **Banner** and **provenance**, as above. A custom workflow's banner is its name, and its provenance opens with
@@ -75,7 +75,7 @@ beside the evidence it judged:
    and why it made nothing where it did not. The HTML report's table also gives each step's title.
 7. **Configuration**, as above.
 
-In `data-cleaning`'s report on MILCO's reference campaigns, from {doc}`View a report as HTML
+In `quality`'s report on MILCO's reference campaigns, from {doc}`View a report as HTML
 <../notebooks/view_html_reports>`, the Target Outliers finding read the `outliers` step, which the Image Outliers
 section above it already shows, and the `label-health` step, which no finding had shown yet:
 
@@ -99,7 +99,7 @@ section above it already shows, and the `label-health` step, which no finding ha
 ```
 
 Where checks ran once per element of a list, the findings are grouped by the element's key. The Summary names each
-key above its findings, and each key has a section holding them. Here `data-cleaning` ran as a step on a list of
+key above its findings, and each key has a section holding them. Here `quality` ran as a step on a list of
 MILCO's two campaigns, `reference` and `operational`:
 
 ```text
@@ -226,7 +226,7 @@ holds everything the text report holds, laid out for reading on screen:
   Esc, to put it back. An item without a thumbnail is named instead.
 - Histograms and sparklines are drawn as SVG, and the page follows the system's dark mode.
 
-A chain's report, `data-cleaning`'s among them, draws each finding as a card too, and holds in it the evidence the
+A chain's report, `quality`'s among them, draws each finding as a card too, and holds in it the evidence the
 finding judged, each step headed *From* and the step's heading: data cleaning's Image Duplicates card holds the
 `duplicates` step's duplicate groups. A step two findings judged is shown in the first one's card, and the second
 names that card.
@@ -300,7 +300,7 @@ per block with its `type`. `assets` holds the thumbnails, as the end of the next
 distinguishes this from an evaluator's envelope, covered next.
 
 A chain's result has `steps` and a top-level `findings` in place of `raw` and `report`. A custom workflow's result
-is one, and so is a `data-cleaning` result: `data-cleaning` is a {term}`preset <Preset>`, whose settings expand to a
+is one, and so is a `quality` result: `quality` is a {term}`preset <Preset>`, whose settings expand to a
 chain of steps.
 
 ```json
@@ -318,7 +318,7 @@ chain of steps.
 }
 ```
 
-That is `data-cleaning`'s result on MILCO's reference campaigns, from {doc}`View a report as HTML
+That is `quality`'s result on MILCO's reference campaigns, from {doc}`View a report as HTML
 <../notebooks/view_html_reports>`, trimmed. `steps` holds each step by name, in run order, with its kind, type,
 status, the addresses it read and what it made. `findings` lists the check steps' findings, each shaped as below and
 naming its step under `step`. `health` also lists the steps that failed. {doc}`write_a_custom_workflow` shows more of
@@ -337,7 +337,7 @@ under a sixth, `step`:
 | `description` | A sentence or two of plain prose that leads the detail, or `null` where the brief says it all. |
 | `blocks` | The evidence: report blocks, in reading order. |
 
-A `data-bias` run on the same campaigns judges their class balance; its Class Imbalance finding, with
+A `bias` run on the same campaigns judges their class balance; its Class Imbalance finding, with
 `info: 2` set:
 
 ```json
@@ -473,7 +473,7 @@ The `metadata` block is what makes a finding auditable and interoperable with ot
 envelope and you can reproduce the run without the original config file.
 
 Workflows extend this envelope with their own fields, so `metadata` carries more than the table above. A
-`data-cleaning` result, for example, is a chain's, and records `workflow`, the entry's name, and `lineage`, each
+`quality` result, for example, is a chain's, and records `workflow`, the entry's name, and `lineage`, each
 Dataset in the chain with what made it. It records no metadata encoding, so its `metadata_binning` is `null`. Treat
 the table as the guaranteed floor, not the full set: each result class in the
 {doc}`API Reference <../reference/autoapi/dataeval_flow/index>`, such as
@@ -505,7 +505,7 @@ result, with a `kind` of `"matrix"`:
 ```json
 {
   "kind":     "matrix",
-  "type":     "data-cleaning",
+  "type":     "quality",
   "keys":     ["outliers.outlier_threshold"],
   "metadata": { "timestamp": "...", "resolved_config": { "task": {}, "sources": ["train"], "seed": 42 } },
   "health":   { "status": "warning", "warnings": 9, "failed_runs": [] },
@@ -531,13 +531,13 @@ other files.
 
 ## Getting at the raw numbers
 
-The report is a rendering; the numbers behind it live on the result object. A chain's result, a `data-cleaning` or
+The report is a rendering; the numbers behind it live on the result object. A chain's result, a `quality` or
 `audit` result among them, is a {py:class}`~dataeval_flow.steps.ChainResult`. Its `steps` hold each step's output,
 by step name: an evaluator step's is DataEval's own output, a check's is its findings, and a transform's is the
 Dataset it made, a DataEval `View`:
 
 ```python
-result = run_task(config, task)  # a data-cleaning task
+result = run_task(config, task)  # a quality task
 
 outliers = result.steps["outliers"].output  # DataEval's Outliers output
 flags = outliers.data()  # one row per flag: its item, its box if any, the metric, its value and the limit crossed
@@ -545,10 +545,10 @@ duplicates = result.steps["duplicates"].output  # DataEval's Duplicates output
 cleaned = result.steps["clean"].output  # without each flagged image and box, and each duplicate but the first
 ```
 
-A `data-coverage` result reads the same way:
+A `scope` result reads the same way:
 
 ```python
-result = run_task(config, task)  # a data-coverage task with an extractor
+result = run_task(config, task)  # a scope task with an extractor
 
 coverage = result.steps["coverage"].output  # DataEval's Coverage output: a row per class, and uncovered_indices
 gaps = result.steps["factor-gaps"].output.gaps  # each under-represented class-factor-value combination
@@ -585,7 +585,7 @@ binned at, whether it was binned or digitized, and the observed range and popula
 `result.metadata.diagnostics` carries the library warnings the run raised. Both render in the text report under
 **METADATA FACTORS**.
 
-The `factor-summary` step's per-factor summaries, in `audit` and `data-bias`, carry the same shape of information
+The `factor-summary` step's per-factor summaries, in `audit` and `bias`, carry the same shape of information
 alongside the values: `level` and `is_binned` per factor, plus an entry of type `dropped`, with its reasons, for each
 column that never became a factor at all, such as an identifier or a vector-valued statistic (`histogram`,
 `percentiles`, `center`) with no single-column form. `invalid_box` is carried through as a factor; the other hash
@@ -606,11 +606,11 @@ Two more fields are useful for follow-up work and are deliberately *not* seriali
 
 - `result.dataset` — the resolved, post-view dataset a one-source workflow ran on, for pulling up the images behind a
   finding.
-- `result.sources` — for every chain, `data-cleaning` and `audit` among them, and for a workflow that reads several
+- `result.sources` — for every chain, `quality` and `audit` among them, and for a workflow that reads several
   sources, a mapping of source name to resolved dataset.
 
 ```python
-dataset = result.sources["train"]  # a data-cleaning task on the source `train`
+dataset = result.sources["train"]  # a quality task on the source `train`
 for item in result.steps["outliers"].output.data()["item_index"].unique().sort():
     image, target, meta = dataset[item]
 ```

@@ -27,10 +27,10 @@ metadata:
     # label_file_exists, instance_missing, and unit_missing hold one value across
     # every frame, so they separate nothing. instance_zeros needs a sentinel-value
     # remap before it can be binned; that judgment call belongs in the metadata
-    # triage tutorial, not this pipeline. `metadata-triage` found all four.
+    # triage tutorial, not this pipeline. `triage` found all four.
     exclude: [label_file_exists, instance_missing, unit_missing, instance_zeros]
     # Pin bin counts so the audit is reproducible across runs and samples;
-    # `metadata-triage` derived these from a 300-frame sample of train_src.
+    # `triage` derived these from a 300-frame sample of train_src.
     continuous_factor_bins:
       height: 5
       instance_brightness: 25
@@ -116,7 +116,7 @@ extractors:
 # -----------------------------------------------------------------------------
 workflows:
   - name: clean
-    type: data-cleaning
+    type: quality
     outliers:
       outlier_threshold: [adaptive, 3.5]
       flags: [dimension, pixel, visual]
@@ -137,7 +137,7 @@ workflows:
     metadata: skysealand_factors
 
   - name: split
-    type: data-splitting
+    type: splits
     folds: 1               # 1 splits once; 2 or more run k-fold
     test_frac: 0.2
     val_frac: 0.1          # with folds: 1 only; unset is 0.1

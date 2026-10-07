@@ -34,7 +34,7 @@ and linked from each page.
 
 - [Data Quality and Cleaning](DataQualityAndCleaning.md) — outliers, duplicates,
   and label issues
-- [Dataset Coverage](Coverage.md) — label-space gaps checked against an ontology,
+- [Dataset Coverage](Coverage.md) — taxonomy gaps checked against an ontology,
   and embedding-space blind spots
 - [Distribution Shift](DistributionShift.md) — population-level drift,
   instance-level OOD, and classwise drift

@@ -1,4 +1,4 @@
-"""The label check: data-cleaning's Label Distribution finding, as a step (spec §9.2)."""
+"""The label check: quality's Label Distribution finding, as a step (spec §9.2)."""
 
 __all__ = [
     "ClassImbalanceCheck",

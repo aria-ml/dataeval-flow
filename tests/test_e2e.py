@@ -55,7 +55,7 @@ class TestConfigToFactoryIntegration:
         (config_dir / "05-workflows.yaml").write_text(
             "workflows:\n"
             "  - name: modzscore_clean\n"
-            "    type: data-cleaning\n"
+            "    type: quality\n"
             "    outliers: {flags: [dimension, pixel], outlier_threshold: modzscore}\n"
         )
         (config_dir / "06-tasks.yaml").write_text(
@@ -140,15 +140,15 @@ class TestConfigToFactoryIntegration:
             "    model: flatten\n"
             "    preprocessor: preproc_x\n"
             "workflows:\n"
-            "  - type: data-cleaning\n"
+            "  - type: quality\n"
             "    outliers: {flags: [pixel], outlier_threshold: zscore}\n"
             "tasks:\n"
             "  - name: task1\n"
-            "    workflow: data-cleaning\n"
+            "    workflow: quality\n"
             "    sources: src_a\n"
             "    extractor: ext_x\n"
             "  - name: task2\n"
-            "    workflow: data-cleaning\n"
+            "    workflow: quality\n"
             "    sources: src_b\n"
         )
 
@@ -192,7 +192,7 @@ class TestConfigToFactoryIntegration:
             "    dataset: shared_dataset\n"
             "workflows:\n"
             "  - name: modzscore_clean\n"
-            "    type: data-cleaning\n"
+            "    type: quality\n"
             "    outliers: {flags: [dimension, pixel], outlier_threshold: modzscore}\n"
             "tasks:\n"
             "  - name: outlier_detection\n"
@@ -287,10 +287,10 @@ class TestConfigMergeBehavior:
         config_dir = tmp_path / "config"
         config_dir.mkdir()
 
-        task_yaml = "tasks:\n  - name: {name}\n    workflow: data-cleaning\n    sources: x\n"
+        task_yaml = "tasks:\n  - name: {name}\n    workflow: quality\n    sources: x\n"
         (config_dir / "02-second.yaml").write_text(task_yaml.format(name="task_second"))
         (config_dir / "01-first.yaml").write_text(
-            "workflows:\n  - type: data-cleaning\n    outliers: {flags: [pixel], outlier_threshold: zscore}\n"
+            "workflows:\n  - type: quality\n    outliers: {flags: [pixel], outlier_threshold: zscore}\n"
             + task_yaml.format(name="task_first")
         )
 
@@ -334,7 +334,7 @@ class TestEndToEndCleaningWorkflow:
             "    dataset: test_ds\n"
             "workflows:\n"
             "  - name: modzscore_clean\n"
-            "    type: data-cleaning\n"
+            "    type: quality\n"
             "    outliers:\n"
             "      flags: [dimension, pixel]\n"
             "      outlier_threshold: modzscore\n"
@@ -386,7 +386,7 @@ class TestEndToEndCleaningWorkflow:
 
         # ── 6. Assert result ──────────────────────────────────────────
         assert result.success is True, result.errors
-        assert result.type == "data-cleaning"
+        assert result.type == "quality"
 
         # ── 7. Write output via result.export() and verify ────────────
         task_dir = output_dir / task.name

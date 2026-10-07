@@ -17,7 +17,7 @@
 # # Split a dataset
 #
 # Partition a dataset into stratified train, validation, and test splits
-# using the config-driven `data-splitting` workflow.
+# using the config-driven `splits` workflow.
 
 # %% [markdown]
 # **Target audience**: You are a model developer or T&E engineer who needs
@@ -35,17 +35,17 @@
 # - Configure a stratified splitting workflow with a test holdout and 3-fold cross-validation.
 # - Run `run_task()` to generate partition index sets.
 # - Inspect the splitting report for class distribution, stratification and split sizes.
-# - Run `data-bias` on the source to review its class balance, and its metadata balance and diversity.
+# - Run `bias` on the source to review its class balance, and its metadata balance and diversity.
 # - Read the split indices from the result and export them to JSON.
 
 # %% [markdown]
 # ## What you will learn
 #
-# - How to configure and execute the `data-splitting` workflow.
+# - How to configure and execute the `splits` workflow.
 # - How to set splitting parameters (`test_frac`, `folds`, `stratify`, `rebalance`).
 # - How to evaluate class distribution balance across splits.
 # - How to read each part's indices from the split step's details.
-# - How the `data-bias` preset's balance and diversity evaluate metadata factor correlation before a split.
+# - How the `bias` preset's balance and diversity evaluate metadata factor correlation before a split.
 
 # %% [markdown]
 # ## Prerequisites
@@ -106,17 +106,17 @@ print(f"Reading from {data_path}")
 # The split reads labels and metadata only, so it needs no extractor, and it judges
 # class shares.
 #
-# The whole set's class balance and metadata factors are judged by the `data-bias` preset,
-# not by the split. The pipeline holds a `data-bias` task on the same source, which a later
+# The whole set's class balance and metadata factors are judged by the `bias` preset,
+# not by the split. The pipeline holds a `bias` task on the same source, which a later
 # step runs.
 
 # %%
 from dataeval_flow import run_task
 from dataeval_flow.config import HuggingFaceDatasetConfig, PipelineConfig, SourceConfig, TaskConfig
-from dataeval_flow.workflows.data_bias import DataBiasConfig
-from dataeval_flow.workflows.data_splitting import DataSplittingConfig
+from dataeval_flow.workflows.bias import BiasConfig
+from dataeval_flow.workflows.splits import SplitsConfig
 
-workflow = DataSplittingConfig(
+workflow = SplitsConfig(
     name="mv_split",
     test_frac=0.2,  # 20% of full dataset held out for test
     folds=3,  # 3-fold cross-validation; each fold's val is 1/3 of the non-test items
@@ -139,7 +139,7 @@ config = PipelineConfig(
     sources=[
         SourceConfig(name="mv_src", dataset="mv_train"),
     ],
-    workflows=[workflow, DataBiasConfig(name="mv_bias")],
+    workflows=[workflow, BiasConfig(name="mv_bias")],
     tasks=[task, bias_task],
 )
 
@@ -231,7 +231,7 @@ for item in result.findings:
 # %% [markdown]
 # ### Class balance, balance and diversity before the split
 #
-# The `data-bias` task judges the whole set before it is split. Its **Class Imbalance**
+# The `bias` task judges the whole set before it is split. Its **Class Imbalance**
 # finding gives the class counts and the imbalance ratio, the largest class count over the
 # smallest: MilitaryVehicles has 24 classes and 7,823 items, with a ratio of 3.6:1, under the
 # default warning limit of 5:1 and over the 2:1 at which it informs. Its `balance` and
@@ -278,7 +278,7 @@ for fold in exported_indices["train"]:
 # %% [markdown]
 # You can save these indices and apply them to the dataset you loaded, in the source's
 # order, to build training and evaluation datasets for each fold. A custom workflow that
-# runs a `data-splitting` entry as a step reads the parts directly as `<step>.train`,
+# runs a `splits` entry as a step reads the parts directly as `<step>.train`,
 # `<step>.val` and `<step>.test`. See
 # [Export the parts of a split](../how_to/export_a_dataset.md).
 
@@ -287,18 +287,18 @@ for fold in exported_indices["train"]:
 #
 # In this tutorial, you learned how to:
 #
-# - Configure the `data-splitting` workflow with test fractions, fold counts, and stratification.
+# - Configure the `splits` workflow with test fractions, fold counts, and stratification.
 # - Execute the workflow with `run_task()`.
 # - Read the splitting report for class distributions and partition sizes.
 # - Read the partition indices for train, validation, and test sets.
 # - Verify partition coverage and verify that partitions do not overlap.
-# - Run `data-bias` to inspect class balance, and balance and diversity across metadata factors.
+# - Run `bias` to inspect class balance, and balance and diversity across metadata factors.
 # - Export the split to JSON for downstream integration.
 
 # %% [markdown]
 # ## Next steps
 #
-# - **Data cleaning**: Use the `data-cleaning` workflow to detect outliers and duplicates
+# - **Data cleaning**: Use the `quality` workflow to detect outliers and duplicates
 #   in each split before training.
 # - **Cross-validation**: Increase `folds` to evaluate model stability across more folds.
 # - **Group-aware splits**: Set `split_on=["group_id"]` to prevent leakage across related samples.

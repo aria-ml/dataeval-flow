@@ -46,7 +46,7 @@ class TestVariantRegistry:
     def test_get_variant_choices_workflows(self):
         choices = get_variant_choices("workflows")
         assert choices is not None
-        assert "data-cleaning" in choices
+        assert "quality" in choices
         assert "drift-monitoring" in choices
 
     def test_get_variant_choices_non_discriminated(self):
@@ -120,7 +120,7 @@ class TestGetFields:
             "workflows",
             {
                 "name": "wf1",
-                "type": "data-cleaning",
+                "type": "quality",
                 "outliers": {"flags": ["dimension"], "outlier_threshold": "adaptive"},
             },
         )
@@ -136,7 +136,7 @@ class TestGetFields:
 
     def test_workflow_fields_skip(self):
         state = ConfigState()
-        fields = get_fields("workflows", "data-cleaning", state)
+        fields = get_fields("workflows", "quality", state)
         names = [f.name for f in fields]
         assert "name" not in names
         assert "type" not in names
@@ -283,7 +283,7 @@ class TestConfigState:
             "workflows",
             {
                 "name": "wf1",
-                "type": "data-cleaning",
+                "type": "quality",
                 "outliers": {"flags": ["dimension"], "outlier_threshold": "adaptive"},
             },
         )
@@ -915,7 +915,7 @@ class TestCoerceStepParams:
 def test_a_data_cleaning_entry_keeps_its_blocks_through_load_and_save() -> None:
     entry = {
         "name": "clean",
-        "type": "data-cleaning",
+        "type": "quality",
         "outliers": {"flags": ["pixel"], "outlier_threshold": ["zscore", 3.0]},
         "checks": {"image-outliers": {"warning": 1.0}},
     }

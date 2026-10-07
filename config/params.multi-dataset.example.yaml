@@ -110,7 +110,7 @@ extractors:
 # -----------------------------------------------------------------------------
 workflows:
   - name: adaptive_clean
-    type: data-cleaning
+    type: quality
     outliers:
       outlier_threshold: adaptive
       flags:
@@ -118,7 +118,7 @@ workflows:
         - pixel
 
   - name: thorough_clean
-    type: data-cleaning
+    type: quality
     outliers:
       outlier_threshold: modzscore
       flags:

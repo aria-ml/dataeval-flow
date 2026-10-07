@@ -11,11 +11,11 @@ from tests.test_naming_conventions import _MINIMAL
 _RETIRED = [
     ("audit", {"outlier_method": "zscore"}),
     ("audit", {"health_thresholds": {}}),
-    ("data-coverage", {"coverage_method": "naive"}),
-    ("data-coverage", {"balance": True}),
-    ("data-coverage", {"health_thresholds": {}}),
-    ("data-cleaning", {"checks": {"class-imbalance": {"warning": 3.0}}}),
-    ("data-splitting", {"checks": {"class-imbalance": {"warning": 3.0}}}),
+    ("scope", {"coverage_method": "naive"}),
+    ("scope", {"balance": True}),
+    ("scope", {"health_thresholds": {}}),
+    ("quality", {"checks": {"class-imbalance": {"warning": 3.0}}}),
+    ("splits", {"checks": {"class-imbalance": {"warning": 3.0}}}),
 ]
 
 

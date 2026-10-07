@@ -40,7 +40,7 @@ detection Dataset it refuses outliers not computed per box (`per_target: true`),
 The config refuses an `outliers` computed on another Dataset when it loads, as `remove` does.
 
 - **Judged by:** [`class-outliers`](checks.md#class-outliers)
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning)
+- **Used in:** [`quality`](presets.md#quality)
 
 ```yaml
 evaluators:
@@ -83,7 +83,7 @@ factor's overall spread, is over it.
 The config refuses a `balance` computed on another Dataset when it loads, as `outliers-by-class` does.
 
 - **Judged by:** [`factor-coverage-gaps`](checks.md#factor-coverage-gaps)
-- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
+- **Used in:** [`audit`](presets.md#audit), [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:

@@ -1,6 +1,6 @@
 """How a dataset's vocabulary aligns to a reference ontology (spec §6.2, §6.4).
 
-`label-space`'s alignment and the `label-alignment` evaluator both align a dataset's class names
+`taxonomy`'s alignment and the `label-alignment` evaluator both align a dataset's class names
 against an ontology; this is the one place that calls DataEval's ``label_alignment`` and shapes the result, so the
 two report identically. ``LabelAlignmentOutput`` sits beside ``LabelAlignment`` so the evaluator's config and
 implementation modules can both import it without a cycle.
@@ -152,7 +152,7 @@ class PastedRemap:
 def pasted_remap(ontology: "Ontology", class_remap: "Mapping[str, str]") -> PastedRemap:
     """`class_remap`, by concept id, pasted onto `ontology`'s labels, with the vocabulary and digests that go with it.
 
-    ``align_labels`` and ``conform`` both paste a remap this way, so a label-space run and a conform that apply one
+    ``align_labels`` and ``conform`` both paste a remap this way, so a taxonomy run and a conform that apply one
     rewrite carry one digest.
     """
     from dataeval_flow._label_space import label_space_digest, ontology_digest

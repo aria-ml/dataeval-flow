@@ -41,7 +41,7 @@ class ClassStratificationThresholds(BaseModel):
         le=100.0,
         description=(
             "The largest deviation, in percentage points, above which the finding is `info`; at or below it, `ok`. "
-            "`null` has no `info` band: deviations up to `warning` are `ok`. data-splitting's 2."
+            "`null` has no `info` band: deviations up to `warning` are `ok`. splits's 2."
         ),
     )
     warning: float | None = Field(
@@ -50,7 +50,7 @@ class ClassStratificationThresholds(BaseModel):
         le=100.0,
         description=(
             "The largest deviation above which the finding warns; `null` never warns. With both `null`, the finding "
-            "is `info` and judges nothing. data-splitting's 10."
+            "is `info` and judges nothing. splits's 10."
         ),
     )
 

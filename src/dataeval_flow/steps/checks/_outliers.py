@@ -1,4 +1,4 @@
-"""The outlier checks: data-cleaning's Image, Target and Class Outliers findings, as steps (spec §9.2)."""
+"""The outlier checks: quality's Image, Target and Class Outliers findings, as steps (spec §9.2)."""
 
 __all__ = [
     "ClassOutliersCheck",

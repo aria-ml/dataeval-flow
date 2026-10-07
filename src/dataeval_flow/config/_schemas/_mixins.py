@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class MetadataConfigMixin(BaseModel):
     """Mixin for configs that read dataset metadata: which metadata policy they read it under.
 
-    Mix into any workflow or evaluator config whose runs build metadata (``data-cleaning``'s and ``balance``'s
+    Mix into any workflow or evaluator config whose runs build metadata (``quality``'s and ``balance``'s
     do). Flow resolves the named policy before the dataset is read, and builds the metadata under it.
     """
 

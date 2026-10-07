@@ -24,13 +24,13 @@ Or build a pipeline programmatically::
     from dataeval_flow import run_tasks
     from dataeval_flow.config import HuggingFaceDatasetConfig, PipelineConfig, SourceConfig, TaskConfig
     from dataeval_flow.config.extractors import FlattenExtractorConfig
-    from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+    from dataeval_flow.workflows.quality import QualityConfig
 
 Discovery helpers live with each kind, and list every installed type, plugins included::
 
     >>> from dataeval_flow.workflows import list_workflows
     >>> [cls.name for cls in list_workflows()]
-    ['audit', 'data-cleaning', ...]
+    ['audit', 'quality', ...]
 
     >>> from dataeval_flow.evaluators import list_evaluators
     >>> [cls.name for cls in list_evaluators()]

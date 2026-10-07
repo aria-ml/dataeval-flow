@@ -8,14 +8,15 @@ import pytest
 
 WORKFLOW_PACKAGES = [
     "audit",
-    "data_cleaning",
-    "data_coverage",
-    "data_prioritization",
-    "data_splitting",
+    "bias",
     "drift_monitoring",
-    "label_space",
-    "metadata_triage",
     "ood_detection",
+    "prioritization",
+    "quality",
+    "scope",
+    "splits",
+    "taxonomy",
+    "triage",
 ]
 PUBLIC = [
     "dataeval_flow",

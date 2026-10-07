@@ -8,7 +8,7 @@ from dataeval_flow import run
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.quality import QualityConfig
 from tests.chain_toys import chain_pipeline, register_toys, run_toy_chain
 from tests.evaluator_toys import ToyImages
 
@@ -18,7 +18,7 @@ _RULE = "=" * 80
 @pytest.fixture
 def cleaned():
     DatasetCache.clear_instances()
-    config = DataCleaningConfig(name="clean", outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
+    config = QualityConfig(name="clean", outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"})  # type: ignore[arg-type]
     yield run(config, ToyImages(count=24))
     DatasetCache.clear_instances()
 
@@ -31,9 +31,9 @@ def test_data_cleaning_short_text_is_its_summary_health_and_steps(cleaned) -> No
     short = _timeless(cleaned.report(detailed=False))
     expected = """
 ================================================================================
-  DATA CLEANING
+  QUALITY
 ================================================================================
-  Workflow:  clean (data-cleaning)
+  Workflow:  clean (quality)
   Source:    dataset (dataset)
 
   Steps: 9 ran

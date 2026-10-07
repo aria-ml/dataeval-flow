@@ -1,4 +1,4 @@
-"""What `representation` and `label-alignment` record for `label-space`'s checks (coverage spec §3.3)."""
+"""What `representation` and `label-alignment` record for `taxonomy`'s checks (coverage spec §3.3)."""
 
 from typing import Any
 

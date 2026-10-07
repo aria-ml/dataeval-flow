@@ -1,6 +1,6 @@
 """A chain's report: each finding beside the evidence it judged, the other steps, then a table of every step.
 
-Measured on the toy datasets: data-cleaning on 24 toy images finds one image outlier, of class b, and one exact
+Measured on the toy datasets: quality on 24 toy images finds one image outlier, of class b, and one exact
 duplicate pair; `target-outliers` finds nothing on classification data.
 """
 
@@ -34,7 +34,7 @@ def toys(plugins):
 
 
 def _cleaning() -> ChainResult:
-    workflow = {"name": "cleaning", "type": "data-cleaning"}
+    workflow = {"name": "cleaning", "type": "quality"}
     outliers = {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}
     config = chain_pipeline(
         workflows=[{**workflow, "outliers": outliers}],
@@ -335,10 +335,10 @@ def test_a_check_with_a_failed_element_lists_that_element_among_the_other_steps(
 
 
 def _spliced() -> ChainResult:
-    """data-cleaning run as step `cleaning` of a custom workflow, whose spliced steps' names are the widest."""
+    """quality run as step `cleaning` of a custom workflow, whose spliced steps' names are the widest."""
     tidy = {
         "name": "tidy",
-        "type": "data-cleaning",
+        "type": "quality",
         "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
     }
     kept = {"name": "kept", "transform": "toy-keep", "input": "cleaning.clean"}
@@ -410,7 +410,7 @@ def test_a_chain_whose_check_failed_says_so_in_its_health_line_beside_its_warnin
     assert (
         "  Health: failed [!!] — step `image-duplicates` failed; 2 warning(s) to review" in result.report().splitlines()
     )
-    assert '<h1>Data Cleaning</h1><span class="badge failed">failed: image-duplicates</span>' in result.to_html()
+    assert '<h1>Quality</h1><span class="badge failed">failed: image-duplicates</span>' in result.to_html()
 
 
 def test_a_failed_chain_with_no_findings_still_has_a_health_line() -> None:
@@ -427,10 +427,10 @@ def test_a_failed_chain_with_no_findings_still_has_a_health_line() -> None:
 
 
 def _by_split() -> ChainResult:
-    """data-cleaning run as step `cleaning` over a list of two splits, `train` of 24 toy images and `val` of 12."""
+    """quality run as step `cleaning` over a list of two splits, `train` of 24 toy images and `val` of 12."""
     tidy = {
         "name": "tidy",
-        "type": "data-cleaning",
+        "type": "quality",
         "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
     }
     workflow = {

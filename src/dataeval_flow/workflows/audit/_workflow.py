@@ -21,8 +21,8 @@ from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._preset import NextSteps, Preset, PresetChain, Record, ReportGroup
 from dataeval_flow.workflows.audit._config import AuditConfig
-from dataeval_flow.workflows.data_bias._workflow import bias_evaluators, factor_steps, gap_steps
-from dataeval_flow.workflows.data_coverage._workflow import coverage_evaluators, embedding_steps
+from dataeval_flow.workflows.bias._workflow import bias_evaluators, factor_steps, gap_steps
+from dataeval_flow.workflows.scope._workflow import coverage_evaluators, embedding_steps
 
 if TYPE_CHECKING:
     from dataeval_flow._chain._nodes import Node, NodeList
@@ -64,19 +64,19 @@ _GROUPS = (
     ),
 )
 
-_DATA_COVERAGE = "Run data-coverage for the uncovered items; collect data for them."
-_DATA_BIAS = "Run data-bias for the gaps; collect data for them."
+_DATA_COVERAGE = "Run scope for the uncovered items; collect data for them."
+_DATA_BIAS = "Run bias for the gaps; collect data for them."
 _RESPLIT = "Re-split so evaluation draws from train's distribution, or document the shift as intended."
 _MORE_LABELS = "Collect more of the named classes, or rebalance train with a `view` step and `ClassBalance`."
 _NEXT_STEPS = NextSteps(
     by_check={
-        "image-outliers": "Run data-cleaning to list and remove them.",
-        "image-duplicates": "Run data-cleaning to list and remove them.",
-        "factor-issues": "Run metadata-triage for a policy that repairs them.",
+        "image-outliers": "Run quality to list and remove them.",
+        "image-duplicates": "Run quality to list and remove them.",
+        "factor-issues": "Run triage for a policy that repairs them.",
         "class-imbalance": _MORE_LABELS,
         "class-sufficiency": _MORE_LABELS,
         "untrained-classes": "Add the named classes to train, or remove them from the evaluation splits.",
-        "label-conformance": "Run label-space to resolve the class names.",
+        "label-conformance": "Run taxonomy to resolve the class names.",
         "class-coverage": _DATA_COVERAGE,
         "uncovered-items": _DATA_COVERAGE,
         "factor-coverage-gaps": _DATA_BIAS,
@@ -88,7 +88,7 @@ _NEXT_STEPS = NextSteps(
         "class-stratification": _RESPLIT,
     },
     by_reason={
-        NO_EVALUATION_SPLIT: "Give an evaluation split, or make one with data-splitting.",
+        NO_EVALUATION_SPLIT: "Give an evaluation split, or make one with splits.",
         "requires an extractor": "Name an extractor to assess these checks.",
         # DataEval's words for metadata with no factors; should they change, the reason reads as "failed" below.
         "No factors found in provided metadata": (

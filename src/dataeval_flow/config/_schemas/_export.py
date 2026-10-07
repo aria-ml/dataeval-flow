@@ -57,7 +57,7 @@ class ExportConfig(BaseModel):
             "Label space the emitted dataset's labels are read under, by name under the "
             "top-level `ontologies:` key or as a path. Written into the dataset's "
             "provenance so the emitted dataset carries the same digest as the run and the "
-            "label-space run. An export names no workflow, so it cannot inherit one."
+            "taxonomy run. An export names no workflow, so it cannot inherit one."
         ),
     )
 

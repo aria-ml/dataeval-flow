@@ -1,4 +1,4 @@
-"""The duplicate check: data-cleaning's Duplicates finding, as a step (spec §9.2)."""
+"""The duplicate check: quality's Duplicates finding, as a step (spec §9.2)."""
 
 __all__ = ["ImageDuplicatesCheck", "ImageDuplicatesConfig"]
 
@@ -42,7 +42,7 @@ class ImageDuplicatesConfig(CheckConfig):
 class ImageDuplicatesCheck(Check[ImageDuplicatesConfig]):
     """``image-duplicates``: warns when too many of a Dataset's images sit in exact or near duplicate groups.
 
-    Counts the item-level ``exact`` and ``near`` groups, as data-cleaning does, and makes no finding where there are
+    Counts the item-level ``exact`` and ``near`` groups, as quality does, and makes no finding where there are
     none.
     """
 

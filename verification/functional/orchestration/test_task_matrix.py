@@ -8,7 +8,7 @@ import pytest
 
 from dataeval_flow import MatrixResult, run_tasks
 from dataeval_flow.config import TaskConfig
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.quality import QualityConfig
 
 pytestmark = pytest.mark.required
 
@@ -27,7 +27,7 @@ class TestTaskMatrix:
     ) -> None:
         cfg, data_dir = image_folder_pipeline_builder(
             workflows=[
-                DataCleaningConfig(
+                QualityConfig(
                     name="clean_main", outliers={"flags": ["dimension", "pixel"], "outlier_threshold": "zscore"}
                 )
             ],

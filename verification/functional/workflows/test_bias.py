@@ -9,7 +9,7 @@ import pytest
 from dataeval_flow import run_tasks
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.data_bias import DataBiasConfig
+from dataeval_flow.workflows.bias import BiasConfig
 
 pytestmark = pytest.mark.required
 
@@ -28,7 +28,7 @@ class TestDataBiasWorkflow:
     ) -> None:
         cfg, data_dir = image_folder_pipeline_builder(
             include_extractor=False,
-            workflows=[DataBiasConfig(name="bias_main")],
+            workflows=[BiasConfig(name="bias_main")],
             tasks=[TaskConfig(name="bias_task", workflow="bias_main", sources="main")],
         )
         result = run_tasks(cfg, data_dir=data_dir)["bias_task"]

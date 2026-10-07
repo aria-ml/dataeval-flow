@@ -374,8 +374,8 @@ class TestReportSerialized:
 
 class TestWorkflowDiscovery:
     def test_get_workflow_known(self):
-        wf = get_workflow("data-cleaning")
-        assert wf.name == "data-cleaning"
+        wf = get_workflow("quality")
+        assert wf.name == "quality"
 
     def test_get_workflow_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown workflow"):
@@ -386,7 +386,7 @@ class TestWorkflowDiscovery:
         assert isinstance(workflows, list)
         assert len(workflows) >= 1
         names = [w.name for w in workflows]
-        assert "data-cleaning" in names
+        assert "quality" in names
         assert names == sorted(names)
         for w in workflows:
             assert w.description

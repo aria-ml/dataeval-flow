@@ -1,6 +1,6 @@
 """Merging cluster-mode results into the statistics-mode ones.
 
-Used by the quality evaluators, which ``data-cleaning``'s chain runs.
+Used by the quality evaluators, which ``quality``'s chain runs.
 """
 
 __all__ = ["cast_to_int", "merge_duplicate_outputs", "merge_outlier_outputs"]
