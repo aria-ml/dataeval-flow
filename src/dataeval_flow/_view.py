@@ -1,6 +1,6 @@
 """View convenience builder wrapping DataEval."""
 
-__all__ = ["build_operations", "build_view"]
+__all__ = ["build_operations", "build_view", "root_indices"]
 
 import typing
 from collections.abc import Mapping, Sequence
@@ -94,3 +94,15 @@ def build_view(dataset: AnnotatedDataset[T], operations: list["ViewOperation"]) 
     >>> filtered = build_view(dataset, operations)
     """
     return View(dataset, operations=build_operations(operations))
+
+
+def root_indices(dataset: Any) -> list[int]:
+    """`dataset`'s items as indices into the dataset at the bottom of its views (`View.root`), composing each view's
+    `resolve_indices()`, which counts within its own source."""
+    indices = list(range(len(dataset)))
+    current = dataset
+    while isinstance(current, View):
+        selection = current.resolve_indices()
+        indices = [int(selection[index]) for index in indices]
+        current = current.source
+    return indices

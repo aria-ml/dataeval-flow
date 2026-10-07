@@ -1,6 +1,14 @@
 """A dataset's identity as SHA-256 digests over every item: what a model trains on, and the metadata beside it."""
 
-__all__ = ["DatasetDigest", "DatasetManifest", "ManifestDiff", "ManifestEntry", "dataset_digest", "dataset_manifest"]
+__all__ = [
+    "DatasetDigest",
+    "DatasetManifest",
+    "ManifestDiff",
+    "ManifestEntry",
+    "dataset_digest",
+    "dataset_manifest",
+    "item_hashes",
+]
 
 import hashlib
 import json
@@ -43,7 +51,7 @@ class DatasetDigest:
 
 @dataclass(frozen=True)
 class ManifestEntry:
-    """One item of a manifest: where it sat, its metadata ``id`` where it has one, and its content hash."""
+    """One item of a manifest: where it sat, its metadata ``id`` where it has one, and its hashes."""
 
     index: int
     """The item's position in the dataset it was read from."""
@@ -51,6 +59,12 @@ class ManifestEntry:
     """The item's metadata ``id``, or ``None`` where it has none."""
     content: str
     """The SHA-256 of the item's image and labels, which the content digest sorts and hashes."""
+    root: int | None = None
+    """The item's position in the dataset beneath the views it was read through; ``None`` in a manifest written
+    before manifests recorded it."""
+    metadata: str | None = None
+    """The SHA-256 of the item's metadata bound to its content, which the metadata digest sorts and hashes; ``None``
+    in a manifest written before manifests recorded it."""
 
 
 @dataclass(frozen=True)
@@ -82,6 +96,8 @@ class DatasetManifest:
     """One entry per item, in the dataset's order."""
     classes: dict[int, str]
     """The class names by index, which the content digest covers."""
+    source: str | None = None
+    """The source the items were read from, where a run recorded one."""
 
     def save(self, path: str | os.PathLike[str]) -> None:
         """Write the manifest to `path` as JSON, making its directory."""
@@ -93,7 +109,17 @@ class DatasetManifest:
             "metadata": self.digest.metadata,
             "items": self.digest.items,
             "classes": {str(index): name for index, name in self.classes.items()},
-            "entries": [{"index": entry.index, "id": entry.id, "content": entry.content} for entry in self.entries],
+            "source": self.source,
+            "entries": [
+                {
+                    "index": entry.index,
+                    "id": entry.id,
+                    "content": entry.content,
+                    "root": entry.root,
+                    "metadata": entry.metadata,
+                }
+                for entry in self.entries
+            ],
         }
         target.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
 
@@ -104,8 +130,12 @@ class DatasetManifest:
         if data.get("scheme") != SCHEME:
             raise ValueError(f"{path} is a scheme {data.get('scheme')} manifest; this Flow reads scheme {SCHEME}.")
         digest = DatasetDigest(content=data["content"], metadata=data["metadata"], items=data["items"], scheme=SCHEME)
-        entries = tuple(ManifestEntry(entry["index"], entry["id"], entry["content"]) for entry in data["entries"])
-        return cls(digest, entries, {int(index): name for index, name in data["classes"].items()})
+        entries = tuple(
+            ManifestEntry(entry["index"], entry["id"], entry["content"], entry.get("root"), entry.get("metadata"))
+            for entry in data["entries"]
+        )
+        classes = {int(index): name for index, name in data["classes"].items()}
+        return cls(digest, entries, classes, data.get("source"))
 
     def compare(self, other: "DatasetManifest") -> ManifestDiff:
         """What `other`, the data as it is now, changed against this manifest, the data as recorded. Content only:
@@ -186,27 +216,38 @@ def dataset_manifest(dataset: Any) -> DatasetManifest:
     DatasetManifest
         The digest, one entry per item in the dataset's order, and the class names.
     """
+    from dataeval_flow._view import root_indices
+
     entries: list[ManifestEntry] = []
-    metadata: list[str] = []
-    for index in range(len(dataset)):
+    for index, root in enumerate(root_indices(dataset)):
         datum = dataset[index]
-        parts = datum if isinstance(datum, tuple) else (datum,)
-        image = parts[0]  # before the len() checks below, which narrow `parts` to include tuple[()]
-        target = parts[1] if len(parts) > 1 else None
-        meta = parts[2] if len(parts) > 2 else None
-        content = _hash([*_array_parts(image), *_target_parts(target)])
-        entries.append(ManifestEntry(index=index, id=_item_id(meta), content=content))
-        metadata.append(_hash([content.encode(), _canonical_json(meta)]))
+        content, metadata = item_hashes(datum)
+        entries.append(ManifestEntry(index, _item_id(_parts(datum)[2]), content, root, metadata))
+    hashes = [str(entry.metadata) for entry in entries]
     count = len(entries).to_bytes(8, "little")
     classes = _index2label(dataset)
     names = _canonical_json(sorted(classes.items()))
     digest = DatasetDigest(
         content=_hash([_CONTENT_SCHEME, count, names, *(item.encode() for item in sorted(e.content for e in entries))]),
-        metadata=_hash([_METADATA_SCHEME, count, *(item.encode() for item in sorted(metadata))]),
+        metadata=_hash([_METADATA_SCHEME, count, *(item.encode() for item in sorted(hashes))]),
         items=len(entries),
         scheme=SCHEME,
     )
     return DatasetManifest(digest=digest, entries=tuple(entries), classes=classes)
+
+
+def item_hashes(datum: Any) -> tuple[str, str]:
+    """One item's content hash and metadata hash, as a manifest records them: the image and labels, and the metadata
+    bound to that content. `datum` is what indexing a dataset gives, an ``(image, target, metadata)`` tuple."""
+    image, target, meta = _parts(datum)
+    content = _hash([*_array_parts(image), *_target_parts(target)])
+    return content, _hash([content.encode(), _canonical_json(meta)])
+
+
+def _parts(datum: Any) -> tuple[Any, Any, Any]:
+    """An item's image, target and metadata, ``None`` for any it lacks."""
+    parts = datum if isinstance(datum, tuple) else (datum,)
+    return parts[0], parts[1] if len(parts) > 1 else None, parts[2] if len(parts) > 2 else None
 
 
 def _item_id(meta: Any) -> str | int | None:

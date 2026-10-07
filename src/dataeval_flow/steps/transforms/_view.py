@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from pydantic import Field, model_validator
 
+from dataeval_flow._view import root_indices
 from dataeval_flow.config._schemas._view import ViewOperation
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import Transform, TransformConfig, TransformContext
@@ -15,20 +16,6 @@ if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
 
 _GENERIC = (None, "any_target", "image_only")
-
-
-def root_indices(dataset: Any) -> list[int]:
-    """`dataset`'s items as indices into the dataset at the bottom of its views (`View.root`), composing each view's
-    `resolve_indices()`, which counts within its own source."""
-    from dataeval.data import View
-
-    indices = list(range(len(dataset)))
-    current = dataset
-    while isinstance(current, View):
-        selection = current.resolve_indices()
-        indices = [int(selection[index]) for index in indices]
-        current = current.source
-    return indices
 
 
 class ViewTransformConfig(TransformConfig):
