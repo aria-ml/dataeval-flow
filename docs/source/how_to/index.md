@@ -29,7 +29,7 @@ measure_band_groups
 - - {doc}`Use a torchvision dataset <../notebooks/torchvision_datasets>`
   - Feed a `torchvision` classification or detection dataset straight into a workflow.
 - - {doc}`Declare an ontology <declare_an_ontology>`
-  - Define the sanctioned label space so `label-space` can name classes that were never collected.
+  - Define the sanctioned label space so `taxonomy` can name classes that were never collected.
 - - {doc}`Measure band groups <measure_band_groups>`
   - Measure a dataset's channels separately, and its image background, without moving any cleaning result or bias
     number until a policy names them.

@@ -17,22 +17,22 @@ To ask whether a set of splits is ready to train on, run [`audit`](presets.md#au
 Finds outlier and duplicate images and boxes, and removes them. `audit` judges each split's outliers, duplicates and
 metadata issues.
 
-- **Preset:** [`audit`](presets.md#audit) and [`data-cleaning`](presets.md#data-cleaning)
+- **Preset:** [`audit`](presets.md#audit) and [`quality`](presets.md#quality)
 - **Evaluators:** [`outliers`](evaluators.md#outliers), [`duplicates`](evaluators.md#duplicates),
   [`label-health`](evaluators.md#label-health), [`factor-triage`](evaluators.md#factor-triage)
 - **Combines:** [`outliers-by-class`](combines.md#outliers-by-class)
 - **Checks:** [`image-outliers`](checks.md#image-outliers), [`target-outliers`](checks.md#target-outliers),
-  [`classwise-outliers`](checks.md#classwise-outliers), [`image-duplicates`](checks.md#image-duplicates),
-  [`metadata-issues`](checks.md#metadata-issues)
+  [`class-outliers`](checks.md#class-outliers), [`image-duplicates`](checks.md#image-duplicates),
+  [`factor-issues`](checks.md#factor-issues)
 - **Transforms:** [`remove`](transforms.md#remove)
 
 ## Are the labels sound?
 
 Measures how a Dataset's labels spread over its classes, and warns on classes that are too few, too uneven or missing
 from train, and, where `ontology:` is set, on class names that resolve to no ontology concept, or to several.
-`data-bias` judges one Dataset's class balance.
+`bias` judges one Dataset's class balance.
 
-- **Preset:** [`audit`](presets.md#audit) and [`data-bias`](presets.md#data-bias)
+- **Preset:** [`audit`](presets.md#audit) and [`bias`](presets.md#bias)
 - **Evaluators:** [`label-health`](evaluators.md#label-health),
   [`label-reconciliation`](evaluators.md#label-reconciliation)
 - **Checks:** [`class-imbalance`](checks.md#class-imbalance), [`class-sufficiency`](checks.md#class-sufficiency),
@@ -43,24 +43,24 @@ from train, and, where `ontology:` is set, on class names that resolve to no ont
 Judges a Dataset's class names against a declared ontology. In a workflow of your own, `conform` relabels the
 Dataset onto the ontology.
 
-- **Preset:** [`label-space`](presets.md#label-space); [`audit`](presets.md#audit) runs `label-reconciliation` and
+- **Preset:** [`taxonomy`](presets.md#taxonomy); [`audit`](presets.md#audit) runs `label-reconciliation` and
   `label-conformance` on each split where `ontology:` is set
 - **Evaluators:** [`representation`](evaluators.md#representation),
   [`label-reconciliation`](evaluators.md#label-reconciliation), [`label-alignment`](evaluators.md#label-alignment),
   [`ontology-validation`](evaluators.md#ontology-validation)
 - **Checks:** [`leaf-coverage`](checks.md#leaf-coverage), [`label-conformance`](checks.md#label-conformance),
-  [`mergeability`](checks.md#mergeability), [`ontology-structure`](checks.md#ontology-structure)
+  [`label-mergeability`](checks.md#label-mergeability), [`ontology-structure`](checks.md#ontology-structure)
 - **In a workflow of your own:** [`conform`](transforms.md#conform); see the
   [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ## Does the data cover what the model must handle?
 
 Judges how a Dataset's embeddings cover their space and which classes fall short of their expected share; detections are
-cropped first. Among the metadata factors tied to the class, `data-bias` and `audit` list the class-factor-value
+cropped first. Among the metadata factors tied to the class, `bias` and `audit` list the class-factor-value
 combinations held too rarely.
 
-- **Preset:** [`audit`](presets.md#audit), on train, and [`data-coverage`](presets.md#data-coverage);
-  [`data-bias`](presets.md#data-bias) runs `factor-gaps` and `factor-coverage-gaps`
+- **Preset:** [`audit`](presets.md#audit), on train, and [`scope`](presets.md#scope);
+  [`bias`](presets.md#bias) runs `factor-gaps` and `factor-coverage-gaps`
 - **Evaluators:** [`coverage`](evaluators.md#coverage), [`completeness`](evaluators.md#completeness),
   [`representation`](evaluators.md#representation), [`balance`](evaluators.md#balance),
   [`factor-summary`](evaluators.md#factor-summary), [`diversity`](evaluators.md#diversity)
@@ -74,28 +74,28 @@ combinations held too rarely.
 
 Measures how metadata factors relate to the class labels and how evenly their values spread, summarizes each factor, and
 warns when a factor tells much about the class or is significantly associated with it. `audit` judges
-`shortcut-risk` alone; `parity` and `factor-parity` are `data-bias`'s.
+`shortcut-risk` alone; `parity` and `factor-parity` are `bias`'s.
 
-- **Preset:** [`data-bias`](presets.md#data-bias) and [`audit`](presets.md#audit), on train
+- **Preset:** [`bias`](presets.md#bias) and [`audit`](presets.md#audit), on train
 - **Evaluators:** [`balance`](evaluators.md#balance), [`parity`](evaluators.md#parity),
   [`diversity`](evaluators.md#diversity), [`factor-summary`](evaluators.md#factor-summary)
 - **Checks:** [`shortcut-risk`](checks.md#shortcut-risk), [`factor-parity`](checks.md#factor-parity)
 
 ## Are the splits fit to evaluate on?
 
-`data-splitting` splits a Dataset, or cuts it into k folds, and judges each part's class shares against the whole's.
-`audit` judges splits already made, as a task over sources or as a step after `data-splitting`: the items and group
+`splits` splits a Dataset, or cuts it into k folds, and judges each part's class shares against the whole's.
+`audit` judges splits already made, as a task over sources or as a step after `splits`: the items and group
 values two splits share, how far apart the splits sit, how much of each evaluation split lies beyond what train covers,
 each split's class shares against train's, whether each class train holds has enough labels in every split, and whether
 an evaluation split holds a class train lacks.
 
-- **Preset:** [`audit`](presets.md#audit) and [`data-splitting`](presets.md#data-splitting)
+- **Preset:** [`audit`](presets.md#audit) and [`splits`](presets.md#splits)
 - **Evaluators:** [`label-health`](evaluators.md#label-health), [`coverage`](evaluators.md#coverage),
   [`duplicates`](evaluators.md#duplicates), [`factor-leakage`](evaluators.md#factor-leakage),
   [`divergence`](evaluators.md#divergence), [`ood-kneighbors`](evaluators.md#ood-kneighbors)
 - **Checks:** [`uncovered-items`](checks.md#uncovered-items),
-  [`stratification`](checks.md#stratification), [`leakage`](checks.md#leakage),
-  [`distribution-shift`](checks.md#distribution-shift), [`eval-coverage`](checks.md#eval-coverage),
+  [`class-stratification`](checks.md#class-stratification), [`leakage`](checks.md#leakage),
+  [`embedding-divergence`](checks.md#embedding-divergence), [`eval-coverage`](checks.md#eval-coverage),
   [`class-sufficiency`](checks.md#class-sufficiency), [`untrained-classes`](checks.md#untrained-classes)
 - **Transforms:** [`split`](transforms.md#split), [`kfold`](transforms.md#kfold), [`view`](transforms.md#view)
 
@@ -104,7 +104,7 @@ an evaluation split holds a class train lacks.
 Tests whether incoming data has drifted from a reference, whole, chunk by chunk and by class. `drift-wasserstein`
 needs a validation set as a third source, which the preset does not take, so it runs in a workflow of your own.
 
-- **Preset:** [`drift-monitoring`](presets.md#drift-monitoring)
+- **Preset:** [`shift`](presets.md#shift)
 - **Evaluators:** [`drift-univariate`](evaluators.md#drift-univariate), [`drift-mmd`](evaluators.md#drift-mmd),
   [`drift-kneighbors`](evaluators.md#drift-kneighbors),
   [`drift-domain-classifier`](evaluators.md#drift-domain-classifier)
@@ -117,7 +117,7 @@ needs a validation set as a third source, which the preset does not take, so it 
 Flags the test images unlike the reference, by each detector and by their agreement, and names the metadata factors that
 go with them.
 
-- **Preset:** [`ood-detection`](presets.md#ood-detection)
+- **Preset:** [`shift`](presets.md#shift)
 - **Evaluators:** [`ood-kneighbors`](evaluators.md#ood-kneighbors),
   [`ood-domain-classifier`](evaluators.md#ood-domain-classifier)
 - **Combines:** [`ood-union`](combines.md#ood-union), [`factor-predictors`](combines.md#factor-predictors),
@@ -129,7 +129,7 @@ go with them.
 Ranks each pool's items against a reference for labeling, after optional cleaning of outliers and duplicates, and
 keeps the top.
 
-- **Preset:** [`data-prioritization`](presets.md#data-prioritization)
+- **Preset:** [`prioritization`](presets.md#prioritization)
 - **Evaluators:** [`prioritization`](evaluators.md#prioritization), [`outliers`](evaluators.md#outliers),
   [`duplicates`](evaluators.md#duplicates)
 - **Transforms:** [`select`](transforms.md#select), [`remove`](transforms.md#remove)
@@ -138,10 +138,10 @@ keeps the top.
 
 Reports the metadata factors a run could not read as configured, and a policy that repairs them.
 
-- **Preset:** [`metadata-triage`](presets.md#metadata-triage); [`audit`](presets.md#audit) runs `factor-triage` and
-  `metadata-issues` on each split
+- **Preset:** [`triage`](presets.md#triage); [`audit`](presets.md#audit) runs `factor-triage` and
+  `factor-issues` on each split
 - **Evaluators:** [`factor-triage`](evaluators.md#factor-triage)
-- **Checks:** [`metadata-issues`](checks.md#metadata-issues)
+- **Checks:** [`factor-issues`](checks.md#factor-issues)
 
 ## What exactly was evaluated?
 

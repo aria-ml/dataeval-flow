@@ -22,8 +22,8 @@ from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceCo
 from dataeval_flow.config.extractors import Extractor, ExtractorConfig, FlattenExtractorConfig
 from dataeval_flow.evaluators.shift import DriftMMDConfig
 from dataeval_flow.workflows import DatasetContext, WorkflowContext
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
+from dataeval_flow.workflows.quality import QualityConfig
+from dataeval_flow.workflows.shift import ShiftConfig
 from tests.evaluator_toys import ToyImages
 
 BATCH = 4
@@ -103,7 +103,7 @@ def _pipeline() -> tuple[TaskConfig, PipelineConfig]:
         datasets=[DatasetProtocolConfig(name=name, dataset=dataset) for name, dataset in data.items()],
         sources=[SourceConfig(name=name, dataset=name) for name in data],
         extractors=[RecordingConfig(name="rec", batch_size=BATCH)],
-        workflows=[DriftMonitoringConfig(name="drift", detectors=[DriftMMDConfig()], classwise={"drift-mmd": "class"})],  # type: ignore[arg-type]
+        workflows=[ShiftConfig(name="drift", detectors=[DriftMMDConfig()], classwise={"drift-mmd": "class"})],  # type: ignore[arg-type]
         tasks=[task],
     )
     return task, config
@@ -370,7 +370,7 @@ def test_unscoped_clusters_are_keyed_at_the_batch_size_their_embeddings_were_mad
 
 def _cleaning(seed: int | None) -> PipelineConfig:
     """Two cleaning tasks on one source, clustering it twice each: once for outliers, once for duplicates."""
-    clean = DataCleaningConfig(
+    clean = QualityConfig(
         name="clean",
         outliers={  # type: ignore[arg-type]
             "flags": ["dimension"],

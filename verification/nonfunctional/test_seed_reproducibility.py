@@ -8,7 +8,7 @@ import pytest
 
 from dataeval_flow import run_tasks
 from dataeval_flow.config import PipelineConfig, TaskConfig
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.quality import QualityConfig
 
 pytestmark = pytest.mark.required
 
@@ -25,9 +25,9 @@ def _seeded_cleaning_pipeline(
     """A cleaning pipeline whose cluster-based detection is stochastic."""
     cfg, data_dir = builder(
         workflows=[
-            DataCleaningConfig(
+            QualityConfig(
                 name="clean",
-                type="data-cleaning",
+                type="quality",
                 # Cluster-based detection is the stochastic part.
                 outliers={
                     "flags": ["dimension", "pixel"],

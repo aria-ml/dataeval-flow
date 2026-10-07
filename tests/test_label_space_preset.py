@@ -1,4 +1,4 @@
-"""`label-space`: a dataset's labels judged against a declared ontology, as chained steps (coverage spec §3)."""
+"""`taxonomy`: a dataset's labels judged against a declared ontology, as chained steps (coverage spec §3)."""
 
 import pytest
 from pydantic import ValidationError
@@ -6,18 +6,18 @@ from pydantic import ValidationError
 from dataeval_flow import MatrixResult, run_tasks
 from dataeval_flow._cache import DatasetCache
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.label_space import LabelSpaceConfig, LabelSpaceWorkflow
+from dataeval_flow.workflows.taxonomy import TaxonomyConfig, TaxonomyWorkflow
 from tests.chain_toys import ToyDetections, chain_pipeline
 from tests.evaluator_toys import ToyImages
 
 _ONTOLOGY = {"x": {"a": None, "b": None, "c": None}}
-_TITLES = ["Leaf Coverage", "Label Conformance", "Mergeability", "Ontology Structure"]
+_TITLES = ["Leaf Coverage", "Label Conformance", "Label Mergeability", "Ontology Structure"]
 
 
 def _run(entry: dict, datasets: dict | None = None, **task: object) -> ChainResult:
     DatasetCache.clear_instances()
     config = chain_pipeline(
-        workflows=[{"name": "w", "type": "label-space", **entry}],
+        workflows=[{"name": "w", "type": "taxonomy", **entry}],
         tasks=[{"name": "t", "workflow": "w", "sources": ["src"], **task}],
         datasets=datasets or {"src": ToyImages(count=20)},
     )
@@ -27,7 +27,7 @@ def _run(entry: dict, datasets: dict | None = None, **task: object) -> ChainResu
 
 
 def test_its_chain_is_four_evaluators_each_judged() -> None:
-    chain = LabelSpaceWorkflow.chain(LabelSpaceConfig(name="w", ontology=_ONTOLOGY))
+    chain = TaxonomyWorkflow.chain(TaxonomyConfig(name="w", ontology=_ONTOLOGY))
     names = [step["name"] for step in chain.steps]  # type: ignore[index]
     assert names == [
         "representation",
@@ -35,7 +35,7 @@ def test_its_chain_is_four_evaluators_each_judged() -> None:
         "label-reconciliation",
         "label-conformance",
         "label-alignment",
-        "mergeability",
+        "label-mergeability",
         "ontology-validation",
         "ontology-structure",
     ]
@@ -52,7 +52,7 @@ def test_it_makes_legacy_s_four_findings_in_order_and_stamps_the_digest() -> Non
 
 def test_without_an_ontology_it_is_refused_at_load() -> None:
     with pytest.raises(ValidationError, match="judges labels against an ontology: name one with `ontology:`"):
-        LabelSpaceConfig(name="w")
+        TaxonomyConfig(name="w")
 
 
 def test_an_ontology_that_does_not_load_fails_the_task_with_the_loader_s_message() -> None:
@@ -83,7 +83,7 @@ def test_a_matrix_varies_a_hyphenated_threshold() -> None:
         workflows=[
             {
                 "name": "w",
-                "type": "label-space",
+                "type": "taxonomy",
                 "ontology": _ONTOLOGY,
                 "checks": {"leaf-coverage": {"empty_branches": None}},
             }

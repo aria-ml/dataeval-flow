@@ -345,8 +345,8 @@ def export_provenance(
     Record what a reader needs to answer where this dataset came from: each operand's
     dataset and the mapping that conformed it, the ontology it was conformed to, and the
     label-space digests. The digests are the join — the same values the result envelope
-    carries and a `label-space` run's alignment stamped, so an emitted dataset can be matched back
-    to the run and the label-space run that justified its vocabulary.
+    carries and a `taxonomy` run's alignment stamped, so an emitted dataset can be matched back
+    to the run and the taxonomy run that justified its vocabulary.
 
     Parameters
     ----------

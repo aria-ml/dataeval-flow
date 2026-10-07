@@ -192,7 +192,7 @@ class LabelReconciliationResult(EvaluatorResult[LabelReconciliationOutput]):
 
 class OntologyValidationOutput(CoreOutput):
     """``ontology-validation``'s output: ``data()`` holds the ontology's structural and naming facts, as legacy
-    data-coverage's ``OntologyStructure`` held them (coverage spec §3.3)."""
+    scope's ``OntologyStructure`` held them (coverage spec §3.3)."""
 
 
 class OntologyValidationResult(EvaluatorResult[OntologyValidationOutput]):

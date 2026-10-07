@@ -66,7 +66,7 @@ class StatsPolicyConfig(BaseModel):
 
         workflows:
           - name: clean
-            type: data-cleaning
+            type: quality
             stats: multispectral
     """
 

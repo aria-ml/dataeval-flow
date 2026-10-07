@@ -13,8 +13,8 @@ from dataeval_flow.evaluators import Evaluator, EvaluatorConfig, EvaluatorInputs
 from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesEvaluator, DuplicatesResult
 from dataeval_flow.steps import ChainResult, InputSlot
 from dataeval_flow.workflows import Preset, PresetChain, Workflow, WorkflowConfig
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig, DataCleaningWorkflow
-from dataeval_flow.workflows.data_splitting import DataSplittingConfig
+from dataeval_flow.workflows.quality import QualityConfig, QualityWorkflow
+from dataeval_flow.workflows.splits import SplitsConfig
 from tests.evaluator_toys import ToyImages, toy_pipeline
 from tests.example_plugin import CountConfig
 from tests.workflow_toys import ToyCountConfig
@@ -60,18 +60,18 @@ def test_an_unparameterized_concrete_workflow_is_rejected() -> None:
 
 
 def test_config_type_comes_from_the_type_arguments() -> None:
-    assert DataCleaningWorkflow.config_type is DataCleaningConfig
+    assert QualityWorkflow.config_type is QualityConfig
     assert DuplicatesEvaluator.config_type is DuplicatesConfig
 
 
 def test_a_config_knows_its_result() -> None:
-    assert DataCleaningConfig.result_type is ChainResult
+    assert QualityConfig.result_type is ChainResult
     assert DuplicatesConfig.result_type is DuplicatesResult
 
 
 def test_name_defaults_to_the_type() -> None:
-    assert DataSplittingConfig().name == "data-splitting"
-    assert DataSplittingConfig(name="split_a").name == "split_a"
+    assert SplitsConfig().name == "splits"
+    assert SplitsConfig(name="split_a").name == "split_a"
 
 
 class _Untyped(WorkflowConfig[ChainResult]):
@@ -83,18 +83,18 @@ def test_name_defaults_to_the_type_the_entry_gives() -> None:
 
 
 def test_a_config_refuses_another_type() -> None:
-    with pytest.raises(ValidationError, match="DataSplittingConfig configures type 'data-splitting', not 'x'"):
-        DataSplittingConfig(type="x")
+    with pytest.raises(ValidationError, match="SplitsConfig configures type 'splits', not 'x'"):
+        SplitsConfig(type="x")
 
 
 def test_a_config_schema_is_titled_by_its_class() -> None:
-    assert DataCleaningConfig.model_json_schema()["title"] == "DataCleaningConfig"
+    assert QualityConfig.model_json_schema()["title"] == "QualityConfig"
 
 
 def test_a_config_schema_describes_its_type() -> None:
-    type_schema = DataCleaningConfig.model_json_schema()["properties"]["type"]
-    assert type_schema["const"] == "data-cleaning"
-    assert type_schema["description"] == "The workflow type this entry configures: `data-cleaning`."
+    type_schema = QualityConfig.model_json_schema()["properties"]["type"]
+    assert type_schema["const"] == "quality"
+    assert type_schema["description"] == "The workflow type this entry configures: `quality`."
 
 
 def test_a_config_that_describes_no_type_gets_the_base_description() -> None:

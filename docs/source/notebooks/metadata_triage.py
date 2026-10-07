@@ -17,7 +17,7 @@
 # # Triage a dataset's metadata
 #
 # In this tutorial, you will identify metadata columns that failed to load or parse, and generate
-# configuration fixes using the `metadata-triage` preset on SeaDrone telemetry.
+# configuration fixes using the `triage` preset on SeaDrone telemetry.
 
 # %% [markdown]
 # **Target audience**: You are an engineer or data scientist who needs to verify
@@ -34,7 +34,7 @@
 # ## What you will do
 #
 # - Load a sample of the SeaDrone object-detection dataset with telemetry metadata.
-# - Run the `metadata-triage` preset and inspect the generated report.
+# - Run the `triage` preset and inspect the generated report.
 # - Identify dropped or unparseable columns and review suggested remedies.
 # - Review factors that parse cleanly but require remediation, such as unique identifiers and sentinel values.
 # - Inspect the suggested policy configuration.
@@ -44,7 +44,7 @@
 # %% [markdown]
 # ## What you will learn
 #
-# - How to execute `metadata-triage` and interpret finding categories and severity levels.
+# - How to execute `triage` and interpret finding categories and severity levels.
 # - How to interpret factor distribution charts and evaluate bin recommendations.
 # - How to configure policies to handle missing values, date parsing, and type conversions.
 # - How verification tests proposed policies against your dataset.
@@ -97,11 +97,11 @@ from dataeval_flow.config import (
     ViewConfig,
     ViewOperation,
 )
-from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
+from dataeval_flow.workflows.triage import TriageConfig
 
-triage_workflow = MetadataTriageConfig(
+triage_workflow = TriageConfig(
     name="triage",
-    checks={"metadata-issues": {"max_examples": 6}},  # distinct values shown per column in the report
+    checks={"factor-issues": {"max_examples": 6}},  # distinct values shown per column in the report
 )
 
 task = TaskConfig(
@@ -140,7 +140,7 @@ print(result.report())
 
 # %% [markdown]
 # The preset's `factor-triage` step holds the issues, the suggested policy and the verification, and its
-# `metadata-issues` step makes the findings the report shows.
+# `factor-issues` step makes the findings the report shows.
 
 # %%
 triage = result.steps["factor-triage"].output.data()

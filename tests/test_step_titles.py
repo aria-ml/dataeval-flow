@@ -15,7 +15,7 @@ from dataeval_flow.steps import ChainResult, list_steps
 from dataeval_flow.steps._registry import CHECKS, COMBINES, TRANSFORMS
 from dataeval_flow.steps._result import StepResult
 from dataeval_flow.workflows._registry import WORKFLOWS
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.quality import QualityConfig
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 
@@ -61,15 +61,13 @@ _TITLES = {
     "factor-gaps": "Factor Gaps",
     "factor-predictors": "Factor Predictors",
     "audit": "Audit",
-    "data-bias": "Data Bias",
-    "data-cleaning": "Data Cleaning",
-    "data-coverage": "Data Coverage",
-    "data-prioritization": "Data Prioritization",
-    "data-splitting": "Data Splitting",
-    "drift-monitoring": "Drift Monitoring",
-    "label-space": "Label Space",
-    "metadata-triage": "Metadata Triage",
-    "ood-detection": "OOD Detection",
+    "bias": "Bias",
+    "quality": "Quality",
+    "scope": "Scope",
+    "splits": "Splits",
+    "taxonomy": "Taxonomy",
+    "triage": "Triage",
+    "shift": "Shift",
 }
 
 
@@ -89,7 +87,7 @@ def test_every_built_in_step_declares_its_title() -> None:
 def test_a_check_keeps_the_title_of_its_finding() -> None:
     titles = {cls.name: cls.title for cls in CHECKS.list(plugins=False)}
     assert titles["image-duplicates"] == "Image Duplicates"
-    assert titles["classwise-outliers"] == "Classwise Outliers"
+    assert titles["class-outliers"] == "Class Outliers"
 
 
 def test_a_plugin_class_without_a_title_takes_its_id() -> None:
@@ -105,11 +103,11 @@ def test_the_catalog_carries_each_title() -> None:
     assert catalog[("evaluator", "label-health")] == "Label Health"
     assert catalog[("transform", "kfold")] == "K-Fold"
     assert catalog[("combine", "outliers-by-class")] == "Outliers by Class"
-    assert catalog[("check", "classwise-outliers")] == "Classwise Outliers"
-    assert catalog[("workflow", "data-cleaning")] == "Data Cleaning"
+    assert catalog[("check", "class-outliers")] == "Class Outliers"
+    assert catalog[("workflow", "quality")] == "Quality"
 
 
-_CLEAN = {"name": "clean", "type": "data-cleaning", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
+_CLEAN = {"name": "clean", "type": "quality", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
 
 
 def _banner(report: str) -> list[str]:
@@ -138,8 +136,8 @@ def test_a_preset_task_is_headed_by_its_title_and_named_in_the_envelope() -> Non
         datasets={"src": ToyImages()},
     )
     report = _run(config).report()
-    assert _banner(report) == ["DATA CLEANING"]
-    assert _first_line(report) == "Workflow: clean (data-cleaning)"
+    assert _banner(report) == ["QUALITY"]
+    assert _first_line(report) == "Workflow: clean (quality)"
 
 
 def test_an_evaluator_task_is_headed_by_its_title_and_named_in_the_envelope() -> None:
@@ -189,10 +187,10 @@ def test_the_html_header_holds_the_title_and_the_provenance_opens_with_what_ran(
         datasets={"src": ToyImages()},
     )
     html = _run(config).to_html()
-    assert "<h1>Data Cleaning</h1>" in html
+    assert "<h1>Quality</h1>" in html
     assert 'class="facts"' not in html
-    assert '<dl class="fields provenance"><dt>Workflow</dt><dd>clean (data-cleaning)</dd>' in html
-    assert "<title>Data Cleaning — clean</title>" in html
+    assert '<dl class="fields provenance"><dt>Workflow</dt><dd>clean (quality)</dd>' in html
+    assert "<title>Quality — clean</title>" in html
 
 
 def _record(name: str, type_id: str, kind: str) -> StepResult:
@@ -203,15 +201,15 @@ def test_a_step_is_headed_by_its_type_title_and_named_where_it_differs() -> None
     assert step_heading(_record("outliers", "outliers", "evaluator")) == "Outliers"
     assert step_heading(_record("dupes", "duplicates", "evaluator")) == "Duplicates · dupes"
     assert step_heading(_record("clean", "remove", "transform")) == "Remove · clean"
-    assert step_heading(_record("clean", "data-cleaning", "workflow")) == "Data Cleaning · clean"
+    assert step_heading(_record("clean", "quality", "workflow")) == "Quality · clean"
     assert step_heading(_record("x", "not-registered", "transform")) == "not-registered · x"
 
 
 def test_run_of_a_config_with_the_default_entry_name_names_the_id_alone() -> None:
-    result = run(DataCleaningConfig(outliers={"flags": ["pixel"], "outlier_threshold": "zscore"}), ToyImages())  # type: ignore[arg-type]
-    assert _banner(result.report()) == ["DATA CLEANING"]
-    assert _first_line(result.report()) == "Workflow: data-cleaning"
-    assert "<title>Data Cleaning</title>" in result.to_html()
+    result = run(QualityConfig(outliers={"flags": ["pixel"], "outlier_threshold": "zscore"}), ToyImages())  # type: ignore[arg-type]
+    assert _banner(result.report()) == ["QUALITY"]
+    assert _first_line(result.report()) == "Workflow: quality"
+    assert "<title>Quality</title>" in result.to_html()
 
 
 def test_a_preset_that_fails_in_a_run_keeps_its_entry_in_the_envelope() -> None:
@@ -223,25 +221,25 @@ def test_a_preset_that_fails_in_a_run_keeps_its_entry_in_the_envelope() -> None:
     with patch.object(TRANSFORMS.get("remove"), "run", side_effect=RuntimeError("boom")):
         result = run_tasks(config)["t"]
     assert not result.success
-    assert _banner(result.report()) == ["DATA CLEANING"]
-    assert _first_line(result.report()) == "Workflow: clean (data-cleaning)"
+    assert _banner(result.report()) == ["QUALITY"]
+    assert _first_line(result.report()) == "Workflow: clean (quality)"
 
 
 def test_a_preset_task_refused_before_it_runs_keeps_its_entry_in_the_envelope() -> None:
     config = chain_pipeline(workflows=[_CLEAN], datasets={"a": ToyImages(), "b": ToyImages()})
     result = run_task(config, TaskConfig(name="t", workflow="clean", sources=["a", "b"]))
     assert not result.success
-    assert _banner(result.report()) == ["DATA CLEANING"]
-    assert _first_line(result.report()) == "Workflow: clean (data-cleaning)"
+    assert _banner(result.report()) == ["QUALITY"]
+    assert _first_line(result.report()) == "Workflow: clean (quality)"
 
 
 def test_a_custom_workflow_named_like_a_preset_is_still_a_custom_workflow() -> None:
-    workflow = {"name": "data-cleaning", "inputs": ["a"], "steps": [{"name": "d", "evaluator": "dupes", "input": "a"}]}
+    workflow = {"name": "quality", "inputs": ["a"], "steps": [{"name": "d", "evaluator": "dupes", "input": "a"}]}
     config = chain_pipeline(
         workflows=[workflow],
         evaluators=[{"name": "dupes", "type": "duplicates"}],
-        tasks=[{"name": "t", "workflow": "data-cleaning", "sources": ["src"]}],
+        tasks=[{"name": "t", "workflow": "quality", "sources": ["src"]}],
     )
     report = _run(config).report()
-    assert _banner(report) == ["DATA-CLEANING"]
-    assert _first_line(report) == "Workflow: data-cleaning (custom workflow)"
+    assert _banner(report) == ["QUALITY"]
+    assert _first_line(report) == "Workflow: quality (custom workflow)"

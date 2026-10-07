@@ -1,7 +1,10 @@
 # Monitor drift with steps
 
-The `drift-monitoring` workflow type is a preset: a chain of steps that tests each of your test sources against a
-reference, with a `drift` check judging each test. This guide shows how to read what it makes, and how to rebuild
+The `shift` workflow type is a preset: a chain of steps that tests each of your test sources against a
+reference, with a `drift` check judging each drift detector and an `ood` check each OOD detector. The examples here
+list drift detectors only, which adds none of the OOD steps. With no `detectors:`, it runs `drift-univariate` and
+`ood-kneighbors`. A univariate KS test can miss correlated shifts across embedding dimensions: list `drift-mmd` or
+`drift-domain-classifier` for those. This guide shows how to read what it makes, and how to rebuild
 parts of it as a custom workflow when you want something else: one merged test set, a comparison of classes or
 groups, or drift on the objects in detection images. The [drift tutorial](../notebooks/drift_monitoring.py) runs the
 preset on real imagery, and [Chain steps into a workflow of your own](write_a_custom_workflow.md) explains the step
@@ -14,7 +17,7 @@ A task with a reference and two test sources runs every detector once for each t
 ```yaml
 workflows:
   - name: drift
-    type: drift-monitoring
+    type: shift
     detectors:
       - {type: drift-univariate, method: ks, p_val: 0.01}
       - {name: mmd_chunked, type: drift-mmd, chunking: {chunk_count: 10, threshold: [zscore, 2.5]}}
@@ -101,7 +104,7 @@ Each mapped detector also runs once per class, unchunked, as the step `<detector
 ```yaml
 workflows:
   - name: drift
-    type: drift-monitoring
+    type: shift
     detectors:
       - {type: drift-mmd}
     classwise:
@@ -179,7 +182,7 @@ run the preset on crops. Wrap the reference and the tests, and run the preset as
 ```yaml
 workflows:
   - name: drift
-    type: drift-monitoring
+    type: shift
     detectors:
       - {type: drift-mmd}
     classwise:
@@ -239,7 +242,7 @@ extractors:
 
 workflows:
   - name: drift
-    type: drift-monitoring
+    type: shift
     detectors:
       - {type: drift-mmd}
       - name: uncertainty
@@ -268,7 +271,7 @@ workflows:
 - **Caveats.** Detections in one image are correlated, so p-values read optimistic, as they do for crops. A
   preprocessor that returns floats must return them in [0, 1]: DataEval scales only integer images.
 
-DataEval's own examples test uncertainty with `drift-wasserstein`, against a validation baseline. drift-monitoring takes
+DataEval's own examples test uncertainty with `drift-wasserstein`, against a validation baseline. `shift` takes
 no validation source, so run it as a step of a custom workflow:
 
 ```yaml
@@ -292,7 +295,7 @@ The same extractor feeds OOD detectors, which flag individual images where drift
 ```yaml
 workflows:
   - name: ood
-    type: ood-detection
+    type: shift
     detectors:
       - {type: ood-kneighbors, k: 10}          # the task's embeddings
       - name: uncertain
@@ -316,4 +319,4 @@ workflows:
 - [Distribution Shift](../concepts/DistributionShift.md) — what drift and out-of-distribution detection ask
 - [Check Catalog](../reference/checks.md) — the `drift` check's fields, and `by: class`
 - [Evaluator Catalog](../reference/evaluators.md) — each drift evaluator's fields
-- [OOD detection tutorial](../notebooks/ood_detection.py) — the `ood-detection` preset on embeddings
+- [OOD detection tutorial](../notebooks/ood_detection.py) — the `shift` preset on embeddings

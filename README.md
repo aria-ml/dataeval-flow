@@ -401,7 +401,7 @@ dataeval-flow workflows
 dataeval-flow workflows --json
 
 # What does a given workflow type accept?
-dataeval-flow workflows data-cleaning
+dataeval-flow workflows quality
 ```
 
 `dataeval-flow steps` lists every step a custom workflow can chain; `--json` prints the catalog Studio reads.

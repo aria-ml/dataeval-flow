@@ -43,7 +43,7 @@ Producer = Callable[[ProducerContext], dict[str, Any]]
 
 
 def produce_stats(pc: ProducerContext) -> dict[str, Any]:
-    """Image statistics under the resolved stats policy, computed exactly as ``data-cleaning`` computes them.
+    """Image statistics under the resolved stats policy, computed exactly as ``quality`` computes them.
 
     Always per image and per target, so the two share one cache entry. The evaluator's own
     ``per_image`` / ``per_target`` apply when it calls ``from_stats``.

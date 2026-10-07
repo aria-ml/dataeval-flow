@@ -1,6 +1,6 @@
 # Configure outlier detection
 
-The `data-cleaning` workflow is flagging too much, too little, or the wrong thing. This guide covers the knobs that
+The `quality` workflow is flagging too much, too little, or the wrong thing. This guide covers the knobs that
 control what counts as an outlier and when a finding becomes a warning.
 
 ## Used in these tutorials
@@ -23,7 +23,7 @@ flagged. There is no universally correct choice. It depends on how heavy-tailed 
 ```yaml
 workflows:
   - name: quality_check
-    type: data-cleaning
+    type: quality
     outliers:
       flags: [dimension, pixel, visual]
       outlier_threshold: modzscore
@@ -81,7 +81,7 @@ extractors:
 
 workflows:
   - name: quality_check
-    type: data-cleaning
+    type: quality
     outliers:
       flags: [dimension, pixel, visual]
       outlier_threshold: adaptive
@@ -111,11 +111,11 @@ a `warning`, counted in the report's health line. It does not change what is det
       image-duplicates: {exact: 0.0, near: 5.0}  # % of images in exact- and near-duplicate groups
       image-outliers: {warning: 5.0}             # % of images flagged
       target-outliers: {warning: 10.0}           # % of labels/annotations flagged
-      classwise-outliers: {warning: 12.0}        # % flagged within any single class
+      class-outliers: {warning: 12.0}        # % flagged within any single class
 ```
 
 Rough guidance: tighten toward 1–2% for curated benchmarks and safety-critical datasets; loosen toward 10–15% for
-large web-scraped or naturally diverse collections. Class imbalance is judged by the `data-bias` preset; for a class
+large web-scraped or naturally diverse collections. Class imbalance is judged by the `bias` preset; for a class
 hierarchy with a long tail, raise its `class-imbalance` to 10–20 to avoid a warning that only restates the domain.
 
 ## Verify the effect
@@ -140,5 +140,5 @@ inspection.
   alone, and takes every setting of the preset's `outliers` block, spelled the same way
 - [DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html) — the
   authoritative treatment of the detection methods themselves
-- [Preset Catalog: `data-cleaning`](../reference/presets.md#data-cleaning) — every setting and `checks:` default
-  of `data-cleaning`, from `DataCleaningConfig` and `DataCleaningChecks`
+- [Preset Catalog: `quality`](../reference/presets.md#quality) — every setting and `checks:` default
+  of `quality`, from `QualityConfig` and `QualityChecks`

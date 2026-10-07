@@ -78,7 +78,7 @@ workflows:
       - {name: crops, transform: wrap, input: clean, wrapper: DetectionCrops}
       - {name: coverage, evaluator: coverage, input: crops}
       - {name: balance, evaluator: balance, input: clean}
-      - {name: split, transform: split, input: clean, test_frac: 0.25}
+      - {name: split, transform: split, input: clean, test_frac: 0.25, val_frac: 0, stratify: false}
       - {name: train_balance, evaluator: balance, input: split.train}
 tasks:
   - {name: dataset, workflow: dataset, sources: [a, b], extractor: flat}
@@ -198,7 +198,7 @@ workflows:
       - {name: dupes, evaluator: dupes, input: data}
       - {name: image-outliers, check: image-outliers, input: outliers}
       - {name: target-outliers, check: target-outliers, input: outliers, labels: labels}
-      - {name: classwise, check: classwise-outliers, input: by-class}
+      - {name: classwise, check: class-outliers, input: by-class}
       - {name: duplicates, check: image-duplicates, input: dupes}
       - {name: imbalance, check: class-imbalance, input: labels}
 
@@ -253,7 +253,7 @@ def test_a_not_assessed_description_ends_in_one_full_stop(tmp_path: Path) -> Non
 def test_a_data_cleaning_step_hands_its_cleaned_dataset_to_an_export(tmp_path: Path) -> None:
     text = """
 workflows:
-  - {name: basic_clean, type: data-cleaning, outliers: {flags: [pixel, visual], outlier_threshold: zscore}}
+  - {name: basic_clean, type: quality, outliers: {flags: [pixel, visual], outlier_threshold: zscore}}
   - name: clean_export
     inputs: [data]
     steps:
@@ -266,7 +266,7 @@ tasks:
     assert result.success, result.errors
     assert [(f.severity, f.title, f.step) for f in result.findings] == [
         ("ok", "Image Outliers", "cleaning/image-outliers"),
-        ("ok", "Classwise Outliers", "cleaning/classwise-outliers"),
+        ("ok", "Class Outliers", "cleaning/class-outliers"),
         ("warning", "Image Duplicates", "cleaning/image-duplicates"),
     ]
     assert result.health == {"status": "warning", "warnings": 1, "findings": 3, "failed_steps": []}

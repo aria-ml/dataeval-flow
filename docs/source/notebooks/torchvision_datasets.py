@@ -16,7 +16,7 @@
 # %% [markdown]
 # # Use a torchvision dataset with DataEval Flow
 #
-# You can pass a torchvision dataset directly into the `data-cleaning`
+# You can pass a torchvision dataset directly into the `quality`
 # workflow with the `"torchvision"` adapter. This adapter converts image
 # classification and object detection datasets to the MAITE protocol.
 
@@ -26,7 +26,7 @@
 # This guide is used by:
 #
 # - {doc}`Clean a dataset <data_cleaning>`: Feed a `torchvision` classification or
-#   detection dataset directly into the `data-cleaning` workflow.
+#   detection dataset directly into the `quality` workflow.
 
 # %% [markdown]
 # ## Image classification
@@ -44,7 +44,7 @@ from dataeval_flow.config import (
     ViewOperation,
 )
 from dataeval_flow.config.extractors import BoVWExtractorConfig
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.quality import QualityConfig
 
 # 1. Create the torchvision dataset without transforms. The adapter handles conversion.
 tv_dataset = FashionMNIST(root="./data", train=True, download=True)
@@ -67,7 +67,7 @@ sources = [SourceConfig(name="fmnist-src", dataset="fmnist-train", view="sample5
 extractors = [BoVWExtractorConfig(name="bovw", vocab_size=512, batch_size=64)]
 
 workflows = [
-    DataCleaningConfig(
+    QualityConfig(
         name="adaptive_clean",
         outliers={"outlier_threshold": ("adaptive", 3.5), "flags": ["dimension", "pixel", "visual"]},
     )
@@ -102,7 +102,7 @@ clean = result.steps["clean"].output
 print(f"\nImages kept: {len(clean)} of {len(result.sources['fmnist-src'])}")
 
 # %% [markdown]
-# `data-cleaning` runs as a chain of steps, so `result.findings` holds the findings its checks made, and
+# `quality` runs as a chain of steps, so `result.findings` holds the findings its checks made, and
 # `result.report()` prints the full report. Its `clean` step's output is the sample without each image it flagged,
 # and each duplicate but the first: a DataEval `View` that still reads the torchvision images through the adapter.
 

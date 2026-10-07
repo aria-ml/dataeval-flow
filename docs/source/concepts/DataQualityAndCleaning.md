@@ -10,9 +10,9 @@ and undermine every downstream conclusion. Data cleaning is the task of finding
 and flagging them so they can be reviewed or removed.
 
 In DataEval Flow, {term}`data cleaning <Data Cleaning>` is a workflow: you point
-the `data-cleaning` workflow at a source, and it flags {term}`outliers <Outlier>` and
+the `quality` workflow at a source, and it flags {term}`outliers <Outlier>` and
 duplicates, reports them with the source's label counts, and hands on the dataset
-without the outliers and duplicates. Class imbalance is the `data-bias` preset's. The orchestration layer's
+without the outliers and duplicates. Class imbalance is the `bias` preset's. The orchestration layer's
 contribution is making this a declarative, reproducible step in a pipeline; the
 detection methods themselves — the statistical outlier tests, the duplicate-detection
 hashing and clustering, and the label statistics — are DataEval's.
@@ -44,12 +44,12 @@ labeling error.
 
 ### Tutorials
 
-- [Cleaning a dataset](../notebooks/data_cleaning.py) — the `data-cleaning` workflow
+- [Cleaning a dataset](../notebooks/data_cleaning.py) — the `quality` workflow
   end to end
 
 ### Reference
 
-- [Preset Catalog: `data-cleaning`](../reference/presets.md#data-cleaning): the preset's chain, settings and
+- [Preset Catalog: `quality`](../reference/presets.md#quality): the preset's chain, settings and
   `checks:` defaults
 
 ### Authoritative reference

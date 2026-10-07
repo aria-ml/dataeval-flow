@@ -892,7 +892,7 @@ class TestSectionModalCollectAllFieldsTask:
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             state = ConfigState()
-            state.add("workflows", {"name": "w1", "type": "data-cleaning"})
+            state.add("workflows", {"name": "w1", "type": "quality"})
             state.add("sources", {"name": "s1", "dataset": "d1"})
             existing = {"name": "t1", "workflow": "w1", "sources": "s1", "enabled": False}
             modal = SectionModal("tasks", existing=existing, state=state)
@@ -908,7 +908,7 @@ class TestSectionModalCollectAllFieldsTask:
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             state = ConfigState()
-            state.add("workflows", {"name": "w1", "type": "data-cleaning"})
+            state.add("workflows", {"name": "w1", "type": "quality"})
             state.add("sources", {"name": "s1", "dataset": "d1"})
             existing = {"name": "t1", "workflow": "w1", "sources": "s1", "enabled": True}
             modal = SectionModal("tasks", existing=existing, state=state)
@@ -1081,7 +1081,7 @@ class TestSectionModalPopulateOneField:
         app = _MinimalApp()
         async with app.run_test(size=(120, 40)) as pilot:
             state = ConfigState()
-            state.add("workflows", {"name": "w1", "type": "data-cleaning"})
+            state.add("workflows", {"name": "w1", "type": "quality"})
             state.add("sources", {"name": "s1", "dataset": "d1"})
             existing = {"name": "t1", "workflow": "w1", "sources": "s1", "enabled": True}
             modal = SectionModal("tasks", existing=existing, state=state)
@@ -1110,7 +1110,7 @@ class TestSectionModalPopulateOneField:
         async with app.run_test(size=(120, 40)) as pilot:
             existing = {
                 "name": "wf1",
-                "type": "data-splitting",
+                "type": "splits",
                 "folds": 3,
                 "test_frac": 0.2,
             }

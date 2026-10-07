@@ -156,7 +156,7 @@ class ConformTransform(Transform[ConformConfig]):
         *,
         address: str,
     ) -> list[Any]:
-        """One record of the remap applied to `address`, digested as `label-space` digests its alignment."""
+        """One record of the remap applied to `address`, digested as `taxonomy` digests its alignment."""
         from dataeval_flow._result import LabelSpaceRecord
 
         found: LabelAlignmentOutput = inputs["alignment"].value

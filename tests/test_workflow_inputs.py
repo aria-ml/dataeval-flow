@@ -11,15 +11,14 @@ from dataeval_flow.workflows import list_workflows
 
 SPECS = {
     "audit": (SourceCount.ONE_OR_MORE, {InputKind.METADATA, InputKind.STATS}, {InputKind.EMBEDDINGS}),
-    "data-bias": (SourceCount.ONE, {InputKind.METADATA}, set()),
-    "data-cleaning": (SourceCount.ONE, {InputKind.STATS, InputKind.METADATA}, {InputKind.CLUSTERS}),
-    "data-coverage": (SourceCount.ONE, {InputKind.LABELS}, {InputKind.EMBEDDINGS}),
-    "data-prioritization": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, set()),
-    "data-splitting": (SourceCount.ONE, {InputKind.METADATA}, set()),
-    "drift-monitoring": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.LABELS}),
-    "label-space": (SourceCount.ONE, {InputKind.LABELS}, set()),
-    "metadata-triage": (SourceCount.ONE, {InputKind.METADATA}, set()),
-    "ood-detection": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.METADATA, InputKind.STATS}),
+    "bias": (SourceCount.ONE, {InputKind.METADATA}, set()),
+    "quality": (SourceCount.ONE, {InputKind.STATS, InputKind.METADATA}, {InputKind.CLUSTERS}),
+    "scope": (SourceCount.ONE, {InputKind.LABELS}, {InputKind.EMBEDDINGS}),
+    "prioritization": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, set()),
+    "splits": (SourceCount.ONE, {InputKind.METADATA}, set()),
+    "taxonomy": (SourceCount.ONE, {InputKind.LABELS}, set()),
+    "triage": (SourceCount.ONE, {InputKind.METADATA}, set()),
+    "shift": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.LABELS, InputKind.METADATA, InputKind.STATS}),
 }
 
 
@@ -44,7 +43,7 @@ def test_drift_with_one_source_is_refused_at_load() -> None:
     with pytest.raises(ValidationError, match="two or more sources"):
         PipelineConfig.model_validate(
             _pipeline(
-                {"type": "drift-monitoring", "detectors": [{"type": "drift-mmd"}]},
+                {"type": "shift", "detectors": [{"type": "drift-mmd"}]},
                 {"sources": "a", "extractor": "flat"},
             )
         )
@@ -52,12 +51,12 @@ def test_drift_with_one_source_is_refused_at_load() -> None:
 
 def test_triage_with_an_extractor_is_refused() -> None:
     with pytest.raises(ValidationError, match="does not use an extractor"):
-        PipelineConfig.model_validate(_pipeline({"type": "metadata-triage"}, {"sources": "a", "extractor": "flat"}))
+        PipelineConfig.model_validate(_pipeline({"type": "triage"}, {"sources": "a", "extractor": "flat"}))
 
 
 def test_cluster_cleaning_without_an_extractor_is_refused() -> None:
     cleaning = {
-        "type": "data-cleaning",
+        "type": "quality",
         "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore", "cluster_threshold": 2.0},
     }
     with pytest.raises(ValidationError, match="needs an extractor"):
@@ -65,7 +64,7 @@ def test_cluster_cleaning_without_an_extractor_is_refused() -> None:
 
 
 def test_a_task_naming_an_undefined_workflow_is_refused_at_load() -> None:
-    config = _pipeline({"type": "metadata-triage"}, {"sources": "a"})
+    config = _pipeline({"type": "triage"}, {"sources": "a"})
     config["tasks"][0]["workflow"] = "nope"
     with pytest.raises(ValidationError, match="`workflows:` does not define"):
         PipelineConfig.model_validate(config)

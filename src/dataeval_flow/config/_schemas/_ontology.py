@@ -70,7 +70,7 @@ class OntologyConfig(BaseModel):
 
         workflows:
           - name: vehicle-labels
-            type: label-space
+            type: taxonomy
             ontology: vehicles
     """
 

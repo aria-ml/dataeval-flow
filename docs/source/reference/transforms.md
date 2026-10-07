@@ -57,7 +57,7 @@ Name exactly one of `operations` and `view`. A `view:` name is replaced by that 
 loads, so editing the entry changes the Dataset's key. An operation that needs a particular Dataset kind is refused
 before any step runs when its input is another kind.
 
-- **Used in:** [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`splits`](presets.md#splits)
 
 ```yaml
 workflows:
@@ -77,7 +77,7 @@ Wraps a Dataset in a DataEval wrapper that changes its kind, such as DetectionCr
 
 It runs `dataeval.data.DetectionCrops`. `min_size` drops detections whose box's shorter side is under that many pixels.
 By default, wrapping a Dataset of another kind is refused before any step runs. With `other_kinds: pass` a chain can
-wrap detection data and read classification data as it is: `data-coverage` does. The video wrappers come once Flow can
+wrap detection data and read classification data as it is: `scope` does. The video wrappers come once Flow can
 load a tracking dataset.
 
 - **Reads:** `input`, an object-detection Dataset.
@@ -93,7 +93,7 @@ load a tracking dataset.
 | `params` | a mapping of the wrapper's keyword arguments | `{}` | For `DetectionCrops`: `region`, `padding`, `min_size`, `square` and `fill` |
 | `other_kinds` | `refuse` or `pass` | `refuse` | A Dataset the wrapper does not take: refused before the run, or passed on unchanged, keeping its kind and its source's cached embeddings |
 
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`scope`](presets.md#scope)
 
 ```yaml
 workflows:
@@ -182,16 +182,16 @@ It runs DataEval's `split_dataset` over the Dataset's metadata.
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | The Dataset to split |
-| `test_frac` | a number from 0 up to, not including, 1 | `0.0` | The share held out as `test` |
-| `val_frac` | a number from 0 up to, not including, 1 | `0.0` | The share held out as `val` |
-| `stratify` | `true` or `false` | `false` | Whether each part keeps the input's class proportions |
+| `test_frac` | a number from 0 up to, not including, 1 | `0.2` | The share held out as `test` |
+| `val_frac` | a number from 0 up to, not including, 1 | `0.1` | The share held out as `val` |
+| `stratify` | `true` or `false` | `true` | Whether each part keeps the input's class proportions |
 | `split_on` | a list of metadata factor names | none | Factors whose values never straddle parts, such as a scene or site. Classification data only: DataEval ignores it on detection data, with a warning in the log |
 | `metadata` | the name of a `metadata:` policy | DataEval's defaults | The policy the Dataset's metadata is built under |
 
-Set `test_frac`, `val_frac` or both; together they must leave something to train on. A part whose fraction is 0 is
-empty, and a step that reads it fails the config load. With `test_frac` alone, DataEval's one holdout becomes `test`.
+`test_frac` and `val_frac` default to 0.2 and 0.1; together they must leave something to train on, and 0 for both is
+refused. A part whose fraction is 0 is empty, and a step that reads it fails the config load.
 
-- **Used in:** [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`splits`](presets.md#splits)
 
 ```yaml
 workflows:
@@ -218,8 +218,8 @@ It runs DataEval's `split_dataset` over the Dataset's metadata.
 | --- | --- | --- | --- |
 | `input` | an address | required | The Dataset to split |
 | `folds` | a whole number, 2 or more | required | How many train and val pairs |
-| `test_frac` | a number from 0 up to, not including, 1 | `0.0` | The share held out as `test` |
-| `stratify` | `true` or `false` | `false` | Whether each part keeps the input's class proportions |
+| `test_frac` | a number from 0 up to, not including, 1 | `0.2` | The share held out as `test` |
+| `stratify` | `true` or `false` | `true` | Whether each part keeps the input's class proportions |
 | `split_on` | a list of metadata factor names | none | Factors whose values never straddle parts, such as a scene or site. Classification data only: DataEval ignores it on detection data, with a warning in the log |
 | `metadata` | the name of a `metadata:` policy | DataEval's defaults | The policy the Dataset's metadata is built under |
 
@@ -227,7 +227,7 @@ It runs DataEval's `split_dataset` over the Dataset's metadata.
 `0` to `folds - 1`. To rebalance each fold's training set, follow `kfold` with a `view` step that reads `<step>.train`
 and applies `ClassBalance`.
 
-- **Used in:** [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`splits`](presets.md#splits)
 
 ```yaml
 workflows:
@@ -265,7 +265,7 @@ It keeps the items in ranked order, and runs `View(input, Indices(ranking.indice
 
 Name exactly one of `n` and `fraction`.
 
-- **Used in:** [`data-prioritization`](presets.md#data-prioritization)
+- **Used in:** [`prioritization`](presets.md#prioritization)
 
 ```yaml
 evaluators:
@@ -307,7 +307,7 @@ whether whole items or single detections. The step's report section counts what 
 Dataset's key follows the plan applied, not the arguments behind it, so two settings that remove the same rows key
 alike.
 
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning)
+- **Used in:** [`quality`](presets.md#quality)
 
 ```yaml
 evaluators:

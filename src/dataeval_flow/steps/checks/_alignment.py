@@ -1,7 +1,7 @@
-"""The `mergeability` check: legacy data-coverage's Label Alignment finding, with the Relabel stanza that conforms a
-dataset to the vocabulary (coverage spec §3.4)."""
+"""The `label-mergeability` check: legacy data-coverage's Label Alignment finding, with the Relabel stanza that
+conforms a dataset to the vocabulary (coverage spec §3.4)."""
 
-__all__ = ["MergeabilityCheck", "MergeabilityConfig", "relabel_stanza", "yaml_scalar"]
+__all__ = ["LabelMergeabilityCheck", "LabelMergeabilityConfig", "relabel_stanza", "yaml_scalar"]
 
 import json
 from collections.abc import Mapping
@@ -58,22 +58,26 @@ def relabel_stanza(paste_remap: dict[str, str], target_vocabulary: list[str]) ->
     return "\n".join(lines)
 
 
-class MergeabilityConfig(CheckConfig):
-    """A `mergeability` step's input. It has no thresholds: severity follows the mergeability DataEval reports."""
+class LabelMergeabilityConfig(CheckConfig):
+    """A `label-mergeability` step's input. It has no thresholds: severity follows the mergeability DataEval reports."""
 
     input: str = Field(description="A `label-alignment` Output.")
 
 
-class MergeabilityCheck(Check[MergeabilityConfig]):
-    """``mergeability``: whether a Dataset's classes carry over to an ontology's vocabulary, with the Relabel stanza
-    that conforms it. Lossless is ok, lossy informs, partial warns; a target label several concepts share warns."""
+class LabelMergeabilityCheck(Check[LabelMergeabilityConfig]):
+    """``label-mergeability``: whether a Dataset's classes carry over to an ontology's vocabulary, with the Relabel
+    stanza that conforms it. Lossless is ok, lossy informs, partial warns; a target label several concepts share
+    warns."""
 
-    name: ClassVar[str] = "mergeability"
-    description: ClassVar[str] = "Whether a Dataset's classes carry over to an ontology's vocabulary, with the stanza."
-    title: ClassVar[str] = "Mergeability"
+    name: ClassVar[str] = "label-mergeability"
+    description: ClassVar[str] = (
+        "Judges `label-alignment`'s output: whether a Dataset's classes carry over to an "
+        "ontology's vocabulary, with the stanza."
+    )
+    title: ClassVar[str] = "Label Mergeability"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(LabelAlignmentOutput,)),)
 
-    def run(self, config: MergeabilityConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(self, config: LabelMergeabilityConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """The mergeability, what is dropped or not covered, the correspondences, and the stanza."""
         al = inputs["input"].value.alignment
         severity: Severity = "warning" if al.ambiguous_labels else _SEVERITY.get(al.mergeability, "info")

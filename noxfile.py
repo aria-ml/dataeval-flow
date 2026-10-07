@@ -498,7 +498,7 @@ def docker_smoke(session: nox.Session) -> None:
         env={
             "DATAEVAL_VERBOSITY": "2",
             "DATAEVAL_LOG_FORMAT": "structured",
-            "DATAEVAL_TASKS": "data-cleaning",
+            "DATAEVAL_TASKS": "quality",
             "DATAEVAL_FAIL_ON_WARNING": "true",
         },
     )

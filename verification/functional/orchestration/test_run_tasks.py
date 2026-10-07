@@ -24,19 +24,18 @@ class TestOrchestration:
         names = {w.name for w in wfs}
         assert names == {
             "audit",
-            "data-bias",
-            "data-cleaning",
-            "data-coverage",
-            "drift-monitoring",
-            "ood-detection",
-            "data-prioritization",
-            "data-splitting",
-            "label-space",
-            "metadata-triage",
+            "bias",
+            "quality",
+            "scope",
+            "shift",
+            "prioritization",
+            "splits",
+            "taxonomy",
+            "triage",
         }
 
     def test_get_workflow_returns_a_workflow_class(self) -> None:
-        wf = get_workflow("data-cleaning")
+        wf = get_workflow("quality")
         assert issubclass(wf, Workflow)
 
     def test_get_workflow_unknown_raises(self) -> None:

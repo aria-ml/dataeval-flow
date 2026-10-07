@@ -19,7 +19,7 @@ from tests.chain_toys import chain_pipeline
 
 _CLEANING = {
     "name": "cleaning",
-    "type": "data-cleaning",
+    "type": "quality",
     "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"},
 }
 

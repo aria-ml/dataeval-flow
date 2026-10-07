@@ -1,4 +1,4 @@
-"""data-prioritization agrees with what it produced before its port: each pool's ranking, as indices into the pool,
+"""prioritization agrees with what it produced before its port: each pool's ranking, as indices into the pool,
 and how many items cleaning removed from each source (spec §10.9).
 
 Deliberate differences from its legacy run (spec §10.3 item 3), each with its reason:

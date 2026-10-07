@@ -136,7 +136,7 @@ Notice:
   splits](write_a_custom_workflow.md#11-check-a-set-of-splits)), and its task is gated with `--require` like an
   `audit` task. Its record's digests cannot be checked against a loaded source in a training job, because the parts
   exist only in the chain.
-- A split made by a chain step, such as a `data-splitting` step's `split.train`, isn't a source: an audit task can't
+- A split made by a chain step, such as a `splits` step's `split.train`, isn't a source: an audit task can't
   read it, and `load_source` can't rebuild it. [Export it](export_a_dataset.md#export-the-parts-of-a-split), add the
   export as a `datasets:` entry in the format it was written, audit that source, and train on the export. `export`
   writes object-detection Datasets only. The audit's content digest then equals `digest.content` in the last entry of

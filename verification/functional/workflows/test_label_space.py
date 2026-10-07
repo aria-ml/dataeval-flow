@@ -1,4 +1,4 @@
-"""TC-20-2 — label-space judges labels against a declared ontology."""
+"""TC-20-2 — taxonomy judges labels against a declared ontology."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 from dataeval_flow import run_tasks
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.label_space import LabelSpaceConfig
+from dataeval_flow.workflows.taxonomy import TaxonomyConfig
 
 pytestmark = pytest.mark.required
 
@@ -29,9 +29,7 @@ class TestLabelSpace:
         cfg, data_dir = image_folder_pipeline_builder(
             n_classes=2,
             include_extractor=False,
-            workflows=[
-                LabelSpaceConfig(name="vocab", ontology={"root": {"class_0": [], "class_1": [], "class_2": []}})
-            ],
+            workflows=[TaxonomyConfig(name="vocab", ontology={"root": {"class_0": [], "class_1": [], "class_2": []}})],
             tasks=[TaskConfig(name="vocab_task", workflow="vocab", sources="main")],
         )
         result = run_tasks(cfg, data_dir=data_dir)["vocab_task"]
@@ -40,7 +38,7 @@ class TestLabelSpace:
         assert [finding.title for finding in result.findings] == [
             "Leaf Coverage",
             "Label Conformance",
-            "Mergeability",
+            "Label Mergeability",
             "Ontology Structure",
         ]
         assert result.report().strip()

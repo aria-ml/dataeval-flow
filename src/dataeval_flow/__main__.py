@@ -173,7 +173,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "name",
         nargs="?",
         default=None,
-        help="Workflow type to describe (e.g. data-cleaning). Omit to list them all.",
+        help="Workflow type to describe (e.g. quality). Omit to list them all.",
     )
     workflows_parser.add_argument(
         "--json",

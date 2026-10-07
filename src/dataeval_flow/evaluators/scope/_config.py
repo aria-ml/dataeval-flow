@@ -208,11 +208,12 @@ class PrioritizationConfig(EvaluatorConfig[PrioritizationResult]):
     max_cluster_size: int | None = Field(
         default=None, gt=0, description="Largest cluster, for the `hdbscan_*` methods. Unset leaves it unbounded."
     )
-    order: Literal["easy_first", "hard_first"] | None = Field(
-        default=None,
+    order: Literal["easy_first", "hard_first"] = Field(
+        default="hard_first",
         description=(
-            "Sort direction: `easy_first` puts prototypical items first, `hard_first` challenging ones. Unset uses "
-            "DataEval's default (`easy_first`)."
+            "Sort direction: `easy_first` puts prototypical items first, `hard_first` challenging ones. Flow defaults "
+            "to `hard_first`, the usual choice for deciding what to label or review next; DataEval's default is "
+            "`easy_first`."
         ),
     )
     policy: Literal["difficulty", "stratified", "class_balanced"] | None = Field(

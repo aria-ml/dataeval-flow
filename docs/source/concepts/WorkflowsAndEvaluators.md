@@ -13,7 +13,7 @@ Each tier encodes more policy than the one below it.
 | --- | --- | --- | --- |
 | Encodes | No policy: pure computation | DataEval's policy: a threshold or gate, and a determination made against it | Flow's policy on top: health and readiness, judged from those determinations against each check's thresholds |
 | Answers | "What are the hashes? The statistics?" | "Which images are duplicates? Did the test set drift at p < 0.05?" | "Is this data clean enough? Is it ready to train on?" |
-| Example | `phash`, `compute_stats` | `balance`, `coverage`, `drift-mmd` | `image-outliers` in `data-cleaning`, `drift` in `drift-monitoring` |
+| Example | `phash`, `compute_stats` | `balance`, `coverage`, `drift-mmd` | `image-outliers` in `quality`, `drift` in `shift` |
 | Output | Raw numbers | Determinations (flags, groups, p-values) and the numbers behind them | Findings, each `ok`, `info` or `warning`, rolled up into a health status |
 | Configured under | not exposed | `evaluators:`, run by a task's `evaluator:` | a preset's `checks:`, or a `check:` step written beside the evaluator steps of a custom workflow; the workflow is run by a task's `workflow:` |
 
@@ -25,7 +25,7 @@ whether that is a problem. That matches DataEval's own framing in
 [Acting on Results](https://dataeval.readthedocs.io/en/latest/concepts/ActingOnResults.html):
 every output is "a prompt to investigate, not a verdict".
 
-A check adds the judgment. `data-cleaning` runs DataEval's Duplicates and
+A check adds the judgment. `quality` runs DataEval's Duplicates and
 Outliers, and its checks compare what they found against their
 {term}`thresholds <Threshold>`, set under its `checks:`, and make a finding that warns
 where a threshold is passed. A check written as a step of a custom workflow judges the
@@ -60,10 +60,10 @@ hold an evaluator's output to thresholds, and those of the workflow types it run
 
 ## Why both can run DataEval's Duplicates
 
-`duplicates` and `data-cleaning` both call DataEval's Duplicates. Their
+`duplicates` and `quality` both call DataEval's Duplicates. Their
 cluster-mode results are merged with the statistical ones through the same shared
 code, and their `from_stats` calls are tested to agree, so on the same data they
-find the same groups. `data-cleaning` adds outlier detection, label statistics,
+find the same groups. `quality` adds outlier detection, label statistics,
 per-class breakdowns and the checks that judge them on top. `duplicates` stops at the
 groups.
 

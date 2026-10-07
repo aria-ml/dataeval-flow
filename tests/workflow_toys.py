@@ -1,6 +1,6 @@
 """A toy workflow type, `test.count`: the stand-in for tests about machinery every workflow type shares.
 
-It declares what data-cleaning declares (statistics and metadata, clusters when asked, one source), so a test about
+It declares what quality declares (statistics and metadata, clusters when asked, one source), so a test about
 the orchestrator or the envelope keeps the inputs it was written against while running a workflow of its own. Its
 chain is a toy combine that counts the source's items and a toy check that warns below `minimum`. Serve it through
 the `plugins` fixture with :func:`register_count` before building any pipeline that names it, or build a result of

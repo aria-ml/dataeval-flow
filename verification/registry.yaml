@@ -317,7 +317,7 @@ test_cases:
       - dataeval-flow installed
     expected_results:
       - list_workflows() returns every registered workflow class, sorted by name, each with a name and description
-      - get_workflow("data-cleaning") returns the Workflow subclass registered under that name
+      - get_workflow("quality") returns the Workflow subclass registered under that name
       - run_tasks on a synthetic pipeline returns a dict of WorkflowResult keyed by task name
       - Each WorkflowResult has populated metadata.timestamp and tool fields
 
@@ -325,13 +325,13 @@ test_cases:
     name: Data Cleaning Workflow
     test_type: Core Functionality
     business_case: >-
-      Verify that the data-cleaning preset runs end-to-end on synthetic data:
+      Verify that the quality preset runs end-to-end on synthetic data:
       its checks make its findings, and its clean step holds the cleaned dataset.
     initial_conditions:
       - dataeval-flow installed
       - Synthetic dataset and FlattenExtractor configured
     expected_results:
-      - The data-cleaning task returns success=True
+      - The quality task returns success=True
       - result.findings holds its checks' findings, and result.steps["clean"] holds the cleaned dataset
       - result.report() returns a non-empty string
 
@@ -339,13 +339,13 @@ test_cases:
     name: Drift Monitoring Workflow
     test_type: Core Functionality
     business_case: >-
-      Verify that the drift-monitoring preset runs end-to-end on synthetic
+      Verify that the shift preset runs end-to-end on synthetic
       reference and test data, its result a ChainResult whose checks judge each detector.
     initial_conditions:
       - dataeval-flow installed
       - Two synthetic datasets (reference, test) configured as sources
     expected_results:
-      - The drift-monitoring task returns a ChainResult with success=True
+      - The shift task returns a ChainResult with success=True
       - Each detector's drift-*-check step holds a finding for the test source
       - result.report() returns a non-empty string
 
@@ -353,13 +353,13 @@ test_cases:
     name: OOD Detection Workflow
     test_type: Core Functionality
     business_case: >-
-      Verify that the ood-detection preset executes end-to-end on synthetic
+      Verify that the shift preset executes end-to-end on synthetic
       reference and test data.
     initial_conditions:
       - dataeval-flow installed
       - Two synthetic datasets configured as sources
     expected_results:
-      - The ood-detection preset's run returns success=True
+      - The shift preset's run returns success=True
       - OOD detector exposes per-sample scores and is_ood flags
       - result.report() returns a non-empty string
 
@@ -382,7 +382,7 @@ test_cases:
     name: Splitting Workflow & Configuration Reproducibility
     test_type: Core Functionality
     business_case: >-
-      Verify that the data-splitting preset produces deterministic splits when
+      Verify that the splits preset produces deterministic splits when
       the seed is set, demonstrating configuration reproducibility.
     initial_conditions:
       - dataeval-flow installed
@@ -396,13 +396,13 @@ test_cases:
     name: Prioritization Workflow
     test_type: Core Functionality
     business_case: >-
-      Verify that the data-prioritization preset ranks a pool of synthetic samples against a
+      Verify that the prioritization preset ranks a pool of synthetic samples against a
       reference, and its selected step holds the pool in ranked order.
     initial_conditions:
       - dataeval-flow installed
       - Synthetic dataset configured
     expected_results:
-      - The data-prioritization task returns success=True
+      - The prioritization task returns success=True
       - result.steps["selected"] holds the pool's selection, keyed by pool
       - result.report() returns a non-empty string
 
@@ -415,7 +415,7 @@ test_cases:
     initial_conditions:
       - dataeval-flow installed
       - Synthetic dataset configured
-      - A data-cleaning task with a matrix of 2 values
+      - A quality task with a matrix of 2 values
     expected_results:
       - run_tasks returns a MatrixResult with success=True
       - result.runs holds one successful result per combination
@@ -518,13 +518,13 @@ test_cases:
     name: Data Coverage Workflow
     test_type: Core Functionality
     business_case: >-
-      Verify that DataCoverageWorkflow executes end-to-end on synthetic data
+      Verify that ScopeWorkflow executes end-to-end on synthetic data
       and degrades gracefully when no extractor is configured.
     initial_conditions:
       - dataeval-flow installed
       - Synthetic ImageFolder dataset configured
     expected_results:
-      - DataCoverageWorkflow returns success=True and a non-empty report()
+      - ScopeWorkflow returns success=True and a non-empty report()
       - The Class Coverage, Dimensional Completeness and Class Shortfall findings are made
       - Embedding coverage and completeness are not assessed (skipped, not fatal) with no extractor
 
@@ -532,13 +532,13 @@ test_cases:
     name: Label Space
     test_type: Core Functionality
     business_case: >-
-      Verify that the label-space preset judges a dataset's labels against a
+      Verify that the taxonomy preset judges a dataset's labels against a
       declared ontology: leaf coverage, conformance, alignment and structure.
     initial_conditions:
       - dataeval-flow installed
       - Synthetic ImageFolder dataset configured
     expected_results:
-      - label-space returns success=True and a non-empty report()
+      - taxonomy returns success=True and a non-empty report()
       - A declared ontology yields either an ontology assessment or a recorded skip reason
       - The findings are Leaf Coverage, Label Conformance, Mergeability and Ontology Structure, in order
 
@@ -546,13 +546,13 @@ test_cases:
     name: Data Bias
     test_type: Core Functionality
     business_case: >-
-      Verify that the data-bias preset judges a dataset's class balance and how its metadata
+      Verify that the bias preset judges a dataset's class balance and how its metadata
       factors relate to the class, with no extractor.
     initial_conditions:
       - dataeval-flow installed
       - Synthetic ImageFolder dataset configured
     expected_results:
-      - data-bias returns success=True and a non-empty report() with no extractor configured
+      - bias returns success=True and a non-empty report() with no extractor configured
       - The label distribution, Shortcut Risk, Factor Parity and Factor Coverage Gaps findings are made, in order
       - The metadata summary is present
       - The result records the alignment's label_space_digest

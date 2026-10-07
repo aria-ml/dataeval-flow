@@ -9,7 +9,7 @@ import pytest
 from dataeval_flow import run_tasks
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.ood_detection import OODDetectionConfig
+from dataeval_flow.workflows.shift import ShiftConfig
 
 pytestmark = pytest.mark.required
 
@@ -34,7 +34,7 @@ class TestOODWorkflow:
         }
         cfg, data_dir = image_folder_pipeline_builder(
             sources=(("ref", 0), ("test", 99)),
-            workflows=[OODDetectionConfig.model_validate(preset)],
+            workflows=[ShiftConfig.model_validate(preset)],
             tasks=[TaskConfig(name="ood_task", workflow="ood_main", sources=["ref", "test"], extractor="flat")],
         )
         result = run_tasks(cfg, data_dir=data_dir)["ood_task"]

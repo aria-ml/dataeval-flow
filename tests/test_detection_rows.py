@@ -11,7 +11,7 @@ from dataeval_flow.config.extractors import UncertaintyExtractorConfig
 from dataeval_flow.evaluators.quality import OutliersConfig
 from dataeval_flow.evaluators.scope import PrioritizationConfig
 from dataeval_flow.evaluators.shift import DriftUnivariateConfig, OODKNeighborsConfig
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
+from dataeval_flow.workflows.shift import ShiftConfig
 from tests.chain_toys import chain_pipeline
 from tests.drift_toys import ClassImages
 from tests.evaluator_toys import FLAT
@@ -71,8 +71,8 @@ def test_a_step_that_embeds_nothing_ignores_the_tasks_model_extractor():
     _load(task=_task("w", "unc"), evaluators=[OutliersConfig(name="out")], workflows=[_workflow({"evaluator": "out"})])
 
 
-def test_a_drift_monitoring_task_takes_it():
-    preset = DriftMonitoringConfig(name="drift", detectors=[{"type": "drift-univariate"}])  # type: ignore[list-item]
+def test_a_shift_task_takes_it():
+    preset = ShiftConfig(name="drift", detectors=[{"type": "drift-univariate"}])  # type: ignore[list-item]
     _load(task=_task("drift", "unc"), workflows=[preset])
 
 

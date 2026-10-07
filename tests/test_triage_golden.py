@@ -1,4 +1,4 @@
-"""metadata-triage agrees with what it produced before its port: its findings' severity, title and brief, in order;
+"""triage agrees with what it produced before its port: its findings' severity, title and brief, in order;
 its suggested policy stanza; and the binning record on its envelope (spec §10.10).
 
 Deliberate differences from its legacy run (spec §10.3 item 3), each with its reason:
@@ -6,7 +6,7 @@ Deliberate differences from its legacy run (spec §10.3 item 3), each with its r
 - **The envelope's `blocking` and `verified` counts are gone.** The findings, the chain's `warning_count`, and the
   `factor-triage` Output's `counts` and `verification` say the same.
 - **The result no longer carries the `dataset` it read.** A chain's steps hold the Datasets they read and made.
-- **The `metadata_*` fields are gone.** A config names a policy under `metadata:` instead, as data-cleaning's does.
+- **The `metadata_*` fields are gone.** A config names a policy under `metadata:` instead, as quality's does.
 - **A "Recommended policy" finding is new.** Legacy never recommended a policy, so the comparison leaves it out
   (docs/superpowers/specs/2026-09-30-recommended-policy-design.md §6).
 - **It names its items by the chain's input, `data`, not by the source** (spec §7.4).

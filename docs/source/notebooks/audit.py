@@ -245,7 +245,7 @@ for item in verdict.not_assessed:
 # - **Are the splits fit to evaluate on?** Mostly. No image appears in two splits, so `leakage` passes. Leakage
 #   blocks by default, so a leak would make the verdict `not-ready`. SkySeaLand's metadata records no site or scene,
 #   so the entry sets no `factor-leakage` group factor. Val's boxes are 33% boats against 16% in train, so
-#   `stratification` warns on val, while test stays within 3.3 points of train. Almost no evaluation frame lies
+#   `class-stratification` warns on val, while test stays within 3.3 points of train. Almost no evaluation frame lies
 #   farther from train than train's own frames do, and neither evaluation split has shifted from train.
 
 # %% [markdown]
@@ -293,7 +293,7 @@ for acceptance in verdict.accepted:
 # %% [markdown]
 # The verdict is still `ready-with-caveats`. The other warnings remain, and an accepted warning is a caveat too.
 # Before training on this data, re-split val, or document why its boat share differs, and decide what to do about the
-# shortcut risk. `metadata-issues` stays unaccepted, though Step 3 found its columns harmless, because an acceptance
+# shortcut risk. `factor-issues` stays unaccepted, though Step 3 found its columns harmless, because an acceptance
 # covers its check on later runs too, and would also accept a column that a later version of the data can't be read
 # from. The three coverage warnings stay as caveats: they rest on BoVW embeddings and on 27 automatically binned
 # factors over 300 frames, and {doc}`Assess dataset coverage <data_coverage>` shows how to look into them.

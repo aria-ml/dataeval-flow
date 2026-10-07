@@ -10,15 +10,17 @@ DataEval Flow frames shift detection as workflows over a reference and the data
 under test, and addresses it at two complementary levels:
 
 - **Drift** is a *population-level* question: has a batch of incoming data, as a
-  whole, moved away from the training reference? The `drift-monitoring` workflow
+  whole, moved away from the training reference? The `shift` preset
   compares each operational source against a reference source using one or more
-  drift detectors. It is a preset of chained steps, so a custom workflow can merge
+  drift detectors. `drift-univariate`, its default, can miss correlated shifts across embedding dimensions; add
+  `drift-mmd` or `drift-domain-classifier` to catch those. It is a preset of chained steps, so a custom workflow can merge
   test sources, compare groups of classes, or drift on the crops of detection data;
   [Monitor drift with steps](../how_to/monitor_drift.md) shows how.
 - **Out-of-distribution (OOD) detection** is an *instance-level* question: is this
-  *specific* sample anomalous relative to training? The `ood-detection` preset
-  scores individual images, on embeddings or on a model's uncertainty, catching genuine anomalies that a batch-level
-  test might dilute below its threshold.
+  *specific* sample anomalous relative to training? The same `shift` preset, with
+  OOD detectors in its `detectors:` list, scores individual images, on embeddings or on a
+  model's uncertainty, catching genuine anomalies that a batch-level test might dilute
+  below its threshold.
 - **Classwise drift** narrows the population question per class, revealing *which*
   classes a shift most affects rather than only that the batch as a whole moved.
 
@@ -59,8 +61,7 @@ classes.
 
 ### Reference
 
-- [Preset Catalog: `drift-monitoring`](../reference/presets.md#drift-monitoring) and
-  [Preset Catalog: `ood-detection`](../reference/presets.md#ood-detection): each preset's chain, settings and
+- [Preset Catalog: `shift`](../reference/presets.md#shift): the preset's chain, settings and
   `checks:` defaults
 
 ### Authoritative reference

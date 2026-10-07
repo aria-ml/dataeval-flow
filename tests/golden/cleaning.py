@@ -1,7 +1,7 @@
-"""The data-cleaning runs the agreement golden records: one pipeline per case, and the findings it gives.
+"""The quality runs the agreement golden records: one pipeline per case, and the findings it gives.
 
 The same cases serve the generator, run once on the legacy workflow, and the agreement test, which runs whatever
-`data-cleaning` names today: the legacy workflow before its port, the preset after it (spec §10.3).
+`quality` names today: the legacy workflow before its port, the preset after it (spec §10.3).
 """
 
 from collections.abc import Callable
@@ -15,19 +15,19 @@ from tests.evaluator_toys import ToyImages
 
 _BASE: dict[str, Any] = {
     "name": "cleaning",
-    "type": "data-cleaning",
+    "type": "quality",
     "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
 }
 _LENIENT = {
     "image-duplicates": {"exact": 50.0, "near": 50.0},
     "image-outliers": {"warning": 50.0},
     "target-outliers": {"warning": 50.0},
-    "classwise-outliers": {"warning": 50.0},
+    "class-outliers": {"warning": 50.0},
 }
 
 
 def findings(dataset: Any, *, extractor: bool = False, **settings: Any) -> list[Finding]:
-    """The findings a `data-cleaning` task gives on `dataset`, with `settings` over the base entry."""
+    """The findings a `quality` task gives on `dataset`, with `settings` over the base entry."""
     # Two toy datasets can share an id, and a dataset's cache is one per id within a process.
     DatasetCache.clear_instances()
     task: dict[str, Any] = {"name": "t", "workflow": "cleaning", "sources": ["src"]}

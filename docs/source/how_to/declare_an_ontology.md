@@ -1,10 +1,10 @@
 # Declare an ontology
 
-The `label-space` workflow judges a dataset's labels against a declared {term}`ontology <Ontology>` — the sanctioned
+The `taxonomy` workflow judges a dataset's labels against a declared {term}`ontology <Ontology>` — the sanctioned
 label space. It can name a missing class because the ontology says that class was supposed to exist. It is the only
-workflow that judges labels against an ontology: `data-coverage` refuses `ontology:`, so run a `label-space` entry on
+workflow that judges labels against an ontology: `scope` refuses `ontology:`, so run a `taxonomy` entry on
 the same source beside it. This guide covers declaring an ontology inline, loading one from an RDF file, and the
-findings `label-space` makes from it.
+findings `taxonomy` makes from it.
 
 ## Used in these tutorials
 
@@ -14,7 +14,7 @@ findings `label-space` makes from it.
 
 A Class Shortfall list, which `class-shortfall` builds from the dataset's own `index2label`, is circular: it can only
 name classes the dataset already declares. A class that was never collected has no label, no count, and no row in the
-report. Declaring the label space externally is what breaks the circle, and `label-space` requires one: `ontology:` has
+report. Declaring the label space externally is what breaks the circle, and `taxonomy` requires one: `ontology:` has
 no default.
 
 ## Option 1: inline hierarchy
@@ -44,7 +44,7 @@ The same structure in YAML:
 ```yaml
 workflows:
   - name: vocab_check
-    type: label-space
+    type: taxonomy
     ontology:
       postal_char:
         digit:
@@ -61,7 +61,7 @@ For a label space that is shared across datasets, teams, or programs, keep it in
 ```yaml
 workflows:
   - name: vocab_check
-    type: label-space
+    type: taxonomy
     ontology: config/taxonomy.ttl
 ```
 
@@ -96,10 +96,10 @@ ontologies:
 
 workflows:
   - name: vehicle-labels
-    type: label-space
+    type: taxonomy
     ontology: vehicles
   - name: vehicle-holdout
-    type: label-space
+    type: taxonomy
     ontology: vehicles        # same pool entry, same vocabulary
 ```
 
@@ -144,16 +144,16 @@ has drifted into mixed conventions:
 
 Labels that fail are reported in the ontology's structure.
 
-## What `label-space` finds
+## What `taxonomy` finds
 
-`label-space` runs four evaluators, each followed by the check that judges it:
+`taxonomy` runs four evaluators, each followed by the check that judges it:
 
 - Leaf coverage and the worklist, by `leaf-coverage`: how many sanctioned leaf concepts have examples, what to collect,
   the wholly empty branches, and the `expected` shares not met.
 - Conformance, by `label-conformance`: which class names resolve to exactly one concept. It warns on an unmatched or
   an ambiguous name.
-- Alignment, by `mergeability`: whether the dataset's classes carry over to the ontology, with the `Relabel` stanza to
-  paste into a view that conforms it.
+- Alignment, by `label-mergeability`: whether the dataset's classes carry over to the ontology, with the `Relabel`
+  stanza to paste into a view that conforms it.
 - Structure, by `ontology-structure`: the ontology's size, depth and naming. It warns on a label several concepts
   share.
 
@@ -161,7 +161,7 @@ Two of the checks have thresholds, set under `checks` and keyed by check type: `
 least fraction of sanctioned leaf concepts with any examples, and its `empty_branches`, the wholly unpopulated branches
 tolerated before it warns; and `label-conformance`'s `warning`, the class names that may fail to resolve to a concept.
 `null` turns a threshold off. The values below are the defaults, which the
-[Preset Catalog](../reference/presets.md#label-space) lists with the rest of the preset's settings:
+[Preset Catalog](../reference/presets.md#taxonomy) lists with the rest of the preset's settings:
 
 ```yaml
     checks:
@@ -184,5 +184,5 @@ a label space, that record's digest is used instead.
 - [Dataset Coverage](../concepts/Coverage.md) — the label-space and embedding-space axes coverage measures
 - [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html) — the
   authoritative treatment of ontologies and the reconciliation, alignment, and validation operations over them
-- [Preset Catalog: `label-space`](../reference/presets.md#label-space) — every setting and `checks:` default of
-  `label-space`, from `LabelSpaceConfig` and `LabelSpaceChecks`
+- [Preset Catalog: `taxonomy`](../reference/presets.md#taxonomy) — every setting and `checks:` default of
+  `taxonomy`, from `TaxonomyConfig` and `TaxonomyChecks`

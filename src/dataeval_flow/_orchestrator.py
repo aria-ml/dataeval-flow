@@ -1125,7 +1125,7 @@ def _populate_result_metadata(
         result.metadata.label_space = records
         digests = {record.digest for record in records}
         # Set the scalar only where the run read one vocabulary. A chain whose `label-alignment`
-        # step stamped the digest keeps it, as `label-space`'s does.
+        # step stamped the digest keeps it, as `taxonomy`'s does.
         if len(digests) == 1 and not result.metadata.label_space_digest:
             result.metadata.label_space_digest = records[0].digest
 
@@ -1444,7 +1444,7 @@ def run_task(
     Result
         The result of the workflow or evaluator the task runs, as that type's own result class —
         ``isinstance(result, ChainResult)`` narrows it. A run that raised returns a failed
-        result of the same class. A custom workflow's, or a preset's such as drift-monitoring's, is a
+        result of the same class. A custom workflow's, or a preset's such as shift's, is a
         :class:`~dataeval_flow.steps.ChainResult`, holding every step's outcome whether or not one failed.
         A task with a `matrix:` returns a :class:`~dataeval_flow.MatrixResult`.
     """

@@ -39,8 +39,8 @@ detection Dataset it refuses outliers not computed per box (`per_target: true`),
 
 The config refuses an `outliers` computed on another Dataset when it loads, as `remove` does.
 
-- **Judged by:** [`classwise-outliers`](checks.md#classwise-outliers)
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning)
+- **Judged by:** [`class-outliers`](checks.md#class-outliers)
+- **Used in:** [`quality`](presets.md#quality)
 
 ```yaml
 evaluators:
@@ -52,7 +52,7 @@ workflows:
     steps:
       - {name: outliers, evaluator: outliers, input: data}
       - {name: by-class, combine: outliers-by-class, input: data, outliers: outliers}
-      - {name: classwise-outliers, check: classwise-outliers, input: by-class, warning: 5.0}
+      - {name: class-outliers, check: class-outliers, input: by-class, warning: 5.0}
 ```
 
 ## Does the data cover what the model must handle?
@@ -83,7 +83,7 @@ factor's overall spread, is over it.
 The config refuses a `balance` computed on another Dataset when it loads, as `outliers-by-class` does.
 
 - **Judged by:** [`factor-coverage-gaps`](checks.md#factor-coverage-gaps)
-- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
+- **Used in:** [`audit`](presets.md#audit), [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:
@@ -121,7 +121,7 @@ refuses Outputs computed on different Datasets.
 | `input` | an address, or a list of them | required | Each detector's OOD Output, every one computed on the same reference and test source |
 
 - **Judged by:** [`ood-agreement`](checks.md#ood-agreement)
-- **Used in:** [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -165,7 +165,7 @@ than `reference` and `input`.
 | `stats` | a policy name, or `null` | `null` | The stats policy the statistics are measured under; unset, every statistic |
 
 - **Judged by:** none
-- **Used in:** [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -206,7 +206,7 @@ reads the factors `factor-predictors` reads.
 | `stats` | a policy name, or `null` | `null` | The stats policy the statistics are measured under; unset, every statistic |
 
 - **Judged by:** none
-- **Used in:** [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:

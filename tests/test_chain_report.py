@@ -1,6 +1,6 @@
 """A chain's report: each finding beside the evidence it judged, the other steps, then a table of every step.
 
-Measured on the toy datasets: data-cleaning on 24 toy images finds one image outlier, of class b, and one exact
+Measured on the toy datasets: quality on 24 toy images finds one image outlier, of class b, and one exact
 duplicate pair; `target-outliers` finds nothing on classification data.
 """
 
@@ -34,7 +34,7 @@ def toys(plugins):
 
 
 def _cleaning() -> ChainResult:
-    workflow = {"name": "cleaning", "type": "data-cleaning"}
+    workflow = {"name": "cleaning", "type": "quality"}
     outliers = {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}
     config = chain_pipeline(
         workflows=[{**workflow, "outliers": outliers}],
@@ -89,7 +89,7 @@ def test_data_cleaning_puts_each_finding_beside_the_evidence_it_judged() -> None
     assert _outline(result) == [
         ("Summary", None, None),
         ("Image Outliers", "1 images (4.2%)", "warning"),
-        ("Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
+        ("Class Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
         ("Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "warning"),
         ("Label Health", None, None),
         ("Remove · clean", None, None),
@@ -98,9 +98,9 @@ def test_data_cleaning_puts_each_finding_beside_the_evidence_it_judged() -> None
         ("Configuration", None, None),
     ]
     assert _evidence(_section(result, "Image Outliers")) == ["From Outliers"]
-    # `classwise-outliers` reads `outliers-by-class`, a combine with nothing to show, which read `outliers`: shown
+    # `class-outliers` reads `outliers-by-class`, a combine with nothing to show, which read `outliers`: shown
     # already.
-    assert _evidence(_section(result, "Classwise Outliers")) == ["Evidence: Outliers, under Image Outliers."]
+    assert _evidence(_section(result, "Class Outliers")) == ["Evidence: Outliers, under Image Outliers."]
     assert _evidence(_section(result, "Image Duplicates")) == ["From Duplicates"]
     # No finding reads `label-health` (`target-outliers` judged nothing), so it keeps its own section.
     (_, counts) = _section(result, "Label Health").blocks
@@ -138,7 +138,7 @@ def test_the_steps_table_says_what_each_step_is_what_it_read_and_why_it_made_not
         ("duplicates", "Duplicates", "duplicates", "ok", "`data` (src)", ""),
         ("image-outliers", "Image Outliers", "image-outliers", "ok", "`outliers`", ""),
         ("target-outliers", "Target Outliers", "target-outliers", "ok", "`outliers`\n`label-health`", "no findings"),
-        ("classwise-outliers", "Classwise Outliers", "classwise-outliers", "ok", "`outliers-by-class`", ""),
+        ("class-outliers", "Class Outliers", "class-outliers", "ok", "`outliers-by-class`", ""),
         ("image-duplicates", "Image Duplicates", "image-duplicates", "ok", "`duplicates`", ""),
         ("clean", "Remove", "remove", "ok", "`data` (src)\n`duplicates`\n`outliers`", ""),
     ]
@@ -148,29 +148,21 @@ def test_the_text_steps_table_leaves_out_the_title_each_step_s_section_already_g
     lines = _cleaning().report().splitlines()
     start = lines.index("  STEPS") + 2
     assert lines[start : lines.index("  METADATA FACTORS") - 2] == [
-        "  Step                Type                Status  Reads                Note",
-        "  ------------------  ------------------  ------  -------------------  ---------",
-        "  outliers            outliers            ok      `data` (src)",
-        "",
-        "  label-health        label-health        ok      `data` (src)",
-        "",
-        "  outliers-by-class   outliers-by-class   ok      `data` (src)",
-        "                                                  `outliers`",
-        "",
-        "  duplicates          duplicates          ok      `data` (src)",
-        "",
-        "  image-outliers      image-outliers      ok      `outliers`",
-        "",
-        "  target-outliers     target-outliers     ok      `outliers`           no",
-        "                                                  `label-health`       findings",
-        "",
-        "  classwise-outliers  classwise-outliers  ok      `outliers-by-class`",
-        "",
-        "  image-duplicates    image-duplicates    ok      `duplicates`",
-        "",
-        "  clean               remove              ok      `data` (src)",
-        "                                                  `duplicates`",
-        "                                                  `outliers`",
+        "  Step               Type               Status  Reads                Note",
+        "  -----------------  -----------------  ------  -------------------  -----------",
+        "  outliers           outliers           ok      `data` (src)",
+        "  label-health       label-health       ok      `data` (src)",
+        "  outliers-by-class  outliers-by-class  ok      `data` (src)",
+        "                                                `outliers`",
+        "  duplicates         duplicates         ok      `data` (src)",
+        "  image-outliers     image-outliers     ok      `outliers`",
+        "  target-outliers    target-outliers    ok      `outliers`           no findings",
+        "                                                `label-health`",
+        "  class-outliers     class-outliers     ok      `outliers-by-class`",
+        "  image-duplicates   image-duplicates   ok      `duplicates`",
+        "  clean              remove             ok      `data` (src)",
+        "                                                `duplicates`",
+        "                                                `outliers`",
     ]
 
 
@@ -289,7 +281,7 @@ def test_a_failed_check_is_listed_among_the_other_steps_with_its_failure() -> No
     assert _outline(result) == [
         ("Summary", None, None),
         ("Image Outliers", "1 images (4.2%)", "warning"),
-        ("Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
+        ("Class Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
         ("Label Health", None, None),
         ("Duplicates", None, None),
         ("Image Duplicates", "failed", None),
@@ -343,10 +335,10 @@ def test_a_check_with_a_failed_element_lists_that_element_among_the_other_steps(
 
 
 def _spliced() -> ChainResult:
-    """data-cleaning run as step `cleaning` of a custom workflow, whose spliced steps' names are the widest."""
+    """quality run as step `cleaning` of a custom workflow, whose spliced steps' names are the widest."""
     tidy = {
         "name": "tidy",
-        "type": "data-cleaning",
+        "type": "quality",
         "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
     }
     kept = {"name": "kept", "transform": "toy-keep", "input": "cleaning.clean"}
@@ -418,7 +410,7 @@ def test_a_chain_whose_check_failed_says_so_in_its_health_line_beside_its_warnin
     assert (
         "  Health: failed [!!] — step `image-duplicates` failed; 2 warning(s) to review" in result.report().splitlines()
     )
-    assert '<h1>Data Cleaning</h1><span class="badge failed">failed: image-duplicates</span>' in result.to_html()
+    assert '<h1>Quality</h1><span class="badge failed">failed: image-duplicates</span>' in result.to_html()
 
 
 def test_a_failed_chain_with_no_findings_still_has_a_health_line() -> None:
@@ -435,10 +427,10 @@ def test_a_failed_chain_with_no_findings_still_has_a_health_line() -> None:
 
 
 def _by_split() -> ChainResult:
-    """data-cleaning run as step `cleaning` over a list of two splits, `train` of 24 toy images and `val` of 12."""
+    """quality run as step `cleaning` over a list of two splits, `train` of 24 toy images and `val` of 12."""
     tidy = {
         "name": "tidy",
-        "type": "data-cleaning",
+        "type": "quality",
         "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
     }
     workflow = {
@@ -459,12 +451,12 @@ def _by_split() -> ChainResult:
 _SPLIT_BRIEFS = {
     "train": [
         ("Image Outliers", "1 images (4.2%)", "warning"),
-        ("Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
+        ("Class Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "warning"),
         ("Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "warning"),
     ],
     "val": [
         ("Image Outliers", "1 images (8.3%)", "warning"),
-        ("Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "warning"),
+        ("Class Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "warning"),
         ("Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "warning"),
     ],
 }
@@ -559,9 +551,9 @@ def test_the_by_split_steps_table_narrows_its_text_columns_together() -> None:
         "                                              `cleaning/label-  [val] no",
         "                                              health`           findings",
         "",
-        "  cleaning/         classwise-        ok      `cleaning/",
-        "  classwise-        outliers                  outliers-by-",
-        "  outliers                                    class`",
+        "  cleaning/class-   class-outliers    ok      `cleaning/",
+        "  outliers                                    outliers-by-",
+        "                                              class`",
         "",
         "  cleaning/image-   image-duplicates  ok      `cleaning/",
         "  duplicates                                  duplicates`",

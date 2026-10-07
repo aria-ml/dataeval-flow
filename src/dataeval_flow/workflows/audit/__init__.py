@@ -2,12 +2,11 @@
 
 __all__ = [
     "AuditChecks",
-    "AuditClassImbalanceSettings",
     "AuditConfig",
     "AuditWorkflow",
     "ClassSufficiencySettings",
-    "DistributionShiftSettings",
     "DivergenceSettings",
+    "EmbeddingDivergenceSettings",
     "EvalCoverageSettings",
     "FactorLeakageSettings",
     "LeakageSettings",
@@ -17,11 +16,10 @@ __all__ = [
 
 from dataeval_flow.workflows.audit._config import (
     AuditChecks,
-    AuditClassImbalanceSettings,
     AuditConfig,
     ClassSufficiencySettings,
-    DistributionShiftSettings,
     DivergenceSettings,
+    EmbeddingDivergenceSettings,
     EvalCoverageSettings,
     FactorLeakageSettings,
     LeakageSettings,

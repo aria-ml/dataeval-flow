@@ -187,7 +187,7 @@ class ResultMetadata(BaseModel):
             "to an ontology and conformed none, the vocabulary its alignment would conform them to. Null when "
             "neither happened. The label-space counterpart of `encoding_digest`: a bias score computed over a "
             "collapsed vocabulary differs from one over an uncollapsed vocabulary, and no other field tells them "
-            "apart. Also the join key between a dataset conformed by an alignment's stanza and the `label-space` "
+            "apart. Also the join key between a dataset conformed by an alignment's stanza and the `taxonomy` "
             "run whose alignment produced it."
         ),
     )
@@ -341,7 +341,7 @@ class Result(ABC, Generic[TMetadata, TOutput]):
     Parameters
     ----------
     type : str
-        The type id of what ran, e.g. ``"data-cleaning"``.
+        The type id of what ran, e.g. ``"quality"``.
     success : bool
         Whether the run completed.
     metadata : ResultMetadata

@@ -1,12 +1,12 @@
-"""data-splitting agrees with what it produced before its port: each part's indices and label counts, the whole's
+"""splits agrees with what it produced before its port: each part's indices and label counts, the whole's
 balance and diversity rows, its class-imbalance verdict, and the largest stratification deviation and its verdict
 (data-splitting spec §9).
 
 Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), each with its reason:
 
-- **Titles and briefs are the checks' own:** "Class Imbalance", "Stratification".
+- **Titles and briefs are the checks' own:** "Class Imbalance", "Class Stratification".
 - **The split sizes are the split step's section, not findings.**
-- **The whole set's balance, diversity and class imbalance are data-bias's:** each case runs a data-bias entry on the
+- **The whole set's balance, diversity and class imbalance are bias's:** each case runs a bias entry on the
   same source, at legacy's class-imbalance limit, and they are compared there. Balance and diversity are sections,
   not findings.
 - **The cross-split class distribution is the stratification finding's evidence,** not a finding of its own.
@@ -14,7 +14,7 @@ Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), e
 - **Stratification judges the split before rebalancing.** Legacy judged the rebalanced train, so its rebalanced cases
   are compared on indices and counts only.
 - **Coverage is not computed,** where legacy judged each part's uncovered items: coverage before splitting is
-  data-coverage's question, and after it the audit's (audit-as-a-step spec D4). The "coverage" case's recorded
+  scope's question, and after it the audit's (audit-as-a-step spec D4). The "coverage" case's recorded
   counts go unchecked.
 - **The class-imbalance ratio is judged rounded to one place,** as the check rounds it; legacy judged it unrounded.
 - **`folds: 1` with `val_frac: 0` runs,** holding out a test only; legacy raised.
@@ -127,7 +127,7 @@ def test_data_splitting_gives_the_splits_it_gave_before_its_port(name: str) -> N
 def test_the_largest_stratification_deviation_and_its_verdict_agree(name: str) -> None:
     result = run_tasks(pipeline(name, legacy=False))["t"]
     assert isinstance(result, ChainResult)
-    judged = [finding for finding in result.findings if finding.title == "Stratification"]
+    judged = [finding for finding in result.findings if finding.title == "Class Stratification"]
     worst = max(judged, key=lambda finding: (_deviation(finding.brief), _RANK[finding.severity]))
     golden = _GOLDEN[name]["stratification"]
     assert (_deviation(worst.brief), worst.severity) == (_deviation(golden["brief"]), golden["severity"])

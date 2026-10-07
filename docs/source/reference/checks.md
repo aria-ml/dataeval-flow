@@ -10,9 +10,9 @@ that make Datasets.
 Each entry's **Used in** names the presets that run the check; where it names none, chain the check in a [workflow of
 your own](../how_to/write_a_custom_workflow.md). See the [Preset Catalog](presets.md) for each preset's chain.
 [`audit`](presets.md#audit) runs up to sixteen of these checks to audit a set of splits before training, among them
-`class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage` and `distribution-shift`; its
+`class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage` and `embedding-divergence`; its
 chain table lists them all. [Check a set of
-splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) runs `audit` as a step after `data-splitting`
+splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) runs `audit` as a step after `splits`
 and gives every one of these checks to the splits; chain the checks yourself only to audit one fold or a subset. Each
 example assumes the pipeline defines
 `datasets:`, the sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor
@@ -24,14 +24,14 @@ example assumes the pipeline defines
 | --- | --- | --- |
 | `image-outliers` | `input`: an `outliers` Output | Image Outliers |
 | `target-outliers` | `input`: an `outliers` Output run with `per_target: true`; `labels`: a `label-health` Output | Target Outliers |
-| `classwise-outliers` | `input`: a `outliers-by-class` Output | Classwise Outliers |
+| `class-outliers` | `input`: a `outliers-by-class` Output | Class Outliers |
 | `image-duplicates` | `input`: a `duplicates` Output | Image Duplicates |
 | `class-imbalance` | `input`: a `label-health` Output | Class Imbalance |
 | `class-sufficiency` | `input`: a `label-health` Output over train; `evals`: the evaluation splits' | Class Sufficiency |
 | `untrained-classes` | `input`: a `label-health` Output over train; `evals`: the evaluation splits' | Untrained Classes |
 | `leaf-coverage` | `input`: a `representation` Output against a declared ontology | Leaf Coverage |
 | `label-conformance` | `input`: a `label-reconciliation` Output | Label Conformance |
-| `mergeability` | `input`: a `label-alignment` Output | Mergeability |
+| `label-mergeability` | `input`: a `label-alignment` Output | Label Mergeability |
 | `ontology-structure` | `input`: an `ontology-validation` Output | Ontology Structure |
 | `class-coverage` | `input`: a `coverage` Output | Class Coverage |
 | `uncovered-items` | `input`: a `coverage` Output | Uncovered Items |
@@ -40,14 +40,14 @@ example assumes the pipeline defines
 | `class-shortfall` | `input`: a `representation` Output with no ontology | Class Shortfall |
 | `shortcut-risk` | `input`: a `balance` Output | Shortcut Risk |
 | `factor-parity` | `input`: a `parity` Output | Factor Parity |
-| `stratification` | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
+| `class-stratification` | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Class Stratification |
 | `leakage` | `duplicates`: `duplicates` Outputs over two splits; `factors`: `factor-leakage` Outputs | Leakage |
-| `distribution-shift` | `input`: a `divergence` Output | Distribution Shift |
+| `embedding-divergence` | `input`: a `divergence` Output | Embedding Divergence |
 | `eval-coverage` | `input`: an OOD evaluator's Output | Eval Coverage |
 | `drift` | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `ood` | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `ood-agreement` | `input`: an `ood-union` Output | OOD Agreement: the share every detector flagged, and the images one alone flagged |
-| `metadata-issues` | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
+| `factor-issues` | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
 
 ## How thresholds work
 
@@ -81,7 +81,7 @@ model predicts.
 
 ### `image-outliers`
 
-Warns when more than `warning` percent of a Dataset's images are outliers.
+Judges `outliers`'s output: warns when more than `warning` percent of a Dataset's images are outliers.
 
 An image counts when it has at least one image-level outlier flag.
 
@@ -98,7 +98,7 @@ With nothing flagged, the finding is `ok`.
 | `warning` | a percentage, or `null` | `3.0` | Most images, as a percentage of the Dataset, that may be flagged before the finding warns |
 
 - **Judges:** [`outliers`](evaluators.md#outliers)
-- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning)
+- **Used in:** [`audit`](presets.md#audit), [`quality`](presets.md#quality)
 
 ```yaml
 evaluators:
@@ -114,7 +114,7 @@ workflows:
 
 ### `target-outliers`
 
-Warns when more than `warning` percent of the boxes are outliers.
+Judges the `outliers` and `label-health` outputs: warns when more than `warning` percent of the boxes are outliers.
 
 A box counts when it has at least one outlier flag.
 
@@ -132,7 +132,7 @@ A box counts when it has at least one outlier flag.
 | `warning` | a percentage, or `null` | `3.0` | Most boxes, as a percentage of all, that may be flagged before the finding warns |
 
 - **Judges:** [`label-health`](evaluators.md#label-health), [`outliers`](evaluators.md#outliers)
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning)
+- **Used in:** [`quality`](presets.md#quality)
 
 ```yaml
 evaluators:
@@ -148,16 +148,16 @@ workflows:
       - {name: target-outliers, check: target-outliers, input: outliers, labels: labels, warning: 5.0}
 ```
 
-### `classwise-outliers`
+### `class-outliers`
 
-Warns when outliers pass `warning` percent across classes; names the worst class.
+Judges `outliers-by-class`'s output: warns when outliers pass `warning` percent across classes; names the worst class.
 
 It judges the worst class's share, how many classes pass the limit, and whether all classes together do.
 
 - **Reads:** `input`, an `outliers-by-class` Output.
-- **Makes:** one finding, titled Classwise Outliers, whose evidence is the per-class table.
+- **Makes:** one finding, titled Class Outliers, whose evidence is the per-class table.
 
-**Settings** ({py:class}`~dataeval_flow.steps.checks.ClasswiseOutliersConfig`):
+**Settings** ({py:class}`~dataeval_flow.steps.checks.ClassOutliersConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -165,7 +165,7 @@ It judges the worst class's share, how many classes pass the limit, and whether 
 | `warning` | a percentage, or `null` | `3.0` | Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too |
 
 - **Judges:** [`outliers-by-class`](combines.md#outliers-by-class)
-- **Used in:** [`data-cleaning`](presets.md#data-cleaning)
+- **Used in:** [`quality`](presets.md#quality)
 
 ```yaml
 evaluators:
@@ -177,12 +177,12 @@ workflows:
     steps:
       - {name: outliers, evaluator: outliers, input: data}
       - {name: by-class, combine: outliers-by-class, input: data, outliers: outliers}
-      - {name: classwise-outliers, check: classwise-outliers, input: by-class, warning: 5.0}
+      - {name: class-outliers, check: class-outliers, input: by-class, warning: 5.0}
 ```
 
 ### `image-duplicates`
 
-Warns when more than `exact` or `near` percent of the images are duplicates.
+Judges `duplicates`'s output: warns when more than `exact` or `near` percent of the images are duplicates.
 
 The shares of images in exact and in near duplicate groups are judged apart.
 
@@ -198,7 +198,7 @@ The shares of images in exact and in near duplicate groups are judged apart.
 | `near` | a percentage, or `null` | `5.0` | Most images that may sit in near-duplicate groups before the finding warns |
 
 - **Judges:** [`duplicates`](evaluators.md#duplicates)
-- **Used in:** [`audit`](presets.md#audit), [`data-cleaning`](presets.md#data-cleaning)
+- **Used in:** [`audit`](presets.md#audit), [`quality`](presets.md#quality)
 
 ```yaml
 evaluators:
@@ -216,7 +216,7 @@ workflows:
 
 ### `class-imbalance`
 
-Warns when the largest class outnumbers the smallest by more than `warning`.
+Judges `label-health`'s output: warns when the largest class outnumbers the smallest by more than `warning`.
 
 The ratio is taken over the classes with labels. A class with none is named and warns unless `empty` is `false`.
 
@@ -230,11 +230,11 @@ The ratio is taken over the classes with labels. A class with none is named and 
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-health` Output |
 | `warning` | a ratio of at least 1, or `null` | `5.0` | Largest class count over smallest that may hold before the finding warns; an empty class warns unless `empty` is `false` |
-| `info` | a ratio, or `null` | `null` | A ratio at or under which the finding is ok; must not exceed `warning`. `null`, which data-cleaning and data-splitting keep, makes every ratio that does not warn `info` |
+| `info` | a ratio, or `null` | `null` | A ratio at or under which the finding is ok; must not exceed `warning`. `null`, which quality and splits keep, makes every ratio that does not warn `info` |
 | `empty` | `true` or `false` | `true` | Whether a declared class with no labels warns; `false` leaves it to `untrained-classes` and `class-sufficiency` |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)
-- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
+- **Used in:** [`audit`](presets.md#audit), [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:
@@ -250,7 +250,7 @@ workflows:
 
 ### `class-sufficiency`
 
-Warns when a class has too few labels to learn or to evaluate.
+Judges `label-health`'s output: warns when a class has too few labels to learn or to evaluate.
 
 It judges the classes train holds: each needs `train` labels in train and `eval` in every evaluation split, a class the
 split lacks included. A `null` limit judges nothing, and with both `null` the finding is `info`. It is not assessed
@@ -288,7 +288,7 @@ workflows:
 
 ### `untrained-classes`
 
-Warns when an evaluation split holds a class train lacks.
+Judges `label-health`'s output: warns when an evaluation split holds a class train lacks.
 
 A declared class with labels in no split is listed, and warns only with `declared: true`. With no evaluation split there
 is nothing to compare, and the finding is `info` unless `declared` is true. Where evaluation splits are given but none
@@ -327,7 +327,7 @@ workflows:
 
 ### `leaf-coverage`
 
-Warns when too few of an ontology's leaves have examples, or a branch is empty.
+Judges `representation`'s output: warns when too few of an ontology's leaves have examples, or a branch is empty.
 
 It reports how much of the ontology's sanctioned leaves the Dataset has examples of, what to acquire for an even spread,
 the wholly empty branches, and the asserted minimum shares (`expected`) not met. It warns on an unmet share, on leaf
@@ -346,7 +346,7 @@ acquire, and is `ok` otherwise.
 | `empty_branches` | a count, or `null` | `0` | Wholly empty branches tolerated; `null` turns it off |
 
 - **Judges:** [`representation`](evaluators.md#representation)
-- **Used in:** [`label-space`](presets.md#label-space)
+- **Used in:** [`taxonomy`](presets.md#taxonomy)
 
 ```yaml
 ontologies:
@@ -368,7 +368,7 @@ workflows:
 
 ### `label-conformance`
 
-Warns when class names resolve to no ontology concept, or to several.
+Judges `label-reconciliation`'s output: warns when class names resolve to no ontology concept, or to several.
 
 It warns on more unmatched names than `warning`, or on any ambiguous name, and is `ok` otherwise.
 
@@ -383,7 +383,7 @@ It warns on more unmatched names than `warning`, or on any ambiguous name, and i
 | `warning` | a count, or `null` | `0` | Unmatched names tolerated; `null` turns it off |
 
 - **Judges:** [`label-reconciliation`](evaluators.md#label-reconciliation)
-- **Used in:** [`audit`](presets.md#audit), [`label-space`](presets.md#label-space)
+- **Used in:** [`audit`](presets.md#audit), [`taxonomy`](presets.md#taxonomy)
 
 ```yaml
 ontologies:
@@ -403,25 +403,25 @@ workflows:
       - {name: label-conformance, check: label-conformance, input: reconcile, warning: 2}
 ```
 
-### `mergeability`
+### `label-mergeability`
 
-Whether a Dataset's classes carry over to an ontology's vocabulary, with the stanza.
+Judges `label-alignment`'s output: whether a Dataset's classes carry over to an ontology's vocabulary, with the stanza.
 
 The stanza is the `Relabel` stanza to paste into a view that conforms the Dataset. Lossless is ok; lossy, where two
 classes collapse into one concept, informs; partial, where `Relabel` would drop a class, warns. A target label several
 concepts share always warns: the stanza cannot be used until the ontology is fixed.
 
 - **Reads:** `input`, a `label-alignment` Output.
-- **Makes:** one finding, titled Mergeability.
+- **Makes:** one finding, titled Label Mergeability.
 
-**Settings** ({py:class}`~dataeval_flow.steps.checks.MergeabilityConfig`):
+**Settings** ({py:class}`~dataeval_flow.steps.checks.LabelMergeabilityConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `label-alignment` Output |
 
 - **Judges:** [`label-alignment`](evaluators.md#label-alignment)
-- **Used in:** [`label-space`](presets.md#label-space)
+- **Used in:** [`taxonomy`](presets.md#taxonomy)
 
 ```yaml
 ontologies:
@@ -438,12 +438,12 @@ workflows:
     inputs: [data]
     steps:
       - {name: align, evaluator: align, input: data}
-      - {name: mergeability, check: mergeability, input: align}
+      - {name: label-mergeability, check: label-mergeability, input: align}
 ```
 
 ### `ontology-structure`
 
-Reports an ontology's structure, and warns on a label several concepts share.
+Judges `ontology-validation`'s output: reports an ontology's structure, and warns on a label several concepts share.
 
 The finding informs on the ontology's size, depth and structural observations. Only a label several concepts share
 warns, because it is what makes reconciliation ambiguous.
@@ -458,7 +458,7 @@ warns, because it is what makes reconciliation ambiguous.
 | `input` | an address | required | An `ontology-validation` Output |
 
 - **Judges:** [`ontology-validation`](evaluators.md#ontology-validation)
-- **Used in:** [`label-space`](presets.md#label-space)
+- **Used in:** [`taxonomy`](presets.md#taxonomy)
 
 ```yaml
 ontologies:
@@ -482,7 +482,7 @@ workflows:
 
 ### `class-coverage`
 
-Warns when a class is clustered, one-dimensional or padded with near-duplicates.
+Judges `coverage`'s output: warns when a class is clustered, one-dimensional or padded with near-duplicates.
 
 It names the assessable classes `coverage` flagged and counts the items it left uncovered. It warns on any flagged
 class, informs while any item is uncovered, and is `ok` otherwise. On detection crops it notes the crops counted and the
@@ -501,7 +501,7 @@ detections dropped.
 | `near_duplicates` | a fraction, or `null` | `0.1` | The near-duplicate share over which a class is padded; `null` turns it off |
 
 - **Judges:** [`coverage`](evaluators.md#coverage)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`scope`](presets.md#scope)
 
 ```yaml
 evaluators:
@@ -517,7 +517,7 @@ workflows:
 
 ### `uncovered-items`
 
-Warns when more than `warning` percent of a Dataset's items are uncovered.
+Judges `coverage`'s output: warns when more than `warning` percent of a Dataset's items are uncovered.
 
 Judge only `naive` coverage: adaptive coverage, DataEval's default, marks the sparsest `percent` of the items uncovered
 by construction, so its share says nothing about the data. DataEval's naive radius overflows past about 340 embedding
@@ -535,7 +535,7 @@ skipped with "failed: OverflowError".
 | `warning` | a percentage, or `null` | `10.0` | The percent of items uncovered past which the finding warns |
 
 - **Judges:** [`coverage`](evaluators.md#coverage)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`scope`](presets.md#scope)
 
 ```yaml
 evaluators:
@@ -551,7 +551,7 @@ workflows:
 
 ### `dimensional-completeness`
 
-Warns when the embeddings fill too little of their space's dimensions.
+Judges `completeness`'s output: warns when the embeddings fill too little of their space's dimensions.
 
 The score is rounded to three places, then judged against two bands: under `warning` the finding warns, under `info` it
 informs, and above both it is `ok`. With both bands `null` nothing is judged and the finding informs.
@@ -568,7 +568,7 @@ informs, and above both it is `ok`. With both bands `null` nothing is judged and
 | `info` | a score from 0 to 1, or `null` | `0.8` | The score under which the finding informs |
 
 - **Judges:** [`completeness`](evaluators.md#completeness)
-- **Used in:** [`audit`](presets.md#audit), [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`audit`](presets.md#audit), [`scope`](presets.md#scope)
 
 ```yaml
 evaluators:
@@ -584,7 +584,7 @@ workflows:
 
 ### `factor-coverage-gaps`
 
-Warns when enough class-factor-value combinations are under-represented.
+Judges `factor-gaps`'s output: warns when enough class-factor-value combinations are under-represented.
 
 It warns past `warning` gaps, is `info` up to that many, and is `ok` with none.
 
@@ -599,7 +599,7 @@ It warns past `warning` gaps, is `info` up to that many, and is `ok` with none.
 | `warning` | a count, or `null` | `2` | The most under-represented class-factor-value combinations before the finding warns; `null` never warns |
 
 - **Judges:** [`factor-gaps`](combines.md#factor-gaps)
-- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
+- **Used in:** [`audit`](presets.md#audit), [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:
@@ -616,7 +616,7 @@ workflows:
 
 ### `class-shortfall`
 
-Lists the classes short of an even spread, and warns on an unmet minimum share.
+Judges `representation`'s output: lists the classes short of an even spread, and warns on an unmet minimum share.
 
 The spread is over the classes the Dataset declares. The finding warns on an unmet minimum share (`expected`), informs
 while any class is short, and is `ok` otherwise.
@@ -631,7 +631,7 @@ while any class is short, and is `ok` otherwise.
 | `input` | an address | required | A `representation` Output, computed with no ontology |
 
 - **Judges:** [`representation`](evaluators.md#representation)
-- **Used in:** [`data-coverage`](presets.md#data-coverage)
+- **Used in:** [`scope`](presets.md#scope)
 
 ```yaml
 evaluators:
@@ -649,7 +649,7 @@ workflows:
 
 ### `shortcut-risk`
 
-Warns when a metadata factor tells much about the class.
+Judges `balance`'s output: warns when a metadata factor tells much about the class.
 
 A model could learn such a factor instead of the task. The finding warns where a factor's mutual information with the
 class is past `warning`. `balance`'s own `class_label` row is not a factor, and where no factor is left it is not
@@ -667,7 +667,7 @@ assessed (`no factor to score`). With `warning: null` the finding is `info`.
 | `warning` | 0 to 1, or `null` | `0.1` | The mutual information with the class past which a factor warns; `null` judges nothing |
 
 - **Judges:** [`balance`](evaluators.md#balance)
-- **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias)
+- **Used in:** [`audit`](presets.md#audit), [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:
@@ -683,7 +683,7 @@ workflows:
 
 ### `factor-parity`
 
-Warns when a metadata factor is significantly associated with the class.
+Judges `parity`'s output: warns when a metadata factor is significantly associated with the class.
 
 Where `shortcut-risk` measures how much a factor tells about the class, this tests whether the association is real. A
 factor warns where its bias-corrected Cramér's V with the class is past `warning` and its chi-square p-value is at or
@@ -704,7 +704,7 @@ to score`). With `warning: null` the finding is `info`.
 | `p_value` | a number in (0, 1] | `0.05` | The p-value at or under which a factor's association counts as significant |
 
 - **Judges:** [`parity`](evaluators.md#parity)
-- **Used in:** [`data-bias`](presets.md#data-bias)
+- **Used in:** [`bias`](presets.md#bias)
 
 ```yaml
 evaluators:
@@ -720,9 +720,9 @@ workflows:
 
 ## Are the splits fit to evaluate on?
 
-### `stratification`
+### `class-stratification`
 
-Judges how far each part's class shares stray from the whole's.
+Judges `label-health`'s output: how far each part's class shares stray from the whole's.
 
 For each class and part, the gap between the class's share of the part's labels and of the whole's is taken in
 percentage points. The largest, rounded to one place, is judged. Run once per fold over `kfold`'s lists. `audit`
@@ -730,9 +730,9 @@ passes train as `input` and the evaluation splits as `parts`, so each evaluation
 
 - **Reads:** `input`, a `label-health` Output over the whole Dataset the parts were split from; `parts`, the parts'
   `label-health` Outputs, each judged; `shown`, more `label-health` Outputs shown but not judged.
-- **Makes:** one finding, titled Stratification, with the table of counts across the parts as its evidence.
+- **Makes:** one finding, titled Class Stratification, with the table of counts across the parts as its evidence.
 
-**Settings** ({py:class}`~dataeval_flow.steps.checks.StratificationConfig`):
+**Settings** ({py:class}`~dataeval_flow.steps.checks.ClassStratificationConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -743,7 +743,7 @@ passes train as `input` and the evaluation splits as `parts`, so each evaluation
 | `warning` | percentage points, or `null` | `10.0` | The largest deviation above which the finding warns; `null` never warns |
 
 - **Judges:** [`label-health`](evaluators.md#label-health)
-- **Used in:** [`audit`](presets.md#audit), [`data-splitting`](presets.md#data-splitting)
+- **Used in:** [`audit`](presets.md#audit), [`splits`](presets.md#splits)
 
 ```yaml
 evaluators:
@@ -757,12 +757,12 @@ workflows:
       - {name: split, transform: split, input: data, val_frac: 0.1, test_frac: 0.2}
       - {name: health-train, evaluator: label-health, input: split.train}
       - {name: health-val, evaluator: label-health, input: split.val}
-      - {name: stratification, check: stratification, input: whole, parts: [health-train, health-val], warning: 5.0}
+      - {name: class-stratification, check: class-stratification, input: whole, parts: [health-train, health-val], warning: 5.0}
 ```
 
 ### `leakage`
 
-Warns when items or group values sit in two splits at once.
+Judges the `duplicates` and `factor-leakage` outputs: warns when items or group values sit in two splits at once.
 
 It counts the items in duplicate groups that have members in two splits, exact and near apart, and the values of a
 `factor-leakage` factor that both splits of a pair hold. The finding warns where a count passes its limit. A `null`
@@ -798,17 +798,17 @@ workflows:
       - {name: leakage, check: leakage, duplicates: dupes, exact: 2}
 ```
 
-### `distribution-shift`
+### `embedding-divergence`
 
-Warns when two sources' embeddings sit too far apart.
+Judges `divergence`'s output: warns when two sources' embeddings sit too far apart.
 
 The finding warns above `warning`, is `info` above `info`, and is `ok` at or below both: high, moderate or low
 divergence. A `null` limit judges nothing at its level, and with both `null` the finding is `info`.
 
 - **Reads:** `input`, a `divergence` Output.
-- **Makes:** one finding, titled Distribution Shift.
+- **Makes:** one finding, titled Embedding Divergence.
 
-**Settings** ({py:class}`~dataeval_flow.steps.checks.DistributionShiftConfig`):
+**Settings** ({py:class}`~dataeval_flow.steps.checks.EmbeddingDivergenceConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -828,18 +828,19 @@ workflows:
     inputs: [train, val]
     steps:
       - {name: divergence, evaluator: divergence, input: [train, val]}
-      - {name: distribution-shift, check: distribution-shift, input: divergence, warning: 0.4}
+      - {name: embedding-divergence, check: embedding-divergence, input: divergence, warning: 0.4}
 ```
 
 ### `eval-coverage`
 
-Warns when much of an evaluation split lies beyond what train covers.
+Judges an `ood-*` detector's output: warns when much of an evaluation split lies beyond what train covers.
 
 The percent of the split flagged is judged as `ood` judges its percent. Any OOD evaluator's Output can be judged, but
 only an `ood-kneighbors` Output relates the percent to a percentile of train: how much of the split lies farther from
 train than that percent of train lies from itself. The percentile is the `ood-kneighbors` entry's `threshold_perc`, or
-DataEval's 95 where unset; a split drawn like train has about 100 minus that percent flagged by construction, so
-`info: 2.0` suits `threshold_perc: 99`.
+DataEval's 95 where unset; a split drawn like train has about 100 minus that percent flagged by construction. `info`
+and `warning` are points past that baseline, so the defaults hold at any `threshold_perc`. Under a detector other
+than `ood-kneighbors` the baseline is 0.
 
 - **Reads:** `input`, an OOD evaluator's Output fitted on train and run on one evaluation split.
 - **Makes:** one finding, titled Eval Coverage.
@@ -849,8 +850,8 @@ DataEval's 95 where unset; a split drawn like train has about 100 minus that per
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | An OOD evaluator's Output fitted on train and run on one evaluation split, best an `ood-kneighbors` one |
-| `warning` | a percentage, or `null` | `10.0` | The percent flagged past which the finding warns |
-| `info` | a percentage, or `null` | `2.0` | The percent past which the finding is `info`, at or below which it is `ok` |
+| `warning` | a percentage, or `null` | `9.0` | The points of flagged percent past the baseline (100 - `threshold_perc` under `ood-kneighbors`, else 0) past which the finding warns |
+| `info` | a percentage, or `null` | `1.0` | The points past the baseline past which the finding is `info`, at or below which it is `ok` |
 
 - **Judges:** [`ood-domain-classifier`](evaluators.md#ood-domain-classifier),
   [`ood-kneighbors`](evaluators.md#ood-kneighbors)
@@ -865,14 +866,14 @@ workflows:
     inputs: [train, val]
     steps:
       - {name: knn, evaluator: knn, input: [train, val]}
-      - {name: eval-coverage, check: eval-coverage, input: knn, warning: 5.0, info: 2.0}
+      - {name: eval-coverage, check: eval-coverage, input: knn, warning: 5.0, info: 1.0}
 ```
 
 ## Has new data drifted?
 
 ### `drift`
 
-Warns when a drift detector finds drift, whole or chunk by chunk.
+Judges a `drift-*` detector's output: warns when it finds drift, whole or chunk by chunk.
 
 Without chunking, drift is a warning, or `info` where `warn_on_drift` is false. With chunking, the finding warns when
 the share of drifted chunks or the longest run of drifted chunks passes its limit, is `info` when some chunks drifted
@@ -895,7 +896,7 @@ not a chunk drifted.
 - **Judges:** [`drift-domain-classifier`](evaluators.md#drift-domain-classifier),
   [`drift-kneighbors`](evaluators.md#drift-kneighbors), [`drift-mmd`](evaluators.md#drift-mmd),
   [`drift-univariate`](evaluators.md#drift-univariate), [`drift-wasserstein`](evaluators.md#drift-wasserstein)
-- **Used in:** [`drift-monitoring`](presets.md#drift-monitoring)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -913,7 +914,7 @@ workflows:
 
 ### `ood`
 
-Judges the share of a test source's images an OOD detector flagged.
+Judges an `ood-*` detector's output: the share of a test source's images it flagged.
 
 The share is a percent of the images the detector assessed. On a detector's `uncertainty` rows ([Drift in a model's
 uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty)), which `ood-kneighbors` reads only with
@@ -935,7 +936,7 @@ it; a `null` threshold judges nothing at its level, and with both `null` the fin
 
 - **Judges:** [`ood-domain-classifier`](evaluators.md#ood-domain-classifier),
   [`ood-kneighbors`](evaluators.md#ood-kneighbors)
-- **Used in:** [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -951,7 +952,7 @@ workflows:
 
 ### `ood-agreement`
 
-Judges the share of a test source's images every OOD detector flagged, and counts those one alone flagged.
+Judges `ood-union`'s output: the share of a test source's images every OOD detector flagged, and those one alone flagged.
 
 The aggregate finding judges the percent of assessed test images every detector flagged, as `ood` judges its percent.
 
@@ -968,7 +969,7 @@ The aggregate finding judges the percent of assessed test images every detector 
 | `info` | a percentage, or `null` | `1.0` | The percent past which the finding is `info`, at or below which it is `ok` |
 
 - **Judges:** [`ood-union`](combines.md#ood-union)
-- **Used in:** [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -987,9 +988,9 @@ workflows:
 
 ## Is the metadata readable?
 
-### `metadata-issues`
+### `factor-issues`
 
-Warns where metadata triage found a factor the run could not read as configured.
+Judges `factor-triage`'s output: warns where a metadata factor could not be read as configured.
 
 It makes its findings in this order:
 
@@ -1006,7 +1007,7 @@ It has no thresholds.
 - **Reads:** `input`, a `factor-triage` Output.
 - **Makes:** one finding per kind of issue, then Suggested policy, Verified and Recommended policy.
 
-**Settings** ({py:class}`~dataeval_flow.steps.checks.MetadataIssuesConfig`):
+**Settings** ({py:class}`~dataeval_flow.steps.checks.FactorIssuesConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -1014,7 +1015,7 @@ It has no thresholds.
 | `max_examples` | an integer of at least 1 | `20` | Distinct values shown per kind per factor; display only |
 
 - **Judges:** [`factor-triage`](evaluators.md#factor-triage)
-- **Used in:** [`audit`](presets.md#audit), [`metadata-triage`](presets.md#metadata-triage)
+- **Used in:** [`audit`](presets.md#audit), [`triage`](presets.md#triage)
 
 ```yaml
 evaluators:
@@ -1025,5 +1026,5 @@ workflows:
     inputs: [data]
     steps:
       - {name: triage, evaluator: triage, input: data}
-      - {name: metadata-issues, check: metadata-issues, input: triage, max_examples: 10}
+      - {name: factor-issues, check: factor-issues, input: triage, max_examples: 10}
 ```

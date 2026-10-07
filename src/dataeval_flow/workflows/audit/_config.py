@@ -3,10 +3,9 @@
 
 __all__ = [
     "AuditChecks",
-    "AuditClassImbalanceSettings",
     "AuditConfig",
     "ClassSufficiencySettings",
-    "DistributionShiftSettings",
+    "EmbeddingDivergenceSettings",
     "DivergenceSettings",
     "EvalCoverageSettings",
     "FactorLeakageSettings",
@@ -16,7 +15,7 @@ __all__ = [
 ]
 
 from collections.abc import Mapping
-from typing import Annotated, Any, ClassVar, Literal, Self
+from typing import Annotated, ClassVar, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -24,19 +23,24 @@ from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps.checks._ood import OODThresholds
-from dataeval_flow.steps.checks._stratification import StratificationThresholds
+from dataeval_flow.steps.checks._stratification import ClassStratificationThresholds
 from dataeval_flow.workflows._base import WorkflowConfig
-from dataeval_flow.workflows.data_bias import DiversitySettings, FactorGapsSettings, ShortcutRiskSettings
-from dataeval_flow.workflows.data_bias._config import FactorCoverageGapsSettings
-from dataeval_flow.workflows.data_cleaning import ImageDuplicatesSettings, ImageOutliersSettings, OutliersSettings
-from dataeval_flow.workflows.data_coverage import DataCoverageCoverageSettings, WrapSettings
-from dataeval_flow.workflows.data_coverage._config import (
-    ClassCoverageSettings,
-    DataCoverageUncoveredItemsSettings,
-    DimensionalCompletenessSettings,
+from dataeval_flow.workflows.bias import (
+    ClassImbalanceSettings,
+    DiversitySettings,
+    FactorGapsSettings,
+    ShortcutRiskSettings,
 )
-from dataeval_flow.workflows.label_space import LabelConformanceSettings
-from dataeval_flow.workflows.metadata_triage import MetadataIssuesSettings
+from dataeval_flow.workflows.bias._config import FactorCoverageGapsSettings
+from dataeval_flow.workflows.quality import ImageDuplicatesSettings, ImageOutliersSettings, OutliersSettings
+from dataeval_flow.workflows.scope import CoverageSettings, WrapSettings
+from dataeval_flow.workflows.scope._config import (
+    ClassCoverageSettings,
+    DimensionalCompletenessSettings,
+    UncoveredItemsSettings,
+)
+from dataeval_flow.workflows.taxonomy import LabelConformanceSettings
+from dataeval_flow.workflows.triage import FactorIssuesSettings
 
 
 class FactorLeakageSettings(BaseModel):
@@ -74,50 +78,15 @@ class OODKNeighborsSettings(BaseModel):
     distance_metric: Literal["cosine", "euclidean"] | None = Field(
         default=None, description="The embedding distance; unset is DataEval's default."
     )
-    threshold_perc: float = Field(
-        default=99.0,
+    threshold_perc: float | None = Field(
+        default=None,
         gt=0.0,
         lt=100.0,
-        description="An item is flagged when it lies farther from train than this percent of train lies from itself.",
-    )
-
-
-class AuditClassImbalanceSettings(BaseModel):
-    """The `class-imbalance` check's settings in audit, judged on each split. Named for the preset, so it reaches the
-    schema `$defs` apart from the other presets' class-imbalance settings."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    warning: float | None = Field(
-        default=5.0,
-        ge=1.0,
         description=(
-            "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` "
-            "judges nothing but an empty class, which warns unless `empty` is false."
+            "An item is flagged when it lies farther from train than this percent of train lies from itself; "
+            "unset is DataEval's default, 95."
         ),
     )
-    info: float | None = Field(
-        default=None,
-        ge=1.0,
-        description=(
-            "A ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every "
-            "ratio under `warning` information. Must not exceed `warning`."
-        ),
-    )
-    empty: bool = Field(
-        default=False,
-        description=(
-            "Whether a declared class with no labels warns; audit leaves that to `untrained-classes` and "
-            "`class-sufficiency`."
-        ),
-    )
-
-    @model_validator(mode="after")
-    def _info_under_warning(self) -> Self:
-        """Two bounds that cross are refused here, where the user wrote them."""
-        if self.info is not None and self.warning is not None and self.info > self.warning:
-            raise ValueError(f"`info` ({self.info}) must not exceed `warning` ({self.warning}).")
-        return self
 
 
 class ClassSufficiencySettings(BaseModel):
@@ -181,20 +150,29 @@ class LeakageSettings(BaseModel):
 class EvalCoverageSettings(OODThresholds):
     """The `eval-coverage` check's settings: the share of an evaluation split that may lie beyond train."""
 
-    info: float | None = Field(
-        default=2.0,
+    warning: float | None = Field(
+        default=9.0,
         ge=0.0,
         le=100.0,
         description=(
-            "The percent flagged past which the finding is `info`, at or below which it is `ok`; `null` is never "
-            "`info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so "
-            "`2.0` suits `threshold_perc: 99`."
+            "Percentage points flagged past the split's baseline after which the finding warns; `null` never warns. "
+            "The baseline is what a split drawn like train has flagged by construction: 100 - `threshold_perc` "
+            "under `ood-kneighbors`, 0 under any other detector."
+        ),
+    )
+    info: float | None = Field(
+        default=1.0,
+        ge=0.0,
+        le=100.0,
+        description=(
+            "Percentage points past the baseline after which the finding is `info`, at or below which it is `ok`; "
+            "`null` is never `info`."
         ),
     )
 
 
-class DistributionShiftSettings(BaseModel):
-    """The `distribution-shift` check's settings. An unset `info` is derived here, as the check derives it, because
+class EmbeddingDivergenceSettings(BaseModel):
+    """The `embedding-divergence` check's settings. An unset `info` is derived here, as the check derives it, because
     the chain hands the check every setting, and a written `null` would mean no `info` band."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -241,13 +219,13 @@ class AuditChecks(BaseModel):
         alias="image-duplicates",
         description="The `image-duplicates` check's settings.",
     )
-    metadata_issues: MetadataIssuesSettings = Field(
-        default_factory=MetadataIssuesSettings,
-        alias="metadata-issues",
-        description="The `metadata-issues` check's settings.",
+    factor_issues: FactorIssuesSettings = Field(
+        default_factory=FactorIssuesSettings,
+        alias="factor-issues",
+        description="The `factor-issues` check's settings.",
     )
-    class_imbalance: AuditClassImbalanceSettings = Field(
-        default_factory=AuditClassImbalanceSettings,
+    class_imbalance: ClassImbalanceSettings = Field(
+        default_factory=ClassImbalanceSettings,
         alias="class-imbalance",
         description="The `class-imbalance` check's settings.",
     )
@@ -271,8 +249,8 @@ class AuditChecks(BaseModel):
         alias="class-coverage",
         description="The `class-coverage` check's settings.",
     )
-    uncovered_items: DataCoverageUncoveredItemsSettings = Field(
-        default_factory=DataCoverageUncoveredItemsSettings,
+    uncovered_items: UncoveredItemsSettings = Field(
+        default_factory=UncoveredItemsSettings,
         alias="uncovered-items",
         description="The `uncovered-items` check's settings, under `naive` coverage.",
     )
@@ -297,42 +275,17 @@ class AuditChecks(BaseModel):
         alias="eval-coverage",
         description="The `eval-coverage` check's settings.",
     )
-    stratification: StratificationThresholds = Field(
-        default_factory=StratificationThresholds, description="The `stratification` check's settings."
+    class_stratification: ClassStratificationThresholds = Field(
+        default_factory=ClassStratificationThresholds,
+        alias="class-stratification",
+        description="The `class-stratification` check's settings.",
     )
-    distribution_shift: DistributionShiftSettings = Field(
-        default_factory=DistributionShiftSettings,
-        alias="distribution-shift",
-        description="The `distribution-shift` check's settings.",
+    embedding_divergence: EmbeddingDivergenceSettings = Field(
+        default_factory=EmbeddingDivergenceSettings,
+        alias="embedding-divergence",
+        description="The `embedding-divergence` check's settings.",
     )
 
-
-_POLICY = "name a policy under `metadata:`"
-
-MOVED: dict[str, str] = {
-    "outlier_method": "it is `outliers.outlier_threshold`: the method, or `[method, threshold]`",
-    "outlier_threshold": "it is `outliers.outlier_threshold`: the method, or `[method, threshold]`",
-    "outlier_flags": "it is `outliers.flags`",
-    "balance": "`balance` always runs, and is skipped on metadata with no factors",
-    "diversity_method": "it is `diversity.method`",
-    "divergence_method": "it is `divergence.method`",
-    "include_image_stats": "it is the metadata policy's `intrinsic_factors`",
-    "value_range": "set `value_range` on the dataset",
-    "metadata_auto_bin_method": _POLICY,
-    "metadata_exclude": _POLICY,
-    "metadata_continuous_factor_bins": _POLICY,
-    "metadata_factor_source": _POLICY,
-}
-"""Each data-analysis field audit refuses, and where it went (audit spec §8.2)."""
-
-CHECKS_MOVED: dict[str, str] = {
-    "image_outliers": "`checks.image-outliers.warning`",
-    "exact_duplicates": "`checks.image-duplicates.exact`",
-    "near_duplicates": "`checks.image-duplicates.near`",
-    "class_label_imbalance": "`checks.class-imbalance.warning`",
-    "distribution_shift": "`checks.distribution-shift.warning`",
-}
-"""Each data-analysis `health_thresholds` field, and the check setting it went to (audit spec §8.2)."""
 
 _Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -363,8 +316,8 @@ class AuditConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, StatsConfigM
     )
 
     outliers: OutliersSettings = Field(description="The `outliers` step's settings, run on each split.")
-    coverage: DataCoverageCoverageSettings = Field(
-        default_factory=DataCoverageCoverageSettings,
+    coverage: CoverageSettings = Field(
+        default_factory=CoverageSettings,
         description="The `coverage` step's settings, run on train when the task names an extractor.",
     )
     wrap: WrapSettings = Field(
@@ -406,23 +359,6 @@ class AuditConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, StatsConfigM
         ),
     )
     checks: AuditChecks = Field(default_factory=AuditChecks, description="When findings warn, keyed by check type.")
-
-    @model_validator(mode="before")
-    @classmethod
-    def _refuse_legacy_fields(cls, data: Any) -> Any:
-        """Refuse every data-analysis field by name, saying where it went (audit spec §8.2)."""
-        if not isinstance(data, dict):
-            return data
-        for key, message in MOVED.items():
-            if key in data:
-                raise ValueError(f"audit's `{key}` is refused: {message}.")
-        if "health_thresholds" in data:
-            thresholds = data["health_thresholds"]
-            for key, replacement in CHECKS_MOVED.items():
-                if isinstance(thresholds, dict) and key in thresholds:
-                    raise ValueError(f"`health_thresholds.{key}` is refused: it is {replacement}.")
-            raise ValueError("`health_thresholds` is now `checks:`, keyed by check type.")
-        return data
 
     @model_validator(mode="after")
     def _blocking_and_accepted_name_checks(self) -> Self:

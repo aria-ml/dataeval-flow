@@ -1,4 +1,4 @@
-"""The drift-monitoring preset: each test source against the reference, detectors as evaluator entries (§10.11)."""
+"""The shift preset: each test source against the reference, detectors as evaluator entries (§10.11)."""
 
 from collections.abc import Mapping
 from typing import Any, cast
@@ -8,7 +8,7 @@ import pytest
 from dataeval_flow import run_task
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig, DriftMonitoringWorkflow
+from dataeval_flow.workflows.shift import ShiftConfig, ShiftWorkflow
 from tests.chain_toys import chain_pipeline
 from tests.drift_toys import BoxImages
 from tests.evaluator_toys import ToyImages
@@ -16,7 +16,7 @@ from tests.evaluator_toys import ToyImages
 
 def _chain(**settings: Any) -> tuple[list[Mapping[str, Any]], list[Any]]:
     """The steps and evaluator entries an entry with `settings` expands to."""
-    chain = DriftMonitoringWorkflow.chain(DriftMonitoringConfig.model_validate({"name": "drift", **settings}))
+    chain = ShiftWorkflow.chain(ShiftConfig.model_validate({"name": "drift", **settings}))
     return [cast("Mapping[str, Any]", step) for step in chain.steps], list(chain.evaluators)
 
 
@@ -61,7 +61,7 @@ def _preset_run(datasets: dict[str, Any], **settings: Any) -> ChainResult:
     """The preset over `datasets`, the first the reference and the rest its tests, with the flatten extractor."""
     entry = {
         "name": "drift",
-        "type": "drift-monitoring",
+        "type": "shift",
         "detectors": [{"type": "drift-kneighbors", "k": 3}],
         **settings,
     }
@@ -116,7 +116,7 @@ def test_classwise_on_unlabelled_data_is_not_assessed():  # Review Focus 3, thro
 def test_the_crop_recipe_runs_the_preset_on_detections():
     preset = {
         "name": "drift",
-        "type": "drift-monitoring",
+        "type": "shift",
         "detectors": [{"type": "drift-kneighbors", "k": 3}],
         "classwise": {"drift-kneighbors": "class"},
     }
@@ -170,7 +170,7 @@ def test_one_task_mixes_extractors_by_class_and_by_predicted_class(tmp_path, mon
     model_files(tmp_path)
     preset = {
         "name": "drift",
-        "type": "drift-monitoring",
+        "type": "shift",
         "detectors": [
             {"type": "drift-kneighbors", "k": 3},
             {"name": "u", "type": "drift-univariate", "extractor": "unc"},
@@ -187,7 +187,7 @@ def test_one_task_mixes_extractors_by_class_and_by_predicted_class(tmp_path, mon
 def test_a_detectors_extractor_the_pipeline_does_not_define_is_refused_at_load():
     entry = {
         "name": "drift",
-        "type": "drift-monitoring",
+        "type": "shift",
         "detectors": [{"name": "u", "type": "drift-univariate", "extractor": "ghost"}],
     }
     with pytest.raises(ValueError, match=r"'u'.*extractor 'ghost'.*does not define"):

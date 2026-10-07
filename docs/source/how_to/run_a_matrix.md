@@ -9,12 +9,12 @@ A matrix replaces the `parameter-sweep` workflow type. [Section 7](#7-move-from-
 
 ## 1. Run a task once per value
 
-Write the `data-cleaning` entry as you would for one run, and list the values to try on its task:
+Write the `quality` entry as you would for one run, and list the values to try on its task:
 
 ```yaml
 workflows:
   - name: cleaning
-    type: data-cleaning
+    type: quality
     outliers:
       flags: [dimension, pixel, visual]
       outlier_threshold: adaptive
@@ -29,7 +29,7 @@ tasks:
 
 Notice:
 
-- The entry must be valid on its own, as every entry must. `data-cleaning` has no default for `outliers.flags` or
+- The entry must be valid on its own, as every entry must. `quality` has no default for `outliers.flags` or
   `outliers.outlier_threshold`, so the entry sets both, even in a matrix that varies them. Where the entry sets a
   value the matrix varies, each run replaces it.
 - The task keeps its name. `--task clean` runs it, and the results hold one entry for it, under `clean`.
@@ -55,8 +55,8 @@ The console prints the matrix's report. Below its banner, on a 1,000-image sampl
 ```text
   Health: 9 warnings [!!] across 3 runs — review flagged findings
 
-  #  outliers.outlier_threshold  Health  Image Outliers  Classwise Outliers  Image Duplicates  Class Imbalance
-  -  --------------------------  ------  --------------  ------------------  ----------------  ------------------
+  #  outliers.outlier_threshold  Health  Image Outliers  Class Outliers  Image Duplicates  Class Imbalance
+  -  --------------------------  ------  --------------  --------------  ----------------  ------------------
   1  [adaptive, 2.5]         [!!]    [!!] 157        [!!] worst: 2S19    [!!] 4            [..] 24 classes,
                                          images (15.7%)  MSTA (25.0%),       exact             1000 items,
                                                          23/24 classes over  (0.4%), 2         imbalance 3.0:1
@@ -97,7 +97,7 @@ from dataeval_flow.steps import ChainResult
 result = run_tasks(load_config(Path("pipeline.yaml")), tasks="clean", data_dir=Path("."))["clean"]
 assert isinstance(result, MatrixResult)
 for run in result.runs:
-    assert isinstance(run.result, ChainResult)  # data-cleaning is a preset, so each run is a chain
+    assert isinstance(run.result, ChainResult)  # quality is a preset, so each run is a chain
     print(run.number, run.label, run.result.health["status"])
 ```
 
@@ -177,18 +177,18 @@ A key is a dotted path, read as the first of these forms that matches:
 | `steps.<step>.<setting>` | A setting of a transform, combine or check step in the custom workflow the task runs |
 | anything else | A path into the entry the task runs |
 
-A path walks fields by name: `checks.image-outliers.warning` sets one field of `data-cleaning`'s
+A path walks fields by name: `checks.image-outliers.warning` sets one field of `quality`'s
 `checks`. The sections below give an example of each other form.
 
 ### List items by name
 
-Where a path meets a list of entries, such as an `ood-detection` entry's `detectors`, it picks the item by its `name`.
+Where a path meets a list of entries, such as a `shift` entry's `detectors`, it picks the item by its `name`.
 An entry without a `name` is named by its type, so an unnamed detector is reached by its type:
 
 ```yaml
 workflows:
   - name: ood
-    type: ood-detection
+    type: shift
     detectors:
       - {name: knn, type: ood-kneighbors, k: 10}
       - {type: ood-domain-classifier, n_folds: 5}
@@ -206,7 +206,7 @@ tasks:
 A path may end on a whole item, written whole, and the item keeps its name:
 `detectors.knn: [{type: ood-kneighbors, k: 5}, {type: ood-kneighbors, k: 20, distance_metric: euclidean}]`. Items
 are not reached by their position. A name no item has fails the load, listing the names there are:
-`` `detectors` in ood-detection has no item named `knn2` (it has `knn`, `ood-domain-classifier`) ``.
+`` `detectors` in shift has no item named `knn2` (it has `knn`, `ood-domain-classifier`) ``.
 
 ### Keys of a mapping
 
@@ -291,7 +291,7 @@ tasks:
 `steps.` reaches a setting whether the step writes it or leaves it at its default, as `knn_check` leaves `warning` at
 10.0. Changing an entry changes it for every step in the run that reads it: two steps naming `knn` both see the new
 `k`.
-`workflows.<name>.<path>` reaches a `workflows:` entry the same way, such as a `data-cleaning` entry a custom workflow
+`workflows.<name>.<path>` reaches a `workflows:` entry the same way, such as a `quality` entry a custom workflow
 runs as a step. `steps.knn_check.warning` and `workflows.novelty.steps.knn_check.warning` are one key.
 
 ### An extractor's settings
@@ -321,9 +321,9 @@ relies on them. The load refuses:
 - `steps.<step>.…` where the step runs an evaluator or workflow entry, with the key to use instead:
   `` `steps.knn.k`: step 'knn' runs the evaluator entry `knn`, whose settings live there: vary `evaluators.knn.k` ``;
 - the settings of an extractor given as a Python object, not by its settings;
-- a setting the entry does not have: `` data-cleaning has no setting `outlier_thresh` ``;
+- a setting the entry does not have: `` quality has no setting `outlier_thresh` ``;
 - the `datasets:`, `sources:`, `views:`, `preprocessors:`, `metadata:`, `stats:` and `ontologies:` pools. An entry's
-  reference to one of them by name can vary, such as a `data-cleaning` entry's `stats:`.
+  reference to one of them by name can vary, such as a `quality` entry's `stats:`.
 
 ### A key must reach every run
 
@@ -375,7 +375,7 @@ and every run that finished are still printed and written.
 their values and whether each ran (`[ok]` or `failed`), its health line says the runs ran, and each run's report shows
 its output. To compare runs by their findings, vary a workflow that judges:
 
-- a preset's settings, such as `detectors.knn.k` on an `ood-detection` task, whose checks judge each detector;
+- a preset's settings, such as `detectors.knn.k` on an `shift` task, whose checks judge each detector;
 - or a custom workflow that runs the evaluator and a check on it, varying `evaluators.knn.k` as in section 3.
 
 ## 5. What the runs share
@@ -447,7 +447,7 @@ Where the runs read other sources, or other items through a varied view, one add
 {
   "clean": {
     "kind": "matrix",
-    "type": "data-cleaning",
+    "type": "quality",
     "keys": ["outliers.outlier_threshold"],
     "metadata": {"source_descriptions": ["train (ds[sample])"], "model_id": null, "metadata_binning": null,
                  "resolved_config": {"task": {"name": "clean", "workflow": "cleaning", "sources": "train",
@@ -476,7 +476,7 @@ runs that differ, and the run writes no `encoding.json`, as when two tasks disag
 
 ## 7. Move from parameter-sweep
 
-`type: parameter-sweep` now fails the load as any unknown type does. Its fields become a `data-cleaning` entry and a
+`type: parameter-sweep` now fails the load as any unknown type does. Its fields become a `quality` entry and a
 matrix on its task. A sweep such as:
 
 ```text
@@ -499,7 +499,7 @@ becomes:
 ```yaml
 workflows:
   - name: cleaning_tune
-    type: data-cleaning
+    type: quality
     outliers:
       flags: [dimension, pixel, visual]
       outlier_threshold: adaptive
@@ -519,13 +519,13 @@ tasks:
 Notice:
 
 - **Set `outliers.outlier_threshold` and `outliers.flags` on the entry.** The sweep defaulted them to `[adaptive]` and
-  all three flag groups, and `data-cleaning` has no default for either. The sweep's `outlier_method` and
+  all three flag groups, and `quality` has no default for either. The sweep's `outlier_method` and
   `outlier_threshold` are one setting here: `adaptive` alone, or `[adaptive, 2.5]`.
 - A field the sweep held one value for is a setting of the entry. A field with several values is a key of the matrix,
   `null` included where the sweep tried DataEval's default.
-- The sweep's statistics ignored `value_range`. `data-cleaning` reads the dataset's `value_range`, so on float
+- The sweep's statistics ignored `value_range`. `quality` reads the dataset's `value_range`, so on float
   imagery that declares one, its statistics can differ from the sweep's.
-- **On detection data, `data-cleaning` also judges boxes**, and its outlier counts include them, where the sweep
+- **On detection data, `quality` also judges boxes**, and its outlier counts include them, where the sweep
   counted whole images. On classification data, the count of images flagged and of near-duplicate groups match what
   the sweep reported for each combination, where `duplicates.merge_near_duplicates` is left at its default: the sweep merged
   near-duplicate groups whatever it said.
@@ -545,7 +545,7 @@ The [Tune data cleaning with a matrix](../notebooks/tune_data_cleaning.py) tutor
 
 ## See also
 
-- [Tune data cleaning with a matrix](../notebooks/tune_data_cleaning.py): choose `data-cleaning` thresholds on
+- [Tune data cleaning with a matrix](../notebooks/tune_data_cleaning.py): choose `quality` thresholds on
   MilitaryVehicles from a matrix's table
 - [Configure outlier detection](configure_outlier_detection.md): the outlier settings most worth varying
 - [Read evaluation outputs](read_evaluation_outputs.md): the report, its severities and the JSON

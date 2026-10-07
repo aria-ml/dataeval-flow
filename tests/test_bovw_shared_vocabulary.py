@@ -19,7 +19,7 @@ from dataeval_flow.config import DatasetProtocolConfig, PipelineConfig, SourceCo
 from dataeval_flow.config.extractors import BoVWExtractorConfig
 from dataeval_flow.evaluators.shift import DriftMMDConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
+from dataeval_flow.workflows.shift import ShiftConfig
 
 if TYPE_CHECKING:
     from dataeval.protocols import DatasetMetadata
@@ -62,7 +62,7 @@ def _drift_between(reference, incoming, tmp_path) -> ChainResult:
             SourceConfig(name="inc", dataset="incoming"),
         ],
         extractors=[BoVWExtractorConfig(name="bovw", vocab_size=256, batch_size=16)],
-        workflows=[DriftMonitoringConfig(name="w", detectors=[DriftMMDConfig()])],
+        workflows=[ShiftConfig(name="w", detectors=[DriftMMDConfig()])],
         tasks=[task],
     )
     result = run_task(config, task, cache_dir=tmp_path)
@@ -166,7 +166,7 @@ def test_unseeded_drift_tasks_sharing_a_reference_see_no_drift_in_identical_data
         datasets=[DatasetProtocolConfig(name=name, dataset=data[name]) for name in names],
         sources=[SourceConfig(name=name, dataset=name) for name in names],
         extractors=[BoVWExtractorConfig(name="bovw", vocab_size=256, batch_size=16)],
-        workflows=[DriftMonitoringConfig(name="drift", detectors=[DriftMMDConfig()])],
+        workflows=[ShiftConfig(name="drift", detectors=[DriftMMDConfig()])],
         tasks=[
             TaskConfig(
                 name=f"drift_{batch}", workflow="drift", sources=["reference", f"incoming_{batch}"], extractor="bovw"

@@ -1,4 +1,4 @@
-"""The label check: data-cleaning's Label Distribution finding, as a step (spec §9.2)."""
+"""The label check: quality's Label Distribution finding, as a step (spec §9.2)."""
 
 __all__ = [
     "ClassImbalanceCheck",
@@ -69,7 +69,9 @@ class ClassImbalanceCheck(Check[ClassImbalanceConfig]):
     observed (coverage spec §5.3)."""
 
     name: ClassVar[str] = "class-imbalance"
-    description: ClassVar[str] = "Warns when the largest class outnumbers the smallest by more than `warning`."
+    description: ClassVar[str] = (
+        "Judges `label-health`'s output: warns when the largest class outnumbers the smallest by more than `warning`."
+    )
     title: ClassVar[str] = "Class Imbalance"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(LabelHealthOutput,)),)
 
@@ -176,7 +178,9 @@ class ClassSufficiencyCheck(Check[ClassSufficiencyConfig]):
     """``class-sufficiency``: warns when a class train holds has too few labels in train, or in an evaluation split."""
 
     name: ClassVar[str] = "class-sufficiency"
-    description: ClassVar[str] = "Warns when a class has too few labels to learn or to evaluate."
+    description: ClassVar[str] = (
+        "Judges `label-health`'s output: warns when a class has too few labels to learn or to evaluate."
+    )
     title: ClassVar[str] = "Class Sufficiency"
     inputs: ClassVar[tuple[Port, ...]] = (
         Port("input", DataType.OUTPUT, classes=(LabelHealthOutput,)),
@@ -252,7 +256,9 @@ class UntrainedClassesCheck(Check[UntrainedClassesConfig]):
     """``untrained-classes``: warns when an evaluation split holds a class train has no labels for."""
 
     name: ClassVar[str] = "untrained-classes"
-    description: ClassVar[str] = "Warns when an evaluation split holds a class train lacks."
+    description: ClassVar[str] = (
+        "Judges `label-health`'s output: warns when an evaluation split holds a class train lacks."
+    )
     title: ClassVar[str] = "Untrained Classes"
     inputs: ClassVar[tuple[Port, ...]] = ClassSufficiencyCheck.inputs
 

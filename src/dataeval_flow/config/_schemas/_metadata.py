@@ -389,7 +389,7 @@ class MetadataPolicyConfig(BaseModel):
 
         workflows:
           - name: bias_check
-            type: data-bias
+            type: bias
             metadata: standard
     """
 

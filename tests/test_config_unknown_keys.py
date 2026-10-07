@@ -20,28 +20,27 @@ from dataeval_flow.config._schemas import (
 from dataeval_flow.config._schemas._preprocessor import PreprocessingStep
 from dataeval_flow.config._schemas._view import ViewOperation
 from dataeval_flow.workflows.audit import AuditChecks
-from dataeval_flow.workflows.data_bias._config import (
-    DataBiasChecks,
-    DataBiasClassImbalanceSettings,
-    DataBiasConfig,
+from dataeval_flow.workflows.bias._config import (
+    BiasChecks,
+    BiasConfig,
+    ClassImbalanceSettings,
     FactorCoverageGapsSettings,
     FactorGapsSettings,
     FactorParitySettings,
 )
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
-from dataeval_flow.workflows.data_cleaning._config import DataCleaningChecks
-from dataeval_flow.workflows.data_coverage._config import (
+from dataeval_flow.workflows.quality import QualityConfig
+from dataeval_flow.workflows.quality._config import QualityChecks
+from dataeval_flow.workflows.scope._config import (
     ClassCoverageSettings,
+    CoverageSettings,
     CropParams,
-    DataCoverageChecks,
-    DataCoverageConfig,
-    DataCoverageCoverageSettings,
-    DataCoverageUncoveredItemsSettings,
     DimensionalCompletenessSettings,
+    ScopeChecks,
+    ScopeConfig,
+    UncoveredItemsSettings,
 )
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringChecks
-from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
-from dataeval_flow.workflows.ood_detection import OODDetectionChecks
+from dataeval_flow.workflows.shift import ShiftChecks
+from dataeval_flow.workflows.triage._config import TriageConfig
 from tests.chain_toys import chain_pipeline
 
 pytestmark = pytest.mark.required
@@ -92,24 +91,23 @@ _NESTED = [
     pytest.param(LoggingConfig, {}, id="logging"),
     pytest.param(ResultConfig, {}, id="result"),
     pytest.param(DatasetProtocolConfig, {"name": "d", "format": "maite", "dataset": []}, id="maite"),
-    pytest.param(DataCoverageConfig, {}, id="workflow"),
-    pytest.param(MetadataTriageConfig, {}, id="another-workflow"),
+    pytest.param(ScopeConfig, {}, id="workflow"),
+    pytest.param(TriageConfig, {}, id="another-workflow"),
     pytest.param(AuditChecks, {}, id="audit-thresholds"),
-    pytest.param(DataCleaningChecks, {}, id="cleaning-thresholds"),
-    pytest.param(DataCoverageChecks, {}, id="coverage-thresholds"),
-    pytest.param(DataBiasClassImbalanceSettings, {}, id="bias-class-imbalance"),
+    pytest.param(QualityChecks, {}, id="cleaning-thresholds"),
+    pytest.param(ScopeChecks, {}, id="coverage-thresholds"),
+    pytest.param(ClassImbalanceSettings, {}, id="bias-class-imbalance"),
     pytest.param(FactorParitySettings, {}, id="factor-parity"),
-    pytest.param(DataBiasChecks, {}, id="bias-checks"),
-    pytest.param(DataBiasConfig, {"name": "w"}, id="bias-config"),
+    pytest.param(BiasChecks, {}, id="bias-checks"),
+    pytest.param(BiasConfig, {"name": "w"}, id="bias-config"),
     pytest.param(FactorCoverageGapsSettings, {}, id="factor-coverage-gaps"),
     pytest.param(ClassCoverageSettings, {}, id="coverage-class-coverage"),
-    pytest.param(DataCoverageUncoveredItemsSettings, {}, id="coverage-uncovered-rate"),
+    pytest.param(UncoveredItemsSettings, {}, id="coverage-uncovered-rate"),
     pytest.param(DimensionalCompletenessSettings, {}, id="coverage-completeness-score"),
-    pytest.param(DataCoverageCoverageSettings, {}, id="coverage-settings"),
+    pytest.param(CoverageSettings, {}, id="coverage-settings"),
     pytest.param(CropParams, {}, id="coverage-crops"),
     pytest.param(FactorGapsSettings, {}, id="bias-gap-settings"),
-    pytest.param(DriftMonitoringChecks, {}, id="drift-thresholds"),
-    pytest.param(OODDetectionChecks, {}, id="ood-thresholds"),
+    pytest.param(ShiftChecks, {}, id="shift-thresholds"),
 ]
 
 
@@ -141,11 +139,9 @@ class TestConfigFolder:
 
 
 _STILL_WRITES_MODE = [
-    pytest.param(
-        DataCleaningConfig, {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}, id="data-cleaning"
-    ),
-    pytest.param(DataCoverageConfig, {}, id="data-coverage"),
-    pytest.param(MetadataTriageConfig, {}, id="metadata-triage"),
+    pytest.param(QualityConfig, {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}, id="quality"),
+    pytest.param(ScopeConfig, {}, id="scope"),
+    pytest.param(TriageConfig, {}, id="triage"),
 ]
 
 
@@ -157,7 +153,7 @@ def test_a_workflow_entry_that_still_writes_mode_is_refused(model: type[BaseMode
 
 
 def test_a_pipeline_whose_workflow_still_writes_mode_fails_to_load_naming_it() -> None:
-    entry = {"name": "c", "type": "data-cleaning", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
+    entry = {"name": "c", "type": "quality", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
     with pytest.raises(ValidationError) as info:
         chain_pipeline(workflows=[{**entry, "mode": "advisory"}])
     assert [error["loc"][-1] for error in info.value.errors() if error["type"] == "extra_forbidden"] == ["mode"]

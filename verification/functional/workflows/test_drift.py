@@ -1,4 +1,4 @@
-"""TC-8-1 — the drift-monitoring preset."""
+"""TC-8-1 — the shift preset."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from dataeval_flow import run_tasks
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.shift import DriftKNeighborsConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
+from dataeval_flow.workflows.shift import ShiftConfig
 
 pytestmark = pytest.mark.required
 
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.test_case("8-1")
-class TestDriftMonitoringWorkflow:
+class TestShiftWorkflow:
     def test_drift_workflow_runs(
         self,
         image_folder_pipeline_builder: Callable[..., tuple[PipelineConfig, Path]],
@@ -30,9 +30,9 @@ class TestDriftMonitoringWorkflow:
         cfg, data_dir = image_folder_pipeline_builder(
             sources=(("ref", 0), ("test", 99)),
             workflows=[
-                DriftMonitoringConfig(
+                ShiftConfig(
                     name="drift_main",
-                    type="drift-monitoring",
+                    type="shift",
                     detectors=[DriftKNeighborsConfig(k=3)],
                 ),
             ],

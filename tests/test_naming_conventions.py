@@ -2,7 +2,7 @@
 rules are written out for plugin authors in reference/naming.md."""
 
 import re
-from collections import Counter
+from fnmatch import fnmatch
 from typing import Any, get_args
 
 import pytest
@@ -17,7 +17,11 @@ _STEPS = [
     cls for registry in (EVALUATORS, TRANSFORMS, COMBINES, CHECKS, WORKFLOWS) for cls in registry.list(plugins=False)
 ]
 # The two step configs whose `<Type>Config` name a pipeline pool entry already holds (`views:`, `exports:`).
-_POOL_NAMED = {"view": "ViewTransformConfig", "export": "ExportTransformConfig"}
+_POOL_NAMED = {
+    ("transform", "view"): "ViewTransformConfig",
+    ("transform", "export"): "ExportTransformConfig",
+    ("workflow", "prioritization"): "PrioritizationWorkflowConfig",
+}
 
 
 def _squashed(text: str) -> str:
@@ -37,10 +41,6 @@ def test_a_step_type_and_its_title_name_one_thing(cls: type) -> None:
     )
 
 
-def test_no_two_step_types_share_a_name_across_kinds() -> None:
-    assert sorted(name for name, n in Counter(cls.name for cls in _STEPS).items() if n > 1) == []
-
-
 @pytest.mark.parametrize("cls", _STEPS, ids=_id)
 def test_a_step_class_is_named_for_its_type_and_kind(cls: type) -> None:
     assert cls.__name__.lower() == _squashed(cls.name) + cls.kind, f"`{cls.__name__}` is not `<Type><Kind>`"
@@ -48,7 +48,7 @@ def test_a_step_class_is_named_for_its_type_and_kind(cls: type) -> None:
 
 @pytest.mark.parametrize("cls", _STEPS, ids=_id)
 def test_a_step_config_is_named_for_its_type(cls: type) -> None:
-    expected = _POOL_NAMED.get(cls.name)
+    expected = _POOL_NAMED.get((cls.kind, cls.name))
     if expected is not None:
         assert cls.config_type.__name__ == expected
     else:
@@ -189,22 +189,20 @@ _MINIMAL = {
         "factor-leakage": {"factors": ["site"]},
         "coverage": {"method": "naive"},
     },
-    "data-bias": {},
-    "data-cleaning": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}},
-    "data-coverage": {"coverage": {"method": "naive"}},
-    "data-prioritization": {},
-    "data-splitting": {"rebalance": "interclass"},
-    "drift-monitoring": {
-        "detectors": [{"name": "mmd", "type": "drift-mmd", "chunking": {"chunk_count": 5}}],
-        "classwise": {"mmd": "class"},
-    },
-    "label-space": {"ontology": {"animal": {"cat": None}}},
-    "metadata-triage": {},
-    "ood-detection": {
+    "bias": {},
+    "quality": {"outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}},
+    "scope": {"coverage": {"method": "naive"}},
+    "prioritization": {},
+    "splits": {"rebalance": "interclass"},
+    "taxonomy": {"ontology": {"animal": {"cat": None}}},
+    "triage": {},
+    "shift": {
         "detectors": [
+            {"name": "mmd", "type": "drift-mmd", "chunking": {"chunk_count": 5}},
             {"name": "knn", "type": "ood-kneighbors", "distance_metric": "euclidean"},
             {"name": "dc", "type": "ood-domain-classifier"},
-        ]
+        ],
+        "classwise": {"mmd": "class"},
     },
 }
 _KINDS = ("evaluator", "combine", "check")
@@ -278,3 +276,16 @@ def test_a_step_description_is_one_sentence(cls: type) -> None:
     assert description.endswith("."), error_msg
     assert "\n" not in description, error_msg
     assert ". " not in description, f"{cls.kind} `{cls.name}`'s description is more than one sentence"
+
+
+@pytest.mark.parametrize("cls", CHECKS.list(plugins=False), ids=_id)
+def test_a_check_s_description_names_what_it_judges(cls: type) -> None:
+    from dataeval_flow.steps import list_steps
+
+    (entry,) = [e for e in list_steps(plugins=False).steps if e.kind == "check" and e.type == cls.name]
+    head, colon, _ = cls.description.partition(":")
+    named = re.findall(r"`([^`]+)`", head)
+    assert cls.description.startswith("Judges "), f"`{cls.name}`: start with 'Judges <what>: '"
+    assert colon, f"`{cls.name}`: follow what it judges with a colon"
+    missing = [judged for judged in entry.judges if not any(fnmatch(judged, name) for name in named)]
+    assert not missing, f"`{cls.name}` judges {missing}, which its description does not name"

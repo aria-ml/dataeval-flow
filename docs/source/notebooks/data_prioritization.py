@@ -16,7 +16,7 @@
 # %% [markdown]
 # # Prioritize unlabeled data for labeling
 #
-# Use the `data-prioritization` workflow to rank incoming data by what to
+# Use the `prioritization` workflow to rank incoming data by what to
 # label next, given an already-labeled reference dataset and a trained model.
 
 # %% [markdown]
@@ -35,13 +35,13 @@
 # - Load MilitaryVehicles and split it into labeled reference and unlabeled pools.
 # - Train a classifier on the labeled pool covering 20 vehicle types, holding out 4 Air Defense systems.
 # - Inject corrupted and duplicate frames into the unlabeled pool to test automated pruning.
-# - Execute the `data-prioritization` workflow to rank unlabeled samples.
+# - Execute the `prioritization` workflow to rank unlabeled samples.
 # - Measure ranking efficiency against random selection baselines and model uncertainty sampling.
 
 # %% [markdown]
 # ## What you will learn
 #
-# - How to configure and execute `data-prioritization` with `run_task()`.
+# - How to configure and execute `prioritization` with `run_task()`.
 # - How reference datasets and extractor representations direct prioritization.
 # - How `hard_first` ordering prioritizes out-of-distribution or challenging samples.
 # - How to benchmark prioritization gains against random sampling baselines.
@@ -305,7 +305,7 @@ print(f"Model saved to {model_path}")
 # - **Method**: KNN with `hard_first` ordering to rank samples farthest from reference neighbors.
 # - **Pruning**: Outlier and exact-duplicate detection to filter invalid samples before ranking.
 #
-# The `data-prioritization` preset ranks; it does not prune. A custom workflow prunes the
+# The `prioritization` preset ranks; it does not prune. A custom workflow prunes the
 # reference and the pool with `outliers`, `duplicates` and `remove` steps, then runs the preset
 # as its step `rank`, on what they kept.
 
@@ -320,14 +320,14 @@ from dataeval_flow.config import (
 from dataeval_flow.config.extractors import TorchExtractorConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig, OutliersConfig
 from dataeval_flow.steps import CustomWorkflowConfig, StepEntry
-from dataeval_flow.workflows.data_prioritization import DataPrioritizationConfig
+from dataeval_flow.workflows.prioritization import PrioritizationWorkflowConfig
 
 ref_dataset = labeled_dataset
 
 # The adaptive bound is lower than the default 3.5, to catch subtler corruptions.
 outliers = OutliersConfig(name="outliers", flags=["dimension", "pixel", "visual"], outlier_threshold=("adaptive", 3.0))
 duplicates = DuplicatesConfig(name="duplicates", merge_near_duplicates=True)
-ranking = DataPrioritizationConfig(
+ranking = PrioritizationWorkflowConfig(
     name="ranking", prioritization={"method": "knn", "k": 5, "order": "hard_first", "policy": "difficulty"}
 )
 
@@ -601,7 +601,7 @@ except ImportError:
 # frames for a labeling batch.
 
 # %%
-from dataeval_flow.workflows.data_prioritization import SelectSettings
+from dataeval_flow.workflows.prioritization import SelectSettings
 
 top_100 = config.model_copy(
     update={"workflows": [ranking.model_copy(update={"select": SelectSettings(n=100)}), workflow]}
@@ -615,7 +615,7 @@ print(f"Selected for labeling: {len(batch)} frames, the first {len(batch)} of th
 # In this tutorial, you learned how to:
 #
 # - Train a custom embedding extractor on reference data.
-# - Configure the `data-prioritization` workflow with KNN distance metrics and `hard_first` ordering.
+# - Configure the `prioritization` workflow with KNN distance metrics and `hard_first` ordering.
 # - Prune outliers and exact duplicates with steps of a custom workflow, then run the preset as
 #   its step.
 # - Run the preset via `run_task()`.
@@ -631,7 +631,7 @@ print(f"Selected for labeling: {len(batch)} frames, the first {len(batch)} of th
 #   ranking across known classes.
 # - **Threshold tuning**: Adjust the `outliers` entry's `outlier_threshold` and `flags` to
 #   control pruning sensitivity.
-# - **Fewer steps**: Prune with a `data-cleaning` step on each input instead, which also
+# - **Fewer steps**: Prune with a `quality` step on each input instead, which also
 #   removes near duplicates.
 
 # %% [markdown]

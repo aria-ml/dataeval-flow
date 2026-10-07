@@ -1,7 +1,7 @@
-"""The label-space runs the agreement golden records: one pipeline per case, in the preset's settings.
+"""The taxonomy runs the agreement golden records: one pipeline per case, in the preset's settings.
 
 The generator ran each case once on legacy data-coverage, with `ontology:` set, and recorded its ontology findings
-and what they were computed from; the agreement test runs the preset's settings (coverage spec §8.1). data-coverage
+and what they were computed from; the agreement test runs the preset's settings (coverage spec §8.1). scope
 now refuses `ontology:`, so legacy's settings no longer build.
 """
 
@@ -100,13 +100,13 @@ CASES: dict[str, Case] = {
 
 
 def pipeline(name: str, *, legacy: bool) -> PipelineConfig:
-    """Case `name` as a one-task pipeline: a `label-space` entry. Legacy data-coverage's is refused."""
+    """Case `name` as a one-task pipeline: a `taxonomy` entry. Legacy scope's is refused."""
     if legacy:
-        raise ValueError("data-coverage no longer judges an ontology, so legacy's settings for this case do not build.")
+        raise ValueError("scope no longer judges an ontology, so legacy's settings for this case do not build.")
     case = CASES[name]
     DatasetCache.clear_instances()
     ontology: dict[str, Any] | str = "vocab" if case.concepts else dict(case.ontology or {})
-    entry: dict[str, Any] = {"name": "w", "type": "label-space", "ontology": ontology}
+    entry: dict[str, Any] = {"name": "w", "type": "taxonomy", "ontology": ontology}
     if case.expected is not None:
         entry["representation"] = {"expected": case.expected}
     if case.label_pattern is not None:

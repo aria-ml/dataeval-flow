@@ -14,11 +14,11 @@ from tests.evaluator_toys import ToyImages, shifted_sources
 
 _CLEANING = {
     "name": "cleaning",
-    "type": "data-cleaning",
+    "type": "quality",
     "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"},
 }
 _KNN = {"name": "knn", "type": "ood-kneighbors", "k": 5, "distance_metric": "euclidean"}
-_OOD = {"name": "ood", "type": "ood-detection", "detectors": [_KNN, {"type": "ood-domain-classifier", "n_folds": 3}]}
+_OOD = {"name": "ood", "type": "shift", "detectors": [_KNN, {"type": "ood-domain-classifier", "n_folds": 3}]}
 
 
 @pytest.fixture(autouse=True)
@@ -217,7 +217,7 @@ def test_a_sibling_task_is_not_checked_against_the_matrix_s_overrides() -> None:
 @pytest.mark.parametrize(
     ("matrix", "fragment"),
     [
-        ({"outlier_thresh": [1.0]}, "data-cleaning has no setting `outlier_thresh`"),
+        ({"outlier_thresh": [1.0]}, "quality has no setting `outlier_thresh`"),
         ({"evaluators.nope.k": [1]}, "`evaluators:` has no entry named `nope`"),
         ({"steps.few.n": [1]}, "runs no custom workflow"),
         ({"name": ["other"]}, "a matrix varies settings, not identities"),

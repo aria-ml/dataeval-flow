@@ -1,4 +1,4 @@
-"""data-cleaning's checks: each on its own, and the preset agreeing with the chain the Check Catalog documents
+"""quality's checks: each on its own, and the preset agreeing with the chain the Check Catalog documents
 (spec §9.2, §10.3)."""
 
 from collections.abc import Callable
@@ -17,8 +17,8 @@ from dataeval_flow.steps import ChainResult, CheckContext, Finding
 from dataeval_flow.steps.checks import (
     ClassImbalanceCheck,
     ClassImbalanceConfig,
-    ClasswiseOutliersCheck,
-    ClasswiseOutliersConfig,
+    ClassOutliersCheck,
+    ClassOutliersConfig,
     ImageDuplicatesCheck,
     ImageDuplicatesConfig,
     ImageOutliersCheck,
@@ -33,7 +33,7 @@ from tests.evaluator_toys import ToyImages
 _CONTEXT = CheckContext(task="t", step="s")
 _CLEANING = {
     "name": "cleaning",
-    "type": "data-cleaning",
+    "type": "quality",
     "outliers": {"flags": ["pixel", "visual"], "outlier_threshold": "zscore"},
 }
 _EVALUATORS = [
@@ -53,21 +53,21 @@ _OUTLIER_STEPS = [
     {"name": "by-class", "combine": "outliers-by-class", "input": "data", "outliers": "outliers"},
     {"name": "image-outliers", "check": "image-outliers", "input": "outliers"},
     {"name": "target-outliers", "check": "target-outliers", "input": "outliers", "labels": "labels"},
-    {"name": "classwise", "check": "classwise-outliers", "input": "by-class"},
+    {"name": "classwise", "check": "class-outliers", "input": "by-class"},
 ]
-_OUTLIER_TITLES = {"Image Outliers", "Target Outliers", "Classwise Outliers"}
+_OUTLIER_TITLES = {"Image Outliers", "Target Outliers", "Class Outliers"}
 
 # 24 classification images, labelled and not; 20 detection images with 28 boxes, a copied image (9 of 4) and two
-# bright boxes. On these, data-cleaning finds (severity, title, brief):
-#   classification: warning Image Outliers 1 images (4.2%); warning Classwise Outliers worst: b (8.3%), 1/1 classes
+# bright boxes. On these, quality finds (severity, title, brief):
+#   classification: warning Image Outliers 1 images (4.2%); warning Class Outliers worst: b (8.3%), 1/1 classes
 #     over 3.0%; warning Duplicates 2 exact (8.3%), 0 near (0.0%); info Class Imbalance 2 classes, 24 items,
 #     imbalance 1.0:1
-#   unlabelled: the same outliers and duplicates, Classwise Outliers info worst: None (0.0%), all classes within
+#   unlabelled: the same outliers and duplicates, Class Outliers info worst: None (0.0%), all classes within
 #     3.0%, and no Class Imbalance, since no item has a label
 #   detection: warning Image Outliers 2 images (10.0%); warning Target Outliers 2 targets (7.1%); warning Classwise
 #     Outliers worst: van (12.5%), 1/1 classes over 3.0%; warning Duplicates 2 exact (10.0%), 0 near (0.0%); info
 #     Class Imbalance 3 classes, 20 items, imbalance 1.3:1
-#   no duplicates (6 images, none copied): ok Image Outliers 0 images (0.0%); ok Classwise Outliers no outliers
+#   no duplicates (6 images, none copied): ok Image Outliers 0 images (0.0%); ok Class Outliers no outliers
 #     detected; info Class Imbalance 2 classes, 6 items, imbalance 1.0:1; and no Duplicates finding at all
 _DATASETS: dict[str, Callable[[], Any]] = {
     "classification": lambda: ToyImages(count=24),
@@ -90,7 +90,7 @@ def _fresh_caches():
 
 
 def _both(steps: list[dict[str, Any]], dataset: Any) -> tuple[list[Finding], list[Finding]]:
-    """data-cleaning's findings and the chain's, each run as its own task over the same source."""
+    """quality's findings and the chain's, each run as its own task over the same source."""
     config = chain_pipeline(
         workflows=[_CLEANING, {"name": "judged", "inputs": ["data"], "steps": steps}],
         evaluators=_EVALUATORS,
@@ -152,7 +152,7 @@ def test_the_outlier_checks_judge_nothing_where_their_limits_are_none() -> None:
             "labels": "labels",
             "warning": None,
         },
-        {"name": "classwise", "check": "classwise-outliers", "input": "by-class", "warning": None},
+        {"name": "classwise", "check": "class-outliers", "input": "by-class", "warning": None},
     ]
     _, judged = _both(_OUTLIER_STEPS, _DATASETS["detection"]())
     assert "warning" in {finding.severity for finding in judged}  # the defaults do warn on these
@@ -206,19 +206,19 @@ _PIVOT = OutliersByClassOutput(
 
 
 def test_classwise_outlier_rate_names_the_worst_class_and_counts_those_over() -> None:
-    config = ClasswiseOutliersConfig(input="c", warning=10.0)
-    (finding,) = ClasswiseOutliersCheck().run(config, {"input": _node(_PIVOT)}, _CONTEXT)
+    config = ClassOutliersConfig(input="c", warning=10.0)
+    (finding,) = ClassOutliersCheck().run(config, {"input": _node(_PIVOT)}, _CONTEXT)
     assert (finding.severity, finding.title, finding.brief) == (
         "warning",
-        "Classwise Outliers",
+        "Class Outliers",
         "worst: van (30.0%), 1/2 classes over 10.0%",
     )
     assert finding.description is None
 
 
 def test_classwise_outlier_rate_without_a_limit_names_the_worst_and_judges_nothing() -> None:
-    config = ClasswiseOutliersConfig(input="c", warning=None)
-    (finding,) = ClasswiseOutliersCheck().run(config, {"input": _node(_PIVOT)}, _CONTEXT)
+    config = ClassOutliersConfig(input="c", warning=None)
+    (finding,) = ClassOutliersCheck().run(config, {"input": _node(_PIVOT)}, _CONTEXT)
     assert (finding.severity, finding.brief) == ("info", "worst: van (30.0%)")
 
 
@@ -240,7 +240,7 @@ def test_the_classwise_pivot_orders_tied_classes_by_name() -> None:
 
 def test_classwise_outlier_rate_with_nothing_flagged_passes() -> None:
     empty = OutliersByClassOutput(count_basis="image", rows=[], total=None)
-    (finding,) = ClasswiseOutliersCheck().run(ClasswiseOutliersConfig(input="c"), {"input": _node(empty)}, _CONTEXT)
+    (finding,) = ClassOutliersCheck().run(ClassOutliersConfig(input="c"), {"input": _node(empty)}, _CONTEXT)
     assert (finding.severity, finding.brief) == ("ok", "no outliers detected")
 
 
@@ -285,8 +285,8 @@ def test_classwise_outliers_refuses_detection_outliers_not_found_per_box() -> No
     by_class = result.steps["by-class"]
     assert by_class.status == "failed"
     assert f"ValueError: {message}" in " ".join(by_class.errors)
-    (finding,) = [f for f in result.findings if f.title == "Classwise Outliers"]
-    assert (finding.severity, finding.title, finding.brief) == ("info", "Classwise Outliers", "not assessed")
+    (finding,) = [f for f in result.findings if f.title == "Class Outliers"]
+    assert (finding.severity, finding.title, finding.brief) == ("info", "Class Outliers", "not assessed")
     assert finding.description is not None
     assert finding.description.startswith(
         "Not assessed: `by-class` failed: ValueError: outliers-by-class counts a detection Dataset's boxes"

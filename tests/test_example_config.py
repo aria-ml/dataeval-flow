@@ -19,7 +19,7 @@ from dataeval_flow._stats import (
     resolve_stats_policy,
 )
 from dataeval_flow.config import PipelineConfig, StatsPolicyConfig
-from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+from dataeval_flow.workflows.quality import QualityConfig
 
 _EXAMPLE_PATH = Path(__file__).resolve().parents[1] / "config" / "params.example.yaml"
 
@@ -65,7 +65,7 @@ def _channel_groups_of(dataset: dict[str, Any]) -> dict[str, tuple[int, ...]]:
     }
 
 
-def _build_clean_config() -> tuple[PipelineConfig, DataCleaningConfig, dict[str, tuple[int, ...]]]:
+def _build_clean_config() -> tuple[PipelineConfig, QualityConfig, dict[str, tuple[int, ...]]]:
     """Build a `PipelineConfig` scoped to just `m3fd`, `multispectral`, and the `clean` workflow."""
     sections = _load_example_sections()
     m3fd = next(d for d in sections["datasets"] if d["name"] == "m3fd")
@@ -75,7 +75,7 @@ def _build_clean_config() -> tuple[PipelineConfig, DataCleaningConfig, dict[str,
     config = PipelineConfig.model_validate({"datasets": [m3fd], "stats": sections["stats"], "workflows": [clean]})
     assert config.workflows is not None
     (clean_params,) = config.workflows
-    assert isinstance(clean_params, DataCleaningConfig)
+    assert isinstance(clean_params, QualityConfig)
     return config, clean_params, _channel_groups_of(m3fd)
 
 
@@ -113,7 +113,7 @@ class TestExampleCleaningWorkflowCanReadItsOwnPolicy:
     what `outliers.flags: [visual]` needed on `~`.
     """
 
-    def _resolve(self) -> tuple[ResolvedStatsPolicy, DataCleaningConfig]:
+    def _resolve(self) -> tuple[ResolvedStatsPolicy, QualityConfig]:
         config, clean_params, channel_groups = _build_clean_config()
         resolved = resolve_stats_policy(clean_params, config, channel_groups)
         assert resolved is not None

@@ -216,13 +216,13 @@ def synthetic_pipeline_config(tmp_path: Path) -> tuple[object, Path]:
     """Return a ``PipelineConfig`` + ``data_dir`` that runs a single trivial workflow.
 
     The fixture writes a tiny synthetic ImageFolder to ``tmp_path/imgs`` and
-    composes a single ``data-cleaning`` task referencing it.  Field names follow
+    composes a single ``quality`` task referencing it.  Field names follow
     the actual pydantic schemas (``datasets``/``sources``/``workflows``/``tasks``
     as lists of named items).
     """
     from dataeval_flow.config import ImageFolderDatasetConfig, PipelineConfig, SourceConfig, TaskConfig
     from dataeval_flow.config.extractors import FlattenExtractorConfig
-    from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
+    from dataeval_flow.workflows.quality import QualityConfig
     from verification.fixtures import write_image_folder
 
     write_image_folder(tmp_path / "imgs", n_per_class=4, n_classes=2)
@@ -242,9 +242,9 @@ def synthetic_pipeline_config(tmp_path: Path) -> tuple[object, Path]:
             FlattenExtractorConfig(name="flat", model="flatten"),
         ],
         workflows=[
-            DataCleaningConfig(
+            QualityConfig(
                 name="clean_main",
-                type="data-cleaning",
+                type="quality",
                 outliers={"flags": ["dimension", "pixel"], "outlier_threshold": "zscore"},
             ),
         ],

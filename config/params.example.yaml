@@ -260,13 +260,13 @@
 #
 # workflows:
 #   - name: standard_clean
-#     type: data-cleaning
+#     type: quality
 #     outliers:
 #       flags: [dimension, pixel, visual]
 #       outlier_threshold: adaptive
 #
 #   - name: strict_clean
-#     type: data-cleaning
+#     type: quality
 #     outliers:
 #       flags: [dimension, pixel, visual]
 #       outlier_threshold: [zscore, 2.0]
@@ -275,7 +275,7 @@
 #       image-outliers: {warning: 1.0}
 #
 #   - name: basic_drift
-#     type: drift-monitoring          # each test source is tested on its own against the first, the reference
+#     type: shift                     # each test source is tested on its own against the first, the reference
 #     detectors:                      # drift evaluator entries: drift-univariate | drift-mmd | drift-kneighbors |
 #       - type: drift-univariate      #   drift-domain-classifier; an entry's `name` (default: its type) names its step
 #         method: ks                  # ks | cvm | mwu | anderson | bws
@@ -289,7 +289,7 @@
 #       drift: {warn_on_drift: true, chunk_percent: 10.0, consecutive_chunks: 3}
 #
 #   - name: clean
-#     type: data-cleaning
+#     type: quality
 #     stats: multispectral
 #     outliers:
 #       flags: [visual]

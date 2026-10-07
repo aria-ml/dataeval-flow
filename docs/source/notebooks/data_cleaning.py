@@ -16,7 +16,7 @@
 # %% [markdown]
 # # Clean a dataset
 #
-# Flag outliers and duplicates in SkySeaLand using the config-driven `data-cleaning` workflow, and take the dataset
+# Flag outliers and duplicates in SkySeaLand using the config-driven `quality` workflow, and take the dataset
 # without them.
 
 # %% [markdown]
@@ -33,7 +33,7 @@
 # ## What you will do
 #
 # - Load the SkySeaLand object-detection dataset using `maite-datasets`.
-# - Configure a `data-cleaning` workflow with BoVW (Bag of Visual Words) embeddings.
+# - Configure a `quality` workflow with BoVW (Bag of Visual Words) embeddings.
 # - Run `run_task()` to detect statistical outliers and image duplicates.
 # - Inspect the cleaning report and evaluate health status indicators.
 # - Visually inspect flagged outlier and duplicate images using `dataeval-plots`.
@@ -42,7 +42,7 @@
 # %% [markdown]
 # ## What you will learn
 #
-# - How to configure and execute the `data-cleaning` workflow with `run_task()`.
+# - How to configure and execute the `quality` workflow with `run_task()`.
 # - How to use BoVW feature extractors without external pretrained model files.
 # - How to configure outlier detection parameters and duplicate sensitivity.
 # - How to set check thresholds to trigger warning statuses.
@@ -86,7 +86,7 @@ data_path = Path("./data/skysealand_datamaite_base")
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
 #
-# You must specify parameters explicitly in `data-cleaning`. In this configuration,
+# You must specify parameters explicitly in `quality`. In this configuration,
 # you will configure outlier detection using **adaptive** thresholding across dimension,
 # pixel, and visual statistics, along with hash-based and cluster-based duplicate detection.
 # The BoVW (Bag of Visual Words) extractor learns visual words directly from dataset
@@ -113,18 +113,18 @@ from dataeval_flow.config import (
     ViewOperation,
 )
 from dataeval_flow.config.extractors import BoVWExtractorConfig
-from dataeval_flow.workflows.data_cleaning import (
-    ClasswiseOutliersSettings,
-    DataCleaningChecks,
-    DataCleaningConfig,
+from dataeval_flow.workflows.quality import (
+    ClassOutliersSettings,
     DuplicatesSettings,
     ImageDuplicatesSettings,
     ImageOutliersSettings,
     OutliersSettings,
+    QualityChecks,
+    QualityConfig,
     TargetOutliersSettings,
 )
 
-workflow = DataCleaningConfig(
+workflow = QualityConfig(
     name="skysealand_cleaning",
     outliers=OutliersSettings(
         outlier_threshold=("adaptive", 3.5),  # Adaptive thresholding for outliers, bound 3.5
@@ -138,7 +138,7 @@ workflow = DataCleaningConfig(
         cluster_algorithm="hdbscan",
         n_clusters=4,
     ),
-    checks=DataCleaningChecks(
+    checks=QualityChecks(
         image_duplicates=ImageDuplicatesSettings(
             exact=0.0,  # No exact duplicates allowed (default)
             near=5.0,  # Up to 5% near duplicates before warning (default)
@@ -149,7 +149,7 @@ workflow = DataCleaningConfig(
         target_outliers=TargetOutliersSettings(
             warning=10.0  # Relaxed from 3% default for annotation variance in object detection
         ),
-        classwise_outliers=ClasswiseOutliersSettings(
+        class_outliers=ClassOutliersSettings(
             warning=12.0  # Relaxed from 3% default for diverse class appearances
         ),
     ),
@@ -205,7 +205,7 @@ print(result.report())
 # %% [markdown]
 # ### Findings and steps
 #
-# `data-cleaning` is a preset: its settings expand to a chain of steps. Evaluators find the outliers and duplicates
+# `quality` is a preset: its settings expand to a chain of steps. Evaluators find the outliers and duplicates
 # and count the labels, checks judge what they found against `checks`, and `clean` removes what was
 # flagged. The report above gives each finding a section, with the evaluators it judged below it, then a section
 # for each step no finding showed, such as `clean`, and a table of every step. `run_task()` returns a `ChainResult`
@@ -239,9 +239,9 @@ for finding in result.findings:
 # | `image-duplicates.near` | 5% | Lower to 1–2% for curated benchmarks; raise to 10–15% for web-scraped data |
 # | `image-outliers.warning` | 3% | Lower to 1% for safety-critical data; raise to 5–10% for visually diverse collections |
 # | `target-outliers.warning` | 3% | Lower to 1% for annotation reviews; raise to 5–10% for dense object detection |
-# | `classwise-outliers.warning` | 3% | Lower to 1% for label-quality reviews; raise to 5–10% for diverse classes |
+# | `class-outliers.warning` | 3% | Lower to 1% for label-quality reviews; raise to 5–10% for diverse classes |
 #
-# Class imbalance is judged by the `data-bias` preset, not this one.
+# Class imbalance is judged by the `bias` preset, not this one.
 #
 # In this tutorial, thresholds are relaxed because SkySeaLand includes four distinct
 # capture sites with differing sensors, altitudes, and lighting conditions.
@@ -249,13 +249,13 @@ for finding in result.findings:
 # To apply stricter thresholds, specify tighter tolerances:
 #
 # ```python
-# from dataeval_flow.workflows.data_cleaning import (
-#     DataCleaningChecks,
+# from dataeval_flow.workflows.quality import (
+#     QualityChecks,
 #     ImageDuplicatesSettings,
 #     ImageOutliersSettings,
 # )
 #
-# strict = DataCleaningChecks(
+# strict = QualityChecks(
 #     image_duplicates=ImageDuplicatesSettings(exact=0.0, near=2.0),
 #     image_outliers=ImageOutliersSettings(warning=1.0),
 # )
@@ -349,7 +349,7 @@ print(f"Images after cleaning:  {len(clean)}")
 print(f"Removed: {result.steps['clean'].details['removed']}")
 
 # %% [markdown]
-# To write the cleaned dataset to disk, run the `data-cleaning` entry as a step of a custom workflow, and add an
+# To write the cleaned dataset to disk, run the `quality` entry as a step of a custom workflow, and add an
 # `export` step that reads the step's `clean` output, `cleaning.clean`. `export` writes object-detection datasets,
 # which SkySeaLand is. `data_cleaning.yaml`, beside this notebook, holds this tutorial's pipeline with that workflow
 # and a task to run it:
@@ -388,7 +388,7 @@ print(json_str[:500] + "\n...")
 #
 # In this tutorial, you learned how to:
 #
-# - Configure the `data-cleaning` workflow with outlier and duplicate detection parameters.
+# - Configure the `quality` workflow with outlier and duplicate detection parameters.
 # - Use BoVW feature extractors without external model dependencies.
 # - Set check thresholds to control warning generation.
 # - Run the workflow via `run_task()` on a dataset view.

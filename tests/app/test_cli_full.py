@@ -741,7 +741,7 @@ class TestPromptItem:
         assert result["dataset"] == "ds1"
 
     @patch("dataeval_flow._app._viewmodel._section_vm.get_fields", return_value=[])
-    @patch("click.prompt", side_effect=["t1", "data-cleaning"])
+    @patch("click.prompt", side_effect=["t1", "quality"])
     def test_task_defaults_enabled(self, mock_prompt: MagicMock, mock_fields: MagicMock) -> None:
         vm = BuilderViewModel()
         result = _prompt_item("tasks", vm)

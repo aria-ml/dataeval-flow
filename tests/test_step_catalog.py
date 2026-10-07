@@ -16,9 +16,9 @@ from tests.chain_toys import Keep, register_toys
 
 
 class _NamedLikeAWorkflow(Keep):
-    """A plugin transform that shares the built-in `data-cleaning` workflow's name."""
+    """A plugin transform that shares the built-in `quality` workflow's name."""
 
-    name: ClassVar[str] = "data-cleaning"
+    name: ClassVar[str] = "quality"
 
 
 def test_the_catalog_lists_every_built_in_step_of_every_kind() -> None:
@@ -27,7 +27,7 @@ def test_the_catalog_lists_every_built_in_step_of_every_kind() -> None:
     assert {("transform", name) for name in TRANSFORM_BUILTINS} <= kinds
     assert ("evaluator", "duplicates") in kinds
     assert ("evaluator", "label-alignment") in kinds
-    assert ("workflow", "data-cleaning") in kinds
+    assert ("workflow", "quality") in kinds
     assert catalog.format == 1
 
 
@@ -63,7 +63,7 @@ def test_a_dataset_port_of_any_kind_says_any_and_other_ports_name_no_kinds() -> 
     assert [port.kinds for port in steps["split"].outputs] == [["any"], ["any"], ["any"]]
     assert steps["export"].inputs[0].kinds == ["object_detection"]
     assert steps["duplicates"].outputs[0].kinds is None
-    assert steps["data-cleaning"].outputs[0].kinds == ["any"]
+    assert steps["quality"].outputs[0].kinds == ["any"]
 
 
 def test_a_port_writes_the_spec_keys() -> None:
@@ -146,10 +146,10 @@ def test_a_name_no_step_of_that_kind_has_exits_one(capsys: pytest.CaptureFixture
 def test_a_name_two_kinds_share_needs_its_kind(plugins, capsys: pytest.CaptureFixture[str]) -> None:
     from dataeval_flow.__main__ import _list_steps
 
-    plugins["dataeval_flow.transforms"] = [("data-cleaning", f"{__name__}:_NamedLikeAWorkflow")]
-    assert _list_steps("data-cleaning", as_json=False) == 1
-    assert "'data-cleaning' names 2 steps (transform, workflow); name one as KIND:NAME" in capsys.readouterr().err
-    assert _list_steps("workflow:data-cleaning", as_json=False) == 0
+    plugins["dataeval_flow.transforms"] = [("quality", f"{__name__}:_NamedLikeAWorkflow")]
+    assert _list_steps("quality", as_json=False) == 1
+    assert "'quality' names 2 steps (transform, workflow); name one as KIND:NAME" in capsys.readouterr().err
+    assert _list_steps("workflow:quality", as_json=False) == 0
     assert json.loads(capsys.readouterr().out)["kind"] == "workflow"
 
 
@@ -215,3 +215,18 @@ def test_every_step_the_parity_table_names_is_a_built_in_transform() -> None:
     named = {step for steps in _REACHED.values() for step in steps.split(", ")}
     assert named == {"view", "merge", "split", "kfold", "wrap"}
     assert named <= transforms
+
+
+def test_a_check_lists_what_it_judges_and_each_producer_lists_its_checks() -> None:
+    from dataeval_flow.steps import list_steps
+
+    steps = {(entry.kind, entry.type): entry for entry in list_steps(plugins=False).steps}
+    assert steps["check", "shortcut-risk"].judges == ["balance"]
+    assert steps["check", "leakage"].judges == ["duplicates", "factor-leakage"]
+    assert steps["check", "class-outliers"].judges == ["outliers-by-class"]
+    assert {"drift-mmd", "drift-univariate"} <= set(steps["check", "drift"].judges)
+    assert "shortcut-risk" in steps["evaluator", "balance"].judged_by
+    assert {"class-imbalance", "class-sufficiency", "untrained-classes"} <= set(
+        steps["evaluator", "label-health"].judged_by
+    )
+    assert steps["transform", "split"].judges == steps["transform", "split"].judged_by == []

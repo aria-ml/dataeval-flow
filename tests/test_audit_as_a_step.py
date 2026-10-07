@@ -47,13 +47,13 @@ def _split_pipeline(
     extractor: bool = False,
     extra: dict[str, Any] | None = None,
 ) -> PipelineConfig:
-    """One source `data`, split by a data-splitting step `splits`, then `steps` (by default collect, then audit)."""
+    """One source `data`, split by a splits step `splits`, then `steps` (by default collect, then audit)."""
     task: dict[str, Any] = {"name": "t", "workflow": "outer", "sources": ["data"]}
     if extractor:
         task["extractor"] = "flat"
     return chain_pipeline(
         workflows=[
-            {"name": "splitting", "type": "data-splitting", **(splitting or {})},
+            {"name": "splitting", "type": "splits", **(splitting or {})},
             {**_AUDIT, **(audit or {})},
             {
                 "name": "outer",
@@ -206,7 +206,7 @@ def test_collected_evals_beside_a_source_bound_train_are_not_refused_for_kind() 
 def test_a_splice_whose_input_was_skipped_skips_every_step() -> None:
     config = chain_pipeline(
         workflows=[
-            {"name": "splitting", "type": "data-splitting", "split_on": ["nope"]},
+            {"name": "splitting", "type": "splits", "split_on": ["nope"]},
             _AUDIT,
             {
                 "name": "outer",
@@ -321,7 +321,7 @@ def test_split_collect_audit_with_an_extractor_assesses_the_embedding_checks() -
     result = _run(_split_pipeline(extractor=True))
     assert result.verdict is not None
     unassessed = {item.check for item in result.verdict.not_assessed if "extractor" in item.reason}
-    assert not unassessed & {"eval-coverage", "distribution-shift", "class-coverage"}
+    assert not unassessed & {"eval-coverage", "embedding-divergence", "class-coverage"}
 
 
 def test_the_verdict_names_spliced_steps_and_an_inner_acceptance_covers_one() -> None:
@@ -386,8 +386,8 @@ def test_an_element_keyed_like_a_single_slot_is_refused_at_load() -> None:
 
 
 def test_a_spliced_preset_that_records_nothing_takes_an_element_keyed_like_its_slot() -> None:
-    # A collision confuses only a record's columns and a preflight's names; drift-monitoring keeps neither.
-    drift = {"name": "drift", "type": "drift-monitoring", "detectors": [{"type": "drift-kneighbors", "k": 3}]}
+    # A collision confuses only a record's columns and a preflight's names; shift keeps neither.
+    drift = {"name": "drift", "type": "shift", "detectors": [{"type": "drift-kneighbors", "k": 3}]}
     steps = [
         {"name": "evals", "transform": "collect", "input": ["val", "test"], "keys": ["reference", "test"]},
         {"name": "drift", "workflow": "drift", "input": ["train", "evals"]},
@@ -404,7 +404,7 @@ def test_a_spliced_preset_that_records_nothing_takes_an_element_keyed_like_its_s
 def _never_started() -> PipelineConfig:
     return chain_pipeline(
         workflows=[
-            {"name": "splitting", "type": "data-splitting", "split_on": ["nope"]},
+            {"name": "splitting", "type": "splits", "split_on": ["nope"]},
             _AUDIT,
             {
                 "name": "outer",
@@ -598,7 +598,7 @@ def test_clean_then_audit_encodes_every_split_like_the_cleaned_train() -> None:
     datasets = {"train": ToyFactors(60), "val": ToyFactors(30), "test": ToyFactors(5)}
     config = chain_pipeline(
         workflows=[
-            {"name": "cleaning", "type": "data-cleaning", **_OUTLIERS},
+            {"name": "cleaning", "type": "quality", **_OUTLIERS},
             _AUDIT,
             {
                 "name": "outer",

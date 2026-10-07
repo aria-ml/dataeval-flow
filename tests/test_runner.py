@@ -147,7 +147,7 @@ def _write_config(tmp_path: Path, *, disable: str | None = None, extra: str = ""
         "    dataset: ds",
         "workflows:",
         "  - name: wf",
-        "    type: data-cleaning",
+        "    type: quality",
         "    outliers: {flags: [dimension], outlier_threshold: modzscore}",
         "tasks:",
     ]

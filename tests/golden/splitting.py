@@ -1,8 +1,8 @@
-"""The data-splitting runs the agreement golden records: one pipeline per case, in legacy's settings and the
+"""The splits runs the agreement golden records: one pipeline per case, in legacy's settings and the
 preset's.
 
 The generator ran each case once on the legacy workflow and recorded what it produced; the agreement test runs the
-preset's settings on whatever `data-splitting` names today (data-splitting spec §9).
+preset's settings on whatever `splits` names today (data-splitting spec §9).
 """
 
 from typing import Any
@@ -52,25 +52,23 @@ CASES: dict[str, tuple[dict[str, Any], dict[str, Any], bool]] = {
 }
 
 
-# Legacy data-splitting's class-imbalance limit, which judged no info band.
+# Legacy splits's class-imbalance limit, which judged no info band.
 _IMBALANCE = {"class-imbalance": {"warning": 10.0, "info": None}}
 
 
 def pipeline(name: str, *, legacy: bool) -> PipelineConfig:
-    """Case `name`'s pipeline over `SplitImages`, seed 0: one `data-splitting` task in legacy's settings, or task `t`
-    in the preset's with task `b`, a `data-bias` entry on the same source judging the whole set's class balance at
+    """Case `name`'s pipeline over `SplitImages`, seed 0: one `splits` task in legacy's settings, or task `t`
+    in the preset's with task `b`, a `bias` entry on the same source judging the whole set's class balance at
     legacy's limit."""
     legacy_settings, settings, extractor = CASES[name]
     DatasetCache.clear_instances()
     task: dict[str, Any] = {"name": "t", "workflow": "split", "sources": ["src"]}
     if extractor:
         task["extractor"] = "flat"
-    workflows: list[dict[str, Any]] = [
-        {"name": "split", "type": "data-splitting", **(legacy_settings if legacy else settings)}
-    ]
+    workflows: list[dict[str, Any]] = [{"name": "split", "type": "splits", **(legacy_settings if legacy else settings)}]
     tasks = [task]
     if not legacy:
-        workflows.append({"name": "bias", "type": "data-bias", "checks": _IMBALANCE})
+        workflows.append({"name": "bias", "type": "bias", "checks": _IMBALANCE})
         tasks.append({"name": "b", "workflow": "bias", "sources": ["src"]})
     return chain_pipeline(
         workflows=workflows, tasks=tasks, datasets={"src": SplitImages()}, extractor=extractor, extra={"seed": SEED}

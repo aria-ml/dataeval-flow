@@ -35,7 +35,7 @@ class ShortcutRiskCheck(Check[ShortcutRiskConfig]):
     """``shortcut-risk``: the metadata factors whose mutual information with the class is past a limit."""
 
     name: ClassVar[str] = "shortcut-risk"
-    description: ClassVar[str] = "Warns when a metadata factor tells much about the class."
+    description: ClassVar[str] = "Judges `balance`'s output: warns when a metadata factor tells much about the class."
     title: ClassVar[str] = "Shortcut Risk"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(BalanceOutput,)),)
 
@@ -106,7 +106,9 @@ class FactorParityCheck(Check[FactorParityConfig]):
     """``factor-parity``: the metadata factors whose association with the class is both strong and significant."""
 
     name: ClassVar[str] = "factor-parity"
-    description: ClassVar[str] = "Warns when a metadata factor is significantly associated with the class."
+    description: ClassVar[str] = (
+        "Judges `parity`'s output: warns when a metadata factor is significantly associated with the class."
+    )
     title: ClassVar[str] = "Factor Parity"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(ParityOutput,)),)
 

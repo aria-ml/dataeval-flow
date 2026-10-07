@@ -296,17 +296,6 @@ def _workflow_entry(entry: Any) -> Any:
         return CustomWorkflowConfig.model_validate(entry)
     if isinstance(entry, Mapping) and not isinstance(entry.get("type"), str):
         raise ValueError("Each `workflows:` entry needs a `type:`, or `steps:` for a chain of steps.")
-    if isinstance(entry, Mapping) and entry["type"] == "data-analysis":
-        from dataeval_flow.workflows.audit._config import CHECKS_MOVED, MOVED
-
-        # A message saying "it is X" names where the key went; any other is why the key is refused.
-        moved = [
-            f"`{key}` → {message.removeprefix('it is ') if message.startswith('it is ') else f'refused: {message}'}"
-            for key, message in MOVED.items()
-        ]
-        moved.append("`health_thresholds` → `checks:`")
-        moved += [f"`health_thresholds.{key}` → {replacement}" for key, replacement in CHECKS_MOVED.items()]
-        raise ValueError("`data-analysis` is now `audit`. " + "; ".join(moved) + ".")
     return _dispatch(entry, kind="workflow", resolve=get_workflow)
 
 

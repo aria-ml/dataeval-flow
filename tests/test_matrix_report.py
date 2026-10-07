@@ -16,7 +16,7 @@ from tests.workflow_toys import register_count
 
 _CLEANING = {
     "name": "cleaning",
-    "type": "data-cleaning",
+    "type": "quality",
     "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"},
 }
 

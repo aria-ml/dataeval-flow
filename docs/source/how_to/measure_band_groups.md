@@ -42,15 +42,15 @@ stats:
 
 workflows:
   - name: clean
-    type: data-cleaning
+    type: quality
     stats: multispectral
     outliers:
       flags: [visual]
       outlier_threshold: modzscore
 ```
 
-Reference a policy by name from any workflow that computes image statistics — `data-cleaning`, `audit` and
-`ood-detection` all take a `stats:` name; `data-coverage` and `data-prioritization` read no statistics and refuse
+Reference a policy by name from any workflow that computes image statistics — `quality`, `audit` and
+`shift` all take a `stats:` name; `scope` and `prioritization` read no statistics and refuse
 one. Two workflows naming the same policy measure the same things, so their results are comparable.
 
 ### measure is a complete statement
@@ -78,7 +78,7 @@ boxes as usual and skipped for the background, which has no meaningful hash and 
 `outliers_from` and `factors_from` each name the views whose columns one consumer reads, by the prefix those
 columns carry. Both default to `[~]` — the whole image alone.
 
-- `outliers_from` decides which columns `data-cleaning`'s outlier detection sees.
+- `outliers_from` decides which columns `quality`'s outlier detection sees.
 - `factors_from` decides which columns become metadata factors, for `Balance` and `Diversity` to read.
 
 Which statistic *families* get injected as factors at all is a separate decision — `intrinsic_factors` on the
@@ -101,7 +101,7 @@ Narrow them to the groups you actually measure, or keep a `{bands: ~, ...}` entr
 split and across them, whatever `stats:` policy is named. It has no setting to turn it off and no view list to narrow
 it. A policy used by `audit` must give `~` the `hash` family, on top of whatever `outliers_from` and `factors_from`
 need there. The `multispectral` policy above does. An audit's `outliers.flags` must still name families `~` measures,
-exactly as `data-cleaning`'s must.
+exactly as `quality`'s must.
 
 ## The view namespace
 
@@ -143,12 +143,12 @@ background carries.
 
 ## Enabling a band group moves nothing until you name it
 
-Adding a channel group to a dataset, or a new entry to `measure`, changes nothing `data-cleaning` flags and nothing
+Adding a channel group to a dataset, or a new entry to `measure`, changes nothing `quality` flags and nothing
 `Balance` or `Diversity` reads. `outliers_from` and `factors_from` both default to `[~]`. Until a view appears in
 one of them, its columns are computed and cached, and nothing downstream reads them.
 
 That is deliberate. A group appearing in `channel_groups:` must not move a cleaning result or a bias number until a
-config names it. In the `multispectral` policy above, `outliers_from: [~]` keeps `data-cleaning`'s outlier
+config names it. In the `multispectral` policy above, `outliers_from: [~]` keeps `quality`'s outlier
 detection exactly what it flagged before band groups existed. `factors_from: [~, rgb, ir]` opts the two groups in
 for bias analysis. Drop them from `factors_from` and `Balance` and `Diversity` read the
 whole-image factors alone, whatever `measure` computes.

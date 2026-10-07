@@ -1,8 +1,8 @@
-"""The outlier checks: data-cleaning's Image, Target and Classwise Outliers findings, as steps (spec §9.2)."""
+"""The outlier checks: quality's Image, Target and Class Outliers findings, as steps (spec §9.2)."""
 
 __all__ = [
-    "ClasswiseOutliersCheck",
-    "ClasswiseOutliersConfig",
+    "ClassOutliersCheck",
+    "ClassOutliersConfig",
     "ImageOutliersCheck",
     "ImageOutliersConfig",
     "TargetOutliersCheck",
@@ -44,7 +44,9 @@ class ImageOutliersCheck(Check[ImageOutliersConfig]):
     """``image-outliers``: warns when more than ``warning`` percent of a Dataset's images are outliers."""
 
     name: ClassVar[str] = "image-outliers"
-    description: ClassVar[str] = "Warns when more than `warning` percent of a Dataset's images are outliers."
+    description: ClassVar[str] = (
+        "Judges `outliers`'s output: warns when more than `warning` percent of a Dataset's images are outliers."
+    )
     title: ClassVar[str] = "Image Outliers"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OutliersOutput,)),)
 
@@ -87,7 +89,10 @@ class TargetOutliersCheck(Check[TargetOutliersConfig]):
     """
 
     name: ClassVar[str] = "target-outliers"
-    description: ClassVar[str] = "Warns when more than `warning` percent of the boxes are outliers."
+    description: ClassVar[str] = (
+        "Judges the `outliers` and `label-health` outputs: warns when more than `warning` percent "
+        "of the boxes are outliers."
+    )
     title: ClassVar[str] = "Target Outliers"
     inputs: ClassVar[tuple[Port, ...]] = (
         Port("input", DataType.OUTPUT, classes=(OutliersOutput,)),
@@ -112,8 +117,8 @@ class TargetOutliersCheck(Check[TargetOutliersConfig]):
         ]
 
 
-class ClasswiseOutliersConfig(CheckConfig):
-    """A `classwise-outliers` step's input, and the share of a class that may be outliers."""
+class ClassOutliersConfig(CheckConfig):
+    """A `class-outliers` step's input, and the share of a class that may be outliers."""
 
     input: str = Field(description="An `outliers-by-class` Output.")
     warning: float | None = Field(
@@ -127,18 +132,21 @@ class ClasswiseOutliersConfig(CheckConfig):
     )
 
 
-class ClasswiseOutliersCheck(Check[ClasswiseOutliersConfig]):
-    """``classwise-outliers``: warns when outliers take up more than ``warning`` percent across classes, naming
+class ClassOutliersCheck(Check[ClassOutliersConfig]):
+    """``class-outliers``: warns when outliers take up more than ``warning`` percent across classes, naming
     the worst class and how many classes pass the limit."""
 
-    name: ClassVar[str] = "classwise-outliers"
-    description: ClassVar[str] = "Warns when outliers pass `warning` percent across classes; names the worst class."
-    title: ClassVar[str] = "Classwise Outliers"
+    name: ClassVar[str] = "class-outliers"
+    description: ClassVar[str] = (
+        "Judges `outliers-by-class`'s output: warns when outliers pass `warning` percent across "
+        "classes; names the worst class."
+    )
+    title: ClassVar[str] = "Class Outliers"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OutliersByClassOutput,)),)
 
     def run(
         self,
-        config: ClasswiseOutliersConfig,
+        config: ClassOutliersConfig,
         inputs: Mapping[str, Any],
         context: CheckContext,  # noqa: ARG002
     ) -> list[Finding]:

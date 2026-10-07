@@ -248,14 +248,14 @@ _UNPINNED = {"derived", "count"}
 def _triage(
     dataset: Any, policy: dict[str, Any] | None = None, *, verify: bool = True, data_dir: Path | None = None
 ) -> ChainResult:
-    """One `factor-triage` step and its `metadata-issues` check over `dataset`, under `policy` where one is given."""
+    """One `factor-triage` step and its `factor-issues` check over `dataset`, under `policy` where one is given."""
     DatasetCache.clear_instances()
     evaluator: dict[str, Any] = {"name": "triage", "type": "factor-triage", "verify": verify}
     if policy is not None:
         evaluator["metadata"] = "p"
     steps = [
         {"name": "triage", "evaluator": "triage", "input": "data"},
-        {"name": "issues", "check": "metadata-issues", "input": "triage"},
+        {"name": "issues", "check": "factor-issues", "input": "triage"},
     ]
     config = chain_pipeline(
         evaluators=[evaluator],

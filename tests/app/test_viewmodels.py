@@ -516,10 +516,19 @@ class TestSectionViewModel:
         assert len(vm.list_items["detectors"]) == 0
         assert not vm.remove_list_item("detectors", 0)
 
-    def test_drift_monitoring_loads_its_fields(self) -> None:
+    def test_shift_loads_its_fields(self) -> None:
         vm = SectionViewModel("workflows")
-        names = [descriptor.name for descriptor in vm.load_fields("drift-monitoring")]
-        assert names == ["ontology", "detectors", "classwise", "checks"]
+        names = [descriptor.name for descriptor in vm.load_fields("shift")]
+        assert names == [
+            "stats",
+            "metadata",
+            "ontology",
+            "detectors",
+            "classwise",
+            "factor_predictors",
+            "factor_deviation",
+            "checks",
+        ]
 
     def test_get_variant_descriptors(self, plugins) -> None:
         register_union(plugins)

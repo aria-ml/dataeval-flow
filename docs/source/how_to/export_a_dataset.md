@@ -111,10 +111,10 @@ recorded = json.loads((export_dir / "provenance.json").read_text())["runs"][-1][
 Only the COCO writer also embeds the same mapping in its own `info` block. The other three drop it, which is why the
 sidecar is written for every format.
 
-The `label_space` digests are the values the {term}`result envelope <Result Envelope>` carries and a `label-space`
-run stamps from its alignment, whose `Relabel` stanza conforms the source. Declare the same ontology on the label-space
+The `label_space` digests are the values the {term}`result envelope <Result Envelope>` carries and a `taxonomy`
+run stamps from its alignment, whose `Relabel` stanza conforms the source. Declare the same ontology on the taxonomy
 run, on the workflows, and on the export, and one digest match ties an emitted dataset to the run that produced it and
-to the label-space run that justified its vocabulary.
+to the taxonomy run that justified its vocabulary.
 
 ## Know what an export drops
 
@@ -153,14 +153,14 @@ item `17` of the first operand.
 
 ## Export the parts of a split
 
-A `data-splitting` entry, run as a step of a custom workflow, hands on its parts as `<step>.train`, `<step>.val` and
+A `splits` entry, run as a step of a custom workflow, hands on its parts as `<step>.train`, `<step>.val` and
 `<step>.test`; `train` is the rebalanced one where the entry sets `rebalance:`. An `export` step writes any of them.
 The workflow below splits an object-detection source and writes its train and test:
 
 ```yaml
 workflows:
   - name: splits
-    type: data-splitting
+    type: splits
     test_frac: 0.2
     val_frac: 0.1
 
@@ -184,7 +184,7 @@ element under its key, as `datasets/build_splits.train_set/0/`. `test` is one Da
 ```yaml
 workflows:
   - name: splits
-    type: data-splitting
+    type: splits
     folds: 3
     test_frac: 0.2
 ```
@@ -202,5 +202,5 @@ source and gate on the audit's digest, as
 
 - {doc}`build_dataset_views` — the views that conform and merge a dataset before it is exported
 - {doc}`declare_an_ontology` — declaring the label space an export records
-- [Provenance](../concepts/Provenance.md) — the label-space digest that joins an export, a run, and a label-space run
+- [Provenance](../concepts/Provenance.md) — the label-space digest that joins an export, a run, and a taxonomy run
 - {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field on `ExportConfig`

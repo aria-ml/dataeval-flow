@@ -12,7 +12,7 @@ from dataeval_flow.config import PipelineConfig
 from dataeval_flow.config.extractors import FlattenExtractorConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.steps import CustomWorkflowConfig, InputSlot, StepEntry
-from dataeval_flow.workflows.data_cleaning import DataCleaningChecks, DataCleaningConfig
+from dataeval_flow.workflows.quality import QualityChecks, QualityConfig
 from tests.chain_toys import chain_pipeline, register_toys
 from tests.evaluator_toys import ToyImages
 
@@ -63,7 +63,7 @@ def test_a_pipeline_holding_a_custom_workflow_survives_load_and_save() -> None:
 @pytest.mark.usefixtures("toys")
 def test_an_entry_naming_type_and_steps_is_refused() -> None:
     with pytest.raises(ValidationError, match="names both `type` and `steps`"):
-        chain_pipeline(workflows=[{**_WRITTEN, "type": "data-cleaning"}])
+        chain_pipeline(workflows=[{**_WRITTEN, "type": "quality"}])
 
 
 def test_an_entry_naming_neither_says_both_forms() -> None:
@@ -145,7 +145,7 @@ def test_to_yaml_writes_a_workflows_fragment() -> None:
 @pytest.mark.usefixtures("toys")
 def test_save_replaces_the_entry_of_its_name_and_keeps_the_rest(tmp_path: Path) -> None:
     path = tmp_path / "workflows.yaml"
-    other = {"name": "other", "type": "data-cleaning", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
+    other = {"name": "other", "type": "quality", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
     stale = {"name": "audit", "inputs": ["a"], "steps": [{"name": "k", "transform": "toy-keep", "input": "a"}]}
     path.write_text(yaml.safe_dump({"logging": {"app_level": "INFO"}, "workflows": [stale, other]}, sort_keys=False))
 
@@ -196,10 +196,10 @@ def test_save_writes_each_definition_into_its_section_with_the_settings_it_was_g
 
 def test_each_saved_definition_loads_back_as_it_was(tmp_path: Path) -> None:
     # `warning: null` judges nothing, where the default judges: a setting given as `None` must survive.
-    cleaning = DataCleaningConfig(
+    cleaning = QualityConfig(
         name="basic",
         outliers={"flags": ["pixel"], "outlier_threshold": "zscore"},  # type: ignore[arg-type]
-        checks=DataCleaningChecks.model_validate({"image-outliers": {"warning": None}}),
+        checks=QualityChecks.model_validate({"image-outliers": {"warning": None}}),
     )
     path = tmp_path / "my_clean.yaml"
     CustomWorkflowConfig.model_validate(_CLEAN).save(

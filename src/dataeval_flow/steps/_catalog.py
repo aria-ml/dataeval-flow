@@ -45,6 +45,12 @@ class StepCatalogEntry(BaseModel):
     origin: str = Field(description="The distribution that registered it: `dataeval-flow` for a built-in.")
     inputs: list[PortEntry] = Field(description="Its input ports.")
     outputs: list[PortEntry] = Field(description="Its output ports.")
+    judges: list[str] = Field(
+        default_factory=list, description="On a check, the evaluator and combine types whose Outputs it judges."
+    )
+    judged_by: list[str] = Field(
+        default_factory=list, description="On an evaluator or combine, the check types that judge its Output."
+    )
     config_schema: dict[str, Any] = Field(description="The JSON Schema of its settings.")
 
 
@@ -90,6 +96,13 @@ def _port(port: Port) -> PortEntry:
     )
 
 
+def _feeds(producer: Any, check: Any) -> bool:
+    """Whether an Output `producer` gives is of a class one of `check`'s ports takes."""
+    made = [cls for port in producer.output_ports() if port.type == DataType.OUTPUT for cls in port.classes]
+    taken = [cls for port in check.input_ports() if port.type == DataType.OUTPUT for cls in port.classes]
+    return any(issubclass(out, into) for out in made for into in taken)
+
+
 def list_steps(*, plugins: bool = True) -> StepCatalog:
     """Every registered step as data: kind, name, description, origin, ports and settings schema.
 
@@ -112,6 +125,15 @@ def list_steps(*, plugins: bool = True) -> StepCatalog:
     from dataeval_flow.steps._registry import CHECKS, COMBINES, TRANSFORMS
     from dataeval_flow.workflows._registry import WORKFLOWS
 
+    found = [
+        (registry, cls)
+        for registry in (EVALUATORS, TRANSFORMS, COMBINES, CHECKS, WORKFLOWS)  # in kind order
+        for cls in registry.list(plugins=plugins)
+    ]
+    producers = [cls for _, cls in found if cls.kind in ("evaluator", "combine")]
+    checks = [cls for _, cls in found if cls.kind == "check"]
+    judges = {check.name: sorted({p.name for p in producers if _feeds(p, check)}) for check in checks}
+    judged_by = {(p.kind, p.name): sorted({c.name for c in checks if _feeds(p, c)}) for p in producers}
     entries = [
         StepCatalogEntry(
             kind=cls.kind,
@@ -122,9 +144,10 @@ def list_steps(*, plugins: bool = True) -> StepCatalog:
             inputs=[_port(port) for port in cls.input_ports()],
             outputs=[_port(port) for port in cls.output_ports()],
             config_schema=cls.config_type.model_json_schema(),
+            judges=judges.get(cls.name, []) if cls.kind == "check" else [],
+            judged_by=judged_by.get((cls.kind, cls.name), []),
         )
-        for registry in (EVALUATORS, TRANSFORMS, COMBINES, CHECKS, WORKFLOWS)  # in kind order
-        for cls in registry.list(plugins=plugins)
+        for registry, cls in found
     ]
     return StepCatalog(
         flow_version=__version__,

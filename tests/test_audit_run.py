@@ -98,14 +98,20 @@ def test_a_one_split_audit_is_ready_with_caveats() -> None:
 
 def test_an_audit_with_no_extractor_names_the_unassessed_checks() -> None:
     result = _audit(_leaky(), {"coverage": {"method": "naive"}})
-    embedded = ["eval-coverage", "distribution-shift", "class-coverage", "uncovered-items", "dimensional-completeness"]
+    embedded = [
+        "eval-coverage",
+        "embedding-divergence",
+        "class-coverage",
+        "uncovered-items",
+        "dimensional-completeness",
+    ]
     reasons = {item.check: item.reason for item in _verdict(result).not_assessed if item.check in embedded}
     assert sorted(reasons) == sorted(embedded)
     assert all(reason.endswith("was skipped: requires an extractor") for reason in reasons.values())
     (line,) = [line for line in _next_steps(result) if line.startswith("Name an extractor")]
     steps = {
         "eval-coverage": "eval-coverage[test]",
-        "distribution-shift": "distribution-shift[test]",
+        "embedding-divergence": "embedding-divergence[test]",
         "class-coverage": "class-coverage",
         "uncovered-items": "uncovered-items",
         "dimensional-completeness": "dimensional-completeness",
@@ -181,7 +187,7 @@ def test_detection_splits_are_audited_with_crops_before_coverage() -> None:
 
 def test_three_splits_pair_their_evaluation_splits() -> None:
     result = _audit(_three())
-    pairs, stratification = result.steps["duplicates-pairs"], result.steps["stratification"]
+    pairs, stratification = result.steps["duplicates-pairs"], result.steps["class-stratification"]
     assert pairs.elements is not None
     assert list(pairs.elements) == ["val_vs_test"]
     assert stratification.elements is not None

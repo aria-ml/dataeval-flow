@@ -1,6 +1,6 @@
 # Workflows as Chains of Steps
 
-A workflow type such as `data-cleaning` runs one fixed analysis. A **custom workflow** is one you write: a chain of
+A workflow type such as `quality` runs one fixed analysis. A **custom workflow** is one you write: a chain of
 steps, each reading what an earlier step made. One custom workflow can conform two datasets onto an ontology, merge
 them, remove the duplicates, check what is left, split it and write it out, all from YAML.
 
@@ -14,7 +14,7 @@ A `workflows:` entry is one of two things:
 ```yaml
 workflows:
   - name: basic_clean               # a workflow type
-    type: data-cleaning
+    type: quality
     outliers:
       flags: [dimension, pixel, visual]
       outlier_threshold: adaptive
@@ -178,12 +178,12 @@ pair, and it leaves one record saying so.
 ## Workflow types as presets
 
 Every workflow type is a **preset**: its settings expand to a chain of steps. The built-in ones are `audit`,
-`data-cleaning`, `data-prioritization`, `metadata-triage`, `drift-monitoring`, `ood-detection`, `data-splitting`,
-`label-space`, `data-coverage` and `data-bias`, and a plugin's workflow type is a preset too. Data-cleaning's evaluators find
+`quality`, `prioritization`, `triage`, `shift`, `splits`,
+`taxonomy`, `scope` and `bias`, and a plugin's workflow type is a preset too. Data-cleaning's evaluators find
 outliers and duplicates, its checks judge them against `checks`, and its `clean` step removes what they flagged. The
-[Preset Catalog](../reference/presets.md#data-cleaning) lists the chain.
+[Preset Catalog](../reference/presets.md#quality) lists the chain.
 
-Run as a task, a preset returns a `ChainResult` under its own type id, such as `data-cleaning`, holding each step of its
+Run as a task, a preset returns a `ChainResult` under its own type id, such as `quality`, holding each step of its
 chain. Run as a step of a custom workflow, as `{name: cleaning, workflow: basic_clean, input: data}` runs the
 `basic_clean` entry above, its steps run in your chain as `cleaning/outliers`, `cleaning/duplicates` and so on. The
 step's `optional:` holds for each of them, and its `extractor:` for each that reads embeddings. Its checks' findings are
@@ -197,7 +197,7 @@ Only a preset's declared outputs can be addressed, and always by name: `cleaning
 `cleaning` alone, `cleaning.duplicates` and `cleaning/duplicates` are refused. Handed a list, a preset runs its whole
 chain once per element, so `cleaning.clean` is a list with the same keys. A preset that declares a reference or a
 verdict, as `audit` does, refuses a list on a single input: name one element, such as `splits.train[0]`. A preset's last
-input can be a list, as data-prioritization's `pools` is, and a step running it binds that input to a list, such as
+input can be a list, as prioritization's `pools` is, and a step running it binds that input to a list, such as
 `input: [ref, cleaning.clean]`.
 
 ## Derived data

@@ -17,9 +17,9 @@ These workflows read metadata factors under the policy their `metadata:` names:
 | Workflow | Reads metadata for |
 | --- | --- |
 | `audit` | its `factor-triage`, `factor-summary`, `balance`, `diversity`, `factor-gaps` and `factor-leakage` steps: unreadable factors, per-factor summaries, shortcut risk, diversity, factor gaps and group leakage, with every split encoded like train |
-| `data-bias` | its `label-health`, `factor-summary`, `balance`, `diversity`, `parity` and `factor-gaps` steps: class counts, per-factor summaries, shortcut risk, diversity, factor-class association, and the factor gap analysis with factor-to-class mutual information |
+| `bias` | its `label-health`, `factor-summary`, `balance`, `diversity`, `parity` and `factor-gaps` steps: class counts, per-factor summaries, shortcut risk, diversity, factor-class association, and the factor gap analysis with factor-to-class mutual information |
 
-`data-cleaning`, `data-splitting` and `ood-detection` take a policy's name, `metadata:`, too; `data-coverage` reads no
+`quality`, `splits` and `shift` take a policy's name, `metadata:`, too; `scope` reads no
 factors and refuses one. A custom workflow's or preset's result
 records the encodings its steps read in `metadata_binning`: one record, or `per_split` keyed by Dataset address where
 the steps read several Datasets or one Dataset two ways. A step that reads labels alone, as `label-health` does, adds
@@ -44,7 +44,7 @@ metadata:
 
 workflows:
   - name: bias_check
-    type: data-bias
+    type: bias
     metadata: standard
   - name: release_audit
     type: audit
@@ -105,7 +105,7 @@ it; pass `--task <name>` to take one. Splits work the same way — see `referenc
 
 ### Start from a recommended policy
 
-`metadata-triage` recommends a policy as its last finding. It holds the fixes triage suggests plus a pin for every
+`triage` recommends a policy as its last finding. It holds the fixes triage suggests plus a pin for every
 factor your policy left unpinned, read from this data: explicit edges for each cut, and the vocabulary, as
 `factor_levels`, for each categorical factor. A remap value triage could not read is dropped to missing and marked
 for you to decide.
@@ -173,7 +173,7 @@ metadata:
 
 workflows:
   - name: bias_check
-    type: data-bias
+    type: bias
     metadata: standard
 ```
 
@@ -279,7 +279,7 @@ datasets:
 
 workflows:
   - name: quality_check
-    type: data-cleaning
+    type: quality
     outliers:
       flags: [dimension, pixel, visual]
       outlier_threshold: modzscore

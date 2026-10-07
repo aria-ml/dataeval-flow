@@ -238,7 +238,7 @@ class TestRenderConfigSection:
         """Full config renders all top-level keys."""
         resolved = {
             "sources": [{"name": "src", "dataset": "ds"}],
-            "workflow": {"name": "clean", "type": "data-cleaning"},
+            "workflow": {"name": "clean", "type": "quality"},
             "extractor": {"name": "ext", "model": "onnx"},
         }
         lines = _config(resolved)

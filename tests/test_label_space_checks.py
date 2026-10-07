@@ -173,7 +173,7 @@ def test_a_shortfall_worklist_informs() -> None:
     finding = _shortfall(worklist=[_ROW], deficit=4)
     assert (finding.severity, finding.title) == ("info", "Class Shortfall")
     assert finding.brief == "1 classes short · deficit 4"
-    assert "`label-space`" in finding.description
+    assert "`taxonomy`" in finding.description
     assert "configure an `ontology`" not in finding.description
 
 

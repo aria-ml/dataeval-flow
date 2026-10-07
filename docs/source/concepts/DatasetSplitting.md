@@ -18,7 +18,7 @@ on both sides of a split, but leakage can also arise from shared sources or
 correlated groups of samples. A split that ignores these relationships produces
 optimistic, untrustworthy numbers.
 
-In DataEval Flow, the `data-splitting` workflow produces train/validation/test
+In DataEval Flow, the `splits` workflow produces train/validation/test
 index sets from a source, supporting stratification and configurable fractions. The
 same data gives the same split on every run. The orchestration layer makes the split a
 declarative, repeatable pipeline step; the splitting logic and its
@@ -28,10 +28,10 @@ arises and how to prevent it — is explained authoritatively in DataEval's
 
 ## The preset
 
-`data-splitting` is a {term}`preset <Preset>`: its settings expand to a chain of steps, which the
-[Preset Catalog](../reference/presets.md#data-splitting) lists with its settings and findings. The preset judges each
+`splits` is a {term}`preset <Preset>`: its settings expand to a chain of steps, which the
+[Preset Catalog](../reference/presets.md#splits) lists with its settings and findings. The preset judges each
 part's class shares, not coverage or leakage, and not the whole set's class balance, which is the
-[`data-bias`](../reference/presets.md#data-bias) preset's. On classification data, its `split_on` keeps each value of a
+[`bias`](../reference/presets.md#bias) preset's. On classification data, its `split_on` keeps each value of a
 metadata factor, such as a scene or site, in one part, so correlated groups of samples do not straddle a split. To judge
 coverage, leakage and shift, run [`audit`](../reference/presets.md#audit) as a step after the split, as [Check a set of
 splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) does, or give exported parts to an `audit` task
@@ -66,11 +66,11 @@ partition draws no random numbers, so rerunning on the same data reproduces it.
 ### Tutorials
 
 - [Splitting a dataset](../notebooks/dataset_splitting.py) — stratified train/val/test
-  splitting with the `data-splitting` workflow
+  splitting with the `splits` workflow
 
 ### Reference
 
-- [Preset Catalog: `data-splitting`](../reference/presets.md#data-splitting): the preset's chain, settings and
+- [Preset Catalog: `splits`](../reference/presets.md#splits): the preset's chain, settings and
   `checks:` defaults
 
 ### Authoritative reference

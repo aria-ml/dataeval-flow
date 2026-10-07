@@ -1,0 +1,171 @@
+"""scope: embeddings and the class worklist judged as chained steps (coverage spec §4)."""
+
+import re
+from typing import Any
+
+import pytest
+from pydantic import ValidationError
+
+from dataeval_flow import MatrixResult, run_tasks
+from dataeval_flow._cache import DatasetCache
+from dataeval_flow.config import PipelineConfig
+from dataeval_flow.steps import ChainResult
+from dataeval_flow.workflows.scope import ScopeConfig, ScopeWorkflow
+from tests.chain_toys import chain_pipeline
+from tests.golden.coverage import CoverageDetections, CoverageImages
+
+
+def _pipeline(entry: dict[str, Any], dataset: Any, *, extractor: bool = False) -> PipelineConfig:
+    DatasetCache.clear_instances()
+    task = {"name": "t", "workflow": "w", "sources": ["src"]} | ({"extractor": "flat"} if extractor else {})
+    return chain_pipeline(
+        workflows=[{"name": "w", "type": "scope", **entry}],
+        tasks=[task],
+        datasets={"src": dataset},
+        extractor=extractor,
+    )
+
+
+def _run(entry: dict[str, Any], dataset: Any, *, extractor: bool = False) -> ChainResult:
+    result = run_tasks(_pipeline(entry, dataset, extractor=extractor))["t"]
+    assert isinstance(result, ChainResult)
+    return result
+
+
+def _names(config: ScopeConfig) -> list[str]:
+    return [step["name"] for step in ScopeWorkflow.chain(config).steps]  # type: ignore[index]
+
+
+def test_its_chain_follows_legacy_s_finding_order() -> None:
+    assert _names(ScopeConfig(name="w")) == [
+        "crops",
+        "coverage",
+        "class-coverage",
+        "completeness",
+        "dimensional-completeness",
+        "representation",
+        "class-shortfall",
+    ]
+
+
+def test_naive_coverage_adds_the_uncovered_rate() -> None:
+    assert "uncovered-items" in _names(ScopeConfig(name="w", coverage={"method": "naive"}))  # type: ignore[arg-type]
+
+
+def test_settings_leave_out_their_steps() -> None:
+    names = _names(ScopeConfig.model_validate({"name": "w", "completeness": False}))
+    assert not {"completeness", "dimensional-completeness"} & set(names)
+
+
+def test_an_ontology_is_refused_naming_label_space() -> None:
+    with pytest.raises(ValidationError, match="taxonomy"):
+        ScopeConfig(name="w", ontology={"a": None})  # type: ignore[arg-type]
+
+
+def test_a_dumped_config_reloads() -> None:
+    config = ScopeConfig(name="w", coverage={"method": "naive"})  # type: ignore[arg-type]
+    assert ScopeConfig.model_validate(config.model_dump()) == config
+
+
+@pytest.mark.parametrize(
+    ("limits", "message"),
+    [
+        ({"dimensional-completeness": {"warning": 0.9, "info": 0.7}}, "`warning` (0.9) must not exceed `info` (0.7)."),
+    ],
+)
+def test_explicitly_crossed_bands_are_refused_where_they_were_written(limits: dict[str, Any], message: str) -> None:
+    with pytest.raises(ValidationError, match=re.escape(message)) as caught:
+        ScopeConfig.model_validate({"name": "w", "checks": limits})
+    assert caught.value.errors()[0]["loc"][0] == "checks"
+
+
+def test_a_warning_over_the_fixed_band_moves_the_band_as_legacy_did() -> None:
+    config = ScopeConfig.model_validate({"name": "w", "checks": {"dimensional-completeness": {"warning": 0.9}}})
+    assert config.checks.dimensional_completeness.info == 0.9
+    assert ScopeConfig.model_validate(config.model_dump()) == config
+    assert ScopeConfig.model_validate(config.model_dump(by_alias=False)) == config
+
+
+def test_a_matrix_over_a_warning_that_crosses_the_fixed_band_runs() -> None:
+    DatasetCache.clear_instances()
+    config = chain_pipeline(
+        workflows=[{"name": "w", "type": "scope"}],
+        tasks=[
+            {
+                "name": "t",
+                "workflow": "w",
+                "sources": ["src"],
+                "extractor": "flat",
+                "matrix": {"checks.dimensional-completeness.warning": [0.5, 0.9]},
+            }
+        ],
+        datasets={"src": CoverageImages()},
+        extractor=True,
+    )
+    result = run_tasks(config)["t"]
+    assert isinstance(result, MatrixResult)
+    assert all(isinstance(run.result, ChainResult) and run.result.success for run in result.runs)
+
+
+def test_snake_case_threshold_names_reload() -> None:
+    config = ScopeConfig(name="w")
+    assert ScopeConfig.model_validate(config.model_dump(by_alias=False)) == config
+
+
+def test_every_box_dropped_says_there_is_nothing_to_embed() -> None:
+    result = _run({"wrap": {"params": {"min_size": 10000}}}, CoverageDetections(), extractor=True)
+    description = next(f.description for f in result.findings if f.title == "Class Coverage") or ""
+    assert "no items to embed" in description
+    assert description.endswith(".")
+    assert not description.endswith("..")
+
+
+def test_detection_data_with_no_extractor_runs_and_reports_not_assessed() -> None:
+    result = _run({}, CoverageDetections())
+    assert result.success, result.errors
+    by_title = {finding.title: finding for finding in result.findings}
+    assert by_title["Class Coverage"].brief == "not assessed"
+    assert by_title["Dimensional Completeness"].brief == "not assessed"
+    assert "Class Imbalance" not in by_title
+
+
+def test_classification_data_reads_its_embeddings_once() -> None:
+    from unittest.mock import patch
+
+    import dataeval_flow._cache as cache
+
+    real, calls = cache._do_compute_embeddings, []
+
+    def counting(*args: Any, **kwargs: Any) -> Any:
+        calls.append(1)
+        return real(*args, **kwargs)
+
+    with patch.object(cache, "_do_compute_embeddings", counting):
+        result = _run({}, CoverageImages(), extractor=True)
+    assert result.success, result.errors
+    assert len(calls) == 1
+
+
+def test_a_matrix_varies_a_hyphenated_threshold() -> None:
+    DatasetCache.clear_instances()
+    config = chain_pipeline(
+        workflows=[{"name": "w", "type": "scope"}],
+        tasks=[
+            {
+                "name": "t",
+                "workflow": "w",
+                "sources": ["src"],
+                "extractor": "flat",
+                "matrix": {"checks.class-coverage.dispersion": [0.5, 1.5]},
+            }
+        ],
+        datasets={"src": CoverageImages()},
+        extractor=True,
+    )
+    result = run_tasks(config)["t"]
+    assert isinstance(result, MatrixResult)
+    severities = []
+    for run in result.runs:
+        assert isinstance(run.result, ChainResult)
+        severities.append(next(f.severity for f in run.result.findings if f.title == "Class Coverage"))
+    assert severities == ["info", "warning"]

@@ -1,4 +1,4 @@
-"""The metadata-triage preset: the `factor-triage` evaluator and the `metadata-issues` check, on the task's one source
+"""The triage preset: the `factor-triage` evaluator and the `factor-issues` check, on the task's one source
 (spec §10.10)."""
 
 import re
@@ -14,7 +14,7 @@ from dataeval_flow._cache import DatasetCache
 from dataeval_flow._encoding_cli import _binning_records
 from dataeval_flow.evaluators.quality import FactorTriageConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig, MetadataTriageWorkflow
+from dataeval_flow.workflows.triage import TriageConfig, TriageWorkflow
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import ToyImages
 from tests.finding_blocks import tables
@@ -30,14 +30,14 @@ def _fresh_cache():
 
 
 def test_the_settings_expand_to_triage_and_its_check() -> None:
-    config = MetadataTriageConfig(
+    config = TriageConfig(
         metadata="weights",
         verify=False,
         default_bins=4,
         min_missing_fraction=0.5,
-        checks={"metadata-issues": {"max_examples": 3}},  # type: ignore[arg-type]
+        checks={"factor-issues": {"max_examples": 3}},  # type: ignore[arg-type]
     )
-    chain = MetadataTriageWorkflow.chain(config)
+    chain = TriageWorkflow.chain(config)
     (triage,) = chain.evaluators
     assert isinstance(triage, FactorTriageConfig)
     assert (triage.name, triage.metadata, triage.verify, triage.default_bins, triage.min_missing_fraction) == (
@@ -49,15 +49,15 @@ def test_the_settings_expand_to_triage_and_its_check() -> None:
     )
     assert list(chain.steps) == [
         {"name": "factor-triage", "evaluator": "factor-triage", "input": "data"},
-        {"name": "metadata-issues", "check": "metadata-issues", "input": "factor-triage", "max_examples": 3},
+        {"name": "factor-issues", "check": "factor-issues", "input": "factor-triage", "max_examples": 3},
     ]
 
 
 def test_a_run_is_a_chain_result_of_its_two_steps() -> None:
-    result = run(MetadataTriageConfig(), MixedWeightDataset())
+    result = run(TriageConfig(), MixedWeightDataset())
     assert isinstance(result, ChainResult)
-    assert result.type == "metadata-triage"
-    assert list(result.steps) == ["factor-triage", "metadata-issues"]
+    assert result.type == "triage"
+    assert list(result.steps) == ["factor-triage", "factor-issues"]
     assert result.health["status"] == "warning"
     assert [f.title for f in result.findings] == [
         "Unreadable factors",
@@ -68,7 +68,7 @@ def test_a_run_is_a_chain_result_of_its_two_steps() -> None:
 
 
 def test_its_envelope_records_the_encoding_triage_read() -> None:
-    result = run(MetadataTriageConfig(), MixedWeightDataset())
+    result = run(TriageConfig(), MixedWeightDataset())
     record = result.metadata.metadata_binning
     assert record is not None
     assert "weight" in record["unusable"]
@@ -77,7 +77,7 @@ def test_its_envelope_records_the_encoding_triage_read() -> None:
 
 def test_a_named_policy_reaches_triage() -> None:
     config = chain_pipeline(
-        workflows=[{"name": "triage", "type": "metadata-triage", "metadata": "weights"}],
+        workflows=[{"name": "triage", "type": "triage", "metadata": "weights"}],
         tasks=[{"name": "t", "workflow": "triage", "sources": ["src"]}],
         datasets={"src": MixedWeightDataset()},
         extra={"metadata": [WEIGHTS]},
@@ -101,11 +101,11 @@ def test_a_named_policy_reaches_triage() -> None:
 )
 def test_a_retired_field_is_refused(field: str, value: Any) -> None:
     with pytest.raises(ValidationError, match=re.escape(field)):
-        MetadataTriageConfig.model_validate({field: value})
+        TriageConfig.model_validate({field: value})
 
 
 def test_a_dataset_with_nothing_to_triage_makes_no_findings() -> None:
-    result = run(MetadataTriageConfig(), ToyImages(count=12))
+    result = run(TriageConfig(), ToyImages(count=12))
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
     assert result.findings == []
@@ -119,7 +119,7 @@ def test_a_cached_rerun_still_pictures_where_the_problem_values_sit(tmp_path: Pa
     result = None
     for _ in range(2):
         DatasetCache.clear_instances()
-        result = run(MetadataTriageConfig(), LatitudeDataset(), cache_dir=tmp_path)
+        result = run(TriageConfig(), LatitudeDataset(), cache_dir=tmp_path)
     assert isinstance(result, ChainResult)
     unreadable = next(f for f in result.findings if f.title == "Unreadable factors")
     (table,) = tables(unreadable)
@@ -130,7 +130,7 @@ def test_as_a_step_over_a_list_it_triages_each_element() -> None:
     each = {"name": "triage", "workflow": "tri", "input": "splits"}
     config = chain_pipeline(
         workflows=[
-            {"name": "tri", "type": "metadata-triage"},
+            {"name": "tri", "type": "triage"},
             {"name": "w", "inputs": [{"name": "splits", "list": True}], "steps": [each]},
         ],
         tasks=[{"name": "t", "workflow": "w", "sources": ["a", "b"]}],
@@ -139,20 +139,20 @@ def test_as_a_step_over_a_list_it_triages_each_element() -> None:
     result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
-    assert list(result.steps["triage/metadata-issues"].elements or {}) == ["a", "b"]
+    assert list(result.steps["triage/factor-issues"].elements or {}) == ["a", "b"]
     assert result.metadata.metadata_binning is not None
     assert list(result.metadata.metadata_binning["per_split"]) == ["splits[a]", "splits[b]"]
     assert result.health["status"] == "warning"
 
 
 def test_dataeval_flow_encoding_finds_the_record_and_writes_its_descriptor() -> None:
-    result = run(MetadataTriageConfig(), AltitudeDataset())
+    result = run(TriageConfig(), AltitudeDataset())
     assert isinstance(result, ChainResult)
     records = _binning_records({"t": {"metadata": result.to_dict()["metadata"]}})
     assert "altitude" in descriptor_from_record(records["t"])["factors"]
 
 
 def test_its_detailed_report_shows_the_metadata_factors() -> None:
-    result = run(MetadataTriageConfig(), AltitudeDataset())
+    result = run(TriageConfig(), AltitudeDataset())
     assert "METADATA FACTORS" in result.report(detailed=True).upper()
     assert "altitude" in result.report(detailed=True)

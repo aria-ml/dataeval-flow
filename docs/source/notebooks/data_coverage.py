@@ -17,7 +17,7 @@
 # # Assess dataset coverage
 #
 # Detect class imbalance, metadata gaps, missing label-space regions, and
-# embedding blind spots with three config-driven presets: `data-bias`, `data-coverage` and `label-space`.
+# embedding blind spots with three config-driven presets: `bias`, `scope` and `taxonomy`.
 
 # %% [markdown]
 # **Target audience**: You are a T&E engineer or data scientist who needs to verify
@@ -37,20 +37,20 @@
 #
 # - Load MilitaryVehicles and filter out the Air Defense category using `ClassFilter` to
 #   simulate missing collection categories.
-# - Run `data-bias` and `data-coverage` without an extractor for a fast label and metadata pass.
+# - Run `bias` and `scope` without an extractor for a fast label and metadata pass.
 # - See why class counts alone do not reveal a missing category.
-# - Run `label-space` on the same source, with the dataset's taxonomy as its ontology, to name
+# - Run `taxonomy` on the same source, with the dataset's taxonomy as its ontology, to name
 #   the unsampled concepts.
-# - Re-run `data-coverage` with a BoVW extractor to evaluate embedding coverage and dimensional completeness.
+# - Re-run `scope` with a BoVW extractor to evaluate embedding coverage and dimensional completeness.
 # - Read each step's output from the result, and tune the checks' thresholds.
 
 # %% [markdown]
 # ## What you will learn
 #
-# - How to configure and run the `data-bias`, `data-coverage` and `label-space` presets with `run_task()` and
+# - How to configure and run the `bias`, `scope` and `taxonomy` presets with `run_task()` and
 #   `run_tasks()`.
-# - How coverage evaluates two axes: taxonomic representation (`label-space`, against an ontology) and visual
-#   variation (`data-coverage`, in embedding space).
+# - How coverage evaluates two axes: taxonomic representation (`taxonomy`, against an ontology) and visual
+#   variation (`scope`, in embedding space).
 # - Why count-based distributions fail to detect unsampled classes when loaders drop missing categories.
 # - How to distinguish genuine collection gaps from intentional ontology scope boundaries.
 # - How to adjust each check's thresholds for varying domain risk tolerances.
@@ -144,11 +144,11 @@ plt.show()
 # %% [markdown]
 # ## Step 1: Run bias and coverage without an extractor (metadata only)
 #
-# You can run `data-bias` and `data-coverage` without an extractor for a fast initial pass.
+# You can run `bias` and `scope` without an extractor for a fast initial pass.
 # Each is a preset: its settings expand to a chain of steps, each an evaluator, a check that
-# judges one, or a transform. `data-bias` reads only labels and metadata: `label-health`,
+# judges one, or a transform. `bias` reads only labels and metadata: `label-health`,
 # `factor-summary`, `balance`, `diversity`, `parity` and `factor-gaps` (the gap analysis).
-# Without an extractor, `data-coverage` skips the steps that embed the images, `coverage` and
+# Without an extractor, `scope` skips the steps that embed the images, `coverage` and
 # `completeness`, and runs `representation` (what each class lacks of an even spread). The two
 # run as two tasks of one pipeline, on the same source.
 #
@@ -157,14 +157,14 @@ plt.show()
 # binned factors to detect whether particular vehicle classes were imaged under
 # limited operational conditions.
 #
-# `checks` is keyed by the type of the check it sets: on `data-bias`, `class-imbalance` judges
+# `checks` is keyed by the type of the check it sets: on `bias`, `class-imbalance` judges
 # the label distribution, and `factor-coverage-gaps` the gap analysis.
 
 # %%
 from dataeval_flow import run_task, run_tasks
 from dataeval_flow.config import DatasetProtocolConfig, MetadataPolicyConfig, PipelineConfig, SourceConfig, TaskConfig
-from dataeval_flow.workflows.data_bias import DataBiasConfig
-from dataeval_flow.workflows.data_coverage import DataCoverageConfig
+from dataeval_flow.workflows.bias import BiasConfig
+from dataeval_flow.workflows.scope import ScopeConfig
 
 vehicle_factors = MetadataPolicyConfig(
     name="vehicle_factors",
@@ -189,7 +189,7 @@ vehicle_factors = MetadataPolicyConfig(
     },
 )
 
-bias_workflow = DataBiasConfig.model_validate(
+bias_workflow = BiasConfig.model_validate(
     {
         "name": "bias",
         "metadata": "vehicle_factors",
@@ -201,7 +201,7 @@ bias_workflow = DataBiasConfig.model_validate(
         },
     }
 )
-metadata_only_workflow = DataCoverageConfig(name="coverage-metadata-only")
+metadata_only_workflow = ScopeConfig(name="coverage-metadata-only")
 
 task_bias = TaskConfig(name="vehicles-bias", workflow="bias", sources="vehicles_src")
 task_metadata = TaskConfig(
@@ -230,7 +230,7 @@ result_bias, result_metadata = results["vehicles-bias"], results["vehicles-cover
 # %% [markdown]
 # ### Bias report
 #
-# The `data-bias` report gives each finding a section: Class Imbalance, Shortcut Risk,
+# The `bias` report gives each finding a section: Class Imbalance, Shortcut Risk,
 # Factor Parity and Factor Coverage Gaps. The metadata summary, balance and diversity are
 # report sections, not findings.
 
@@ -240,7 +240,7 @@ print(result_bias.report())
 # %% [markdown]
 # ### Coverage report (metadata only)
 #
-# The `data-coverage` report gives the Class Shortfall. Class Coverage and Dimensional
+# The `scope` report gives the Class Shortfall. Class Coverage and Dimensional
 # Completeness are reported as not assessed, and the Steps table at the end says why each
 # embedding step was skipped.
 
@@ -251,7 +251,7 @@ print(result_metadata.report())
 # ### Drill into each step's output
 #
 # The result is a `ChainResult`. `result.steps` holds each step's output by step name,
-# for programmatic inspection. The `data-bias` run's `label-health` step's output is a count of
+# for programmatic inspection. The `bias` run's `label-health` step's output is a count of
 # every class the dataset declares, at 0 where it has no labels.
 
 # %%
@@ -324,8 +324,8 @@ for row in worklist.data().iter_rows(named=True):
 # %% [markdown]
 # ## Step 2: Judge the labels against the sanctioned label space
 #
-# The `label-space` preset compares a dataset's labels against a declared ontology, the
-# full taxonomy specification. It runs on the same source as `data-bias` and `data-coverage`,
+# The `taxonomy` preset compares a dataset's labels against a declared ontology, the
+# full taxonomy specification. It runs on the same source as `bias` and `scope`,
 # as a task of its own.
 #
 # You will load the hierarchy attribute from MilitaryVehicles as your ontology:
@@ -340,16 +340,16 @@ print(json.dumps(MilitaryVehicles.hierarchy, indent=2)[:900] + "\n...")
 # When evaluated against this taxonomy, unsampled concepts will be identified.
 
 # %%
-from dataeval_flow.workflows.label_space import LabelSpaceConfig
+from dataeval_flow.workflows.taxonomy import TaxonomyConfig
 
 vehicle_ontology = MilitaryVehicles.hierarchy
 
-vocab_workflow = LabelSpaceConfig(name="vocab", ontology=vehicle_ontology)
+vocab_workflow = TaxonomyConfig(name="vocab", ontology=vehicle_ontology)
 
 task_vocab = TaskConfig(
     name="vehicles-vocab",
     workflow="vocab",
-    sources="vehicles_src",  # the source data-coverage read
+    sources="vehicles_src",  # the source scope read
 )
 
 config_vocab = PipelineConfig(
@@ -383,7 +383,7 @@ for row in representation.data().head(8).iter_rows(named=True):
 # %% [markdown]
 # ### What the ontology adds
 #
-# `label-space` makes four findings:
+# `taxonomy` makes four findings:
 #
 # - **Leaf Coverage**: Identifies leaf coverage (76.9%, 20 of the ontology's 26
 #   leaves) and specific missing concepts. In addition to the four held-out Air Defense
@@ -396,9 +396,9 @@ for row in representation.data().head(8).iter_rows(named=True):
 # - **Ontology Structure**: Reports concept hierarchy size, leaf counts, and depth: 34
 #   concepts, 26 leaves, depth 4, and one single-child link, which it notes.
 #
-# The two worklists differ in what they spread the 1,500 labels over. `data-coverage`'s
+# The two worklists differ in what they spread the 1,500 labels over. `scope`'s
 # Class Shortfall spreads them over the 24 classes the dataset declares, a target of
-# 62 each, 266 labels short. `label-space` spreads them over the ontology's 26 leaves, a
+# 62 each, 266 labels short. `taxonomy` spreads them over the ontology's 26 leaves, a
 # target of 58 each, 358 labels short, and so adds `aircraft` and `watercraft`.
 
 # %% [markdown]
@@ -422,7 +422,7 @@ for row in representation.data().head(8).iter_rows(named=True):
 from dataeval import Ontology
 from dataeval.core import label_reconciliation
 
-# `label-space` builds this from its `ontology` field. You can also construct the
+# `taxonomy` builds this from its `ontology` field. You can also construct the
 # object directly to reconcile arbitrary label lists against it.
 ontology_obj = Ontology.from_hierarchy(vehicle_ontology)
 check = label_reconciliation(["T-72", "BTR-80", "T72", "technical"], ontology_obj)
@@ -450,13 +450,13 @@ print("unmatched:", list(check["unmatched"]))
 #
 # workflows:
 #   - name: vocab
-#     type: label-space
+#     type: taxonomy
 #     ontology: vehicles
 #   - name: bias
-#     type: data-bias
+#     type: bias
 #     metadata: vehicle_factors
 #   - name: coverage
-#     type: data-coverage
+#     type: scope
 #
 # tasks:
 #   - name: vehicles-vocab
@@ -489,7 +489,7 @@ print("unmatched:", list(check["unmatched"]))
 # %%
 from dataeval_flow.config.extractors import BoVWExtractorConfig
 
-full_workflow = DataCoverageConfig.model_validate(
+full_workflow = ScopeConfig.model_validate(
     {
         "name": "coverage-full",
         "coverage": {
@@ -597,29 +597,29 @@ print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}"
 #
 # | Preset | Check | Field | Default | Safety-critical | Web-scraped data |
 # |---|---|---|---|---|---|
-# | `data-coverage` | `uncovered-items` | `warning` | 10% | 3–5% | 15–20% |
-# | `data-coverage` | `dimensional-completeness` | `warning` | 0.5 | 0.7–0.8 | 0.3–0.4 |
-# | `data-bias` | `class-imbalance` | `warning` | 5:1 | 2–3:1 | 10–20:1 |
-# | `data-bias` | `factor-coverage-gaps` | `warning` | 2 | 1 | 5–10 |
-# | `data-coverage` | `class-coverage` | `dispersion` | 0.5 | 0.7 | 0.3 |
-# | `data-coverage` | `class-coverage` | `isotropy` | 0.5 | 0.7 | 0.3 |
-# | `data-coverage` | `class-coverage` | `near_duplicates` | 0.1 | 0.02 | 0.25 |
-# | `label-space` | `leaf-coverage` | `coverage` | 0.9 | 0.95 | 0.6 |
-# | `label-space` | `leaf-coverage` | `empty_branches` | 0 | 0 | 2–5 |
-# | `label-space` | `label-conformance` | `warning` | 0 | 0 | 3–10 |
+# | `scope` | `uncovered-items` | `warning` | 10% | 3–5% | 15–20% |
+# | `scope` | `dimensional-completeness` | `warning` | 0.5 | 0.7–0.8 | 0.3–0.4 |
+# | `bias` | `class-imbalance` | `warning` | 5:1 | 2–3:1 | 10–20:1 |
+# | `bias` | `factor-coverage-gaps` | `warning` | 2 | 1 | 5–10 |
+# | `scope` | `class-coverage` | `dispersion` | 0.5 | 0.7 | 0.3 |
+# | `scope` | `class-coverage` | `isotropy` | 0.5 | 0.7 | 0.3 |
+# | `scope` | `class-coverage` | `near_duplicates` | 0.1 | 0.02 | 0.25 |
+# | `taxonomy` | `leaf-coverage` | `coverage` | 0.9 | 0.95 | 0.6 |
+# | `taxonomy` | `leaf-coverage` | `empty_branches` | 0 | 0 | 2–5 |
+# | `taxonomy` | `label-conformance` | `warning` | 0 | 0 | 3–10 |
 #
-# `class-imbalance` (on `data-bias`) and `dimensional-completeness` also take `info`, the band between `ok` and
+# `class-imbalance` (on `bias`) and `dimensional-completeness` also take `info`, the band between `ok` and
 # a warning: a ratio over 2.0, or a score under 0.8, informs by default. `null` turns a
 # threshold off.
 #
 # `uncovered-items` judges only `naive` coverage, since adaptive coverage flags its
-# `percent` of the items by construction. The data-bias and label-space thresholds go on their
-# own entries, as `LabelSpaceConfig(..., checks={"leaf-coverage": {"coverage": 0.95}})`.
+# `percent` of the items by construction. The bias and taxonomy thresholds go on their
+# own entries, as `TaxonomyConfig(..., checks={"leaf-coverage": {"coverage": 0.95}})`.
 
 # %%
-from dataeval_flow.workflows.data_coverage import DataCoverageChecks
+from dataeval_flow.workflows.scope import ScopeChecks
 
-strict_thresholds = DataCoverageChecks.model_validate(
+strict_thresholds = ScopeChecks.model_validate(
     {
         "dimensional-completeness": {"warning": 0.6},
         "class-coverage": {"dispersion": 0.7, "isotropy": 0.7, "near_duplicates": 0.02},
@@ -680,9 +680,9 @@ print(json_str[:500] + "\n...")
 # In this tutorial, you learned how to:
 #
 # - Simulate missing categories using `ClassFilter` view operations.
-# - Run `data-bias` to assess class balance, shortcut factors and cross-tabulated factor gaps, and
-#   `data-coverage` without an extractor for the class worklist.
-# - Run `label-space` on the same source to benchmark the labels against an ontology and name missing categories.
+# - Run `bias` to assess class balance, shortcut factors and cross-tabulated factor gaps, and
+#   `scope` without an extractor for the class worklist.
+# - Run `taxonomy` on the same source to benchmark the labels against an ontology and name missing categories.
 # - Reconcile label names against an ontology.
 # - Configure feature extractors to evaluate embedding dispersion and dimensional completeness.
 # - Read each step's output from `result.steps`.
@@ -707,7 +707,7 @@ print(json_str[:500] + "\n...")
 # - **Concept**: [Dataset coverage](../concepts/Coverage.md) covers label-space
 #   and embedding-space coverage theory.
 # - **How-to**: [Declare an ontology](../how_to/declare_an_ontology.md) explains
-#   defining label spaces via inline dictionaries or SKOS/OWL files, and what `label-space` finds.
+#   defining label spaces via inline dictionaries or SKOS/OWL files, and what `taxonomy` finds.
 # - **How-to**: [Build dataset views](../how_to/build_dataset_views.md) covers
 #   view operations such as `ClassFilter`, `Shuffle`, and `Limit`.
 # - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) explains

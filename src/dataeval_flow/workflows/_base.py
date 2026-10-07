@@ -87,10 +87,10 @@ class WorkflowConfig(KindConfig, Generic[R]):
             "top-level `ontologies:` key, or give a path to a serialized RDF artifact "
             "resolved against the data root; a nested mapping of concept to children is "
             "read as an inline hierarchy. Recorded in the result envelope's `label_space`, "
-            "so a run conformed by a `label-space` entry's stanza carries that entry's "
+            "so a run conformed by a `taxonomy` entry's stanza carries that entry's "
             "digest and can be matched back to it. Declare it wherever a source's view "
-            "applies a `Relabel`. `label-space` judges labels against it; `data-coverage` "
-            "refuses it, so a data-coverage run on a conformed source records no label "
+            "applies a `Relabel`. `taxonomy` judges labels against it; `scope` "
+            "refuses it, so a scope run on a conformed source records no label "
             "space of its own."
         ),
     )

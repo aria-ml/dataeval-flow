@@ -118,10 +118,10 @@ def run(
 
         from dataeval_flow.config.extractors import FlattenExtractorConfig
         from dataeval_flow.evaluators.shift import DriftMMDConfig
-        from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
+        from dataeval_flow.workflows.shift import ShiftConfig
 
         drift = run(
-            DriftMonitoringConfig(detectors=[DriftMMDConfig()]),
+            ShiftConfig(detectors=[DriftMMDConfig()]),
             {"reference": train, "test": incoming},
             extractor=FlattenExtractorConfig(batch_size=64),
         )

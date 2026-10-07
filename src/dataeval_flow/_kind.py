@@ -137,7 +137,7 @@ def check_type_id(config: BaseModel, field: str) -> None:
     """Refuse `config` when its `field` holds another type id than the default its class gives that field.
 
     A kind's config subclass states the type id it configures as that field's default (``type: str =
-    "data-cleaning"``, ``model: str = "onnx"``), so an instance holding another value claims another class's id.
+    "quality"``, ``model: str = "onnx"``), so an instance holding another value claims another class's id.
     """
     default = type(config).model_fields[field].default
     value = getattr(config, field)
@@ -165,7 +165,7 @@ def state_type_id(
 class KindConfig(BaseModel):
     """The shared base of workflow and evaluator configs: an entry's ``type``, and its ``name``.
 
-    A subclass gives ``type`` a default, its type id (``type: str = "data-cleaning"``); a validator holds every
+    A subclass gives ``type`` a default, its type id (``type: str = "quality"``); a validator holds every
     instance to it, and the JSON schema states it as a ``const``.
     """
 

@@ -1,4 +1,4 @@
-"""The pure merge functions ``data-cleaning`` and the quality evaluators share.
+"""The pure merge functions ``quality`` and the quality evaluators share.
 
 Covers the branches a real dataset rarely hits: both sides empty, columns already
 aligned, a column missing from one side only, and ``cast_to_int``'s fallback.

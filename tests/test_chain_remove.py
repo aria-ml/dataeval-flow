@@ -210,7 +210,7 @@ def test_plan_arguments_are_checked_by_name_alone_when_their_hints_do_not_resolv
 
 
 _FOLDS = [
-    {"name": "k", "transform": "kfold", "input": "a", "folds": 2},
+    {"name": "k", "transform": "kfold", "input": "a", "folds": 2, "test_frac": 0.0, "stratify": False},
     {"name": "dupes", "evaluator": "dupes", "input": "k.train"},
 ]
 

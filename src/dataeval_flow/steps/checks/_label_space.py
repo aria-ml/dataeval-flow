@@ -1,4 +1,4 @@
-"""The label-space checks: legacy data-coverage's Label Space Coverage (now Leaf Coverage), Label Conformance and
+"""The taxonomy checks: legacy data-coverage's Label Space Coverage (now Leaf Coverage), Label Conformance and
 Ontology Structure findings, as steps (coverage spec §3.4)."""
 
 __all__ = [
@@ -94,7 +94,10 @@ class LeafCoverageCheck(Check[LeafCoverageConfig]):
     asserted minimum share is not met."""
 
     name: ClassVar[str] = "leaf-coverage"
-    description: ClassVar[str] = "Warns when too few of an ontology's leaves have examples, or a branch is empty."
+    description: ClassVar[str] = (
+        "Judges `representation`'s output: warns when too few of an ontology's leaves have "
+        "examples, or a branch is empty."
+    )
     title: ClassVar[str] = "Leaf Coverage"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(RepresentationOutput,)),)
 
@@ -159,7 +162,9 @@ class LabelConformanceCheck(Check[LabelConformanceConfig]):
     """``label-conformance``: warns when class names resolve to no ontology concept, or to several."""
 
     name: ClassVar[str] = "label-conformance"
-    description: ClassVar[str] = "Warns when class names resolve to no ontology concept, or to several."
+    description: ClassVar[str] = (
+        "Judges `label-reconciliation`'s output: warns when class names resolve to no ontology concept, or to several."
+    )
     title: ClassVar[str] = "Label Conformance"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(LabelReconciliationOutput,)),)
 
@@ -225,7 +230,10 @@ class OntologyStructureCheck(Check[OntologyStructureConfig]):
     """``ontology-structure``: reports an ontology's structural facts, and warns on a label several concepts share."""
 
     name: ClassVar[str] = "ontology-structure"
-    description: ClassVar[str] = "Reports an ontology's structure, and warns on a label several concepts share."
+    description: ClassVar[str] = (
+        "Judges `ontology-validation`'s output: reports an ontology's structure, and warns on a "
+        "label several concepts share."
+    )
     title: ClassVar[str] = "Ontology Structure"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OntologyValidationOutput,)),)
 
@@ -284,7 +292,10 @@ class ClassShortfallCheck(Check[ClassShortfallConfig]):
     the classes the dataset declares (coverage spec §6.2)."""
 
     name: ClassVar[str] = "class-shortfall"
-    description: ClassVar[str] = "Lists the classes short of an even spread, and warns on an unmet minimum share."
+    description: ClassVar[str] = (
+        "Judges `representation`'s output: lists the classes short of an even spread, and warns on "
+        "an unmet minimum share."
+    )
     title: ClassVar[str] = "Class Shortfall"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(RepresentationOutput,)),)
 
@@ -304,7 +315,7 @@ class ClassShortfallCheck(Check[ClassShortfallConfig]):
                 description=(
                     f"{len(worklist)} class(es) fall short of an even spread, by {deficit} labels in total. Targets "
                     "come from a uniform expectation over the classes the dataset itself declares — run a "
-                    "`label-space` entry with a declared `ontology` to measure coverage of a sanctioned label space "
+                    "`taxonomy` entry with a declared `ontology` to measure coverage of a sanctioned label space "
                     "instead, which is what reveals classes that were never collected at all."
                 ),
                 blocks=[*(Paragraph(text=note) for note in notes), *worklist_table(worklist)],

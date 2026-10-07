@@ -1,6 +1,6 @@
 """TC-11-1 (NFR-4) — configuration reproducibility.
 
-Demonstrates that the data-splitting preset is deterministic for a given
+Demonstrates that the splits preset is deterministic for a given
 ``PipelineConfig`` (same config → identical ``to_dict()`` output, ignoring the
 run's timing: the envelope's ``timestamp`` and ``execution_time_s``, and each
 step's ``elapsed_s`` and DataEval ``execution_time`` and ``execution_duration``),
@@ -16,7 +16,7 @@ import pytest
 
 from dataeval_flow import run_tasks
 from dataeval_flow.config import ImageFolderDatasetConfig, PipelineConfig, SourceConfig, TaskConfig
-from dataeval_flow.workflows.data_splitting import DataSplittingConfig
+from dataeval_flow.workflows.splits import SplitsConfig
 from verification.fixtures import write_image_folder
 
 pytestmark = pytest.mark.required
@@ -36,9 +36,9 @@ def _build_split_cfg(data_root: Path, test_frac: float, seed: int | None = 42) -
         ],
         sources=[SourceConfig(name="main", dataset="main_ds")],
         workflows=[
-            DataSplittingConfig(
+            SplitsConfig(
                 name="split_main",
-                type="data-splitting",
+                type="splits",
                 test_frac=test_frac,
                 val_frac=0.25,
                 stratify=False,

@@ -104,12 +104,12 @@ def test_the_extractor_and_transform_serve_a_run(monkeypatch: pytest.MonkeyPatch
 def test_broken_and_duplicate_entries_leave_the_rest_working(examples: dict[str, list[tuple[str, str]]]) -> None:
     examples["dataeval_flow.workflows"] += [
         ("example.gone", "tests.nowhere:Nope"),
-        ("data-cleaning", "tests.example_plugin:CountWorkflow"),
+        ("quality", "tests.example_plugin:CountWorkflow"),
     ]
     names = [cls.name for cls in list_workflows()]
     assert "example.count" in names
     assert "example.gone" not in names
-    assert get_workflow("data-cleaning").__name__ == "DataCleaningWorkflow"
+    assert get_workflow("quality").__name__ == "QualityWorkflow"
     assert run(CountConfig(), ToyImages()).success
 
 
