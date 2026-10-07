@@ -188,7 +188,7 @@ print(result.report(detailed=False, width=160))
 # %% [markdown]
 # ### Reading the table
 #
-# Every run warns, with 3 warnings each and 27 in all: Image Outliers, Classwise Outliers
+# Every run warns, with 3 warnings each and 27 in all: Image Outliers, Class Outliers
 # and Image Duplicates are past their thresholds in every run, and Class Imbalance is `info`.
 #
 # **`outliers.outlier_threshold` changes the outlier findings.** The adaptive method flags 157

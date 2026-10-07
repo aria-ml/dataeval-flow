@@ -109,12 +109,12 @@ MILCO's two campaigns, `reference` and `operational`:
   reference
     Image Outliers .................................... 11 images (4.2%)  [!!]
     Target Outliers .................................. 32 targets (6.5%)  [!!]
-    Classwise Outliers ...... worst: NOMBO (7.5%), 2/2 classes over 3.0%  [!!]
+    Class Outliers .......... worst: NOMBO (7.5%), 2/2 classes over 3.0%  [!!]
     Image Duplicates .................. 0 exact (0.0%), 150 near (57.5%)  [!!]
   operational
     Image Outliers .................................... 22 images (2.4%)  [..]
     Target Outliers ................................... 6 targets (3.4%)  [!!]
-    Classwise Outliers ...... worst: NOMBO (5.2%), 1/2 classes over 3.0%  [!!]
+    Class Outliers .......... worst: NOMBO (5.2%), 1/2 classes over 3.0%  [!!]
     Image Duplicates .................. 0 exact (0.0%), 787 near (86.6%)  [!!]
 
   Health: 7 warning(s) [!!] — review flagged findings
@@ -132,7 +132,7 @@ banner and configuration:
 ================================================================================
   Image Outliers ...................................... 11 images (4.2%)  [!!]
   Target Outliers .................................... 32 targets (6.5%)  [!!]
-  Classwise Outliers ........ worst: NOMBO (7.5%), 2/2 classes over 3.0%  [!!]
+  Class Outliers ............ worst: NOMBO (7.5%), 2/2 classes over 3.0%  [!!]
   Image Duplicates .................... 0 exact (0.0%), 150 near (57.5%)  [!!]
 
   Health: 4 warning(s) [!!] — review flagged findings

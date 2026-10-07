@@ -24,14 +24,14 @@ example assumes the pipeline defines
 | --- | --- | --- |
 | `image-outliers` | `input`: an `outliers` Output | Image Outliers |
 | `target-outliers` | `input`: an `outliers` Output run with `per_target: true`; `labels`: a `label-health` Output | Target Outliers |
-| `class-outliers` | `input`: a `outliers-by-class` Output | Classwise Outliers |
+| `class-outliers` | `input`: a `outliers-by-class` Output | Class Outliers |
 | `image-duplicates` | `input`: a `duplicates` Output | Image Duplicates |
 | `class-imbalance` | `input`: a `label-health` Output | Class Imbalance |
 | `class-sufficiency` | `input`: a `label-health` Output over train; `evals`: the evaluation splits' | Class Sufficiency |
 | `untrained-classes` | `input`: a `label-health` Output over train; `evals`: the evaluation splits' | Untrained Classes |
 | `leaf-coverage` | `input`: a `representation` Output against a declared ontology | Leaf Coverage |
 | `label-conformance` | `input`: a `label-reconciliation` Output | Label Conformance |
-| `label-mergeability` | `input`: a `label-alignment` Output | Mergeability |
+| `label-mergeability` | `input`: a `label-alignment` Output | Label Mergeability |
 | `ontology-structure` | `input`: an `ontology-validation` Output | Ontology Structure |
 | `class-coverage` | `input`: a `coverage` Output | Class Coverage |
 | `uncovered-items` | `input`: a `coverage` Output | Uncovered Items |
@@ -40,9 +40,9 @@ example assumes the pipeline defines
 | `class-shortfall` | `input`: a `representation` Output with no ontology | Class Shortfall |
 | `shortcut-risk` | `input`: a `balance` Output | Shortcut Risk |
 | `factor-parity` | `input`: a `parity` Output | Factor Parity |
-| `class-stratification` | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
+| `class-stratification` | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Class Stratification |
 | `leakage` | `duplicates`: `duplicates` Outputs over two splits; `factors`: `factor-leakage` Outputs | Leakage |
-| `embedding-divergence` | `input`: a `divergence` Output | Distribution Shift |
+| `embedding-divergence` | `input`: a `divergence` Output | Embedding Divergence |
 | `eval-coverage` | `input`: an OOD evaluator's Output | Eval Coverage |
 | `drift` | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `ood` | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
@@ -155,7 +155,7 @@ Warns when outliers pass `warning` percent across classes; names the worst class
 It judges the worst class's share, how many classes pass the limit, and whether all classes together do.
 
 - **Reads:** `input`, an `outliers-by-class` Output.
-- **Makes:** one finding, titled Classwise Outliers, whose evidence is the per-class table.
+- **Makes:** one finding, titled Class Outliers, whose evidence is the per-class table.
 
 **Settings** ({py:class}`~dataeval_flow.steps.checks.ClassOutliersConfig`):
 
@@ -412,7 +412,7 @@ classes collapse into one concept, informs; partial, where `Relabel` would drop 
 concepts share always warns: the stanza cannot be used until the ontology is fixed.
 
 - **Reads:** `input`, a `label-alignment` Output.
-- **Makes:** one finding, titled Mergeability.
+- **Makes:** one finding, titled Label Mergeability.
 
 **Settings** ({py:class}`~dataeval_flow.steps.checks.LabelMergeabilityConfig`):
 
@@ -438,7 +438,7 @@ workflows:
     inputs: [data]
     steps:
       - {name: align, evaluator: align, input: data}
-      - {name: mergeability, check: label-mergeability, input: align}
+      - {name: label-mergeability, check: label-mergeability, input: align}
 ```
 
 ### `ontology-structure`
@@ -730,7 +730,7 @@ passes train as `input` and the evaluation splits as `parts`, so each evaluation
 
 - **Reads:** `input`, a `label-health` Output over the whole Dataset the parts were split from; `parts`, the parts'
   `label-health` Outputs, each judged; `shown`, more `label-health` Outputs shown but not judged.
-- **Makes:** one finding, titled Stratification, with the table of counts across the parts as its evidence.
+- **Makes:** one finding, titled Class Stratification, with the table of counts across the parts as its evidence.
 
 **Settings** ({py:class}`~dataeval_flow.steps.checks.ClassStratificationConfig`):
 
@@ -757,7 +757,7 @@ workflows:
       - {name: split, transform: split, input: data, val_frac: 0.1, test_frac: 0.2}
       - {name: health-train, evaluator: label-health, input: split.train}
       - {name: health-val, evaluator: label-health, input: split.val}
-      - {name: stratification, check: class-stratification, input: whole, parts: [health-train, health-val], warning: 5.0}
+      - {name: class-stratification, check: class-stratification, input: whole, parts: [health-train, health-val], warning: 5.0}
 ```
 
 ### `leakage`
@@ -806,7 +806,7 @@ The finding warns above `warning`, is `info` above `info`, and is `ok` at or bel
 divergence. A `null` limit judges nothing at its level, and with both `null` the finding is `info`.
 
 - **Reads:** `input`, a `divergence` Output.
-- **Makes:** one finding, titled Distribution Shift.
+- **Makes:** one finding, titled Embedding Divergence.
 
 **Settings** ({py:class}`~dataeval_flow.steps.checks.EmbeddingDivergenceConfig`):
 

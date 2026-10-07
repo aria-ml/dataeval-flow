@@ -56,7 +56,7 @@
           "image-duplicates": {"exact": 0.0, "near": 5.0},
           "image-outliers": {"warning": 5.0},
           "target-outliers": {"warning": 10.0},
-          "classwise-outliers": {"warning": 12.0},
+          "class-outliers": {"warning": 12.0},
           "class-imbalance": {"warning": 5.0}
         }
       },
@@ -540,9 +540,9 @@
       },
       "elapsed_s": 0.005
     },
-    "classwise-outliers": {
+    "class-outliers": {
       "kind": "check",
-      "type": "classwise-outliers",
+      "type": "class-outliers",
       "status": "ok",
       "inputs": [
         "outliers-by-class"
@@ -629,7 +629,7 @@
     },
     {
       "severity": "info",
-      "title": "Classwise Outliers",
+      "title": "Class Outliers",
       "brief": "worst: ship (14.6%), 1/2 classes over 12.0%",
       "description": null,
       "blocks": [
@@ -669,7 +669,7 @@
           ]
         }
       ],
-      "step": "classwise-outliers"
+      "step": "class-outliers"
     },
     {
       "severity": "warning",

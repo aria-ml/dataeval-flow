@@ -34,7 +34,7 @@ STEPS: dict[str, dict[str, str]] = {
         "labels": "label-health",
         "by-class": "outliers-by-class",
         "dupes": "duplicates",
-        "classwise": "classwise-outliers",
+        "classwise": "class-outliers",
         "duplicates": "image-duplicates",
         "imbalance": "class-imbalance",
     },

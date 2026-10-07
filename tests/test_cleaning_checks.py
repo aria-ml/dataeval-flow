@@ -59,15 +59,15 @@ _OUTLIER_TITLES = {"Image Outliers", "Target Outliers", "Class Outliers"}
 
 # 24 classification images, labelled and not; 20 detection images with 28 boxes, a copied image (9 of 4) and two
 # bright boxes. On these, data-cleaning finds (severity, title, brief):
-#   classification: warning Image Outliers 1 images (4.2%); warning Classwise Outliers worst: b (8.3%), 1/1 classes
+#   classification: warning Image Outliers 1 images (4.2%); warning Class Outliers worst: b (8.3%), 1/1 classes
 #     over 3.0%; warning Duplicates 2 exact (8.3%), 0 near (0.0%); info Class Imbalance 2 classes, 24 items,
 #     imbalance 1.0:1
-#   unlabelled: the same outliers and duplicates, Classwise Outliers info worst: None (0.0%), all classes within
+#   unlabelled: the same outliers and duplicates, Class Outliers info worst: None (0.0%), all classes within
 #     3.0%, and no Class Imbalance, since no item has a label
 #   detection: warning Image Outliers 2 images (10.0%); warning Target Outliers 2 targets (7.1%); warning Classwise
 #     Outliers worst: van (12.5%), 1/1 classes over 3.0%; warning Duplicates 2 exact (10.0%), 0 near (0.0%); info
 #     Class Imbalance 3 classes, 20 items, imbalance 1.3:1
-#   no duplicates (6 images, none copied): ok Image Outliers 0 images (0.0%); ok Classwise Outliers no outliers
+#   no duplicates (6 images, none copied): ok Image Outliers 0 images (0.0%); ok Class Outliers no outliers
 #     detected; info Class Imbalance 2 classes, 6 items, imbalance 1.0:1; and no Duplicates finding at all
 _DATASETS: dict[str, Callable[[], Any]] = {
     "classification": lambda: ToyImages(count=24),

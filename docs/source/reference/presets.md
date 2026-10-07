@@ -248,7 +248,7 @@ Its report gives each finding a section, with the evaluators it judged below it:
 Image Outliers, and the duplicate groups under Image Duplicates. The class counts sit under Target Outliers where any box
 was flagged, else in a Label Health section of their own; class balance is [`data-bias`](#data-bias)'s. A finding
 that read a step shown
-already names the finding it is under, as Classwise Outliers names Image Outliers for the outliers `outliers-by-class`
+already names the finding it is under, as Class Outliers names Image Outliers for the outliers `outliers-by-class`
 counted. `clean`'s section follows, saying how many images it kept and what each plan named. On MILCO's reference
 campaigns, as {doc}`View a report as HTML <../notebooks/view_html_reports>` runs it: "Kept 162 of 261 images. Removed 99
 images and 32 detections: 90 images named by `duplicates`, 11 images and 32 detections by `outliers`." Two images were
@@ -497,7 +497,7 @@ more, `train` and `val` are lists keyed by fold.
 
 The chain reads the whole set's labels, splits it (`folds: 1`) or cuts it into k folds (`folds` of 2 or more) with a
 shared test part, optionally rebalances each train, and judges each part's labels and its stratification against the
-whole. Its findings are Stratification for each fold. The whole set's class balance and metadata factors are
+whole. Its findings are Class Stratification for each fold. The whole set's class balance and metadata factors are
 [`data-bias`](#data-bias)'s; run it on the source before splitting it. The result is a `ChainResult`, and each part's
 indices into the source are in `result.steps["split"].details["indices"]`. Run as a step of a custom workflow, the
 entry hands on three Datasets: `<step>.train` (the rebalanced train, where the entry sets `rebalance:`), `<step>.val`
