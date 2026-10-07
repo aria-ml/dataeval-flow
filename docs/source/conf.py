@@ -7,6 +7,7 @@ https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import datetime
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -81,6 +82,16 @@ autoapi_add_toctree_entry = False
 # The extension bases document how to subclass them in a numpydoc-style "Subclassing" section, and each type's
 # result lists the output and metadata fields typed code reads in a "Fields" section, rendered like Parameters.
 napoleon_custom_sections = ["Subclassing", ("Fields", "params_style")]
+
+# -----------------------------------------------------------------------------
+# Config Reference
+# -----------------------------------------------------------------------------
+
+# Like the AutoAPI pages, written on every build: from config/params.schema.json into reference/config/.
+sys.path.append(str(Path(__file__).parents[1]))
+from build_config_reference import write_pages
+
+write_pages()
 
 # -----------------------------------------------------------------------------
 # MyST settings

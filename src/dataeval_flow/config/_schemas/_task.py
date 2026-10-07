@@ -24,15 +24,22 @@ TaskKind = Literal["workflow", "evaluator"]
 
 
 class TaskConfig(BaseModel):
-    """Task/workflow configuration schema.
+    """One run: a workflow or an evaluator, on named sources, with an optional extractor.
 
-    Tasks reference sources (dataset+selection bundles) and an optional
-    extractor (model+preprocessor+batch_size bundle) by name.
+    A task names what it runs under ``workflow:`` or ``evaluator:``, by its name in ``workflows:`` or
+    ``evaluators:``, and the sources it reads, and the extractor where it needs one, by their names in ``sources:``
+    and ``extractors:``.
 
-    A config file names what a task runs under ``workflow:`` or ``evaluator:``, so the
-    file says which kind of task it is. Loaded, either lands in ``workflow``, and ``kind``
-    records which key the file used. Running a task reads ``kind`` only to look the name
-    up in ``workflows:`` or ``evaluators:``; saved, the task is written back under its key.
+    YAML example::
+
+        tasks:
+          - name: check_splits
+            workflow: split_audit
+            sources: [train, test]
+            extractor: bovw_ext
+          - name: find_outliers
+            evaluator: outliers
+            sources: train
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")

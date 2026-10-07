@@ -35,8 +35,9 @@ output/
 # Generated notebooks (source of truth is MyST markdown)
 *.ipynb
 
-# Generated API documentation
+# Generated API and config documentation
 docs/source/reference/autoapi/dataeval_flow/*
+docs/source/reference/config/
 
 # Jupyter execution cache (stored in docs-artifacts/<branch> orphan branch instead)
 .jupyter_cache/

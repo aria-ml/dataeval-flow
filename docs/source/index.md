@@ -137,6 +137,7 @@ Combine Catalog <reference/combines>
 Check Catalog <reference/checks>
 Preset Catalog <reference/presets>
 Naming Conventions <reference/naming>
+Config Reference <reference/config/index>
 API Reference <reference/autoapi/dataeval_flow/index>
 reference/glossary
 :::

@@ -46,7 +46,8 @@ A task's `extractor:` still lands in the result envelope's `model_id`, whether o
 
 Parameter names are DataEval's argument names, unchanged. A parameter you leave out is not passed, so DataEval's own
 default applies. An unknown parameter fails the config load, as does any value DataEval itself refuses, such as an
-unknown threshold method. Print any evaluator's JSON Schema with `dataeval-flow evaluators <type>`.
+unknown threshold method. Print any evaluator's JSON Schema with `dataeval-flow evaluators <type>`, or see every key of
+every evaluator, with its type and default, in the {ref}`Config Reference <config-key-evaluators>`.
 
 ## Is the data clean?
 
