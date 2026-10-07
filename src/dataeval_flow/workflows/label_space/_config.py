@@ -5,18 +5,18 @@ __all__ = [
     "LabelConformanceSettings",
     "LabelSpaceChecks",
     "LabelSpaceConfig",
-    "LabelSpaceRepresentationSettings",
     "LeafCoverageSettings",
     "OntologyValidationSettings",
 ]
 
-from typing import Annotated, Any, ClassVar
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
+from dataeval_flow.workflows.data_coverage import RepresentationSettings
 
 
 class LeafCoverageSettings(BaseModel):
@@ -46,20 +46,6 @@ class LabelConformanceSettings(BaseModel):
         default=0,
         ge=0,
         description="Class names that may resolve to no concept; `null` turns it off.",
-    )
-
-
-class LabelSpaceRepresentationSettings(BaseModel):
-    """The `representation` step's settings in label-space: each class's minimum share."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    expected: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] | None = Field(
-        default=None,
-        description=(
-            "Class name to its minimum expected share of the dataset, a fraction in [0, 1]. A name resolving to no "
-            "concept or to several is ignored and noted."
-        ),
     )
 
 
@@ -111,8 +97,8 @@ class LabelSpaceConfig(WorkflowConfig[ChainResult]):
             "serialized RDF artifact resolved against the data root, or a nested mapping of concept to children."
         ),
     )
-    representation: LabelSpaceRepresentationSettings = Field(
-        default_factory=LabelSpaceRepresentationSettings, description="The `representation` step's settings."
+    representation: RepresentationSettings = Field(
+        default_factory=RepresentationSettings, description="The `representation` step's settings."
     )
     ontology_validation: OntologyValidationSettings = Field(
         default_factory=OntologyValidationSettings,

@@ -3,7 +3,6 @@
 
 __all__ = [
     "AuditChecks",
-    "AuditClassImbalanceSettings",
     "AuditConfig",
     "ClassSufficiencySettings",
     "DistributionShiftSettings",
@@ -26,14 +25,19 @@ from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps.checks._ood import OODThresholds
 from dataeval_flow.steps.checks._stratification import StratificationThresholds
 from dataeval_flow.workflows._base import WorkflowConfig
-from dataeval_flow.workflows.data_bias import DiversitySettings, FactorGapsSettings, ShortcutRiskSettings
+from dataeval_flow.workflows.data_bias import (
+    ClassImbalanceSettings,
+    DiversitySettings,
+    FactorGapsSettings,
+    ShortcutRiskSettings,
+)
 from dataeval_flow.workflows.data_bias._config import FactorCoverageGapsSettings
 from dataeval_flow.workflows.data_cleaning import ImageDuplicatesSettings, ImageOutliersSettings, OutliersSettings
-from dataeval_flow.workflows.data_coverage import DataCoverageCoverageSettings, WrapSettings
+from dataeval_flow.workflows.data_coverage import CoverageSettings, WrapSettings
 from dataeval_flow.workflows.data_coverage._config import (
     ClassCoverageSettings,
-    DataCoverageUncoveredItemsSettings,
     DimensionalCompletenessSettings,
+    UncoveredItemsSettings,
 )
 from dataeval_flow.workflows.label_space import LabelConformanceSettings
 from dataeval_flow.workflows.metadata_triage import MetadataIssuesSettings
@@ -80,44 +84,6 @@ class OODKNeighborsSettings(BaseModel):
         lt=100.0,
         description="An item is flagged when it lies farther from train than this percent of train lies from itself.",
     )
-
-
-class AuditClassImbalanceSettings(BaseModel):
-    """The `class-imbalance` check's settings in audit, judged on each split. Named for the preset, so it reaches the
-    schema `$defs` apart from the other presets' class-imbalance settings."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    warning: float | None = Field(
-        default=5.0,
-        ge=1.0,
-        description=(
-            "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` "
-            "judges nothing but an empty class, which warns unless `empty` is false."
-        ),
-    )
-    info: float | None = Field(
-        default=None,
-        ge=1.0,
-        description=(
-            "A ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every "
-            "ratio under `warning` information. Must not exceed `warning`."
-        ),
-    )
-    empty: bool = Field(
-        default=False,
-        description=(
-            "Whether a declared class with no labels warns; audit leaves that to `untrained-classes` and "
-            "`class-sufficiency`."
-        ),
-    )
-
-    @model_validator(mode="after")
-    def _info_under_warning(self) -> Self:
-        """Two bounds that cross are refused here, where the user wrote them."""
-        if self.info is not None and self.warning is not None and self.info > self.warning:
-            raise ValueError(f"`info` ({self.info}) must not exceed `warning` ({self.warning}).")
-        return self
 
 
 class ClassSufficiencySettings(BaseModel):
@@ -246,8 +212,8 @@ class AuditChecks(BaseModel):
         alias="metadata-issues",
         description="The `metadata-issues` check's settings.",
     )
-    class_imbalance: AuditClassImbalanceSettings = Field(
-        default_factory=AuditClassImbalanceSettings,
+    class_imbalance: ClassImbalanceSettings = Field(
+        default_factory=ClassImbalanceSettings,
         alias="class-imbalance",
         description="The `class-imbalance` check's settings.",
     )
@@ -271,8 +237,8 @@ class AuditChecks(BaseModel):
         alias="class-coverage",
         description="The `class-coverage` check's settings.",
     )
-    uncovered_items: DataCoverageUncoveredItemsSettings = Field(
-        default_factory=DataCoverageUncoveredItemsSettings,
+    uncovered_items: UncoveredItemsSettings = Field(
+        default_factory=UncoveredItemsSettings,
         alias="uncovered-items",
         description="The `uncovered-items` check's settings, under `naive` coverage.",
     )
@@ -336,8 +302,8 @@ class AuditConfig(WorkflowConfig[ChainResult], MetadataConfigMixin, StatsConfigM
     )
 
     outliers: OutliersSettings = Field(description="The `outliers` step's settings, run on each split.")
-    coverage: DataCoverageCoverageSettings = Field(
-        default_factory=DataCoverageCoverageSettings,
+    coverage: CoverageSettings = Field(
+        default_factory=CoverageSettings,
         description="The `coverage` step's settings, run on train when the task names an extractor.",
     )
     wrap: WrapSettings = Field(

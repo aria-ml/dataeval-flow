@@ -241,6 +241,13 @@
 
 ### Changed
 
+- One settings model per step type, shared by every preset that offers it: `ClassImbalanceSettings` (in place of
+  `DataBiasClassImbalanceSettings` and `AuditClassImbalanceSettings`), `RepresentationSettings` (in place of
+  `DataCoverageRepresentationSettings` and `LabelSpaceRepresentationSettings`), `CoverageSettings` and
+  `UncoveredItemsSettings` (renamed from `DataCoverage…`)
+- `class-imbalance` takes its own defaults in every preset: `data-bias` no longer defaults `info` to 2.0, so ratios up
+  to 2.0 are `info` unless `info: 2` is set; `audit` defaults `empty` to `true`, so a declared class with no labels
+  also warns there
 - Each preset but `audit` owns its checks alone, so presets run side by side report each finding once. Class balance and
   the metadata factors move to `data-bias`: `data-coverage` drops `label-health`, `class-imbalance`, `factor-summary`,
   `balance`, `diversity`, `factor-gaps` and `factor-coverage-gaps`, and refuses its `metadata`, `diversity` and

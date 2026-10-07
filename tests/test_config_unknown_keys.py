@@ -21,8 +21,8 @@ from dataeval_flow.config._schemas._preprocessor import PreprocessingStep
 from dataeval_flow.config._schemas._view import ViewOperation
 from dataeval_flow.workflows.audit import AuditChecks
 from dataeval_flow.workflows.data_bias._config import (
+    ClassImbalanceSettings,
     DataBiasChecks,
-    DataBiasClassImbalanceSettings,
     DataBiasConfig,
     FactorCoverageGapsSettings,
     FactorGapsSettings,
@@ -32,12 +32,12 @@ from dataeval_flow.workflows.data_cleaning import DataCleaningConfig
 from dataeval_flow.workflows.data_cleaning._config import DataCleaningChecks
 from dataeval_flow.workflows.data_coverage._config import (
     ClassCoverageSettings,
+    CoverageSettings,
     CropParams,
     DataCoverageChecks,
     DataCoverageConfig,
-    DataCoverageCoverageSettings,
-    DataCoverageUncoveredItemsSettings,
     DimensionalCompletenessSettings,
+    UncoveredItemsSettings,
 )
 from dataeval_flow.workflows.drift_monitoring import DriftMonitoringChecks
 from dataeval_flow.workflows.metadata_triage._config import MetadataTriageConfig
@@ -97,15 +97,15 @@ _NESTED = [
     pytest.param(AuditChecks, {}, id="audit-thresholds"),
     pytest.param(DataCleaningChecks, {}, id="cleaning-thresholds"),
     pytest.param(DataCoverageChecks, {}, id="coverage-thresholds"),
-    pytest.param(DataBiasClassImbalanceSettings, {}, id="bias-class-imbalance"),
+    pytest.param(ClassImbalanceSettings, {}, id="bias-class-imbalance"),
     pytest.param(FactorParitySettings, {}, id="factor-parity"),
     pytest.param(DataBiasChecks, {}, id="bias-checks"),
     pytest.param(DataBiasConfig, {"name": "w"}, id="bias-config"),
     pytest.param(FactorCoverageGapsSettings, {}, id="factor-coverage-gaps"),
     pytest.param(ClassCoverageSettings, {}, id="coverage-class-coverage"),
-    pytest.param(DataCoverageUncoveredItemsSettings, {}, id="coverage-uncovered-rate"),
+    pytest.param(UncoveredItemsSettings, {}, id="coverage-uncovered-rate"),
     pytest.param(DimensionalCompletenessSettings, {}, id="coverage-completeness-score"),
-    pytest.param(DataCoverageCoverageSettings, {}, id="coverage-settings"),
+    pytest.param(CoverageSettings, {}, id="coverage-settings"),
     pytest.param(CropParams, {}, id="coverage-crops"),
     pytest.param(FactorGapsSettings, {}, id="bias-gap-settings"),
     pytest.param(DriftMonitoringChecks, {}, id="drift-thresholds"),

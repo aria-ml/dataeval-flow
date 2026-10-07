@@ -1,6 +1,7 @@
 """The ``data-bias`` preset's config: the settings of its step types, and when a finding warns."""
 
 __all__ = [
+    "ClassImbalanceSettings",
     "DataBiasChecks",
     "DataBiasConfig",
     "DiversitySettings",
@@ -40,9 +41,8 @@ class DiversitySettings(BaseModel):
     method: Literal["simpson", "shannon"] = Field(default="simpson", description="The diversity index.")
 
 
-class DataBiasClassImbalanceSettings(BaseModel):
-    """The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset, so it reaches
-    the schema `$defs` apart from audit's limits."""
+class ClassImbalanceSettings(BaseModel):
+    """The `class-imbalance` check's settings, with its defaults, for every preset that runs it."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -50,30 +50,30 @@ class DataBiasClassImbalanceSettings(BaseModel):
         default=5.0,
         ge=1.0,
         description=(
-            "Largest class count over smallest, among the classes with labels, past which the Class Imbalance "
-            "finding warns; `null` judges nothing but an empty class, which always warns."
+            "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` "
+            "judges nothing but an empty class, which warns unless `empty` is false."
         ),
     )
     info: float | None = Field(
-        default=2.0,
+        default=None,
         ge=1.0,
         description=(
-            "The ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every "
-            "ratio under `warning` information. Must not exceed `warning`. Defaults to 2.0, or `warning` where "
-            "that is lower and `info` is unset."
+            "A ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every "
+            "ratio under `warning` information. Must not exceed `warning`."
+        ),
+    )
+    empty: bool = Field(
+        default=True,
+        description=(
+            "Whether a declared class with no labels warns. `false` judges the ratio over the classes with labels "
+            "alone, and leaves a class with none to `untrained-classes` and `class-sufficiency`."
         ),
     )
 
     @model_validator(mode="after")
-    def _info_under_ratio(self) -> Self:
-        """An unset `info` follows a `warning` under it; two written bounds that cross
-        are refused here, where the user wrote them."""
-        if self.warning is None or self.info is None:
-            return self
-        if "info" not in self.model_fields_set:
-            # derived, so still unset: a matrix varies `warning` alone
-            object.__setattr__(self, "info", min(self.info, self.warning))
-        elif self.info > self.warning:
+    def _info_under_warning(self) -> Self:
+        """Two bounds that cross are refused here, where the user wrote them."""
+        if self.info is not None and self.warning is not None and self.info > self.warning:
             raise ValueError(f"`info` ({self.info}) must not exceed `warning` ({self.warning}).")
         return self
 
@@ -135,8 +135,8 @@ class DataBiasChecks(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
-    class_imbalance: DataBiasClassImbalanceSettings = Field(
-        default_factory=DataBiasClassImbalanceSettings,
+    class_imbalance: ClassImbalanceSettings = Field(
+        default_factory=ClassImbalanceSettings,
         alias="class-imbalance",
         description="The `class-imbalance` check's thresholds.",
     )

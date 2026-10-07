@@ -337,8 +337,8 @@ under a sixth, `step`:
 | `description` | A sentence or two of plain prose that leads the detail, or `null` where the brief says it all. |
 | `blocks` | The evidence: report blocks, in reading order. |
 
-A `data-bias` run on the same campaigns judges their class balance; its Class Imbalance finding, under the preset's
-default `info: 2.0`:
+A `data-bias` run on the same campaigns judges their class balance; its Class Imbalance finding, with
+`info: 2` set:
 
 ```json
 {"severity": "ok", "title": "Class Imbalance", "brief": "2 classes, 261 items, imbalance 1.8:1",

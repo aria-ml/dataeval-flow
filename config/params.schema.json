@@ -178,7 +178,7 @@
           "description": "The `metadata-issues` check's settings."
         },
         "class-imbalance": {
-          "$ref": "#/$defs/AuditClassImbalanceSettings",
+          "$ref": "#/$defs/ClassImbalanceSettings",
           "description": "The `class-imbalance` check's settings."
         },
         "class-sufficiency": {
@@ -197,7 +197,7 @@
           "description": "The `class-coverage` check's settings."
         },
         "uncovered-items": {
-          "$ref": "#/$defs/DataCoverageUncoveredItemsSettings",
+          "$ref": "#/$defs/UncoveredItemsSettings",
           "description": "The `uncovered-items` check's settings, under `naive` coverage."
         },
         "dimensional-completeness": {
@@ -229,48 +229,6 @@
         }
       },
       "title": "AuditChecks",
-      "type": "object"
-    },
-    "AuditClassImbalanceSettings": {
-      "additionalProperties": false,
-      "description": "The `class-imbalance` check's settings in audit, judged on each split. Named for the preset, so it reaches the\nschema `$defs` apart from the other presets' class-imbalance settings.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "minimum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 5.0,
-          "description": "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` judges nothing but an empty class, which warns unless `empty` is false.",
-          "title": "Warning"
-        },
-        "info": {
-          "anyOf": [
-            {
-              "minimum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "A ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every ratio under `warning` information. Must not exceed `warning`.",
-          "title": "Info"
-        },
-        "empty": {
-          "default": false,
-          "description": "Whether a declared class with no labels warns; audit leaves that to `untrained-classes` and `class-sufficiency`.",
-          "title": "Empty",
-          "type": "boolean"
-        }
-      },
-      "title": "AuditClassImbalanceSettings",
       "type": "object"
     },
     "AuditConfig": {
@@ -337,7 +295,7 @@
           "description": "The `outliers` step's settings, run on each split."
         },
         "coverage": {
-          "$ref": "#/$defs/DataCoverageCoverageSettings",
+          "$ref": "#/$defs/CoverageSettings",
           "description": "The `coverage` step's settings, run on train when the task names an extractor."
         },
         "wrap": {
@@ -3149,6 +3107,48 @@
       "title": "ClassCoverageSettings",
       "type": "object"
     },
+    "ClassImbalanceSettings": {
+      "additionalProperties": false,
+      "description": "The `class-imbalance` check's settings, with its defaults, for every preset that runs it.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 5.0,
+          "description": "Largest class count over smallest, among the classes with labels, past which the finding warns; `null` judges nothing but an empty class, which warns unless `empty` is false.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every ratio under `warning` information. Must not exceed `warning`.",
+          "title": "Info"
+        },
+        "empty": {
+          "default": true,
+          "description": "Whether a declared class with no labels warns. `false` judges the ratio over the classes with labels alone, and leaves a class with none to `untrained-classes` and `class-sufficiency`.",
+          "title": "Empty",
+          "type": "boolean"
+        }
+      },
+      "title": "ClassImbalanceSettings",
+      "type": "object"
+    },
     "ClassKeys": {
       "additionalProperties": false,
       "description": "How `by: class` keys items: by class, or by named groups of classes, and the smallest key it runs.",
@@ -3867,6 +3867,67 @@
       "title": "CoverageConfig",
       "type": "object"
     },
+    "CoverageSettings": {
+      "additionalProperties": false,
+      "description": "The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`\nis written partly.",
+      "properties": {
+        "method": {
+          "default": "adaptive",
+          "description": "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or `naive`, a fixed analytic radius, judged by an `uncovered-items` step. DataEval's naive radius overflows past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`.",
+          "enum": [
+            "naive",
+            "adaptive"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "percent": {
+          "default": 0.01,
+          "description": "Fraction of items flagged as uncovered, for `adaptive` only.",
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Percent",
+          "type": "number"
+        },
+        "num_observations": {
+          "default": 50,
+          "description": "Neighbors an item needs within the radius to count as covered.",
+          "exclusiveMinimum": 0,
+          "title": "Num Observations",
+          "type": "integer"
+        },
+        "min_class_samples": {
+          "default": 20,
+          "description": "Items a class needs before its dispersion and isotropy are judged.",
+          "exclusiveMinimum": 0,
+          "title": "Min Class Samples",
+          "type": "integer"
+        },
+        "isotropy_min_samples": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Items a class needs before its isotropy is measured; unset uses DataEval's default.",
+          "title": "Isotropy Min Samples"
+        },
+        "near_duplicate_factor": {
+          "default": 0.5,
+          "description": "The fraction of the radius within which two items are near-duplicates.",
+          "exclusiveMinimum": 0.0,
+          "title": "Near Duplicate Factor",
+          "type": "number"
+        }
+      },
+      "title": "CoverageSettings",
+      "type": "object"
+    },
     "CropParams": {
       "additionalProperties": false,
       "description": "`DetectionCrops`' settings, used on detection data only.",
@@ -4081,7 +4142,7 @@
       "description": "When data-bias's findings warn: each check's fields, keyed by check type.",
       "properties": {
         "class-imbalance": {
-          "$ref": "#/$defs/DataBiasClassImbalanceSettings",
+          "$ref": "#/$defs/ClassImbalanceSettings",
           "description": "The `class-imbalance` check's thresholds."
         },
         "shortcut-risk": {
@@ -4098,42 +4159,6 @@
         }
       },
       "title": "DataBiasChecks",
-      "type": "object"
-    },
-    "DataBiasClassImbalanceSettings": {
-      "additionalProperties": false,
-      "description": "The `class-imbalance` check's fields, with legacy data-coverage's defaults. Named for the preset, so it reaches\nthe schema `$defs` apart from audit's limits.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "minimum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 5.0,
-          "description": "Largest class count over smallest, among the classes with labels, past which the Class Imbalance finding warns; `null` judges nothing but an empty class, which always warns.",
-          "title": "Warning"
-        },
-        "info": {
-          "anyOf": [
-            {
-              "minimum": 1.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 2.0,
-          "description": "The ratio at or under which the finding is ok, between which and `warning` it informs; `null` makes every ratio under `warning` information. Must not exceed `warning`. Defaults to 2.0, or `warning` where that is lower and `info` is unset.",
-          "title": "Info"
-        }
-      },
-      "title": "DataBiasClassImbalanceSettings",
       "type": "object"
     },
     "DataBiasConfig": {
@@ -4316,7 +4341,7 @@
           "description": "The `class-coverage` check's thresholds."
         },
         "uncovered-items": {
-          "$ref": "#/$defs/DataCoverageUncoveredItemsSettings",
+          "$ref": "#/$defs/UncoveredItemsSettings",
           "description": "The `uncovered-items` check's threshold, under `naive` coverage."
         },
         "dimensional-completeness": {
@@ -4361,11 +4386,11 @@
           "title": "Ontology"
         },
         "representation": {
-          "$ref": "#/$defs/DataCoverageRepresentationSettings",
+          "$ref": "#/$defs/RepresentationSettings",
           "description": "The `representation` step's settings."
         },
         "coverage": {
-          "$ref": "#/$defs/DataCoverageCoverageSettings",
+          "$ref": "#/$defs/CoverageSettings",
           "description": "The `coverage` step's settings, run when the task names an extractor."
         },
         "wrap": {
@@ -4384,116 +4409,6 @@
         }
       },
       "title": "DataCoverageConfig",
-      "type": "object"
-    },
-    "DataCoverageCoverageSettings": {
-      "additionalProperties": false,
-      "description": "The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`\nis written partly.",
-      "properties": {
-        "method": {
-          "default": "adaptive",
-          "description": "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or `naive`, a fixed analytic radius, judged by an `uncovered-items` step. DataEval's naive radius overflows past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`.",
-          "enum": [
-            "naive",
-            "adaptive"
-          ],
-          "title": "Method",
-          "type": "string"
-        },
-        "percent": {
-          "default": 0.01,
-          "description": "Fraction of items flagged as uncovered, for `adaptive` only.",
-          "exclusiveMaximum": 1.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Percent",
-          "type": "number"
-        },
-        "num_observations": {
-          "default": 50,
-          "description": "Neighbors an item needs within the radius to count as covered.",
-          "exclusiveMinimum": 0,
-          "title": "Num Observations",
-          "type": "integer"
-        },
-        "min_class_samples": {
-          "default": 20,
-          "description": "Items a class needs before its dispersion and isotropy are judged.",
-          "exclusiveMinimum": 0,
-          "title": "Min Class Samples",
-          "type": "integer"
-        },
-        "isotropy_min_samples": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Items a class needs before its isotropy is measured; unset uses DataEval's default.",
-          "title": "Isotropy Min Samples"
-        },
-        "near_duplicate_factor": {
-          "default": 0.5,
-          "description": "The fraction of the radius within which two items are near-duplicates.",
-          "exclusiveMinimum": 0.0,
-          "title": "Near Duplicate Factor",
-          "type": "number"
-        }
-      },
-      "title": "DataCoverageCoverageSettings",
-      "type": "object"
-    },
-    "DataCoverageRepresentationSettings": {
-      "additionalProperties": false,
-      "description": "The `representation` step's settings: each class's minimum share, for the worklist.",
-      "properties": {
-        "expected": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "maximum": 1.0,
-                "minimum": 0.0,
-                "type": "number"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1]; a name that is no class is ignored and noted.",
-          "title": "Expected"
-        }
-      },
-      "title": "DataCoverageRepresentationSettings",
-      "type": "object"
-    },
-    "DataCoverageUncoveredItemsSettings": {
-      "additionalProperties": false,
-      "description": "The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.\nNamed for the preset, so it reaches the schema `$defs` apart from data-splitting's limits.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 10.0,
-          "description": "The percent of the items uncovered past which the Uncovered Items finding warns, under `naive` coverage only; `null` judges nothing.",
-          "title": "Warning"
-        }
-      },
-      "title": "DataCoverageUncoveredItemsSettings",
       "type": "object"
     },
     "DataPrioritizationConfig": {
@@ -7331,7 +7246,7 @@
           "title": "Ontology"
         },
         "representation": {
-          "$ref": "#/$defs/LabelSpaceRepresentationSettings",
+          "$ref": "#/$defs/RepresentationSettings",
           "description": "The `representation` step's settings."
         },
         "ontology-validation": {
@@ -7346,32 +7261,6 @@
         "ontology"
       ],
       "title": "LabelSpaceConfig",
-      "type": "object"
-    },
-    "LabelSpaceRepresentationSettings": {
-      "additionalProperties": false,
-      "description": "The `representation` step's settings in label-space: each class's minimum share.",
-      "properties": {
-        "expected": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "maximum": 1.0,
-                "minimum": 0.0,
-                "type": "number"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1]. A name resolving to no concept or to several is ignored and noted.",
-          "title": "Expected"
-        }
-      },
-      "title": "LabelSpaceRepresentationSettings",
       "type": "object"
     },
     "LeafCoverageSettings": {
@@ -10980,6 +10869,32 @@
       "title": "RepresentationConfig",
       "type": "object"
     },
+    "RepresentationSettings": {
+      "additionalProperties": false,
+      "description": "The `representation` step's settings: each class's minimum share, for the worklist.",
+      "properties": {
+        "expected": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Class name to its minimum expected share of the dataset, a fraction in [0, 1]. A name that is no class, or, under an ontology, resolves to no concept or to several, is ignored and noted.",
+          "title": "Expected"
+        }
+      },
+      "title": "RepresentationSettings",
+      "type": "object"
+    },
     "RescaleCorrectionConfig": {
       "additionalProperties": false,
       "description": "Convert values over a range by an affine rule \u2014 the units case.\n\nYAML example::\n\n    corrections:\n      - kind: rescale\n        factor: altitude\n        over: [0, 1000]\n        multiply: 0.3048",
@@ -12448,6 +12363,29 @@
         "preds_type"
       ],
       "title": "UncertaintyExtractorConfig",
+      "type": "object"
+    },
+    "UncoveredItemsSettings": {
+      "additionalProperties": false,
+      "description": "The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10.0,
+          "description": "The percent of the items uncovered past which the Uncovered Items finding warns, under `naive` coverage only; `null` judges nothing.",
+          "title": "Warning"
+        }
+      },
+      "title": "UncoveredItemsSettings",
       "type": "object"
     },
     "UntrainedClassesSettings": {

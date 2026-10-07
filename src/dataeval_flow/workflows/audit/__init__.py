@@ -2,7 +2,6 @@
 
 __all__ = [
     "AuditChecks",
-    "AuditClassImbalanceSettings",
     "AuditConfig",
     "AuditWorkflow",
     "ClassSufficiencySettings",
@@ -17,7 +16,6 @@ __all__ = [
 
 from dataeval_flow.workflows.audit._config import (
     AuditChecks,
-    AuditClassImbalanceSettings,
     AuditConfig,
     ClassSufficiencySettings,
     DistributionShiftSettings,

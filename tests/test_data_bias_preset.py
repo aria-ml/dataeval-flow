@@ -57,9 +57,9 @@ def test_crossed_class_imbalance_bands_are_refused_where_they_were_written() -> 
     assert caught.value.errors()[0]["loc"][0] == "checks"
 
 
-def test_a_ratio_under_the_fixed_band_moves_the_band_as_legacy_did() -> None:
+def test_a_lowered_warning_leaves_info_unset() -> None:
     config = DataBiasConfig.model_validate({"name": "w", "checks": {"class-imbalance": {"warning": 1.5}}})
-    assert config.checks.class_imbalance.info == 1.5
+    assert config.checks.class_imbalance.info is None  # `info` no longer defaults to 2.0 (the step's own default)
     result = _run({"checks": {"class-imbalance": {"warning": 1.5}}}, CoverageDetections())
     assert result.success, result.errors
     assert next(f.severity for f in result.findings if f.title == "Class Imbalance") == "warning"

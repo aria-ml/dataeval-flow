@@ -300,7 +300,6 @@ dataeval_flow.workflows:WorkflowContext
 dataeval_flow.workflows:get_workflow
 dataeval_flow.workflows:list_workflows
 dataeval_flow.workflows.audit:AuditChecks
-dataeval_flow.workflows.audit:AuditClassImbalanceSettings
 dataeval_flow.workflows.audit:AuditConfig
 dataeval_flow.workflows.audit:AuditWorkflow
 dataeval_flow.workflows.audit:ClassSufficiencySettings
@@ -311,6 +310,7 @@ dataeval_flow.workflows.audit:FactorLeakageSettings
 dataeval_flow.workflows.audit:LeakageSettings
 dataeval_flow.workflows.audit:OODKNeighborsSettings
 dataeval_flow.workflows.audit:UntrainedClassesSettings
+dataeval_flow.workflows.data_bias:ClassImbalanceSettings
 dataeval_flow.workflows.data_bias:DataBiasChecks
 dataeval_flow.workflows.data_bias:DataBiasConfig
 dataeval_flow.workflows.data_bias:DataBiasWorkflow
@@ -327,12 +327,13 @@ dataeval_flow.workflows.data_cleaning:ImageDuplicatesSettings
 dataeval_flow.workflows.data_cleaning:ImageOutliersSettings
 dataeval_flow.workflows.data_cleaning:OutliersSettings
 dataeval_flow.workflows.data_cleaning:TargetOutliersSettings
+dataeval_flow.workflows.data_coverage:CoverageSettings
 dataeval_flow.workflows.data_coverage:CropParams
 dataeval_flow.workflows.data_coverage:DataCoverageChecks
 dataeval_flow.workflows.data_coverage:DataCoverageConfig
-dataeval_flow.workflows.data_coverage:DataCoverageCoverageSettings
-dataeval_flow.workflows.data_coverage:DataCoverageRepresentationSettings
 dataeval_flow.workflows.data_coverage:DataCoverageWorkflow
+dataeval_flow.workflows.data_coverage:RepresentationSettings
+dataeval_flow.workflows.data_coverage:UncoveredItemsSettings
 dataeval_flow.workflows.data_coverage:WrapSettings
 dataeval_flow.workflows.data_prioritization:DataPrioritizationConfig
 dataeval_flow.workflows.data_prioritization:DataPrioritizationWorkflow
@@ -347,7 +348,6 @@ dataeval_flow.workflows.drift_monitoring:DriftMonitoringWorkflow
 dataeval_flow.workflows.label_space:LabelConformanceSettings
 dataeval_flow.workflows.label_space:LabelSpaceChecks
 dataeval_flow.workflows.label_space:LabelSpaceConfig
-dataeval_flow.workflows.label_space:LabelSpaceRepresentationSettings
 dataeval_flow.workflows.label_space:LabelSpaceWorkflow
 dataeval_flow.workflows.label_space:LeafCoverageSettings
 dataeval_flow.workflows.label_space:OntologyValidationSettings

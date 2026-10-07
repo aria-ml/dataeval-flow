@@ -1,6 +1,7 @@
 """The ``data-bias`` preset."""
 
 __all__ = [
+    "ClassImbalanceSettings",
     "DataBiasChecks",
     "DataBiasConfig",
     "DataBiasWorkflow",
@@ -11,6 +12,7 @@ __all__ = [
 ]
 
 from dataeval_flow.workflows.data_bias._config import (
+    ClassImbalanceSettings,
     DataBiasChecks,
     DataBiasConfig,
     DiversitySettings,

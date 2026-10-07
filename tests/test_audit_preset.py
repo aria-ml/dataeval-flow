@@ -259,7 +259,7 @@ def test_the_record_prints_the_thresholds_of_each_check_in_the_chain_as_its_crit
     lines = dict(fields.items)
     assert lines["image-outliers"] == "warning 3.0"
     assert lines["image-duplicates"] == "exact 0.0, near 5.0"
-    assert lines["class-imbalance"] == "warning 5.0, info none, empty false"
+    assert lines["class-imbalance"] == "warning 5.0, info none, empty true"
     assert lines["distribution-shift"] == "warning 0.5, info 0.2"
     assert lines["Blocking"] == "leakage, untrained-classes"
     assert lines["Accepted"] == "class-imbalance: Rare class by design."

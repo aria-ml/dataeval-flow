@@ -5,8 +5,9 @@ __all__ = [
     "CropParams",
     "DataCoverageChecks",
     "DataCoverageConfig",
-    "DataCoverageCoverageSettings",
-    "DataCoverageRepresentationSettings",
+    "CoverageSettings",
+    "RepresentationSettings",
+    "UncoveredItemsSettings",
     "WrapSettings",
 ]
 
@@ -19,7 +20,7 @@ from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
 
 
-class DataCoverageCoverageSettings(BaseModel):
+class CoverageSettings(BaseModel):
     """The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`
     is written partly."""
 
@@ -74,7 +75,7 @@ class WrapSettings(BaseModel):
     params: CropParams = Field(default_factory=CropParams, description="`DetectionCrops`' parameters.")
 
 
-class DataCoverageRepresentationSettings(BaseModel):
+class RepresentationSettings(BaseModel):
     """The `representation` step's settings: each class's minimum share, for the worklist."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -82,8 +83,8 @@ class DataCoverageRepresentationSettings(BaseModel):
     expected: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] | None = Field(
         default=None,
         description=(
-            "Class name to its minimum expected share of the dataset, a fraction in [0, 1]; a name that is no class "
-            "is ignored and noted."
+            "Class name to its minimum expected share of the dataset, a fraction in [0, 1]. A name that is no class, "
+            "or, under an ontology, resolves to no concept or to several, is ignored and noted."
         ),
     )
 
@@ -120,9 +121,8 @@ class ClassCoverageSettings(BaseModel):
     )
 
 
-class DataCoverageUncoveredItemsSettings(BaseModel):
-    """The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.
-    Named for the preset, so it reaches the schema `$defs` apart from data-splitting's limits."""
+class UncoveredItemsSettings(BaseModel):
+    """The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -186,8 +186,8 @@ class DataCoverageChecks(BaseModel):
         alias="class-coverage",
         description="The `class-coverage` check's thresholds.",
     )
-    uncovered_items: DataCoverageUncoveredItemsSettings = Field(
-        default_factory=DataCoverageUncoveredItemsSettings,
+    uncovered_items: UncoveredItemsSettings = Field(
+        default_factory=UncoveredItemsSettings,
         alias="uncovered-items",
         description="The `uncovered-items` check's threshold, under `naive` coverage.",
     )
@@ -223,11 +223,11 @@ class DataCoverageConfig(WorkflowConfig[ChainResult]):
         required=frozenset({InputKind.LABELS}), optional=frozenset({InputKind.EMBEDDINGS}), sources=SourceCount.ONE
     )
 
-    representation: DataCoverageRepresentationSettings = Field(
-        default_factory=DataCoverageRepresentationSettings, description="The `representation` step's settings."
+    representation: RepresentationSettings = Field(
+        default_factory=RepresentationSettings, description="The `representation` step's settings."
     )
-    coverage: DataCoverageCoverageSettings = Field(
-        default_factory=DataCoverageCoverageSettings,
+    coverage: CoverageSettings = Field(
+        default_factory=CoverageSettings,
         description="The `coverage` step's settings, run when the task names an extractor.",
     )
     wrap: WrapSettings = Field(
