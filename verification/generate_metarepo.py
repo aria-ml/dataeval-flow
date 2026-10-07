@@ -132,7 +132,7 @@ def requirement_md(req: dict) -> str:
     ]
     out += [f"    - {c}" for c in req["criteria"]]
     if req.get("notes"):
-        out += ["  - Reference Measurements (informative; not acceptance criteria)"]
+        out += [f"  - {req.get('notes_title', 'Reference Measurements (informative; not acceptance criteria)')}"]
         out += [f"    - {n}" for n in req["notes"]]
     return "\n".join(out) + "\n"
 
