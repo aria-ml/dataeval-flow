@@ -4,671 +4,604 @@
 
 ### Added
 
-- `dataeval-flow serve`, behind the new `service` extra and in every image: a long-running HTTP service that queues
-  pipelines and runs each as the headless command would, one at a time, in a process of its own. `POST /v1/runs`
-  takes a pipeline and its tasks; each run keeps a snapshot with every default filled in, its console and file logs,
-  and its result files under `<output>/runs/<id>/`, and `/v1/runs/{id}/results` serves each task's result as soon as
-  it finishes. Runs can be cancelled; stopping the service interrupts the running run and keeps the queued ones; the
-  history survives restarts. `/healthz`, `/livez` and `/readyz` report its health (IR-2.3-H-2, IR-2.3-S-1), and
-  `/openapi.json` describes the API (IR-2.4-S-1). Every line a run prints is logged on the service's console, tagged
-  with the run. Images set `DATAEVAL_SERVICE_HOST=0.0.0.0` and expose port 8001
-- `run_tasks(..., on_result=...)`: a callable given each task's name and result as soon as the task finishes,
-  before the next one starts
-- The step catalog's `judges` (on a check, the evaluator and combine types whose Outputs it judges) and `judged_by`
-  (on an evaluator or combine, the checks that judge it); `dataeval-flow steps <type>` shows both
-- The `collect` transform: one or more Datasets gathered into one list, keyed by name, each element its input
-  unchanged, for a step that runs once per element or a preset's list input such as `audit`'s `evals`
-- `audit` runs as a step of a custom workflow, on splits a chain made: the task's result carries its verdict, record
-  and five questions, and `--require` gates it. A spliced preset keeps its preflight and encodes every split like
-  its reference. One step per workflow may give a verdict; it may not be `optional:`. The verdict names the splice's
-  steps as `audit/...`, and the entry's `accepted:` keys, written without the prefix, cover them. `CollectConfig` and
-  `CollectTransform` are the new transform's types; a splice that never started or failed as it started gives no
-  verdict, and the result's `no_verdict` says why
-- The `bias` preset: one source's class balance and how its metadata factors relate to the class, with no
-  extractor. It runs `class-imbalance`, `shortcut-risk` on `balance`, `factor-parity` on `parity`, `diversity` and
-  `factor-summary` as report sections, and `factor-gaps` with `factor-coverage-gaps`
-- The `factor-parity` check: warns where a metadata factor's Cramér's V with the class is past `warning` (0.3) and
-  its chi-square p-value is at or under `p_value` (0.05), naming the factors whose p-values sparse tables make
-  unreliable
-- An audit's `accepted:` takes a check step as the verdict names it: a check step alone, such as
-  `image-outliers-evals`, covers all its runs, and `step[split]`, such as `image-outliers-evals[test]`, covers that run
-  alone, on a step that runs once per evaluation split
-- `groups:` on a custom workflow: report headings, each holding the findings of the check types it names, as a
-  preset's report holds them
-- An export records the digest of what it wrote, read back as a training job loads it, in `provenance.json` and the
-  `export` step's record; and each operand's dataset's `provenance:` facts
-- `dataset_manifest()` and `DatasetManifest`: a dataset's digest with each item's hash, saved and loaded as JSON, and
-  compared to name the items that changed. The `dataeval-flow` command writes each `content-digest` run's manifest
-  under `results/manifests/`
-- `dataeval-flow verify`: whether a configured source still holds the items a manifest records, naming those that
-  changed, are missing or were added
-- `load_source()`: a configured source as a run reads it, its view applied and its merge merged, so a training job
-  can digest a viewed split. It refuses a view that would draw different items on each load
-- `result: require:`, `--require` and `DATAEVAL_REQUIRE`: the worst verdict a task may have, `ready-with-caveats`,
-  `ready-with-accepted-risks` or `ready`; a worse one exits 4. A run in which no task gives a verdict is
-  refused
-- The `audit` preset: one chain over train and each evaluation split before training. Its report gives a verdict
-  ("Not ready", "Ready with caveats" or "Ready"), a record of what was audited, with each split's items, classes,
-  metadata factors and digests and the criteria applied, the findings under five questions, and next steps for each
-  warning and each check not assessed. `blocking:` names the check types whose warning makes it not ready, and
-  `accepted:` gives a reason a check type's warning is accepted. The result's `verdict`, `ChainResult.verdict` and
-  `verdict` in its JSON, holds the level, the unaccepted warnings, each acceptance and each check not assessed
-- A Find the Right Step index leading from a question to the preset and steps that answer it; preset, combine and
-  naming-conventions reference pages; and evaluator and check catalogs grouped by question, each entry giving its
-  ports, settings, the checks that judge it, the presets that run it and an example
-- `empty:` on a custom workflow's list input: the reason its checks give when a task binds it no source, which it then
-  may; a step run over an empty list leaves one record, and `not_assessed` on each step record says why a check judged
-  nothing
-- A check port reading several whole lists is not assessed only when every list on it is empty, and a port declared
-  `may_be_empty` is judged even then
-- `pairs: true` on a step reading two Datasets through one input: it runs once per unordered pair of one list's
-  elements, keyed `a_vs_b`
-- A preset may name a reference split: every other split's metadata, and every Dataset made from one, is then encoded
-  with the reference's cuts, so their factor statistics compare. A policy's `reference_split` names another reference
-- `divergence` evaluator: how far apart two sources' embeddings sit, by DataEval's `divergence_mst` or
-  `divergence_fnn`; and the `embedding-divergence` check, which bands it high, moderate or low as data-analysis did
-- `factor-leakage` evaluator: the raw values of named metadata factors two sources hold, whatever the policy
-  excludes; and the `leakage` check, which warns on items in duplicate groups spanning two splits and on group values
-  two splits share
-- `class-sufficiency` and `untrained-classes` checks: classes with too few labels to learn or to evaluate, and
-  evaluation classes train lacks; and `empty:` on `class-imbalance`, which with `false` leaves a class with no labels to
-  them
-- `shortcut-risk` and `eval-coverage` checks: metadata factors tied to the class, and the share of an evaluation
-  split lying farther from train than most of train does
-- `library_versions` on every result's metadata: the installed version of DataEval, PyTorch, NumPy, Pillow, datamaite,
-  OpenCV (where installed) and the task's extractor runtime (such as ONNX Runtime)
-- `provenance:` on `datasets:` entries: facts Flow can't measure, such as owner, licence, origin and collection date,
-  as names and plain values recorded in `resolved_config` as written; it is no part of the cache key
-- `dataset_digest()`: SHA-256 digests over every item of a dataset, of its images, labels and class names
-  (`content`) and of its metadata (`metadata`), whatever the items' order, so a training job can check its data is
-  the data that was audited
-- `content-digest` evaluator: `dataset_digest()`'s digests of a source, read from every item with no cache between,
-  through a new `dataset` input kind that hands an evaluator the Dataset itself
-- `taxonomy` preset: a dataset's labels judged against a declared ontology, as legacy data-coverage judged them
-  with `ontology:` set: leaf coverage and the worklist, conformance, alignment with the `Relabel` stanza, and the
-  ontology's structure. Its `checks` are keyed by check type: `leaf-coverage` (`coverage`,
-  `empty_branches`) and `label-conformance` (`warning`)
-- `label-reconciliation` evaluator: which class names resolve to exactly one ontology concept
-- `ontology-validation` evaluator: an ontology's structural and naming facts
-- `leaf-coverage`, `label-conformance`, `label-mergeability` and `ontology-structure` checks, which make `taxonomy`'s
-  findings
-- `uncertainty` extractor: an ONNX classifier's or detector's normalized entropy per prediction, for drift on unlabelled
-  data, one row per detection for a detector; only drift and OOD evaluators read it
+- `dataeval-flow serve` (new `service` extra, in every image): an HTTP service that queues pipelines and runs them
+  - `POST /v1/runs` takes a pipeline and its tasks; each run is a separate headless `dataeval-flow` process
+  - Runs execute one at a time, each keeping its snapshot, logs and result files under `<output>/runs/<id>/`
+  - `/v1/runs/{id}/results` shows each task's result as soon as the task finishes
+  - Runs can be cancelled, and the run history survives restarts
+  - Stopping the service interrupts the running run and keeps the queued ones
+  - `/healthz`, `/livez` and `/readyz` (IR-2.3-H-2, IR-2.3-S-1), and `/openapi.json` (IR-2.4-S-1)
+  - Run output is logged to the service console, tagged with the run's ID
+  - Images set `DATAEVAL_SERVICE_HOST=0.0.0.0` and expose port 8001
+- `run_tasks(..., on_result=...)`, called with each task's name and result as soon as the task finishes
+- `judges` and `judged_by` in the step catalog link each check to the Outputs it judges
+  - `dataeval-flow steps <type>` shows both
+- `collect` transform (`CollectConfig`, `CollectTransform`): gathers Datasets into one list keyed by name
+- The `audit` preset: one chain over train and each evaluation split that gives a verdict before training
+  - The report gives a verdict ("Not ready", "Ready with caveats" or "Ready"), findings and next steps
+  - Findings fall under five questions; next steps cover each warning and each check not assessed
+  - A record lists each split's items, classes, factors and digests, and the criteria applied
+  - `blocking:` names the check types whose warnings block readiness; `accepted:` records why a warning is accepted
+  - `accepted:` also takes a check step (`image-outliers-evals`) or one of its runs (`image-outliers-evals[test]`)
+  - `ChainResult.verdict` (`verdict` in the JSON) holds the level and the unaccepted warnings behind it
+  - It also lists each acceptance and each check not assessed
+  - `audit` can run as a step of a custom workflow, on splits an earlier step made
+  - As a step it keeps its preflight, and encodes every split like its reference
+  - Only one step per workflow may give a verdict, and it can't be `optional:`
+  - The verdict names the step's inner steps `audit/...`, and `accepted:` keys cover them without the prefix
+  - `no_verdict` explains a missing verdict when the step never started or failed as it started
+- `result: require`, `--require` and `DATAEVAL_REQUIRE`: exit 4 when a task's verdict is worse than the level given
+  - Levels: `ready-with-caveats`, `ready-with-accepted-risks` and `ready`
+  - A run in which no task gives a verdict is refused
+- The `bias` preset: one source's class balance and how its metadata factors relate to the class, without an extractor
+  - Runs `class-imbalance`, `shortcut-risk` on `balance`, and `factor-parity` on `parity`
+  - Runs `factor-gaps` with `factor-coverage-gaps`, and shows `diversity` and `factor-summary` as report sections
+- `factor-parity` check: metadata factors tied to the class, judged from a `parity` Output
+  - Warns where a factor's Cramér's V is over `warning` (0.3) and its chi-square p-value at most `p_value` (0.05)
+  - Names the factors whose sparse tables make their p-values unreliable
+- `groups:` on a custom workflow: report headings collecting the findings of the check types they name
+- `dataset_digest()`: SHA-256 digests of a dataset that don't depend on the order of its items
+  - `content` covers its images, labels and class names, and `metadata` its metadata
+- `dataset_manifest()` and `DatasetManifest`: per-item hashes, saved as JSON, that compare to show which items changed
+  - The `dataeval-flow` command writes each `content-digest` run's manifest under `results/manifests/`
+- `dataeval-flow verify`: checks a source still holds a manifest's items, naming changed, missing and added ones
+- `content-digest` evaluator: a source's `dataset_digest()`, read uncached through a new `dataset` input kind
+- `load_source()` loads a configured source the way a run reads it, with its view and merge applied
+  - It refuses a view that would draw different items on each load
+- Exports record the digest of what they wrote, read back as a training job would load it
+  - The digest goes in `provenance.json` and the `export` step's record, with each source's `provenance:` facts
+- `provenance:` on `datasets:` entries: facts Flow can't measure, such as owner, licence, origin and collection date
+  - Recorded in `resolved_config` as written, and not part of the cache key
+- `library_versions` on every result's metadata
+  - DataEval, PyTorch, NumPy, Pillow, datamaite, OpenCV (where installed) and the extractor runtime (e.g. ONNX Runtime)
+- `device` on every result's metadata: the device its task ran on, such as `cuda:0 (NVIDIA L4)`
+- Every tool runs on CUDA when PyTorch sees a GPU, and on the CPU otherwise
+  - `dataeval_flow.set_device` picks the device from Python, and `CUDA_VISIBLE_DEVICES` hides GPUs
+  - Configs don't name a device
+- Find the Right Step: a docs index from a question to the presets and steps that answer it
+  - Preset, combine and naming-convention reference pages
+  - Evaluator and check catalogs grouped by question, each entry with ports, settings, checks, presets and an example
+- `empty:` on a custom workflow's list input lets a task bind no source to it; its checks then report that reason
+  - A step over an empty list leaves one record; each step record's `not_assessed` says why a check judged nothing
+- A check port that reads several lists is skipped only when all of them are empty; `may_be_empty` ports never are
+- `pairs: true` on a step reading two Datasets through one input runs it once per unordered pair, keyed `a_vs_b`
+- Presets may name a reference split whose cuts encode every other split's metadata, so factor statistics line up
+  - A policy's `reference_split` names a different reference
+- `divergence` evaluator: how far apart two sources' embeddings sit, by `divergence_mst` or `divergence_fnn`
+  - `embedding-divergence` check bands it high, moderate or low
+- `factor-leakage` evaluator: the raw values of named factors two sources hold, whatever the policy excludes
+- `leakage` check: warns on duplicate groups spanning two splits and on group values two splits share
+- `class-sufficiency` and `untrained-classes` checks: classes with too few labels, and evaluation classes train lacks
+  - `empty: false` on `class-imbalance` leaves classes with no labels to these checks
+- `shortcut-risk` check: metadata factors tied to the class, judged from a `balance` Output
+- `eval-coverage` check: the share of an evaluation split lying farther from train than most of train does
+- The `taxonomy` preset: a dataset's labels judged against a declared ontology
+  - Leaf coverage and its worklist, conformance, alignment with the `Relabel` stanza, and the ontology's structure
+  - `checks` keyed by type: `leaf-coverage` (`coverage`, `empty_branches`) and `label-conformance` (`warning`)
+  - `label-reconciliation` evaluator: which class names resolve to exactly one ontology concept
+  - `ontology-validation` evaluator: the ontology's structural and naming facts
+  - `leaf-coverage`, `label-conformance`, `label-mergeability` and `ontology-structure` checks
+- `uncertainty` extractor: normalized entropy per prediction from an ONNX classifier or detector, for unlabelled drift
+  - One row per detection for a detector; only drift and OOD evaluators read it
 - `by: predicted` keys a step by the class a model predicts
-- A shift detector may name its own `extractor:`, which its steps embed with instead of the task's
-- Every tool computes on CUDA when PyTorch sees a GPU, else the CPU; `dataeval_flow.set_device` chooses from Python,
-  and `CUDA_VISIBLE_DEVICES` hides GPUs. A config names no device
-- `device` on every result's metadata: the device its task computed on, such as `cuda:0 (NVIDIA L4)`
-- Top-level `evaluators:` key running a single DataEval evaluator, one of the Evaluator Catalog's twenty-five types
-- `evaluator:` on tasks, as the alternative to `workflow:`, checked against the evaluator when the config loads
-- `kind` on `TaskConfig`: a loaded task holds either name in `workflow`, and `kind` records which key named it
-- `dataeval-flow evaluators` command listing evaluator types, what each consumes, and their parameter schemas
-- `kind` on every result envelope, `workflow` or `evaluator`; evaluator results carry no `health`
-- `Result`, the base both result kinds share: `report()`, `to_dict()` and `export()`, with no health on it
-- Top-level `ontologies:` key defining named label spaces referenced by workflows
-- `concepts:` on ontology entries to add or override concepts by id without altering source artifacts
-- Workflow `ontology:` resolves pool names first, falling back to file paths for backward compatibility
-- `merge:` on sources to concatenate multiple inputs into one dataset, unified via `Relabel` views
-- Top-level `exports:` key exporting sources to COCO, YOLO, Hugging Face, or VisDrone format with `provenance.json`
-- `ontology:` support across all workflows but `scope`, attaching the label-space digest to results
-- `label_space` on result envelopes, recording conformed vocabulary and matching label-space digest
-- `channel_groups:` on datasets, measuring band groups separately as `<group>_<statistic>` columns; a group written
-  `{bands: ..., value_range: [low, high]}` is read against its own range rather than the dataset's
-- Top-level `stats:` key defining policies for measured statistics, background inclusion, and outlier/factor views
-- Statistic sub-groups wherever a family is named — a stats policy's `measure`, `outliers.flags` and
-  `intrinsic_factors`: `pixel_basic`, `pixel_distribution`, `visual_basic`, `dimension_basic`, `dimension_box`,
-  `dimension_offset`, `dimension_position`, and in `measure` `hash_basic` and `hash_d4`
-- `format: demo` dataset loader resolving tutorial datasets from a fixed table without arbitrary imports
-- `wrap:` on `scope`, `DetectionCrops`' `params` (`padding` and `min_size`), with the `crops` step's `details`
-  counting the detections dropped
-- `DATAEVAL_*` environment variables to configure CLI parameters; CLI arguments take precedence
-- `--no-fail-on-warning` flag to disable `DATAEVAL_FAIL_ON_WARNING` for a single run
-- `--log-format {structured,plain}` flag selecting structured or plain log output
-- `scripts/release.py` script to cut and tag releases from the current branch
-- Published images carry their own vulnerability scan report and CycloneDX SBOM at `/usr/share/dataeval-flow/security/`
-- `nox -s verify` writes `output/metarepo/test-results.log`, a per-test-case verification log for metarepo assessments
-- Plug-in workflows and evaluators, registered as `dataeval_flow.workflows` / `dataeval_flow.evaluators` entry points
-- Every workflow declares its inputs; each task is checked against its workflow or evaluator when the config loads
-- `WorkflowContext` methods for a workflow's inputs: `dataset`, `stats`, `embeddings`, `clusters`, `metadata`, `labels`
-- Plug-in extractors and image transforms, under the `dataeval_flow.extractors` / `dataeval_flow.image_transforms`
-  entry points
-- `run(config, data)` runs one workflow or evaluator on datasets in memory, typed to the config's result
+- A shift detector may name its own `extractor:`, used instead of the task's
+- Top-level `evaluators:` key running one DataEval evaluator, any of the catalog's twenty-five types
+- `evaluator:` on tasks as an alternative to `workflow:`, checked against the evaluator when the config loads
+- `kind` on `TaskConfig`, recording whether `workflow:` or `evaluator:` named the task's target
+- `dataeval-flow evaluators` lists evaluator types, what each consumes, and their parameter schemas
+- `kind` on every result envelope (`workflow` or `evaluator`); evaluator results carry no `health`
+- `Result`, the base both result kinds share, with `report()`, `to_dict()` and `export()` and no health
+- Top-level `ontologies:` key for named label spaces that workflows reference
+- `concepts:` on ontology entries adds or overrides concepts by id without editing the source artifact
+- Workflow `ontology:` resolves pool names first, falling back to file paths
+- `merge:` on sources concatenates several inputs into one dataset, unified through `Relabel` views
+- Top-level `exports:` key writing sources as COCO, YOLO, Hugging Face or VisDrone, with `provenance.json`
+- `ontology:` on every workflow but `scope`, attaching the label-space digest to results
+- `label_space` on result envelopes: the conformed vocabulary and its label-space digest
+- `channel_groups:` on datasets measures band groups separately, as `<group>_<statistic>` columns
+  - A group written `{bands: ..., value_range: [low, high]}` is read against its own range
+- Top-level `stats:` key for policies on measured statistics, background inclusion, and outlier and factor views
+- Statistic sub-groups wherever a family is named: a stats policy's `measure`, `outliers.flags` and `intrinsic_factors`
+  - Pixel and visual: `pixel_basic`, `pixel_distribution` and `visual_basic`
+  - Dimension: `dimension_basic`, `dimension_box`, `dimension_offset` and `dimension_position`
+  - In `measure` only: `hash_basic` and `hash_d4`
+- `format: demo` dataset loader resolving tutorial datasets from a fixed table, with no arbitrary imports
+- `wrap:` on `scope`, with `padding` and `min_size` on `DetectionCrops`; the `crops` step counts dropped detections
+- `DATAEVAL_*` environment variables for CLI parameters; CLI arguments take precedence
+- `--no-fail-on-warning` overrides `DATAEVAL_FAIL_ON_WARNING` for one run
+- `--log-format {structured,plain}` picks structured or plain log output
+- `scripts/release.py` cuts and tags releases from the current branch
+- Published images carry their vulnerability scan report and CycloneDX SBOM in `/usr/share/dataeval-flow/security/`
+- `nox -s verify` writes `output/metarepo/test-results.log`, a per-test-case log for metarepo assessments
+- Plug-in workflows and evaluators through the `dataeval_flow.workflows` and `dataeval_flow.evaluators` entry points
+- Plug-in extractors and image transforms through `dataeval_flow.extractors` and `dataeval_flow.image_transforms`
+- Every workflow declares its inputs, and each task is checked against its workflow or evaluator at load
+- `WorkflowContext` methods for workflow inputs: `dataset`, `stats`, `embeddings`, `clusters`, `metadata`, `labels`
+- `run(config, data)` runs one workflow or evaluator on in-memory datasets, typed to the config's result
 - An extractor config without a `name` is named after its `model`, as workflow and evaluator configs are
-- Extension bases document how to subclass and register a plugin; a test pins the public API
+- Extension bases document how to subclass and register a plugin, and a test pins the public API
 - Each `<X>Result`'s API page lists the `output.raw` and `metadata` fields its type adds, pinned by a test
-- `LoggingConfig`, the type of `PipelineConfig.logging`, is exported from `dataeval_flow.config`
+- `LoggingConfig`, the type of `PipelineConfig.logging`, exported from `dataeval_flow.config`
 - `--report-width` and `DATAEVAL_REPORT_WIDTH` set the text report's width; `Result.report()` takes `width=`
-- `Result.to_html()` renders the report as one self-contained, printable page; `--output` writes `result.html`
-- `drift-univariate`, `-mmd`, `-kneighbors`, `-wasserstein` and `-domain-classifier` evaluators, each taking
-  `chunking:`; Wasserstein takes a validation source between the reference and the data to test
-- `SourceCount.THREE`, for an entry that takes exactly three sources
-- `flags` table columns, each cell a list of measurements against their population, and a table's row `preview`
-- The HTML report shows a card per finding, warnings open, with sortable and filterable tables and dark mode
-- Reports carry a thumbnail of each item their findings name, in `Result.assets`; the HTML report shows them
-- `--no-report-images`, `DATAEVAL_REPORT_IMAGES=0` or `report_images=False` on `run()` turn a run's thumbnails off, as
-  `result: max_images: 0` does
+- `Result.to_html()` renders a self-contained, printable page; `--output` writes it as `result.html`
+- The HTML report shows a card per finding, with warnings expanded, sortable and filterable tables, and dark mode
+- `drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-wasserstein` and `drift-domain-classifier` evaluators
+  - Each takes `chunking:`; Wasserstein takes a validation source between the reference and the tested data
+- `SourceCount.THREE`, for entries that take exactly three sources
+- `flags` table columns, each cell a list of measurements against their population, and a row `preview` on tables
 - `image` table columns, each cell an item reference or a group of them
-- Coverage, prioritization, splitting and metadata triage picture the items their findings name
-- `uncovered_classes` in `coverage`'s `extras`: each uncovered item's class. Its report section, "Uncovered items",
-  gives each item's class and distance
-- A pipeline's `result: max_images:` sets how many thumbnails each result embeds (200), shared evenly between findings
-- The `result:` block also names the result files and picks their formats, detail, per-task split and text width
-- `result: max_rows:` and `preview_rows:` set a table of items' rows (500) and text preview (10); `-1` lifts a limit
-- `result: fail_on:` gates the exit code on `failure`, `warning` or `never`; `--fail-on-warning` still overrides it
+- Thumbnails of each item a finding names, in `Result.assets` and the HTML report
+  - `--no-report-images`, `DATAEVAL_REPORT_IMAGES=0` or `report_images=False` on `run()` turn them off
+  - `result: max_images:` sets how many each result embeds (200), shared evenly between findings
+- Coverage, prioritization, splitting and metadata triage reports show thumbnails of the items they name
+- `uncovered_classes` in `coverage`'s `extras`, and an "Uncovered items" section giving each item's class and distance
+- The `result:` block names the result files and picks their formats, detail, per-task split and text width
+- `result: max_rows:` (500) and `preview_rows:` (10) limit item tables and text previews; `-1` lifts a limit
+- `result: fail_on:` sets the exit-code gate (`failure`, `warning` or `never`); `--fail-on-warning` still overrides it
 - `junit` and `markdown` formats: a JUnit report for CI test views and a Markdown summary, both naming failed tasks
-- Evaluators can read `metadata`, `labels` and `embeddings` inputs, and the task's resolved `ontology`, on
-  `EvaluatorInputs`
-- `output_extras` on `Evaluator`: results DataEval keeps outside `data()`, written under `extras` by `to_dict()`
-  and `export()` and shown in reports
-- `duplicates` takes DataEval's video parameters (`redundancy_radius`, `min_segment_frames`, `max_segment_gap`,
-  `segment_offset_tolerance`, `verify_alignment`, `min_track_frames`, `frame_sample`) and writes
-  `annotation_divergences` and `factor_cardinality` under `extras`
-- `balance`, `diversity` and `parity` evaluators, reading one source's metadata under its
-  `metadata:` policy
-- `representation` evaluator, counting a source's labels against an ontology, or one synthesized from its
-  `index2label`
-- `coverage` and `prioritization` evaluators; a second `prioritization` source is the reference its ranking
-  is relative to
+- Evaluators can read `metadata`, `labels`, `embeddings` and the task's resolved `ontology` on `EvaluatorInputs`
+- `output_extras` on `Evaluator`: results DataEval keeps outside `data()`, written under `extras` and shown in reports
+- `duplicates` takes DataEval's video parameters and writes `annotation_divergences` and `factor_cardinality` extras
+- `balance`, `diversity` and `parity` evaluators, reading one source's metadata under its `metadata:` policy
+- `representation` evaluator: a source's labels counted against an ontology, or one built from its `index2label`
+- `coverage` and `prioritization` evaluators; a second `prioritization` source is the reference for its ranking
 - `ood-kneighbors` and `ood-domain-classifier` evaluators
-- An "Evaluator recipes" how-to with one worked example per evaluator family, from the config entry to reading its
-  output
-- Custom workflows: a `workflows:` entry with `inputs:` and `steps:` chains evaluators, workflow types and transforms,
-  each step reading an input or an earlier step by address (`clean`, `split.train`, `kfold.train[0]`) and running once
-  per element of a list; a task runs one with `workflow:`, and a failed step skips only what reads it
-- `CustomWorkflowConfig` and `StepEntry` build a custom workflow in Python, and `save()` writes it into a config file;
-  loading and saving a config, from the TUI or the config builder too, keeps custom workflows as written
-- `save()` and `to_yaml()` on a custom workflow take `definitions`, as `run()` does: the evaluator entries, views,
-  policies and other named entries its steps refer to are written beside it, each with its name, its type and the
-  settings that differ from their defaults, so a saved block loads and runs on new data on its own
-- Nine transforms for custom workflows: `view`, `merge`, `split`, `kfold`, `wrap`, `select`, `remove` (DataEval's
-  removal plans from Duplicates and Outliers), `conform` (relabelling onto an ontology, refusing loss beyond `allow:`)
-  and `export` (writing to `<output>/datasets/<task>.<step>/`); plug-in transforms register under
-  `dataeval_flow.transforms`
-- `label-alignment` evaluator, aligning a source's class names to an ontology through
-  `dataeval.core.label_alignment`, as `scope` aligns them
-- `ChainResult`, a custom workflow's result: each step's outcome in `steps`, readable when a step failed, and each
-  Dataset's lineage in `metadata.lineage`, whose digests tell whether two results read the same data
+- An "Evaluator recipes" how-to with a worked example per evaluator family
+- Custom workflows: a `workflows:` entry with `inputs:` and `steps:` chaining evaluators, workflow types and transforms
+  - Each step reads an input or an earlier step by address (`clean`, `split.train`, `kfold.train[0]`)
+  - A step runs once per element of a list; a failed step skips only the steps that read it
+  - A task runs a custom workflow with `workflow:`
+- `CustomWorkflowConfig` and `StepEntry` build a custom workflow in Python; `save()` writes it into a config file
+  - Loading and saving a config, from the TUI and the config builder too, keeps custom workflows as written
+  - `save()` and `to_yaml()` take `definitions` and write out the named entries the steps use, so the block stands alone
+- Nine transforms for custom workflows
+  - `view`, `merge`, `split`, `kfold`, `wrap` and `select`
+  - `remove`, applying DataEval's removal plans from Duplicates and Outliers
+  - `conform`, relabelling onto an ontology and refusing loss beyond `allow:`
+  - `export`, writing to `<output>/datasets/<task>.<step>/`
+  - Plug-in transforms register under `dataeval_flow.transforms`
+- `label-alignment` evaluator, aligning a source's class names to an ontology as `scope` does
+- `ChainResult`: each step's outcome in `steps`, readable after a failure, and each Dataset's lineage in its metadata
+  - `metadata.lineage` digests tell whether two results read the same data
 - `output_dir` on `run_tasks`, `run_task` and `run`, where export steps write; the CLI passes `--output`
-- `dataeval-flow steps [NAME] [--json]` and `list_steps()` list every step a workflow can chain, with its ports and
-  settings schema
-- A "Workflows as Chains of Steps" explanation, a how-to that writes a custom workflow, and a Transform Catalog with
-  one reference entry per built-in transform
-- Presets: a workflow type can be a preset, whose settings expand to a chain of steps that runs as a custom
-  workflow's. As a task, a preset returns a `ChainResult` under its own type id; as a step of a custom workflow, its
-  chain runs inside yours as `<step>/<name>`, and `<step>.<output>` reads each Dataset it declares as an output
+- `dataeval-flow steps [NAME] [--json]` and `list_steps()` list every chainable step with its ports and settings schema
+- A "Workflows as Chains of Steps" explanation, a custom-workflow how-to, and a Transform Catalog
+- Presets: workflow types whose settings expand into a chain of steps that runs like a custom workflow
+  - As a task, a preset returns a `ChainResult` under its own type id
+  - As a step, its chain runs inside yours as `<step>/<name>`, and `<step>.<output>` reads each Dataset it declares
 - A chain computes each dataset's statistics in one pass over every family its steps read
-- `quality`'s `clean` step hands on the dataset without each image and box it flagged and each duplicate but the
-  first of its group, counting what it removed; a custom workflow that runs quality as a step reads it as
-  `<step>.clean`, and an `export` step on it replaces `mode: preparatory`
-- A friendly title on every step type, such as `K-Fold`, as `title` in `dataeval-flow steps NAME`, `--json`
-  and `list_steps()`
-- A chain's short report, `report(detailed=False)` and what the console prints without `-v`: its step count, its
-  summary and health, and a Steps table giving each step's status and why it made nothing where it did not
-- `by_plan` in a `remove` step's `details`, beside `removed`: what each plan named, at each level it named something
-- Report blocks' `in_text` on a table column, `failed` on a summary and `group` on a summary item, each left out
-  of the JSON at its default
-- `select:` on `prioritization`, holding `n` or `fraction`: its `selected` step keeps each pool's top `n`, or that
-  share rounded up; unset, it keeps every item in ranked order
-- A `prioritization` step's report pictures its ranking's 25 highest and 25 lowest items, with rank and score
-- `factor-triage`, an evaluator: what a Dataset's metadata failed to read, the policy stanza that repairs it, and, with
-  `verify`, what the repair recovers
-- `factor-issues`, a check: triage's findings, made from a `factor-triage` Output
-- `factor-triage` recommends a policy: its suggestions, each value triage could not read dropped to missing, plus
-  explicit edges or levels for every factor the policy left unpinned, read back from this data. A dominant value
-  such as a speed of zero is left in, with a note to decide. `factor-issues` shows it as a "Recommended policy"
-  finding that opens with a caveat: a policy read from unrepresentative data can give invalid or misleading results
-- `by: class` on an evaluate step runs its evaluator once per class, or per named group of classes, on the classes
-  with `min_items` items in every input, in one Output that names each class it left out and why. A class whose run
-  raises is left out with its error, and the step fails only when every class raises. On a check, it judges each
-  class and rolls the findings into one, briefed `2/8 classes warn`
-- `ood` and `ood-agreement` checks, and `ood-union`, `factor-predictors` and `factor-deviation` combines, the steps the
-  `shift` preset runs
-- OOD evaluators read the `uncertainty` extractor: a classifier's rows, one per image, or a detector's, one per
-  detection, judged per image, where any detection flagged flags its image
-- A combine may read a Dataset's statistics and draw its own report section, and require the Outputs it reads to share
-  their Datasets, or to have been computed on its own
-- `drift`, a check: a warning when a drift evaluator finds drift or, chunked, when `chunk_percent` of the chunks
-  drift or `consecutive_chunks` drift in a row
-- The drift evaluators' results have a report section: the verdict's fields, or one row per chunk
-- `matrix:` on a task runs its entry once per combination of the values it lists, as lists, inclusive ranges
-  `{from, to, step}` or several grids, and returns one `MatrixResult` whose report opens with a table comparing every
-  run's findings. It varies the entry's settings, the task's `sources` and `extractor`, and the evaluators, workflows,
-  extractors and steps the task reads. The runs share one draw of each source and the cache; an export writes under
-  `run-<n>/`
-- `class-stratification` check: each part's class shares against the whole's, warning past `warning` percentage points of
-  deviation and informing past `info`
-- `uncovered-items` check: the share of a Dataset a coverage run left uncovered, warning past `warning` percent
-- `split`, `kfold` and `view` steps record each output's indices, into the dataset at the bottom of its views, in their
-  `details`, and `split` and `kfold` have a report section of each part's size
-- A preset's declared outputs read any address in its chain, lists included, so `splits`'s `<step>.train` is
-  the rebalanced train where it rebalances
-- A subset of a Dataset, such as a split's part, slices the embeddings the run already computed for its parent, where
-  its view changes no pixels, instead of extracting them again
-- An optional step that needs an extractor is skipped, with the reason, when neither it nor the task names one, where
-  load refused it
-- `completeness` evaluator: how much of the embedding space's dimensions the data fills, as legacy data-coverage's
-  Dimensional Completeness measured it; it refuses fewer than two embeddings
+- `quality`'s `clean` step passes on the dataset minus flagged images and boxes, keeping one item per duplicate group
+  - It counts what it removed, and a custom workflow reads it as `<step>.clean`
+  - An `export` step on it replaces `mode: preparatory`
+- A title on every step type, such as `K-Fold`, as `title` in `dataeval-flow steps` and `list_steps()`
+- A short chain report, from `report(detailed=False)` and the console without `-v`
+  - Step count, summary, health, and a Steps table with each step's status and why any step made nothing
+- `by_plan` in a `remove` step's `details`: what each plan named, at each level
+- Report blocks gain `in_text` on table columns, `failed` on summaries and `group` on summary items
+  - Each is left out of the JSON at its default
+- `select:` on `prioritization` (`n` or `fraction`): its `selected` step keeps each pool's top items
+  - A fraction is rounded up; unset, it keeps every item in ranked order
+- `prioritization` reports show the 25 highest- and 25 lowest-ranked items, with rank and score
+- `factor-triage` evaluator: metadata a Dataset failed to read, and the policy stanza that repairs it
+  - With `verify`, also what the repair recovers
+- `factor-issues` check: triage's findings, made from a `factor-triage` Output
+- `factor-triage` recommends a policy: unreadable values dropped to missing, and edges or levels for unpinned factors
+  - A dominant value, such as a speed of zero, stays in, with a note asking you to decide
+  - `factor-issues` shows it as a "Recommended policy" finding, cautioning that unrepresentative data can mislead
+- `by: class` on an evaluate step runs its evaluator once per class, or per named group of classes
+  - Only classes with `min_items` items in every input run; the Output names each class left out and why
+  - A class whose run raises is left out with its error; the step fails only when every class raises
+  - On a check, it judges each class and rolls the findings into one, with a brief such as `2/8 classes warn`
+- `ood` and `ood-agreement` checks, and `ood-union`, `factor-predictors` and `factor-deviation` combines, run by `shift`
+- OOD evaluators read the `uncertainty` extractor, per image for a classifier and per detection for a detector
+  - Any flagged detection flags its image
+- Combines may read a Dataset's statistics and draw their own report section
+  - A combine may require the Outputs it reads to share their Datasets, or to be computed on its own Dataset
+- `drift` check: warns on drift; on chunked runs, when `chunk_percent` of chunks drift or `consecutive_chunks` in a row
+- Drift evaluator results have a report section: the verdict's fields, or one row per chunk
+- `matrix:` on a task runs its entry once per combination of the values it lists, returning one `MatrixResult`
+  - Values as lists, inclusive `{from, to, step}` ranges or several grids
+  - It varies the entry's settings, the task's `sources` and `extractor`, and the entries and steps the task reads
+  - The report opens with a table comparing every run's findings
+  - Runs share one draw of each source and the cache; exports write under `run-<n>/`
+- `class-stratification` check: how far each part's class shares deviate from the whole's, in percentage points
+  - Warns past `warning` and informs past `info`
+- `uncovered-items` check: warns when a coverage run leaves over `warning` percent of a Dataset uncovered
+- `split`, `kfold` and `view` steps record each output's indices in their `details`; `split` and `kfold` report sizes
+- A preset's declared outputs read any chain address, lists included; `splits`'s `<step>.train` is the rebalanced train
+- A subset whose view changes no pixels, such as a split's part, slices its parent's embeddings instead of re-extracting
+- An optional step that needs an extractor is skipped with a reason when neither it nor the task names one
+- `completeness` evaluator: how much of the embedding space's dimensions the data fills; it needs two embeddings or more
 - `factor-summary` evaluator: each metadata factor's type, binning, nulls, and range or top values
-- `class-coverage`, `dimensional-completeness`, `factor-coverage-gaps` and `class-shortfall` checks, which make `scope`'s
-  Class Coverage, Dimensional Completeness, Factor Coverage Gaps and Class Shortfall findings
-- `factor-gaps` combine: each factor's mutual information with the class, read from a `balance` Output, and the
-  class-factor-value combinations under-represented among the factors at or over `mi_threshold`
-- `other_kinds: pass` on `wrap` hands a Dataset of another kind on unchanged, reading its source's cached embeddings
+- `class-coverage`, `dimensional-completeness`, `factor-coverage-gaps` and `class-shortfall` checks, for `scope`
+- `factor-gaps` combine: each factor's mutual information with the class, read from a `balance` Output
+  - Names under-represented class-factor combinations among the factors at or over `mi_threshold`
+- `other_kinds: pass` on `wrap` passes other kinds of Dataset through unchanged, reading their cached embeddings
 
 ### Changed
 
-- The `dataeval-flow` command writes each task's result files as soon as the task finishes, so a run killed
-  partway keeps the tasks it completed; each file is replaced whole, so a reader never sees one half-written
+- The `dataeval-flow` command writes each task's result files as soon as the task finishes, so a killed run keeps them
+  - Each file is replaced whole, so a reader never sees a half-written one
 - Every check's description opens with what it judges, such as "Judges `balance`'s output: …"
-- `drift-monitoring` and `ood-detection` are one `shift` preset: one `detectors:` list takes drift and OOD detectors,
-  each judged by its family's check; `classwise` takes drift detectors; the OOD union, agreement and factor steps run
-  where there are OOD detectors. With no `detectors:`, it runs `drift-univariate` (KS, Bonferroni) and
-  `ood-kneighbors`. `ShiftConfig`, `ShiftChecks` and `ShiftWorkflow` replace the two presets' classes, and the old
-  ids fail as unknown workflows
-- Presets are named for the DataEval module whose question they answer, or else for their question: `data-bias` →
-  `bias`, `data-cleaning` → `quality`, `data-coverage` → `scope`, `data-prioritization` → `prioritization`,
-  `data-splitting` → `splits`, `metadata-triage` → `triage` (metadata and annotations only), `label-space` →
-  `taxonomy`; their packages, classes (`QualityConfig`, …; `PrioritizationWorkflowConfig` for the `prioritization`
-  preset, since the evaluator owns `PrioritizationConfig`) and titles follow, and the old ids fail as unknown
-  workflows
+- `drift-monitoring` and `ood-detection` merge into one `shift` preset; the old ids fail as unknown workflows
+  - One `detectors:` list takes drift and OOD detectors, each judged by its family's check
+  - `classwise` takes drift detectors; the OOD union, agreement and factor steps run only with OOD detectors
+  - With no `detectors:`, it runs `drift-univariate` (KS, Bonferroni) and `ood-kneighbors`
+  - `ShiftConfig`, `ShiftChecks` and `ShiftWorkflow` replace the two presets' classes
+- Presets are named for the DataEval module or question they answer; the old ids fail as unknown workflows
+  - `data-bias` → `bias`, `data-cleaning` → `quality`, `data-coverage` → `scope`, `data-splitting` → `splits`
+  - `data-prioritization` → `prioritization`, `metadata-triage` → `triage`, `label-space` → `taxonomy`
+  - `triage` covers metadata and annotations only
+  - Packages, classes (`QualityConfig`, …) and titles follow
+  - The `prioritization` preset's config is `PrioritizationWorkflowConfig`; the evaluator owns `PrioritizationConfig`
 - A type id may repeat across kinds: `prioritization` is a preset and an evaluator
-- Five checks renamed to show their subject or the evaluator they judge: `classwise-outliers` → `class-outliers`,
-  `stratification` → `class-stratification`, `metadata-issues` → `factor-issues`, `mergeability` →
-  `label-mergeability`, `distribution-shift` → `embedding-divergence`, with their classes, titles, preset chain step
-  names and `checks:` keys; the old names fail as unknown checks
-- `eval-coverage` judges how far a split's flagged share is past what a split drawn like train has flagged by
-  construction (100 - `threshold_perc` under `ood-kneighbors`): `info` and `warning` are now points past that
-  baseline, 1.0 and 9.0, which keep today's bands at `threshold_perc: 99` (under a detector other than
-  `ood-kneighbors` the baseline is 0, so its bands move from 2/10 to 1/9 percent flagged); `audit`'s `ood-kneighbors` takes
-  DataEval's `threshold_perc` of 95
-- One default per setting, DataEval's, in every preset: `scope` and `audit` no longer default
-  `coverage.num_observations` to 50 (DataEval's 20 now applies), and preset blocks no longer restate DataEval's other
-  defaults
-- Flow's own defaults where it departs from DataEval: `prioritization` sorts `hard_first` (DataEval: `easy_first`);
-  `split` and `kfold` hold out `test_frac: 0.2` and `split` `val_frac: 0.1`, stratified (DataEval holds nothing out)
-- One settings model per step type, shared by every preset that offers it: `ClassImbalanceSettings` (in place of
-  `DataBiasClassImbalanceSettings` and `AuditClassImbalanceSettings`), `RepresentationSettings` (in place of
-  `DataCoverageRepresentationSettings` and `LabelSpaceRepresentationSettings`), `CoverageSettings` and
-  `UncoveredItemsSettings` (renamed from `DataCoverage…`)
-- `class-imbalance` takes its own defaults in every preset: `bias` no longer defaults `info` to 2.0, so ratios up
-  to 2.0 are `info` unless `info: 2` is set; `audit` defaults `empty` to `true`, so a declared class with no labels
-  also warns there
-- Each preset but `audit` owns its checks alone, so presets run side by side report each finding once. Class balance and
-  the metadata factors move to `bias`: `scope` drops `label-health`, `class-imbalance`, `factor-summary`,
-  `balance`, `diversity`, `factor-gaps` and `factor-coverage-gaps`, and refuses its `metadata`, `diversity` and
-  `factor-gaps` settings and `checks.class-imbalance` and `checks.factor-coverage-gaps`, naming `bias`;
-  `quality` drops `class-imbalance`, keeping `label-health` for `target-outliers`, and refuses
-  `checks.class-imbalance`; `splits` drops the whole set's `class-imbalance`, `balance` and `diversity`, keeping
-  `label-health` for `class-stratification`, and refuses `checks.class-imbalance`. `audit`'s chain is unchanged.
-  `DiversitySettings`, `FactorGapsSettings` and `ShortcutRiskSettings` are importable from
-  `dataeval_flow.workflows.bias` alone, and `DataCleaningClassImbalanceSettings` is gone
-- prioritization's ranking settings, `method`, `k`, `c`, `n_init`, `max_cluster_size`, `order`, `policy` and
-  `num_bins`, sit under a `prioritization:` block, as every preset holds a step's settings under its type, with
-  `PrioritizationSettings` as its model
-- The findings that quality, scope and shift shipped are retitled, so anything that matches a
-  title must follow: "Duplicates" is "Image Duplicates"; "Label Distribution", and "Label/Directory_Name Distribution"
-  on an ImageFolder source, are "Class Imbalance"; "Embedding Coverage" is "Class Coverage"; "Metadata Coverage Gaps"
-  is "Factor Coverage Gaps"; "Label Space Coverage" is "Leaf Coverage"; "Class Balance Worklist" is "Class Shortfall";
-  and "Aggregate OOD (all detectors agree)" and "Unique OOD Samples (single-detector only)" are both "OOD Agreement",
-  told apart by their briefs
-- Names follow one rule per kind (see Naming conventions): a step type and its title name one thing, as
-  `class-imbalance` and "Class Imbalance"; checks are named for what they judge (`image-outliers`);
-  a check's one bound is `warning`; a preset's settings for a step sit under that step's type in the
-  step's own words (`outliers: {flags, outlier_threshold}`), and its checks' under `checks:` keyed by check type; a
-  preset's steps are named for their types (`label-health`, `class-imbalance[train]`)
-- `Finding` is exported from `dataeval_flow.steps`, beside `Check`; `dataeval_flow.workflows` no longer exports it
-- A check warns only past its bound, never at it: `ood`, `ood-agreement` and `eval-coverage` (which warned and
-  informed at their bounds), `drift`'s `chunk_percent` and `consecutive_chunks`, and `factor-coverage-gaps`. The
-  last two now default to 2 (were 3), so three drifted chunks in a row, or three gaps, still warn
-- A chain whose `label-alignment` steps agree, and whose sources and `conform` steps record no label space, stamps
-  its result's `label_space_digest` with the alignment's: the join key to a dataset conformed by its stanza
-- `representation`'s output records the `expected` names it ignored, under `extras.ignored_expected`, and its report
-  section and `label-alignment`'s are short summaries
-- `representation`, `coverage`, `prioritization` and `label-alignment` read class labels and no factor, so their reads
-  leave a chain's binning record: splits with an extractor records the whole set once, and prioritization,
-  whose steps read no factor, records no binning record or `encoding_digest`
+- Five checks are renamed for their subject or the evaluator they judge; the old names fail as unknown checks
+  - `classwise-outliers` → `class-outliers`, `stratification` → `class-stratification`
+  - `metadata-issues` → `factor-issues`, `mergeability` → `label-mergeability`
+  - `distribution-shift` → `embedding-divergence`
+  - Their classes, titles, preset chain step names and `checks:` keys follow
+- `eval-coverage` measures a split's flagged share against a baseline: what a split drawn like train flags anyway
+  - The baseline is 100 - `threshold_perc` under `ood-kneighbors`, and 0 under other detectors
+  - `info` (1.0) and `warning` (9.0) are points above it, which keeps the current bands at `threshold_perc: 99`
+  - Under other detectors the bands move from 2/10 to 1/9 percent flagged
+  - `audit`'s `ood-kneighbors` takes DataEval's `threshold_perc` of 95
+- Presets use DataEval's default for every setting and no longer restate them
+  - `scope` and `audit` no longer default `coverage.num_observations` to 50; DataEval's 20 applies
+- Flow departs from DataEval's defaults in two places
+  - `prioritization` sorts `hard_first` (DataEval: `easy_first`)
+  - `split` and `kfold` hold out `test_frac: 0.2`, and `split` `val_frac: 0.1`, stratified (DataEval holds nothing out)
+- One settings model per step type, shared by every preset that offers it
+  - `ClassImbalanceSettings` replaces `DataBiasClassImbalanceSettings` and `AuditClassImbalanceSettings`
+  - `RepresentationSettings` replaces `DataCoverageRepresentationSettings` and `LabelSpaceRepresentationSettings`
+  - `CoverageSettings` and `UncoveredItemsSettings` are renamed from `DataCoverage…`
+- `class-imbalance` uses its own defaults in every preset
+  - `bias` no longer defaults `info` to 2.0: ratios up to 2.0 are `info` unless `info: 2` is set
+  - `audit` defaults `empty` to `true`, so a declared class with no labels warns there too
+- Each preset but `audit` owns its checks, so presets run side by side report each finding once
+  - Class balance and the metadata factors move to `bias`; `audit`'s chain is unchanged
+  - `scope` drops `label-health`, `class-imbalance`, `factor-summary`, `balance` and `diversity`
+  - It also drops `factor-gaps` and `factor-coverage-gaps`
+  - Its `metadata`, `diversity`, `factor-gaps`, `checks.class-imbalance` and `checks.factor-coverage-gaps` are refused
+  - `quality` drops `class-imbalance`, keeping `label-health` for `target-outliers`
+  - `splits` drops the whole set's `class-imbalance`, `balance` and `diversity`; `label-health` stays for stratification
+  - `quality` and `splits` refuse `checks.class-imbalance`
+  - `DiversitySettings`, `FactorGapsSettings` and `ShortcutRiskSettings` import only from `dataeval_flow.workflows.bias`
+  - `DataCleaningClassImbalanceSettings` is gone
+- `prioritization`'s ranking settings sit under a `prioritization:` block, modelled by `PrioritizationSettings`
+  - `method`, `k`, `c`, `n_init`, `max_cluster_size`, `order`, `policy` and `num_bins`
+- Findings from quality, scope and shift are retitled; anything that matches on a title needs updating
+  - "Duplicates" → "Image Duplicates"
+  - "Label Distribution", and "Label/Directory_Name Distribution" on ImageFolder, → "Class Imbalance"
+  - "Embedding Coverage" → "Class Coverage"; "Metadata Coverage Gaps" → "Factor Coverage Gaps"
+  - "Label Space Coverage" → "Leaf Coverage"; "Class Balance Worklist" → "Class Shortfall"
+  - "Aggregate OOD (all detectors agree)" and "Unique OOD Samples (single-detector only)" → "OOD Agreement"
+- Names follow one rule per kind (see Naming conventions)
+  - A step type and its title name one thing, as `class-imbalance` and "Class Imbalance"
+  - Checks are named for what they judge (`image-outliers`), and a check's one bound is `warning`
+  - A preset holds a step's settings under its type, in the step's words (`outliers: {flags, outlier_threshold}`)
+  - A preset's checks sit under `checks:` keyed by check type, and its steps are named for their types
+- `Finding` is exported from `dataeval_flow.steps`, beside `Check`, and no longer from `dataeval_flow.workflows`
+- A check now warns only past its bound, not on reaching it
+  - This changes `ood`, `ood-agreement` and `eval-coverage`, which warned and informed at their bounds
+  - It also changes `drift`'s `chunk_percent` and `consecutive_chunks`, and `factor-coverage-gaps`
+  - `consecutive_chunks` and `factor-coverage-gaps` now default to 2 (were 3), so three in a row, or three gaps, warn
+- A chain's `label_space_digest` comes from its `label-alignment` steps when they agree and nothing else records one
+  - It joins the result to a dataset conformed by that alignment's stanza
+- `representation` records the `expected` names it ignored, under `extras.ignored_expected`
+  - Its report section and `label-alignment`'s are short summaries
+- `representation`, `coverage`, `prioritization` and `label-alignment` read only labels, and add no binning record
+  - `splits` with an extractor records the whole set once; `prioritization` records no binning or `encoding_digest`
 - `uncertainty` extractor entries need `metadata_path` and `preds_type`, and the TUI no longer offers them
-- shift's `classwise:` maps each detector to its `by:` (`{drift-mmd: class}`), and takes class groups; the
-  list form is refused
-- An `unbinned` finding says a declared bin count fixes how many bins there are, not their edges; the recommended
-  policy pins the edges
-- `MetadataConfigMixin` holds only `metadata:`, the policy name, as `StatsConfigMixin` holds only `stats:`; no
-  workflow takes the older `metadata_*` fields
-- The text report is 80 columns wide by default (was 90), and wraps long prose, labels and values to fit
-- A run that fails only on health warnings exits `3` (was `1`), so CI can tell a data-quality gate from a crash or a
-  mistyped flag, which exits `2`
-- `PipelineConfig.tasks` and `run_tasks` now carry evaluator tasks and results as well as workflow ones
+- shift's `classwise:` maps each detector to its `by:` (`{drift-mmd: class}`) and takes class groups; lists are refused
+- `unbinned` findings explain that a bin count sets how many bins there are, and the recommended policy pins the edges
+- `MetadataConfigMixin` holds only `metadata:`, as `StatsConfigMixin` holds only `stats:`
+  - No workflow takes the older `metadata_*` fields
+- The text report is 80 columns wide by default (was 90), wrapping long prose, labels and values
+- A run that fails only on health warnings exits `3` (was `1`), so CI can tell it from a crash or a mistyped flag (`2`)
+- `PipelineConfig.tasks` and `run_tasks` carry evaluator tasks and results as well as workflow ones
 - `run_task` returns a `Result`, a workflow's or an evaluator's; `isinstance` narrows it to the type's `<X>Result`
 - A failed workflow's report shows `FAILED` and its errors, as a failed evaluator's does
-- `WorkflowResult` takes every argument by keyword only: `type`, `success`, `output`, `metadata`, …
-- Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of `harbor.jatic.net/aria/dataeval`
-- Metadata cache key includes stats policy `factor_identity()`, recomputing metadata archives on upgrade
-- Stats cache keys remain unaffected: every stats policy asked of a dataset grows one entry, band groups and
-  background included, which records each group's bands and range and remeasures a group whose definition changed
-- Console logs now include ISO-8601 UTC timestamps and levels; use `--log-format plain` for bare messages
-- `main-<variant>` tracks the default branch; `latest-<variant>` is a retag of the newest stable release
+- `WorkflowResult` takes every argument by keyword only
+- Containers publish to `harbor.jatic.net/aria/dataeval-flow` instead of `harbor.jatic.net/aria/dataeval`
+- The metadata cache key includes the stats policy's `factor_identity()`, so metadata archives recompute on upgrade
+- Stats cache keys are unchanged; each dataset keeps one entry that grows with every stats policy asked of it
+  - The entry covers band groups and background, records each group's bands and range, and remeasures changed groups
+- Console logs include ISO-8601 UTC timestamps and levels; `--log-format plain` gives bare messages
+- `main-<variant>` tracks the default branch; `latest-<variant>` retags the newest stable release
 - Images are scanned before publication; a HIGH or CRITICAL finding fails the build before anything is pushed
 - Internal modules (`cache`, `stats`, `policy`, …) are private; import config types from `dataeval_flow.config`
-- `dataeval_flow.workflow` and `dataeval_flow.evaluator` merge into `dataeval_flow.workflows` / `.evaluators`
+- `dataeval_flow.workflow` and `dataeval_flow.evaluator` merge into `dataeval_flow.workflows` and `.evaluators`
 - Workflow packages are named after their type: `workflows.data_cleaning`, `workflows.drift_monitoring`, …
-- Each workflow and evaluator has one `<X>Config` (was `<X>Parameters` plus `<X>WorkflowConfig`) in its own package
-- Each type has a real `<X>Result` class; `isinstance` narrows, and the `is_*_result` guards are gone
+- Each workflow and evaluator has one `<X>Config` in its own package (was `<X>Parameters` plus `<X>WorkflowConfig`)
+- Each type has a real `<X>Result` class for `isinstance` to narrow to; the `is_*_result` guards are gone
 - `result.output` replaces `result.data` and an evaluator's `raw`; reading it on a failed run raises
 - `Result.type` replaces `Result.name`; the framework, not each workflow, turns exceptions into failed results
 - `WorkflowProtocol` is the `Workflow` base class: subclass `Workflow[Config, Result]`, as its docstring shows
 - A workflow's `run(config, context)` replaces `execute(context, params)`; `config_type` replaces `params_schema`
 - A workflow declares `name` and `description` as class variables, not properties
-- `WorkflowParametersBase` becomes `WorkflowConfig`, the base of every workflow config, no longer their union
-- `Reportable` is `Finding`; `WorkflowOutputsBase` / `WorkflowReportBase` are `WorkflowRawOutput` / `WorkflowReport`
-- `DriftHealthThresholds` / `OODHealthThresholds` are `DriftMonitoringChecks` / `OODDetectionChecks`
-- Data-prioritization's `CleaningConfig` is `CleaningSettings`, with `outliers`, `duplicates` and `dup_types`
+- `WorkflowParametersBase` → `WorkflowConfig`, the base of every workflow config (was their union)
+- `Reportable` → `Finding`; `WorkflowOutputsBase` and `WorkflowReportBase` → `WorkflowRawOutput` and `WorkflowReport`
+- `DriftHealthThresholds` and `OODHealthThresholds` → `DriftMonitoringChecks` and `OODDetectionChecks`
+- Data-prioritization's `CleaningConfig` → `CleaningSettings`, with `outliers`, `duplicates` and `dup_types`
 - A workflow package's modules (`params`, `outputs`, `workflow`, `report`) are private; import from the package
-- `list_workflows()` / `list_evaluators()` return the classes; `get_*` return the class, not an instance
-- Extractor configs are imported from `dataeval_flow.config.extractors`; `ToRGB` from
-  `dataeval_flow.config.image_transforms`
+- `list_workflows()` and `list_evaluators()` return classes; `get_*` return the class, not an instance
+- Extractor configs import from `dataeval_flow.config.extractors`
+  - `ToRGB` imports from `dataeval_flow.config.image_transforms`
 - `run_tasks` returns results keyed by task name; `load_config` reads a file or a folder
-- `run_task` and `run_tasks` take `data_dir` and `cache_dir` by keyword only; a task named twice runs once.
-  `run_task` takes the config first, then a task config or a task's name, as `run_tasks` does
-- `PipelineConfig` is imported from `dataeval_flow.config`, beside the types of its sections, not the top level;
-  `load_config` from `dataeval_flow` only
-- `WorkflowResult`, `list_workflows` and `get_workflow` are imported from `dataeval_flow.workflows`, not the top level
-- Dataset, source, view, preprocessor and task configs are imported from `dataeval_flow.config`, not the top level
-- `run_task` is imported from `dataeval_flow`; the `maite.tasks` entry point is `dataeval_flow:run_tasks`
-- `ResultMetadata` is imported from `dataeval_flow`; the config mixins from `dataeval_flow.config`
+- `run_task` and `run_tasks` take `data_dir` and `cache_dir` by keyword only; a task named twice runs once
+  - `run_task` takes the config first, then a task config or a task's name, as `run_tasks` does
+- `PipelineConfig` and its section types import from `dataeval_flow.config`; `load_config` only from `dataeval_flow`
+- `WorkflowResult`, `list_workflows` and `get_workflow` import from `dataeval_flow.workflows`, not the top level
+- Dataset, source, view, preprocessor and task configs import from `dataeval_flow.config`, not the top level
+- `run_task` imports from `dataeval_flow`; the `maite.tasks` entry point is `dataeval_flow:run_tasks`
+- `ResultMetadata` imports from `dataeval_flow`, and the config mixins from `dataeval_flow.config`
 - A failed result's `to_dict()` is `{kind, metadata, errors}`; a failed workflow's `health.status` is `failed`
-- `Finding` drops `report_type` and `data`, and rejects unknown fields; `brief` and typed report `blocks` hold the evidence
+- `Finding` drops `report_type` and `data` and rejects unknown fields; `brief` and typed `blocks` hold the evidence
 - Data cleaning lists each flagged image and box with every metric that flagged it, then each metric's limits
-- The HTML report draws a bar chart's thresholds across its bars, labelled on a scale, instead of in a caption
+- The HTML report draws a bar chart's thresholds across its bars, on a labelled scale, instead of in a caption
 - The TUI draws each finding's evidence natively: data tables as tables, the rest as text at the window's width
-- Data cleaning lists its duplicate groups with their items, largest first, and duplicate boxes on their own
-- OOD detection lists its samples in tables, naming each in its own test source, rather than as bullets
-- Pillow (`>=12.2.0`) is a core dependency, to encode thumbnails
-- An evaluator report's console form cuts a list of more than ten values inside its output to the first ten and a count;
-  `-v` and `result.txt` show it whole
-- `scope` hands `Coverage` its embeddings as extracted, since DataEval rescales them itself; its own
-  per-dimension rescale had shifted `dispersion` and the coverage radius
-- Evaluators are named for what they compute, without a family prefix, and a prefixed name fails to load as an
-  unknown evaluator: `balance`, `diversity` and `parity` (were `bias.*`); `duplicates`, `label-health` and
-  `outliers` (were `quality.*`); `coverage`, `label-alignment`, `prioritization` and `representation` (were `scope.*`);
-  `drift-domain-classifier`, `drift-kneighbors`, `drift-mmd`, `drift-univariate`, `drift-wasserstein`,
-  `ood-domain-classifier` and `ood-kneighbors` (were `shift.*`)
-- `quality` is a preset: its evaluators find outliers, duplicates and label counts, and its checks judge them
-  against `checks`, keyed by check type. It returns a `ChainResult`, whose `steps` and `findings` replace `raw` and
-  `report`, and `run()` on a `DataCleaningConfig` is typed to `ChainResult`. Its steps are named in kebab case, as ids
-  are: `outliers`, `label-health`, `outliers-by-class`, `duplicates`, `image-outliers`, `target-outliers`,
-  `class-outliers`, `image-duplicates`, `class-imbalance` and `clean`. Legacy `health_thresholds` is refused:
-  `image_outliers`, `target_outliers` and `classwise_outliers` are `checks.image-outliers.warning`,
-  `checks.target-outliers.warning` and `checks.class-outliers.warning`; `exact_duplicates` and `near_duplicates`
-  are `checks.image-duplicates.exact` and `.near`; and `class_label_imbalance` is `checks.class-imbalance.warning`. The
-  `outlier_*` and `duplicate_*` settings are `outliers:` and `duplicates:` blocks, spelled as the `outliers` and
-  `duplicates` steps spell them: `outlier_method` and `outlier_threshold` are `outliers.outlier_threshold` (`zscore`, or
-  `[zscore, 3.0]`), `outlier_flags` is `outliers.flags`, `outlier_cluster_threshold`, `outlier_cluster_algorithm` and
-  `outlier_n_clusters` are `outliers.cluster_threshold`, `.cluster_algorithm` and `.n_clusters`, `duplicate_flags` is
-  `duplicates.flags`, `duplicate_merge_near` is `duplicates.merge_near_duplicates`, and `duplicate_cluster_sensitivity`,
-  `duplicate_cluster_algorithm` and `duplicate_n_clusters` are `duplicates.cluster_sensitivity`, `.cluster_algorithm`
-  and `.n_clusters`
-- `prioritization` is a preset: `cleaning:` runs as `outliers`, `duplicates` and `remove` steps on the reference
-  and each pool, `prioritization` ranks each pool against the reference, and `selected` (`select`) keeps the top
-  of each ranking. It returns a `ChainResult`, whose `steps` replace `raw` and `report`, and it makes no findings: the
-  Pruning warning and each pool's info finding are gone. Its `cleaning:` takes quality's `outliers:` and
-  `duplicates:` blocks, and `duplicate_exact_only: true` is `dup_types: [exact]`; its `n` and `fraction` are
-  `select.n` and `select.fraction`
-- `triage` is a preset: `factor-triage` reads the metadata, and `factor-issues` makes its findings, with
-  `max_examples` set under `checks.factor-issues`. It
-  returns a `ChainResult`: the issues, the stanza and the verification are its `factor-triage` step's output
-- `shift` is a preset: each detector is a step judged by its family's check, a `drift` or an `ood` check. Each test
-  source is tested on its own against the reference, where drift merged them and OOD joined them; `merge` them in a
-  custom workflow to test them as one. It returns a `ChainResult`; a detector that raises fails its step and the task.
-  - Drift: each detector named in `classwise:` also runs by class. `detectors:` takes drift evaluator entries
-    (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), `classwise:` lists detector
-    names, and `checks` is keyed by check type, `drift: {warn_on_drift, chunk_percent, consecutive_chunks}`. A classwise
-    detector makes a whole-set finding and a by-class finding, so it can add two warnings where legacy added one.
-    Classwise reads each item's label through DataEval's `Metadata`, so it needs a dataset with `.metadata`; without it
-    the by-class run is skipped, where legacy read the labels from the targets
-  - OOD: an `ood-union` step groups each flagged image as mutual, partial or unique and is judged by `ood-agreement`,
-    and two optional steps explain the flagged images by their metadata, as report sections where they were findings
+- Data cleaning lists duplicate groups with their items, largest first, and duplicate boxes separately
+- OOD detection lists its samples in tables, each named in its own test source
+- Pillow (`>=12.2.0`) is a core dependency, used to encode thumbnails
+- In the console, an evaluator report cuts lists of over ten values to ten and a count; `-v` and `result.txt` show all
+- `scope` passes its embeddings to `Coverage` unscaled, since DataEval rescales them itself
+  - Flow's own per-dimension rescale had shifted `dispersion` and the coverage radius
+- Evaluators drop their family prefix; a prefixed name fails to load as an unknown evaluator
+  - `bias.*` → `balance`, `diversity` and `parity`
+  - `quality.*` → `duplicates`, `label-health` and `outliers`
+  - `scope.*` → `coverage`, `label-alignment`, `prioritization` and `representation`
+  - `shift.*` → `drift-domain-classifier`, `drift-kneighbors`, `drift-mmd`, `drift-univariate`, `drift-wasserstein`
+  - `shift.*` → `ood-domain-classifier` and `ood-kneighbors`
+- `quality` is a preset: evaluators find outliers, duplicates and label counts, and checks judge them under `checks`
+  - It returns a `ChainResult`, whose `steps` and `findings` replace `raw` and `report`
+  - `run()` on its config is typed to `ChainResult`
+  - Steps are named in kebab case, as ids are: `outliers`, `label-health`, `outliers-by-class`, `duplicates`, `clean`
+  - Check steps: `image-outliers`, `target-outliers`, `class-outliers`, `image-duplicates` and `class-imbalance`
+  - `health_thresholds` is refused:
+    - `image_outliers` → `checks.image-outliers.warning`; `target_outliers` → `checks.target-outliers.warning`
+    - `classwise_outliers` → `checks.class-outliers.warning`
+    - `exact_duplicates` and `near_duplicates` → `checks.image-duplicates.exact` and `.near`
+    - `class_label_imbalance` → `checks.class-imbalance.warning`
+  - The `outlier_*` and `duplicate_*` settings move into `outliers:` and `duplicates:` blocks:
+    - `outlier_method` and `outlier_threshold` → `outliers.outlier_threshold` (`zscore`, or `[zscore, 3.0]`)
+    - `outlier_flags` → `outliers.flags`
+    - `outlier_cluster_threshold`, `outlier_cluster_algorithm` and `outlier_n_clusters` drop `outlier_`
+    - `duplicate_flags` → `duplicates.flags`; `duplicate_merge_near` → `duplicates.merge_near_duplicates`
+    - `duplicate_cluster_sensitivity`, `duplicate_cluster_algorithm` and `duplicate_n_clusters` drop `duplicate_`
+- `prioritization` is a preset: `cleaning:` runs `outliers`, `duplicates` and `remove` on the reference and each pool
+  - `prioritization` ranks each pool against the reference; `selected` (`select`) keeps the top of each ranking
+  - It returns a `ChainResult`, whose `steps` replace `raw` and `report`, and makes no findings
+  - The Pruning warning and each pool's info finding are gone
+  - `cleaning:` takes quality's `outliers:` and `duplicates:` blocks
+  - `duplicate_exact_only: true` → `dup_types: [exact]`
+  - `n` and `fraction` → `select.n` and `select.fraction`
+- `triage` is a preset: `factor-triage` reads the metadata, and `factor-issues` makes its findings
+  - `max_examples` sits under `checks.factor-issues`
+  - It returns a `ChainResult`; the issues, stanza and verification are its `factor-triage` step's output
+- `shift` is a preset: each detector is a step judged by its family's check, `drift` or `ood`
+  - Each test source is tested against the reference on its own; `merge` them in a custom workflow to test them as one
+  - It returns a `ChainResult`; a detector that raises fails its step and the task
+  - Each drift detector named in `classwise:` also runs by class, adding a by-class finding to the whole-set one
+  - `detectors:` takes drift evaluator entries, `classwise:` lists detector names, and `checks.drift` holds the bounds
+  - Classwise drift reads labels through DataEval's `Metadata`; without `.metadata` on the dataset, it skips by-class
+  - An `ood-union` step groups OOD-flagged images as mutual, partial or unique, and `ood-agreement` judges it
+  - Two optional steps explain flagged images by their metadata, now as report sections (they were findings)
   - To upgrade a drift detector:
-    - `method: univariate|mmd|kneighbors|domain_classifier` is
-      `type: drift-univariate|drift-mmd|drift-kneighbors|drift-domain-classifier`, and the univariate `test` is `method`
-    - a detector's `classwise: true` is its name in `classwise: [...]`
-    - `any_drift_is_warning` and `classwise_any_drift_is_warning` are `checks.drift.warn_on_drift`;
-      `chunk_drift_pct_warning` is `chunk_percent`, and `consecutive_chunks_warning: N` is
-      `consecutive_chunks: N-1`, since legacy warned at N drifted chunks in a row and this warns past the bound
-    - `chunking.threshold_multiplier: k` is `chunking.threshold: [zscore, k]`. Legacy chunked every detector with a
-      z-score threshold of 3, while an unset `threshold` now uses DataEval's default for the detector, a constant AUROC
-      band for `drift-domain-classifier`, so `threshold: [zscore, 3.0]` restores legacy's judgment
+    - `method: <name>` → `type: drift-<name>` (`domain_classifier` → `drift-domain-classifier`)
+    - The univariate `test` → `method`
+    - A detector's `classwise: true` → its name in `classwise: [...]`
+    - `any_drift_is_warning` and `classwise_any_drift_is_warning` → `checks.drift.warn_on_drift`
+    - `chunk_drift_pct_warning` → `chunk_percent`; `consecutive_chunks_warning: N` → `consecutive_chunks: N-1`
+    - `chunking.threshold_multiplier: k` → `chunking.threshold: [zscore, k]`
+    - An unset `threshold` now uses DataEval's default (legacy used z-score 3); `[zscore, 3.0]` restores legacy
   - To upgrade an OOD detector:
-    - `method: kneighbors|domain_classifier` is `type: ood-kneighbors|ood-domain-classifier`, and two detectors of one
-      type need distinct `name`s
-    - a domain-classifier detector thresholds on `n_std` unless `threshold_perc` is written, where legacy always used
-      the 95th percentile: write `threshold_perc: 95` to keep legacy's verdicts
-    - `health_thresholds.ood_pct_warning` and `ood_pct_info` are `checks.ood.warning` and `info`, and
-      `checks["ood-agreement"]` judges the agreement
-    - `max_ood_insights` is `factor-deviation.max_items`, and `metadata_insights: false` is `factor-predictors: false`
-      and `factor-deviation: false`
-    - `value_range` and the `metadata_*` fields are gone: set `value_range` on the dataset, and name a `metadata:`
-      policy
-- A result's JSON writes NaN and infinities as `null`, which strict JSON parsers require
-- `drift-kneighbors` on the `uncertainty` extractor refuses a written `distance_metric: cosine`, which cannot rank one
-  number
+    - `method: kneighbors|domain_classifier` → `type: ood-kneighbors|ood-domain-classifier`
+    - Two detectors of one type need distinct `name`s
+    - A domain classifier thresholds on `n_std` unless `threshold_perc` is set; `threshold_perc: 95` keeps old verdicts
+    - `health_thresholds.ood_pct_warning` and `ood_pct_info` → `checks.ood.warning` and `info`
+    - `checks["ood-agreement"]` judges the detectors' agreement
+    - `max_ood_insights` → `factor-deviation.max_items`
+    - `metadata_insights: false` → `factor-predictors: false` and `factor-deviation: false`
+    - `value_range` and the `metadata_*` fields are gone: set the range on the dataset, and name a `metadata:` policy
+- A result's JSON writes NaN and infinities as `null`, as strict JSON parsers require
+- `drift-kneighbors` on the `uncertainty` extractor refuses `distance_metric: cosine`, which can't rank one number
 - The TUI offers workflow, evaluator and extractor types registered after import, plugins included
-- `quality`'s `checks` take `None`, which judges nothing: the finding is still made, as `info`
-- A custom workflow's or preset's result records the encodings its steps read, as `metadata_binning` and
-  `encoding_digest`: one record where they read one Dataset one way, and `per_split`, keyed by the Dataset's address,
-  where they read several. `dataeval-flow encoding` reads it
-- A report's banner is the friendly title of what ran, as `Quality`; a custom workflow's is its name. The
-  text report prints it in capitals; HTML keeps its case
-- A report's envelope opens with a line naming what ran, `Workflow: clean (quality)` or, for an evaluator task,
-  `Evaluator: dupes (duplicates)`: the id alone where the entry is unnamed or is the id, and
-  `Workflow: name (custom workflow)` for a custom workflow. In HTML it is the provenance list's first row, and the
-  page title adds the entry where it differs from the id, as `Quality — clean`
-- A chain's report gives each finding a section, holding the evidence it judged: each step it read, headed *From* and
-  the step's title, as `From Outliers`, or a line naming the finding it is shown under already. The steps no finding
-  shows follow, then a Steps table of every step's title, type, status, reads and note, where the report gave each
-  step a section headed `name (type)` and a line naming what it read. In HTML each finding is a card, and the Steps
-  table a folded panel; the text table leaves out the title
-- A step's heading is its type's title, with its name beside it where the name is not the type id: `Outliers`,
-  `Duplicates · dupes`
-- A chain whose checks ran once per element of a list groups their findings by the element's key, such as `train`
-  and `val`, in its summary and below it; in HTML each finding stays a card
+- `quality`'s `checks` accept `None`, which judges nothing; the finding is still made, as `info`
+- Custom workflow and preset results record the encodings their steps read, as `metadata_binning` and `encoding_digest`
+  - One record where the steps read one Dataset one way; `per_split`, keyed by address, where they read several
+  - `dataeval-flow encoding` reads it
+- A report's banner is the title of what ran (`Quality`) or a custom workflow's name, in capitals in the text report
+- A report's envelope opens with what ran: `Workflow: clean (quality)` or `Evaluator: dupes (duplicates)`
+  - The id alone where the entry is unnamed or named for its id; `Workflow: name (custom workflow)` for custom ones
+  - In HTML it is the provenance list's first row, and the page title adds the entry's name, as `Quality — clean`
+- A chain's report gives each finding a section with the evidence it judged, headed *From* and the step's title
+  - A step already shown under another finding gets a line naming that finding instead
+  - The steps no finding shows follow, then a Steps table of every step's title, type, status, reads and note
+  - In HTML each finding is a card and the Steps table a folded panel; the text table leaves out the title
+- A step's heading is its type's title, with its name beside it where the two differ: `Outliers`, `Duplicates · dupes`
+- A chain whose checks ran once per list element groups their findings by the element's key, such as `train` and `val`
 - `label-health`'s report lists each class's labels and images in a table
-- `remove`'s report says what it kept and what each plan named: "Kept 22 of 24 images. Removed 2 images: 1 named by
-  `duplicates`, 1 by `outliers`."
-- The report's configuration leaves out settings left unset, and keeps a setting written as `null`; an evaluator's
-  report leaves out extras that hold nothing
-- The Image Outliers, Target Outliers, Class Outliers and Class Imbalance findings have no `description`, which
-  repeated their brief
-- A text table too wide for the report wraps its text cells, with a blank line between its rows
-- A chain's binning record leaves out `label-health`'s reads, which read labels and no factor, so each Dataset it
-  alone reads, such as each part of a split, no longer has a Metadata Factors block or binning diagnostics
-- `splits` is a preset: the whole set's labels, balance, diversity and coverage, a `split` or `kfold`, each
-  train rebalanced where `rebalance:` is set, and each part's labels, stratification and coverage. Run as a step of a
-  custom workflow, it exposes `train` (rebalanced where set), `val` and `test`, as lists keyed by fold under
-  `folds` of 2 or more. It returns a `ChainResult`: each part's indices are in
-  `result.steps["split"].details["indices"]`. Under `folds` of 2 or more, each fold's rebalanced train is in
-  `result.steps["rebalanced"].elements["<k>"].details["indices"]`; where rebalancing kept the train as it was,
-  `details` is `None` and the train's indices from `split` apply.
-  Its findings are Class Imbalance, Class Stratification for each fold, and Uncovered Items under `naive` coverage;
-  balance and diversity are report sections, and the split's sizes are in the `split` step's section and the
-  `lineage`. Only object-detection Datasets can be exported, so a classification split's parts can be read but not yet
-  exported. `checks` is keyed by check type: `class-imbalance`, `class-stratification`, `uncovered-items`. To
-  upgrade:
-  - `num_folds` is `folds`
-  - `rebalance_method` is `rebalance`
-  - `coverage_percent` and `num_observations` are `coverage.percent` and `coverage.num_observations`, beside
-    `coverage.method`
-  - `val_frac` with `folds` of 2 or more is refused, where legacy ignored it: remove it, since each fold's val is its
-    1/k. `val_frac` unset is 0.1 with `folds: 1`
-  - the `split_sizes` and `stratified` of `metadata`, and `output.raw`, are in `result.steps` and `lineage`
-- `scope` is a preset. A `crops` step (`wrap`) crops detection data into one item per box and hands other data
-  on unchanged. `coverage` and `completeness` embed the crops, judged by `class-coverage`, by `uncovered-items` under
-  `naive` coverage, and by `dimensional-completeness`. `label-health` is judged by `class-imbalance`; `factor-summary`,
-  `balance` and `diversity` read the metadata, and `factor-gaps`, judged by
-  `factor-coverage-gaps`, reads balance; `representation` is judged by `class-shortfall`. Without an extractor
-  the embedding steps are skipped, and their findings say "not assessed". It returns a `ChainResult`, whose numbers
-  are each step's output in `result.steps`, such as `result.steps["coverage"].output`. Metadata Distribution, balance
-  and diversity are report sections, where Metadata Distribution was a finding. Under `naive` coverage, legacy's
-  Embedding Coverage finding is two, Class Coverage and Uncovered Items; under `adaptive` the uncovered rate is not
-  judged. Naive coverage that overflows is skipped, where legacy re-ran it as adaptive. On detection data, coverage's
-  uncovered items index the `crops` Dataset, one item per box, where legacy named each one's image and box. It no
-  longer judges an ontology: a `taxonomy` entry on the same source does, and a scope run on a conformed
-  source records no label space of its own, so `taxonomy` carries the join key. `checks` is keyed by
-  check type: `class-imbalance`, `factor-coverage-gaps`, `class-coverage`, `uncovered-items` and
-  `dimensional-completeness`. Every legacy field is refused by name, with its replacement. To upgrade:
-  - `coverage_method`, `coverage_percent`, `num_observations`, `min_class_samples`, `isotropy_min_samples` and
-    `near_duplicate_factor` are `coverage.method`, `.percent`, `.num_observations`, `.min_class_samples`,
-    `.isotropy_min_samples` and `.near_duplicate_factor`
-  - `crop_padding` and `crop_min_size` are `wrap.params.padding` and `wrap.params.min_size`
-  - `run_completeness` is `completeness`
-  - `diversity_method` is refused: diversity always runs, as a report section, and `diversity.method` picks its
-    method, so legacy's `null` (skip diversity) has no replacement
-  - `balance` is refused: balance always runs, as a report section
-  - `run_gap_analysis` is refused whatever its value: `factor-gaps: false` replaces `false`.
-    `gap_mi_threshold` and `gap_min_representation` are `factor-gaps.mi_threshold` and `factor-gaps.min_representation`
-  - `ontology` and `ontology_label_pattern` are refused: write them on a `taxonomy` entry on the same source, as
-    `ontology` and `ontology-validation.label_pattern`
-  - `ontology_expected` is `representation.expected`, or `taxonomy`'s `representation.expected` where an
-    ontology is set
-  - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source`
-    are refused: name a policy under `metadata:`
-  - `value_range` is refused: set it on the dataset. `stats` is refused, since no step of scope reads statistics
-  - in `health_thresholds`, which is now `checks`, `class_imbalance_ratio` is `class-imbalance.warning`, and
-    legacy's fixed band at 2.0 is `class-imbalance.info`; `gap_count: N` is
-    `factor-coverage-gaps.warning: N-1`, since legacy warned at N gaps and this warns past the bound;
-    `min_dispersion`, `min_isotropy` and `max_near_duplicate_fraction` are `class-coverage.dispersion`,
-    `.isotropy` and `.near_duplicates`; `uncovered_rate` is `uncovered-items.warning`; and `completeness_score` is
-    `dimensional-completeness.warning`, and legacy's fixed band at 0.8 is `dimensional-completeness.info`. An unset
-    `info` follows `warning` as legacy's band did, so `class-imbalance.warning: 1.5` or
-    `dimensional-completeness.warning: 0.9` alone loads; two written bounds that cross are refused
-  - the label finding of every source is titled "Class Imbalance", where it was "Label Distribution", or
-    "Label/Directory_Name Distribution" on an ImageFolder source
-  - `health_thresholds.leaf_coverage`, `dark_branch_count` and `unmatched_class_count` are `taxonomy`'s
-    `checks.leaf-coverage.coverage`, `leaf-coverage.empty_branches` and `label-conformance.warning`
-  - `output.raw` and `metadata.has_extractor` are gone: `coverage`, `completeness` and `metadata_gaps` are the
-    `coverage`, `completeness` and `factor-gaps` steps' outputs, `label_distribution` is `label-health`'s,
-    `metadata_distribution` is `factor-summary`'s, a skipped step's reason is its `reason`, and
-    `coverage.dropped_detections` is
-    `result.steps["crops"].details["dropped"]`
-- `label-health` lists every class the Dataset declares, at 0 where it has no labels, and the items with no label as
-  `empty_image_indices`. So a declared class with no labels now shows at 0 in `quality`'s and `splits`'s
-  label tables and in stratification's "Classes checked" and its table across the parts, and makes their Class
-  Imbalance finding warn
-- `class-imbalance` makes its finding on any Dataset with classes, declared or observed, so an unlabelled Dataset that
-  declares classes now warns in quality and splits, where it made no finding. Its ratio is taken over
-  the classes with labels, and each class with none is named. It takes `info`, a ratio at or under which the finding
-  is `ok`, and its evidence gains each class's share and the images with no labels
+- `remove`'s report says what it kept and what each plan named: "Kept 22 of 24 images. Removed 2 images: …"
+- Report configurations leave out unset settings but keep ones written as `null`; evaluator reports skip empty extras
+- Image Outliers, Target Outliers, Class Outliers and Class Imbalance findings drop a `description` repeating the brief
+- A text table too wide for the report wraps its text cells, with a blank line between rows
+- A chain's binning record leaves out `label-health`'s reads, which take labels and no factor
+  - A Dataset only it reads, such as a split's part, no longer gets a Metadata Factors block or binning diagnostics
+- `splits` is a preset: a `split` or `kfold`, with each train rebalanced where `rebalance:` is set
+  - It reports the whole set's labels, balance, diversity and coverage, and each part's labels, stratification, coverage
+  - As a step, it exposes `train` (rebalanced where set), `val` and `test`, as lists keyed by fold with `folds` of 2+
+  - It returns a `ChainResult`; each part's indices are in `result.steps["split"].details["indices"]`
+  - Each fold's rebalanced train is in `result.steps["rebalanced"].elements["<k>"].details["indices"]`
+  - Where rebalancing kept a train unchanged, `details` is `None` and `split`'s indices apply
+  - Findings: Class Imbalance, Class Stratification per fold, and Uncovered Items under `naive` coverage
+  - Balance and diversity are report sections; split sizes are in the `split` step's section and the `lineage`
+  - Only object-detection Datasets can be exported, so classification parts can be read but not yet exported
+  - `checks` is keyed by check type: `class-imbalance`, `class-stratification` and `uncovered-items`
+  - To upgrade:
+    - `num_folds` → `folds`; `rebalance_method` → `rebalance`
+    - `coverage_percent` and `num_observations` → `coverage.percent` and `coverage.num_observations`
+    - `val_frac` with `folds` of 2 or more is refused (each fold's val is its 1/k); unset, it is 0.1 with `folds: 1`
+    - `metadata`'s `split_sizes` and `stratified`, and `output.raw`, are in `result.steps` and `lineage`
+- `scope` is a preset: a `crops` step (`wrap`) crops detection data to one item per box and passes other data through
+  - `coverage` and `completeness` embed the crops; `class-coverage` and `dimensional-completeness` judge them
+  - `uncovered-items` judges `naive` coverage; under `adaptive` the uncovered rate isn't judged
+  - `class-imbalance` judges `label-health`, `factor-coverage-gaps` judges `factor-gaps`
+  - `class-shortfall` judges `representation`
+  - `factor-summary`, `balance` and `diversity` read the metadata, and `factor-gaps` reads balance
+  - Without an extractor, the embedding steps are skipped and their findings say "not assessed"
+  - It returns a `ChainResult`; each step's output is in `result.steps`, such as `result.steps["coverage"].output`
+  - Metadata Distribution, balance and diversity are report sections; Metadata Distribution was a finding
+  - Under `naive` coverage, legacy's Embedding Coverage finding becomes Class Coverage and Uncovered Items
+  - Naive coverage that overflows is skipped, where legacy re-ran it as adaptive
+  - On detection data, uncovered items index the `crops` Dataset (one item per box), not each one's image and box
+  - It no longer judges an ontology; a `taxonomy` entry on the same source does, and carries the join key
+  - `checks` is keyed by check type: `class-imbalance`, `factor-coverage-gaps` and `class-coverage`
+  - The `uncovered-items` and `dimensional-completeness` checks take keys there too
+  - Every legacy field is refused by name, with its replacement. To upgrade:
+    - `coverage_method`, `coverage_percent` and `num_observations` → `coverage.method`, `.percent`, `.num_observations`
+    - `min_class_samples`, `isotropy_min_samples` and `near_duplicate_factor` → the same names under `coverage.`
+    - `crop_padding` and `crop_min_size` → `wrap.params.padding` and `wrap.params.min_size`
+    - `run_completeness` → `completeness`
+    - `diversity_method` is refused; `diversity.method` picks the method, and diversity can no longer be skipped
+    - `balance` is refused: balance always runs, as a report section
+    - `run_gap_analysis` is refused; `factor-gaps: false` replaces `run_gap_analysis: false`
+    - `gap_mi_threshold` and `gap_min_representation` → `factor-gaps.mi_threshold` and `.min_representation`
+    - `ontology` and `ontology_label_pattern` → a `taxonomy` entry's `ontology` and `ontology-validation.label_pattern`
+    - `ontology_expected` → `representation.expected`, or `taxonomy`'s `representation.expected` with an ontology
+    - The `metadata_*` binning fields are refused: name a policy under `metadata:`
+    - `value_range` is refused (set it on the dataset), and so is `stats`, since no step of scope reads statistics
+    - `health_thresholds` → `checks`:
+      - `class_imbalance_ratio` → `class-imbalance.warning`; legacy's fixed band at 2.0 → `class-imbalance.info`
+      - `gap_count: N` → `factor-coverage-gaps.warning: N-1` (legacy warned at N; this warns past the bound)
+      - `min_dispersion` and `min_isotropy` → `class-coverage.dispersion` and `.isotropy`
+      - `max_near_duplicate_fraction` → `class-coverage.near_duplicates`
+      - `uncovered_rate` → `uncovered-items.warning`
+      - `completeness_score` → `dimensional-completeness.warning`; legacy's band at 0.8 → `.info`
+      - An unset `info` follows `warning` as legacy's band did; two written bounds that cross are refused
+    - The label finding is "Class Imbalance" (was "Label Distribution", or "Label/Directory_Name Distribution")
+    - `health_thresholds.leaf_coverage` → `taxonomy`'s `checks.leaf-coverage.coverage`
+    - `dark_branch_count` → `taxonomy`'s `checks.leaf-coverage.empty_branches`
+    - `unmatched_class_count` → `taxonomy`'s `checks.label-conformance.warning`
+    - `output.raw` and `metadata.has_extractor` are gone; read the steps' outputs instead:
+      - `coverage`, `completeness` and `metadata_gaps` → the `coverage`, `completeness` and `factor-gaps` outputs
+      - `label_distribution` → `label-health`'s output; `metadata_distribution` → `factor-summary`'s
+      - A skipped step's reason is its `reason`
+      - `coverage.dropped_detections` → `result.steps["crops"].details["dropped"]`
+- `label-health` lists every declared class, at 0 where it has no labels, and unlabelled items as `empty_image_indices`
+  - A declared class with no labels now shows at 0 in `quality`'s and `splits`'s label and stratification tables
+  - It also makes their Class Imbalance finding warn
+- `class-imbalance` makes its finding on any Dataset with classes, declared or observed
+  - An unlabelled Dataset that declares classes now warns in quality and splits (it made no finding before)
+  - Its ratio is over the classes with labels, and each class without labels is named
+  - `info` is a ratio at or under which the finding is `ok`; evidence adds each class's share and unlabelled images
 
 ### Fixed
 
-- A dataset whose class names change while its items don't is cached apart from the old one, so a warm cache no
-  longer serves the old names. A dataset that declares class names is computed once more, under its new key
-- The config builder keeps a null the config set, such as `checks.leakage.near: null`, when it saves; it dropped
-  it, and the default came back on reload
-- Every step of a task reads a source through its Dataset node's one draw of its view, so an unseeded `Shuffle` or any
-  random view gives all of a task's steps the same order, where each step drew its own. A result's `dataset` and
-  `sources`, and the report's thumbnails, hold that same draw, where they drew the view again
-- An exactly declared `continuous_factor_bins` name beats a bare statistic's expansion, whatever the key order
-- `triage` no longer calls a factor its policy's descriptor pins unpinned, so it suggests no bin count the
-  policy refuses as named by both `encoding` and `continuous_factor_bins`
-- Data prioritization ranks a labeled pool under `policy: class_balanced`, where it always
-  raised "Cannot apply class_balanced policy: class_labels not provided"
-- Data prioritization succeeds when cleaning empties a pool, ranking it as empty, where the whole task failed
-- Classwise drift names each class from the datasets' `index2label`, where it showed the bare class index
-- The config builder keeps a pipeline's `result:`, `logging:`, `seed:` and `deterministic:` when it saves a
-  config, where it dropped them, and the TUI runs with them
-- The TUI shows a task, source, class or split name with brackets in it as written; `[/x]` no longer crashes it
-- Data prioritization's `sources` and data splitting's `dataset` are the views they ran on, not views drawn anew
-- Classwise drift prints a small p-value as itself (`0.0003`), not `0.00`, and `results.json` keeps it unrounded
-- A chunked drift finding with `chunk_percent: 0`, legacy's `chunk_drift_pct_warning: 0`, no longer warns when no
-  chunk drifted
+- A dataset whose class names change but whose items don't gets its own cache entry, so old names aren't served
+  - A dataset that declares class names is computed once more, under its new key
+- The config builder keeps an explicit `null`, such as `checks.leakage.near: null`, instead of restoring the default
+- Every step of a task reads a source through one draw of its view, so random views give all steps the same order
+  - A result's `dataset` and `sources`, and the report's thumbnails, use that same draw
+- An exactly declared `continuous_factor_bins` name takes precedence over a bare statistic's expansion, in any order
+- `triage` no longer reports a factor as unpinned when the policy's descriptor pins it
+  - It no longer suggests a bin count the policy refuses as named by both `encoding` and `continuous_factor_bins`
+- Data prioritization ranks a labeled pool under `policy: class_balanced` instead of raising "class_labels not provided"
+- Data prioritization succeeds when cleaning empties a pool, ranking it as empty, instead of failing the task
+- Classwise drift names each class from the datasets' `index2label` instead of showing its bare index
+- The config builder keeps `result:`, `logging:`, `seed:` and `deterministic:` when it saves, and the TUI runs with them
+- The TUI shows a name with brackets in it as written; `[/x]` no longer crashes it
+- Data prioritization's `sources` and data splitting's `dataset` are the views they ran on, not fresh draws
+- Classwise drift prints small p-values in full (`0.0003`, not `0.00`), and `results.json` keeps them unrounded
+- A chunked drift finding with `chunk_percent: 0` no longer warns when no chunk drifted
 - `run_tasks`, the CLI and the TUI share one BoVW fit per task; its embeddings and clusters are cached only with `seed`
-- Data-cleaning and parameter-sweep key clusters by their extractor; cached stateless cleaning clusters miss once
-- Data-cleaning's cluster-mode duplicate merge now passes `merge_near_duplicates`, agreeing with the `duplicates`
-  evaluator
-- Hash dataset elements lacking `__repr__` by type and contents rather than memory address, enabling cache reuse
-- Include source views in cache keys, invalidating cached embeddings, metadata, and statistics on edit
-- Relative `ontology:` paths now resolve against the run's data root rather than the process root
-- Restrict outlier detection to configured `outlier_flags`, preventing shared caches from widening column checks
-- Restrict duplicate detection to configured `duplicate_flags`, preventing shared cache widening
-- Restrict injected metadata factors to configured `intrinsic_factors` instead of cache state
-- Record band-group statistics in `injected_factors` rather than misattributing them as dataset columns
-- Restrict cross-split label parity to shared classes, preventing chi-square errors on gapped label spaces
-- Exclude single-split classes from the parity test and report them in `label_overlap` instead
-- Restrict cross-split duplicate detection to common columns, preventing crashes on divergent stat caches
-- Container entrypoint honors `DATAEVAL_OUTPUT` and `DATAEVAL_CACHE` instead of hardcoded paths
-- Container image creates `/cache/.not_mounted`; unmounted `/cache` is no longer exported as `DATAEVAL_CACHE`
-- Consistently recognize object-detection datasets on Python 3.10 and 3.11, preventing misclassification or crashes
-- GitHub release body now carries the changelog section instead of falling back to `Release vX.Y.Z`
-- Container images no longer ship the standalone interpreter's bundled `pip`, which nothing in the image used
-- A task naming one source twice is refused when the config loads; the repeat was dropped, leaving the task a
-  source short
-- A key no config section defines is refused when the config loads, where it was dropped; a misspelled top-level key
-  is named with the section it most resembles
-- The HTML report renders inline code in a table cell as it does in prose, where the cell showed the backticks
-- A chain refused before any step ran says why in its report, where it said only `Steps: 0 ran`
-- A report's health line and its HTML badge say `failed` where a required step failed, where they could say every
-  check passed
-- A "not assessed" finding's description ends in one full stop where its cause already ends in one, where it ended in
-  two
+- Data-cleaning and parameter-sweep key clusters by their extractor; existing stateless cleaning clusters miss once
+- Data-cleaning's cluster-mode duplicate merge passes `merge_near_duplicates`, matching the `duplicates` evaluator
+- Dataset elements without `__repr__` hash by type and contents rather than memory address, so caches are reused
+- Source views are part of cache keys, so editing a view invalidates cached embeddings, metadata and statistics
+- Relative `ontology:` paths resolve against the run's data root rather than the process root
+- Outlier detection is limited to the configured `outlier_flags`, so a shared cache can't widen its column checks
+- Duplicate detection is limited to the configured `duplicate_flags`, so a shared cache can't widen it
+- Injected metadata factors are limited to the configured `intrinsic_factors` instead of what the cache holds
+- Band-group statistics are recorded in `injected_factors` instead of being mistaken for dataset columns
+- Cross-split label parity is limited to shared classes, avoiding chi-square errors on gapped label spaces
+- Single-split classes are left out of the parity test and reported in `label_overlap` instead
+- Cross-split duplicate detection is limited to common columns, avoiding crashes on divergent stat caches
+- The container entrypoint honors `DATAEVAL_OUTPUT` and `DATAEVAL_CACHE` instead of hardcoded paths
+- The container image creates `/cache/.not_mounted`, so an unmounted `/cache` is no longer exported as `DATAEVAL_CACHE`
+- Object-detection datasets are recognized consistently on Python 3.10 and 3.11, avoiding misclassification or crashes
+- The GitHub release body carries the changelog section instead of falling back to `Release vX.Y.Z`
+- Container images no longer ship the standalone interpreter's bundled `pip`, which nothing used
+- A task naming one source twice is refused at load; the repeat used to be dropped, leaving the task a source short
+- A key no config section defines is refused at load instead of dropped
+  - A misspelled top-level key is named with the section it most resembles
+- The HTML report renders inline code in a table cell as in prose, instead of showing the backticks
+- A chain refused before any step ran says why in its report, instead of only `Steps: 0 ran`
+- A report's health line and HTML badge say `failed` when a required step failed, instead of claiming checks passed
+- A "not assessed" finding's description ends in one full stop when its cause already ends in one
 
 ### Removed
 
-- The per-key migration messages for keys earlier versions took (`audit`'s data-analysis fields, `scope`'s
-  legacy fields and `health_thresholds`, `checks.class-imbalance` on `quality` and `splits`, a
-  detector's `method:`) and the `type: data-analysis` message: each now fails as an unknown key or workflow
-- Workflow types that run their own code: every workflow type is now a preset, whose settings expand to a chain of
-  steps. `Workflow.run`, `WorkflowOutput`, `WorkflowRawOutput`, `WorkflowReport` and `WorkflowResult` go, with the
-  `workflow_result` port type. A workflow type mixes in `Preset`, now exported from `dataeval_flow.workflows` with
-  `PresetChain`, and declares `slots` and `chain`; one that does not raises `TypeError` when its class is defined.
-  Every workflow returns a `ChainResult`. A plugin with an algorithm of its own registers it as an evaluator and
-  chains it in its preset
-- `splits`'s coverage: its whole-set and per-part `coverage` steps and `uncovered-items` checks, its `coverage:`
-  setting, `checks.uncovered-items`, and `extractor:` on a splits task or step. Judge the parts with an
-  `audit` step after the split (see Check a set of splits). `DataSplittingCoverageSettings` goes with it
-- prioritization's `cleaning:` and `stats:`, with `CleaningSettings`: run the preset as a step of a custom
-  workflow after a `quality` step on the reference and one on the pools, or after `outliers`, `duplicates` and
-  `remove` steps to keep near duplicates (see the Preset Catalog)
-- The `selections:` and `selection:` aliases for `views:` and `view:`, and a `views:` entry's `steps:` alias for
-  `operations:`, deprecated since v0.2.0
-- `parameter-sweep`, with `ParameterSweepConfig`, `ParameterSweepResult` and `ParameterSweepWorkflow`: write a
-  quality entry and a `matrix:` on its task (see Sweep settings with a matrix)
-- `data-analysis`, with `DataAnalysisConfig`, `DataAnalysisHealthThresholds`, `DataAnalysisResult` and
-  `DataAnalysisWorkflow`: write an `audit` entry. A `type: data-analysis` entry fails to load, naming `audit` and
-  where each of its settings went, and an `audit` entry refuses each of them by name:
-  - `outlier_method` and `outlier_threshold` are `outliers.outlier_threshold`: the method, or `[method, threshold]`
-  - `outlier_flags` is `outliers.flags`, `diversity_method` is `diversity.method`, and `divergence_method` is
-    `divergence.method`. `diversity_method: null` (skip diversity) has no replacement: audit always runs diversity
+- The per-key migration messages for keys earlier versions took, and the `type: data-analysis` message
+  - They covered `audit`'s data-analysis fields, `scope`'s legacy fields and `health_thresholds`, and `method:`
+  - They also covered `checks.class-imbalance` on `quality` and `splits`
+  - Each of these keys now fails as an unknown key or workflow
+- Workflow types that run their own code: every workflow type is now a preset expanding to a chain of steps
+  - Gone: `Workflow.run`, `WorkflowOutput`, `WorkflowRawOutput`, `WorkflowReport`, `WorkflowResult`, `workflow_result`
+  - A workflow type mixes in `Preset` and declares `slots` and `chain`; otherwise its class raises `TypeError`
+  - `Preset` and `PresetChain` are exported from `dataeval_flow.workflows`
+  - Every workflow returns a `ChainResult`
+  - A plugin with an algorithm of its own registers it as an evaluator and chains it in its preset
+- `splits`'s coverage: its `coverage` steps and `uncovered-items` checks, `coverage:` and `checks.uncovered-items`
+  - `extractor:` on a splits task or step goes too, with `DataSplittingCoverageSettings`
+  - Judge the parts with an `audit` step after the split (see Check a set of splits)
+- prioritization's `cleaning:` and `stats:`, with `CleaningSettings`
+  - Run the preset in a custom workflow after a `quality` step on the reference and one on the pools
+  - To keep near duplicates, run it after `outliers`, `duplicates` and `remove` steps instead (see the Preset Catalog)
+- The `selections:` and `selection:` aliases for `views:` and `view:`, deprecated since v0.2.0
+  - Also a `views:` entry's `steps:` alias for `operations:`
+- `parameter-sweep`, with `ParameterSweepConfig`, `ParameterSweepResult` and `ParameterSweepWorkflow`
+  - Write a quality entry with a `matrix:` on its task (see Sweep settings with a matrix)
+- `data-analysis` and its classes
+  - `DataAnalysisConfig`, `DataAnalysisHealthThresholds`, `DataAnalysisResult` and `DataAnalysisWorkflow`
+  - Write an `audit` entry; `type: data-analysis` fails to load, naming `audit` and where each setting went
+  - `outlier_method` and `outlier_threshold` → `outliers.outlier_threshold`: the method, or `[method, threshold]`
+  - `outlier_flags` → `outliers.flags`
+  - `diversity_method` → `diversity.method`; `divergence_method` → `divergence.method`
+  - `diversity_method: null` (skip diversity) has no replacement: audit always runs diversity
   - `balance` is refused: balance always runs, and is skipped on metadata with no factors
-  - `include_image_stats` is the metadata policy's `intrinsic_factors`
+  - `include_image_stats` → the metadata policy's `intrinsic_factors`
   - `value_range` is refused: set it on the dataset
-  - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source`
-    are refused: name a policy under `metadata:`
-  - `health_thresholds` is `checks:`. Its `image_outliers` is `checks.image-outliers.warning`, `exact_duplicates`
-    and `near_duplicates` are `checks.image-duplicates.exact` and `.near`, `class_label_imbalance` is
-    `checks.class-imbalance.warning`, and `distribution_shift` is `checks.embedding-divergence.warning`
-  - `DataAnalysisResult`'s raw fields are the steps of an audit's `result.steps`: each split's `image_quality`,
-    `redundancy` and `label_health` are its `outliers`, `duplicates` and `label-health` steps (`outliers-train`, and
-    `outliers-evals` by split); train's `bias` is `factor-summary`, `balance` and `diversity`; and `cross_split`'s
-    duplicate leakage, label comparisons and divergence are `duplicates-cross` and `duplicates-pairs`,
-    `class-sufficiency`, `untrained-classes` and `class-stratification`, and `divergence`
-  - Its findings' titles: Image Quality is Image Outliers, Redundancy is Image Duplicates, Label Balance is Class
-    Imbalance, Bias is Shortcut Risk, with diversity as evidence, Label Overlap is Untrained Classes and Class
-    Sufficiency, and Label Parity is Class Stratification. Leakage keeps its title, and Distribution Shift is the
-    `embedding-divergence` check's Embedding Divergence
-  - Gone with it: the chi-square label parity, divergence between evaluation splits, bias judged per split, the
-    warning on low diversity, and Label Balance's warning on unlabelled images
+  - The `metadata_*` binning fields are refused: name a policy under `metadata:`
+  - `health_thresholds` → `checks:`:
+    - `image_outliers` → `checks.image-outliers.warning`
+    - `exact_duplicates` and `near_duplicates` → `checks.image-duplicates.exact` and `.near`
+    - `class_label_imbalance` → `checks.class-imbalance.warning`
+    - `distribution_shift` → `checks.embedding-divergence.warning`
+  - `DataAnalysisResult`'s raw fields are steps in an audit's `result.steps`:
+    - Each split's `image_quality`, `redundancy` and `label_health` → its `outliers`, `duplicates`, `label-health` steps
+    - Those steps are named per split, as `outliers-train` and `outliers-evals`
+    - Train's `bias` → `factor-summary`, `balance` and `diversity`
+    - `cross_split`'s duplicate leakage → `duplicates-cross` and `duplicates-pairs`
+    - `cross_split`'s label comparisons → `class-sufficiency`, `untrained-classes` and `class-stratification`
+    - `cross_split`'s divergence → `divergence`
+  - Finding titles:
+    - Image Quality → Image Outliers; Redundancy → Image Duplicates; Label Balance → Class Imbalance
+    - Bias → Shortcut Risk, with diversity as evidence
+    - Label Overlap → Untrained Classes and Class Sufficiency; Label Parity → Class Stratification
+    - Leakage keeps its title; Distribution Shift → the `embedding-divergence` check's Embedding Divergence
+  - Gone with it: chi-square label parity, divergence between evaluation splits, and bias judged per split
+  - Also gone: the warning on low diversity, and Label Balance's warning on unlabelled images
 - The settings only `data-analysis` still took, which no workflow takes now:
-  - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source`:
-    name a policy under `metadata:`, which takes `auto_bin_method`, `exclude`, `continuous_factor_bins` and
-    `factor_source`
-  - `value_range` on a workflow entry: set `value_range` on the dataset
+  - `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins`, `metadata_factor_source`
+  - Name a `metadata:` policy instead, with `auto_bin_method`, `exclude`, `continuous_factor_bins`, `factor_source`
+  - `value_range` on a workflow entry: set it on the dataset
   - `include_image_stats`: set the metadata policy's `intrinsic_factors`
-  - `attach_binning` and the outlier report's `limits_sentence` and `warn_if_unrecorded`, with no caller
+  - `attach_binning`, and the outlier report's `limits_sentence` and `warn_if_unrecorded`, which had no callers
 - The `torch` and `uncertainty` extractors' `device`, and shift MMD's; Flow chooses the device for every tool
-- Poetry packaging support; install with uv, pip, or conda instead
+- Poetry packaging support; install with uv, pip or conda
 - Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`
-- Python 3.10 support; the minimum supported version is now 3.11
-- `dataeval_flow.config.schemas`; most of its types are imported from `dataeval_flow.config`
+- Python 3.10 support; the minimum is now 3.11
+- `dataeval_flow.config.schemas`; most of its types import from `dataeval_flow.config`
 - Deprecated `SelectionConfig`, `SelectionStep`, `build_selection` and `DatasetContext(selection_steps=)`
 - Typed task configs (`DataCleaningTaskConfig`, `EvaluatorTaskConfig`, …); use `TaskConfig`
 - `load_config_folder` and `export_params_schema`
@@ -678,31 +611,29 @@
 - A workflow's `output_schema`; its `<X>Result` type argument names the output
 - The `DriftDetectorConfig` and `OODDetectorConfig` unions; annotate with the detector classes
 - The `AutoBinMethod` and `FactorSource` aliases; their fields take the same strings
-- `DataCleaningResult`, with its metadata's `evaluators`, `flagged_indices`, `clean_indices` and `removed_count`;
-  a quality result is a `ChainResult`
-- `DataPrioritizationResult`, `DataPrioritizationHealthThresholds` and the `CleaningSummaryDict` and
-  `PerDatasetPrioritizationDict` output types; a prioritization result is a `ChainResult`
-- `health_thresholds` and `value_range` on `prioritization`, which refuses them: declare the range on the dataset
-- `value_range`, `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and
-  `metadata_factor_source` on `quality`, which refuses them: declare the range on the dataset, and the binning in
-  a `metadata:` policy
-- `mode`, from every workflow config and from every result's metadata; a config that still writes it fails to load,
-  naming it
+- `DataCleaningResult`, with its metadata's `evaluators`, `flagged_indices`, `clean_indices` and `removed_count`
+  - A quality result is a `ChainResult`
+- `DataPrioritizationResult`, `DataPrioritizationHealthThresholds` and their output types
+  - `CleaningSummaryDict` and `PerDatasetPrioritizationDict`
+  - A prioritization result is a `ChainResult`
+- `health_thresholds` and `value_range` on `prioritization`, which refuses them; declare the range on the dataset
+- `value_range` and the `metadata_*` binning fields on `quality`, which refuses them
+  - Declare the range on the dataset, and the binning in a `metadata:` policy
+- `mode`, from every workflow config and result's metadata; a config that still writes it fails to load, naming it
 - Data-prioritization's `per_source_clean_indices` and `per_source_prioritized_indices`
 - The "Preparatory Mode" findings that quality made
 - `MetadataTriageResult`, with its metadata's `blocking` and `verified`; a triage result is a `ChainResult`
-- `metadata_auto_bin_method`, `metadata_exclude`, `metadata_continuous_factor_bins` and `metadata_factor_source` on
-  `triage`, which refuses them: declare the binning in a `metadata:` policy
+- The `metadata_*` binning fields on `triage`, which refuses them; declare the binning in a `metadata:` policy
 - `update_strategy` on `shift`, which was never applied and is now refused
-- The `DriftDetectorUnivariate`, `DriftDetectorMMD`, `DriftDetectorKNeighbors` and `DriftDetectorDomainClassifier`,
-  `ChunkingConfig`, `UpdateStrategyConfig` and `DriftMonitoringHealthThresholds` classes; a detector is a drift
-  evaluator config, and its `chunking:` a `ChunkedDriftConfig`
+- `DriftDetectorUnivariate`, `DriftDetectorMMD`, `DriftDetectorKNeighbors` and `DriftDetectorDomainClassifier`
+  - Also `ChunkingConfig`, `UpdateStrategyConfig` and `DriftMonitoringHealthThresholds`
+  - A detector is a drift evaluator config, and its `chunking:` a `ChunkedDriftConfig`
 - `DriftMonitoringResult` and its parts; a shift result is a `ChainResult`
-- `OODDetectionResult`, `OODDetectorKNeighbors`, `OODDetectorDomainClassifier` and `OODDetectionHealthThresholds`;
-  shift returns a `ChainResult`, and its detectors are OOD evaluator entries
+- `OODDetectionResult`, `OODDetectorKNeighbors`, `OODDetectorDomainClassifier` and `OODDetectionHealthThresholds`
+  - shift returns a `ChainResult`, and its detectors are OOD evaluator entries
 - `DataSplittingResult` and its output and metadata types; a splits result is a `ChainResult`
-- `DataCoverageResult` and its output and metadata types, and `DataCoverageHealthThresholds`; a scope result is
-  a `ChainResult`, and its thresholds are `DataCoverageChecks`
+- `DataCoverageResult`, its output and metadata types, and `DataCoverageHealthThresholds`
+  - A scope result is a `ChainResult`, and its thresholds are `DataCoverageChecks`
 
 ## v0.2.2
 

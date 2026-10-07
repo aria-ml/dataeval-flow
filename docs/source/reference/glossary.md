@@ -149,6 +149,11 @@ Evaluator
     {term}`determinations<Determination>` with no health status. See
     [Workflows and Evaluators](../concepts/WorkflowsAndEvaluators.md).
 
+Execution Mode
+    How a {term}`pipeline<Pipeline>` is handed to DataEval Flow: as a library call (`run_tasks()`), as the batch
+    `dataeval-flow` command, or queued to the {term}`service<Service>`. The pipeline, and the results it gives on
+    the same data, are the same in every mode. See [Execution Modes](../concepts/ExecutionModes.md).
+
 Extractor
     Also *feature extractor*. A component that turns images into
     {term}`embeddings<Embedding>`. DataEval Flow ships ONNX, PyTorch,
@@ -290,6 +295,11 @@ Result Envelope
     The machine-readable output object emitted by a workflow alongside the
     human-readable report, carrying results and metadata in a structured form
     that satisfies JATIC interoperability requirements.
+
+Service
+    `dataeval-flow serve`: a long-running HTTP service that queues {term}`pipelines<Pipeline>` and runs each as the
+    batch command, one at a time, from a snapshot of the pipeline taken when it was queued. See
+    [Service Reference](service.md).
 
 Severity
     A {term}`finding's<Finding>` judgment, one of three. `ok`: its check judged it, and it is within every bound.

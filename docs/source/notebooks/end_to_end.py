@@ -535,5 +535,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 #
 # - **How-to**: [Configure metadata binning](../how_to/configure_metadata_binning.md) explains declaring cuts and vocabularies.
 # - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) covers Docker execution options and flags.
+# - **How-to**: [Run Flow as a service](../how_to/run_flow_as_a_service.md) submits this same `end_to_end.yaml` over
+#   HTTP to a long-running service, and follows the run to its results.
 # - **How-to**: [Reuse results with the disk cache](../how_to/reuse_results_with_cache.md) explains caching behaviors and invalidation.
 # - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) details result envelope structure and querying.

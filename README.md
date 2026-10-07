@@ -403,7 +403,8 @@ The service listens on `127.0.0.1:8001` (`--host`/`--port`, or `DATAEVAL_SERVICE
 `POST /v1/runs` queues a pipeline; each run executes as the headless command would, one at a time, and keeps its
 snapshot, logs and result files under `<output>/runs/<id>/`. `/healthz`, `/livez` and `/readyz` report its health, and
 `/openapi.json` describes the API. It has no authentication: expose it on a trusted network only. See
-[Run Flow as a service](https://dataeval-flow.readthedocs.io/en/latest/how_to/run_flow_as_a_service.html).
+[Run Flow as a service](https://dataeval-flow.readthedocs.io/en/latest/how_to/run_flow_as_a_service.html) and the
+[Service Reference](https://dataeval-flow.readthedocs.io/en/latest/reference/service.html).
 
 ### Workflow Discovery (`workflows`)
 

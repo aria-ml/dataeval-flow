@@ -119,9 +119,8 @@ loading for the object-detection formats.
 - [ ] Link checking promoted from `allow_failure: true` to gating once the external-link
       flake rate is understood (DR-3.3-H-4)
 - [x] `dataeval-flow serve`: a long-running HTTP service, in every image behind the `service` extra,
-      that queues pipelines and runs each as the batch command would. Health, liveness and
-      readiness endpoints and an OpenAPI description make IR-2.3-H-2, IR-2.3-S-1 and IR-2.4-S-1
-      applicable, and met
+      that queues pipelines and runs each as the batch command. IR-2.3-H-2, IR-2.3-S-1 and IR-2.4-S-1
+      now apply, and its health, liveness and readiness endpoints and OpenAPI description meet them
 
 ### v0.4.0 — FMV / Ontology workflows + on-disk format interop
 

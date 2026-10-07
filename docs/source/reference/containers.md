@@ -8,8 +8,8 @@ Python-library forms.
 
 By default the container is a **batch** application: it runs a configured
 pipeline to completion, writes its artifacts, and exits. Run with `serve`, it is
-a **long-running service** instead: an HTTP API that queues pipelines and runs
-each as the batch command would, with health-check endpoints (see
+a **long-running service** instead. The service takes pipelines over HTTP, runs
+each one as the batch command, and has health-check endpoints (see
 [Health checks](#health-checks) and {doc}`../how_to/run_flow_as_a_service`).
 
 ## Image tags
@@ -159,7 +159,8 @@ otherwise, including when the manifest can't be read or the source can't be load
 plus `--host` and `--port`. It keeps each run under `<output>/runs/<id>/` and shares
 `--cache`, else `<output>/cache`, between runs. Publish its port (`-p 8001:8001`) and run
 with `--init`, which reaps the processes finished runs leave behind. The service has no
-authentication: expose it on a trusted network only.
+authentication: expose it on a trusted network only. The
+[Service Reference](service.md) documents its API, run states and files.
 
 ## Input precedence
 
@@ -169,6 +170,11 @@ For every input the resolution order is:
 2. **Environment variable** (`DATAEVAL_DATA`, `DATAEVAL_OUTPUT`, `DATAEVAL_CACHE`)
 3. **Built-in default** (the container mount paths above, or the current
    directory outside the container)
+
+`serve` resolves `--host` and `--port` the same way, over `DATAEVAL_SERVICE_HOST` and
+`DATAEVAL_SERVICE_PORT`. Its options follow `serve`; the top-level `--log-format`
+precedes it. A run the service starts takes none of the service's own `DATAEVAL_*`
+variables: its pipeline snapshot alone defines it.
 
 Dataset and model paths inside a config file are resolved **relative to the data
 root**. A relative path not found directly under the data root is also looked up
@@ -222,6 +228,13 @@ with others:
   require per-sample metadata factors to be present in the dataset; without them
   those analyses are skipped.
 - **The `app` sub-command requires the `app` extra** to be installed in the image.
+- **`serve` requires the `service` extra**, which every image ships, and an output
+  directory: `--output`, or `DATAEVAL_OUTPUT`, which images set to `/output`. Without
+  `--cache` or `DATAEVAL_CACHE`, its runs share `<output>/cache`.
+- **`DATAEVAL_SERVICE_HOST` and `DATAEVAL_SERVICE_PORT` apply to `serve` only.** The
+  batch command, `app` and `config` ignore them.
+- **A pipeline submitted to `serve` must keep `json` in `result: formats`**: the service
+  reads each run's results from its JSON file, and refuses such a pipeline with `422`.
 
 ## Recommended minimum hardware
 
@@ -237,6 +250,11 @@ Python-library forms.
 
 When scheduling the container on Kubernetes, request at least the minimum CPU and
 memory above and size memory to your largest dataset. A GPU is never required.
+
+Under `serve`, the service process itself uses about 1 GB, since it loads Flow and
+PyTorch, on top of the memory of the run it is executing. Size memory for both. Each
+run's directory under `<output>/runs/` keeps its result files and logs until you
+remove it.
 
 ## Supported architectures
 
@@ -256,6 +274,10 @@ dependencies (PyTorch, NumPy, SciPy) provide x86-64 wheels.
   models are staged locally: reference them by on-disk path and set
   `HF_HUB_OFFLINE=1` (and `HF_DATASETS_OFFLINE=1`). With local inputs the batch
   container makes **no outbound network calls of its own** at run time.
+- **`serve`** listens for inbound connections on its port and makes no outbound
+  calls of its own; its runs need what the batch command needs. The `/docs` page
+  loads its assets from a CDN in the viewer's browser; `/openapi.json` needs no
+  network.
 
 ## Health checks
 

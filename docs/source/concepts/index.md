@@ -29,6 +29,9 @@ and linked from each page.
 - [Preprocessing and Feature Extraction](PreprocessingAndExtraction.md) — transform
   pipelines, extractor types, and why the representation a workflow measures in
   matters
+- [Execution Modes](ExecutionModes.md) — running a pipeline as a library call, a
+  batch command or a queued service run, and why the service runs each as the batch
+  command
 
 ## Task-framing concepts
 
@@ -73,6 +76,7 @@ WorkflowsAsChains
 Reproducibility
 Provenance
 PreprocessingAndExtraction
+ExecutionModes
 DataQualityAndCleaning
 Coverage
 DistributionShift
