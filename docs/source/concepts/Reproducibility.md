@@ -52,7 +52,9 @@ pipeline, but the artifact they produce is just the declarative configuration.
 with no human in the loop. This is the mode used in containers, CI pipelines, and
 scheduled jobs. The split is what makes runs repeatable: a pipeline explored
 interactively is captured as configuration, and that same configuration is what
-runs unattended later.
+runs unattended later. A **service** queues configurations submitted over HTTP and
+runs each as that same headless command, from a snapshot of the configuration taken
+when it was queued (see {doc}`ExecutionModes`).
 
 ## Portability: the same run on a laptop and in a container
 

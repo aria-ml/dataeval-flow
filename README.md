@@ -350,11 +350,12 @@ docker run \
 
 ## CLI Modes
 
-DataEval Flow has eight modes:
+DataEval Flow has nine modes:
 
 | Command                    | Purpose                                                              |
 | -------------------------- | -------------------------------------------------------------------- |
 | `dataeval-flow [opts]`     | Headless execution — for automation and CI/CD pipelines              |
+| `dataeval-flow serve`      | Long-running HTTP service that queues pipelines (`service` extra)    |
 | `dataeval-flow app`        | Interactive TUI dashboard — configure, execute, and view results     |
 | `dataeval-flow config`     | Simple CLI config builder — create/edit configs without the TUI      |
 | `dataeval-flow encoding`   | Write the metadata encoding descriptor a result was computed under   |
@@ -390,6 +391,20 @@ code of `3`: apart from a failed task, and from a mistyped flag's `2`. When more
 applies, `1` comes first, then `4`, then `3`. Every run's `result.json` carries a
 `health` block per task (`status`, `warnings`, `findings`) so a pipeline can gate
 on findings without parsing the text report.
+
+### Service (`serve`)
+
+```bash
+pip install "dataeval-flow[service]"
+dataeval-flow serve --data /path/to/data --output /path/to/service-output
+```
+
+The service listens on `127.0.0.1:8001` (`--host`/`--port`, or `DATAEVAL_SERVICE_HOST`/`DATAEVAL_SERVICE_PORT`).
+`POST /v1/runs` queues a pipeline; each run executes as the headless command would, one at a time, and keeps its
+snapshot, logs and result files under `<output>/runs/<id>/`. `/healthz`, `/livez` and `/readyz` report its health, and
+`/openapi.json` describes the API. It has no authentication: expose it on a trusted network only. See
+[Run Flow as a service](https://dataeval-flow.readthedocs.io/en/latest/how_to/run_flow_as_a_service.html) and the
+[Service Reference](https://dataeval-flow.readthedocs.io/en/latest/reference/service.html).
 
 ### Workflow Discovery (`workflows`)
 

@@ -58,7 +58,7 @@ RUN touch README.md
 
 # Install ONLY production dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --extra cu130 --extra onnx-cu130 --extra opencv --extra app --no-install-project
+    uv sync --frozen --no-dev --extra cu130 --extra onnx-cu130 --extra opencv --extra app --extra service --no-install-project
 
 # =============================================================================
 # Stage 2: Test — extend build with dev deps, run nox, validate code
@@ -73,7 +73,7 @@ COPY pyproject.toml uv.lock noxfile.py ./
 
 # Add dev dependencies on top of prod venv
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --group dev --extra cu130 --extra onnx-cu130 --extra opencv --extra app --no-install-project
+    uv sync --frozen --group dev --extra cu130 --extra onnx-cu130 --extra opencv --extra app --extra service --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -153,6 +153,9 @@ ENV UV_EXTRAS_OVERRIDE=cu130
 ENV CONTAINER_MODE=gpu
 ENV DATAEVAL_DATA=/dataeval
 ENV DATAEVAL_OUTPUT=/output
+# `serve` must listen beyond the container's loopback to be reachable through a published port.
+ENV DATAEVAL_SERVICE_HOST=0.0.0.0
+EXPOSE 8001
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["python", "-m", "dataeval_flow"]

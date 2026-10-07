@@ -672,6 +672,22 @@ class TestRunTasks:
 
         assert list(results) == ["task_b", "task_a"]
 
+    @patch("dataeval_flow._dataset.load_dataset")
+    def test_on_result_hears_each_task_before_the_next_starts(self, mock_load_ds: MagicMock):
+        """``on_result`` is called with each task's result as it finishes, in the order the tasks run."""
+        config = self._build_pipeline_config()
+        mock_load_ds.return_value = MagicMock()
+        heard: list[tuple[str, int]] = []
+        executed = MagicMock(return_value=_stub_result())
+
+        with patch(_EXECUTE, executed):
+            results = run_tasks(
+                config, ["task_b", "task_a"], on_result=lambda name, _result: heard.append((name, executed.call_count))
+            )
+
+        assert heard == [("task_b", 1), ("task_a", 2)]
+        assert list(results) == ["task_b", "task_a"]
+
     def test_run_tasks_all_disabled_raises(self):
         """run_tasks raises ValueError when all tasks are disabled."""
         config = MagicMock()

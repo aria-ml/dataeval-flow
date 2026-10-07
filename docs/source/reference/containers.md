@@ -6,8 +6,11 @@ variables, dependencies between configuration parameters, and the hardware,
 architecture, and network requirements for both the container and the
 Python-library forms.
 
-The container is a **batch** application: it runs a configured pipeline to
-completion, writes its artifacts, and exits. There is no health-check endpoint.
+By default the container is a **batch** application: it runs a configured
+pipeline to completion, writes its artifacts, and exits. Run with `serve`, it is
+a **long-running service** instead. The service takes pipelines over HTTP, runs
+each one as the batch command, and has health-check endpoints (see
+[Health checks](#health-checks) and {doc}`../how_to/run_flow_as_a_service`).
 
 ## Image tags
 
@@ -48,7 +51,10 @@ pipeline arguments:
 docker run harbor.jatic.net/aria/dataeval-flow:latest-cu130 --help
 ```
 
-The library form prints the same options with `python -m dataeval_flow --help`.
+The library form prints the same options with `python -m dataeval_flow --help`, and
+`python -m dataeval_flow serve --help` describes the service. A running service also
+describes its HTTP API at `/openapi.json`, and renders it at `/docs`, whose page assets
+load from a CDN.
 The sections below mirror that in-container help; if the two ever disagree, the
 in-container help for your specific image tag is authoritative.
 
@@ -89,6 +95,8 @@ All runtime environment variables are optional.
 | `DATAEVAL_REPORT_WIDTH`  | Characters per line of the text report      | The config's `result: width`, else `80`; at least `40`                   |
 | `DATAEVAL_REPORT_IMAGES` | Thumbnails of the items reports name        | On; `0`, `false` or `no` turns them off                                  |
 | `DATAEVAL_REQUIRE`       | The worst verdict that passes, else exit 4  | The config's `result: require`, else none                                |
+| `DATAEVAL_SERVICE_HOST`  | Address `serve` listens on                  | `0.0.0.0` in the container; `127.0.0.1` otherwise                        |
+| `DATAEVAL_SERVICE_PORT`  | Port `serve` listens on                     | `8001`                                                                   |
 
 `DATAEVAL_DATA` and `DATAEVAL_OUTPUT` are baked into the image as `/dataeval` and
 `/output`. `DATAEVAL_CACHE` is **not**. The entrypoint sets it to `/cache`
@@ -136,6 +144,7 @@ Optional sub-commands (default is the headless pipeline):
 | `config`   | Simple CLI config builder                                            |
 | `encoding` | Write the metadata encoding descriptor a result was computed under   |
 | `verify`   | Check that a source still holds the items a run's manifest records   |
+| `serve`    | Long-running HTTP service that queues pipelines (`service` extra)    |
 
 `encoding` takes the path to a `result.json` written by a run, plus an optional
 `-o`/`--output` for where to write the descriptor (default: print it) and
@@ -146,6 +155,13 @@ Optional sub-commands (default is the headless pipeline):
 which must be the run's. It exits `0` when the source holds the recorded items and `1`
 otherwise, including when the manifest can't be read or the source can't be loaded.
 
+`serve` takes `-d`/`--data`, `-o`/`--output` and `-k`/`--cache` as the batch command does,
+plus `--host` and `--port`. It keeps each run under `<output>/runs/<id>/` and shares
+`--cache`, else `<output>/cache`, between runs. Publish its port (`-p 8001:8001`) and run
+with `--init`, which reaps the processes finished runs leave behind. The service has no
+authentication: expose it on a trusted network only. The
+[Service Reference](service.md) documents its API, run states and files.
+
 ## Input precedence
 
 For every input the resolution order is:
@@ -154,6 +170,11 @@ For every input the resolution order is:
 2. **Environment variable** (`DATAEVAL_DATA`, `DATAEVAL_OUTPUT`, `DATAEVAL_CACHE`)
 3. **Built-in default** (the container mount paths above, or the current
    directory outside the container)
+
+`serve` resolves `--host` and `--port` the same way, over `DATAEVAL_SERVICE_HOST` and
+`DATAEVAL_SERVICE_PORT`. Its options follow `serve`; the top-level `--log-format`
+precedes it. A run the service starts takes none of the service's own `DATAEVAL_*`
+variables: its pipeline snapshot alone defines it.
 
 Dataset and model paths inside a config file are resolved **relative to the data
 root**. A relative path not found directly under the data root is also looked up
@@ -207,6 +228,13 @@ with others:
   require per-sample metadata factors to be present in the dataset; without them
   those analyses are skipped.
 - **The `app` sub-command requires the `app` extra** to be installed in the image.
+- **`serve` requires the `service` extra**, which every image ships, and an output
+  directory: `--output`, or `DATAEVAL_OUTPUT`, which images set to `/output`. Without
+  `--cache` or `DATAEVAL_CACHE`, its runs share `<output>/cache`.
+- **`DATAEVAL_SERVICE_HOST` and `DATAEVAL_SERVICE_PORT` apply to `serve` only.** The
+  batch command, `app` and `config` ignore them.
+- **A pipeline submitted to `serve` must keep `json` in `result: formats`**: the service
+  reads each run's results from its JSON file, and refuses such a pipeline with `422`.
 
 ## Recommended minimum hardware
 
@@ -222,6 +250,11 @@ Python-library forms.
 
 When scheduling the container on Kubernetes, request at least the minimum CPU and
 memory above and size memory to your largest dataset. A GPU is never required.
+
+Under `serve`, the service process itself uses about 1 GB, since it loads Flow and
+PyTorch, on top of the memory of the run it is executing. Size memory for both. Each
+run's directory under `<output>/runs/` keeps its result files and logs until you
+remove it.
 
 ## Supported architectures
 
@@ -241,12 +274,26 @@ dependencies (PyTorch, NumPy, SciPy) provide x86-64 wheels.
   models are staged locally: reference them by on-disk path and set
   `HF_HUB_OFFLINE=1` (and `HF_DATASETS_OFFLINE=1`). With local inputs the batch
   container makes **no outbound network calls of its own** at run time.
+- **`serve`** listens for inbound connections on its port and makes no outbound
+  calls of its own; its runs need what the batch command needs. The `/docs` page
+  loads its assets from a CDN in the viewer's browser; `/openapi.json` needs no
+  network.
 
 ## Health checks
 
-The container exposes **no health-check endpoint** (IR-2.3 monitoring
-requirements are not applicable). Success or failure is reported through the
-process exit code and the logs/reports written to the output directory: `0` for
+A batch run exposes **no health-check endpoint**. It reports success or failure through
+the process exit code and the logs and reports written to the output directory: `0` for
 success, `1` for a failed task or export, `2` for a mistyped command line, `3` for
 health warnings under `fail_on: warning`, and `4` for a verdict worse than `--require`.
 When more than one applies, `1` comes first, then `4`, then `3`.
+
+`serve` exposes three, on its port (IR-2.3-H-2, IR-2.3-S-1):
+
+| Endpoint   | `200` when                           | `503` when                                          |
+| ---------- | ------------------------------------ | --------------------------------------------------- |
+| `/healthz` | The service takes and runs work      | Its queue has stopped, or its run store is unusable |
+| `/readyz`  | Same as `/healthz`                   | Same as `/healthz`                                  |
+| `/livez`   | The process can run work             | Its queue has stopped and it needs a restart        |
+
+A `503` body names its reasons: `queue-stopped` or `store-unavailable`. The service
+describes its API at `/openapi.json` (IR-2.4-S-1).

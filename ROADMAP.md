@@ -1,6 +1,6 @@
 # DataEval Flow Roadmap
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-10-07
 
 This roadmap reflects shipped capabilities and a six-month forward outlook (through
 January 2027). Future-work entries marked **TBD** are placeholders for the team to
@@ -118,6 +118,9 @@ loading for the object-detection formats.
 - [x] SBOM published with releases: per-image CycloneDX cosign attestation (CS-2-H-4)
 - [ ] Link checking promoted from `allow_failure: true` to gating once the external-link
       flake rate is understood (DR-3.3-H-4)
+- [x] `dataeval-flow serve`: a long-running HTTP service, in every image behind the `service` extra,
+      that queues pipelines and runs each as the batch command. IR-2.3-H-2, IR-2.3-S-1 and IR-2.4-S-1
+      now apply, and its health, liveness and readiness endpoints and OpenAPI description meet them
 
 ### v0.4.0 — FMV / Ontology workflows + on-disk format interop
 
@@ -192,6 +195,7 @@ to be refined by the team and reflected here.**
 - **MAITE protocols:** consumes MAITE-compatible image classification and object detection datasets
 - **MAITE entry-points:** declared in `pyproject.toml` for dataset protocols and `maite.tasks` (IR-1-H-3)
 - **Distribution:** PyPI (`dataeval-flow`), Harbor container images (cpu / cu126 / cu130), ReadtheDocs
+- **Service:** `dataeval-flow serve` takes pipelines over a versioned HTTP API (`/v1`)
 
 ### Planned / under consideration — TBD
 
@@ -202,14 +206,6 @@ to be refined by the team and reflected here.**
 - [ ] **Video workflows** (IR-3.3-S-*): first concrete delivery is the FMV
       workflow in v0.4.0; full video-format coverage continues to track
       `dataeval` v2.0.
-
----
-
-## Out of scope (current line)
-
-- Web-service / REST deployment mode: `dataeval-flow` ships as a batch
-  container, not a long-running service. IR-2.3-H-2, IR-2.3-S-1, IR-2.4-S-1 are
-  not applicable.
 
 ---
 

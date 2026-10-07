@@ -54,6 +54,7 @@ onnx-cu130 = [
 ]
 opencv = ["opencv-python-headless>=4.8.0,<4.13.0"]  # OpenCV 4.13 and higher are not FIPS compliant
 app = ["textual>=3.0"]
+service = ["fastapi>=0.116", "uvicorn>=0.35"]
 ontology = ["dataeval[ontology] @ git+https://github.com/aria-ml/dataeval.git@main"]  # TEMPORARY: see [project].dependencies
 
 [project.urls]
@@ -98,12 +99,14 @@ test = [
     "pytest-xdist>=3.6.1",
     "coverage[toml]>=7.6",
     "rdflib>=7.0",
+    "httpx>=0.27",
 ]
 verify = [
     { include-group = "base" },
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "pyyaml>=6.0",
+    "httpx>=0.27"
 ]
 type = [
     { include-group = "base" },
@@ -245,7 +248,8 @@ markers = [
 [tool.coverage.run]
 source = ["src/dataeval_flow"]
 branch = true
-concurrency = ["multiprocessing"]
+# "thread" as well: naming any concurrency drops the default, and the service runs its queue and requests on threads.
+concurrency = ["multiprocessing", "thread"]
 parallel = true
 omit = ["src/dataeval_flow/_version.py"]
 

@@ -159,6 +159,9 @@ ENV UV_EXTRAS_OVERRIDE={{ variant_name }}
 ENV CONTAINER_MODE={{ "cpu" if variant_name == "cpu" else "gpu" }}
 ENV DATAEVAL_DATA=/dataeval
 ENV DATAEVAL_OUTPUT=/output
+# `serve` must listen beyond the container's loopback to be reachable through a published port.
+ENV DATAEVAL_SERVICE_HOST=0.0.0.0
+EXPOSE 8001
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["python", "-m", "dataeval_flow"]

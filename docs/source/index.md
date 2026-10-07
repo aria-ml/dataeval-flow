@@ -24,7 +24,7 @@ DataEval Flow wraps DataEval's analytics in a containerized workflow engine.
 Its steps compose into pipelines that run identically locally or in a CUDA-
 enabled container. Cleaning, audit, coverage, drift, OOD, splitting, and
 prioritization ship as presets, driven by YAML or JSON from a headless or
-interactive CLI.
+interactive CLI, or queued over HTTP to a long-running service.
 
 :::
 ::::
@@ -129,6 +129,7 @@ Overview <concepts/index>
 
 Find the Right Step <reference/index>
 Container Reference <reference/containers>
+Service Reference <reference/service>
 JATIC Maturity <reference/maturity>
 Evaluator Catalog <reference/evaluators>
 Transform Catalog <reference/transforms>

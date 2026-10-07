@@ -4,7 +4,7 @@ __all__ = ["run_task", "run_tasks", "select_tasks"]
 
 import logging
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast, runtime_checkable
@@ -1359,6 +1359,7 @@ def run_tasks(
     data_dir: Path | None = None,
     cache_dir: Path | None = None,
     output_dir: Path | None = None,
+    on_result: "Callable[[str, Result[Any, Any]], None] | None" = None,
 ) -> "dict[str, Result[Any, Any]]":
     """Run tasks from a pipeline configuration.
 
@@ -1383,6 +1384,9 @@ def run_tasks(
     output_dir : Path | None, keyword-only
         Where export steps write, under ``<output_dir>/datasets/``. ``None`` writes nothing, and export steps are
         skipped with a reason.
+    on_result : Callable[[str, Result], None] | None, keyword-only
+        Called with each task's name and result as soon as the task finishes, before the next one starts: to report
+        progress, or to keep what finished when a later task never does.
 
     Returns
     -------
@@ -1413,6 +1417,8 @@ def run_tasks(
         results[task.name] = _run_single_task(
             task, config, data_dir=data_dir, cache_dir=cache_dir, output_dir=output_dir
         )
+        if on_result is not None:
+            on_result(task.name, results[task.name])
     return results
 
 

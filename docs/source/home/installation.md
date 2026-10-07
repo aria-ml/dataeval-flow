@@ -78,6 +78,7 @@ These extras behave normally under every installer, including pip:
 | `onnx-cu130` | `onnx`, `onnxruntime-gpu` (CUDA 13.x build) | ONNX feature extractors on a `cu130` install |
 | `opencv` | `opencv-python-headless` (capped below 4.13) | Bag-of-Visual-Words (SIFT) extraction |
 | `app` | `textual` | The interactive TUI (`dataeval-flow app`) |
+| `service` | `fastapi`, `uvicorn` | The long-running HTTP service (`dataeval-flow serve`); see [Run Flow as a service](../how_to/run_flow_as_a_service.md) |
 | `ontology` | `dataeval[ontology]` | Loading an ontology from an RDF file |
 
 ```bash
