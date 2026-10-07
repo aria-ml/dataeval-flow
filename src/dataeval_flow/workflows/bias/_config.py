@@ -118,7 +118,7 @@ class FactorParitySettings(BaseModel):
 
 
 class FactorCoverageGapsSettings(BaseModel):
-    """The `factor-coverage-gaps` check's field, with legacy data-coverage's default."""
+    """The `factor-coverage-gaps` check's field."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 

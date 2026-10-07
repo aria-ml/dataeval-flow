@@ -225,7 +225,7 @@ section, then reference them from tasks.
 `````{tab-set}
 ````{tab-item} quality
 Outlier and duplicate detection with configurable thresholds.
-See the {doc}`Data Cleaning tutorial <../notebooks/data_cleaning>` for a full walkthrough.
+See the {doc}`Clean a dataset tutorial <../notebooks/data_cleaning>` for a full walkthrough.
 
 ```yaml
 workflows:
@@ -279,7 +279,7 @@ workflows:
 ````
 ````{tab-item} shift (drift)
 Detect distribution drift between a reference and each test dataset.
-See the {doc}`Drift Monitoring tutorial <../notebooks/drift_monitoring>` for a full walkthrough, and
+See the {doc}`Monitor incoming data for drift tutorial <../notebooks/drift_monitoring>` for a full walkthrough, and
 {doc}`Monitor drift with steps <monitor_drift>` for merging test sources and testing by class.
 
 ```yaml
@@ -296,7 +296,7 @@ workflows:
 ````
 ````{tab-item} shift (OOD)
 Identify out-of-distribution images, by each detector and by their agreement.
-See the {doc}`OOD Detection tutorial <../notebooks/ood_detection>` for a full walkthrough.
+See the {doc}`Detect out-of-distribution images tutorial <../notebooks/ood_detection>` for a full walkthrough.
 
 ```yaml
 workflows:
@@ -314,7 +314,7 @@ workflows:
 ````{tab-item} scope
 Embedding blind spots and the classes short of their share; a `bias` entry on the same source judges class
 balance and metadata gaps, and a `taxonomy` entry judges the labels against an ontology.
-See the {doc}`Data Coverage tutorial <../notebooks/data_coverage>` for a full walkthrough.
+See the {doc}`Assess dataset coverage tutorial <../notebooks/data_coverage>` for a full walkthrough.
 
 ```yaml
 workflows:
@@ -359,7 +359,7 @@ workflows:
 
 ````{tab-item} triage
 Find the metadata a run failed to read, and the policy stanza that repairs it.
-See the {doc}`Metadata Triage tutorial <../notebooks/metadata_triage>` for a full walkthrough.
+See the {doc}`Triage a dataset's metadata tutorial <../notebooks/metadata_triage>` for a full walkthrough.
 
 ```yaml
 workflows:

@@ -154,7 +154,7 @@ def pipeline(name: str, *, legacy: bool) -> PipelineConfig:
     task: dict[str, Any] = {"name": "t", "workflow": "w", "sources": ["src"]}
     if case.extractor:
         task["extractor"] = "flat"
-    if legacy:
+    if legacy:  # unused: the golden was recorded under legacy data-coverage's config
         entries = [{"name": "w", "type": "scope", **case.legacy}]
         tasks = [task]
     else:

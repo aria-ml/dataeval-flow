@@ -252,7 +252,8 @@
 - Presets are named for the DataEval module whose question they answer, or else for their question: `data-bias` →
   `bias`, `data-cleaning` → `quality`, `data-coverage` → `scope`, `data-prioritization` → `prioritization`,
   `data-splitting` → `splits`, `metadata-triage` → `triage` (metadata and annotations only), `label-space` →
-  `taxonomy`; their packages, classes (`QualityConfig`, …) and titles follow, and the old ids fail as unknown
+  `taxonomy`; their packages, classes (`QualityConfig`, …; `PrioritizationWorkflowConfig` for the `prioritization`
+  preset, since the evaluator owns `PrioritizationConfig`) and titles follow, and the old ids fail as unknown
   workflows
 - A type id may repeat across kinds: `prioritization` is a preset and an evaluator
 - Five checks renamed to show their subject or the evaluator they judge: `classwise-outliers` → `class-outliers`,
@@ -261,7 +262,8 @@
   names and `checks:` keys; the old names fail as unknown checks
 - `eval-coverage` judges how far a split's flagged share is past what a split drawn like train has flagged by
   construction (100 - `threshold_perc` under `ood-kneighbors`): `info` and `warning` are now points past that
-  baseline, 1.0 and 9.0, which keep today's bands at `threshold_perc: 99`; `audit`'s `ood-kneighbors` takes
+  baseline, 1.0 and 9.0, which keep today's bands at `threshold_perc: 99` (under a detector other than
+  `ood-kneighbors` the baseline is 0, so its bands move from 2/10 to 1/9 percent flagged); `audit`'s `ood-kneighbors` takes
   DataEval's `threshold_perc` of 95
 - One default per setting, DataEval's, in every preset: `scope` and `audit` no longer default
   `coverage.num_observations` to 50 (DataEval's 20 now applies), and preset blocks no longer restate DataEval's other
@@ -437,12 +439,12 @@
 - A custom workflow's or preset's result records the encodings its steps read, as `metadata_binning` and
   `encoding_digest`: one record where they read one Dataset one way, and `per_split`, keyed by the Dataset's address,
   where they read several. `dataeval-flow encoding` reads it
-- A report's banner is the friendly title of what ran, as `Data Cleaning`; a custom workflow's is its name. The
+- A report's banner is the friendly title of what ran, as `Quality`; a custom workflow's is its name. The
   text report prints it in capitals; HTML keeps its case
 - A report's envelope opens with a line naming what ran, `Workflow: clean (quality)` or, for an evaluator task,
   `Evaluator: dupes (duplicates)`: the id alone where the entry is unnamed or is the id, and
   `Workflow: name (custom workflow)` for a custom workflow. In HTML it is the provenance list's first row, and the
-  page title adds the entry where it differs from the id, as `Data Cleaning — clean`
+  page title adds the entry where it differs from the id, as `Quality — clean`
 - A chain's report gives each finding a section, holding the evidence it judged: each step it read, headed *From* and
   the step's title, as `From Outliers`, or a line naming the finding it is shown under already. The steps no finding
   shows follow, then a Steps table of every step's title, type, status, reads and note, where the report gave each
@@ -457,7 +459,7 @@
   `duplicates`, 1 by `outliers`."
 - The report's configuration leaves out settings left unset, and keeps a setting written as `null`; an evaluator's
   report leaves out extras that hold nothing
-- The Image Outliers, Target Outliers, Classwise Outliers and Class Imbalance findings have no `description`, which
+- The Image Outliers, Target Outliers, Class Outliers and Class Imbalance findings have no `description`, which
   repeated their brief
 - A text table too wide for the report wraps its text cells, with a blank line between its rows
 - A chain's binning record leaves out `label-health`'s reads, which read labels and no factor, so each Dataset it
@@ -469,7 +471,7 @@
   `result.steps["split"].details["indices"]`. Under `folds` of 2 or more, each fold's rebalanced train is in
   `result.steps["rebalanced"].elements["<k>"].details["indices"]`; where rebalancing kept the train as it was,
   `details` is `None` and the train's indices from `split` apply.
-  Its findings are Class Imbalance, Stratification for each fold, and Uncovered Items under `naive` coverage;
+  Its findings are Class Imbalance, Class Stratification for each fold, and Uncovered Items under `naive` coverage;
   balance and diversity are report sections, and the split's sizes are in the `split` step's section and the
   `lineage`. Only object-detection Datasets can be exported, so a classification split's parts can be read but not yet
   exported. `checks` is keyed by check type: `class-imbalance`, `class-stratification`, `uncovered-items`. To
@@ -634,7 +636,8 @@
     `class-sufficiency`, `untrained-classes` and `class-stratification`, and `divergence`
   - Its findings' titles: Image Quality is Image Outliers, Redundancy is Image Duplicates, Label Balance is Class
     Imbalance, Bias is Shortcut Risk, with diversity as evidence, Label Overlap is Untrained Classes and Class
-    Sufficiency, and Label Parity is Stratification. Leakage and Distribution Shift keep their titles
+    Sufficiency, and Label Parity is Class Stratification. Leakage keeps its title, and Distribution Shift is the
+    `embedding-divergence` check's Embedding Divergence
   - Gone with it: the chi-square label parity, divergence between evaluation splits, bias judged per split, the
     warning on low diversity, and Label Balance's warning on unlabelled images
 - The settings only `data-analysis` still took, which no workflow takes now:

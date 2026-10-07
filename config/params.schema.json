@@ -3152,7 +3152,7 @@
     },
     "ClassCoverageSettings": {
       "additionalProperties": false,
-      "description": "The `class-coverage` check's fields, with legacy data-coverage's defaults.",
+      "description": "The `class-coverage` check's fields.",
       "properties": {
         "dispersion": {
           "anyOf": [
@@ -4475,7 +4475,7 @@
     },
     "DimensionalCompletenessSettings": {
       "additionalProperties": false,
-      "description": "The `dimensional-completeness` check's fields, with legacy data-coverage's defaults.",
+      "description": "The `dimensional-completeness` check's fields.",
       "properties": {
         "warning": {
           "anyOf": [
@@ -6061,7 +6061,7 @@
     },
     "FactorCoverageGapsSettings": {
       "additionalProperties": false,
-      "description": "The `factor-coverage-gaps` check's field, with legacy data-coverage's default.",
+      "description": "The `factor-coverage-gaps` check's field.",
       "properties": {
         "warning": {
           "anyOf": [
@@ -6755,7 +6755,7 @@
     },
     "LabelConformanceSettings": {
       "additionalProperties": false,
-      "description": "The `label-conformance` check's field, with legacy data-coverage's default.",
+      "description": "The `label-conformance` check's field.",
       "properties": {
         "warning": {
           "anyOf": [
@@ -6846,7 +6846,7 @@
     },
     "LeafCoverageSettings": {
       "additionalProperties": false,
-      "description": "The `leaf-coverage` check's fields, with legacy data-coverage's defaults.",
+      "description": "The `leaf-coverage` check's fields.",
       "properties": {
         "coverage": {
           "anyOf": [
@@ -9775,7 +9775,7 @@
         },
         "order": {
           "default": "hard_first",
-          "description": "Sort direction: easy_first (prototypical first) or hard_first (novel/challenging first), where the step's own default is DataEval's easy_first.",
+          "description": "Sort direction: easy_first (prototypical first) or hard_first (novel/challenging first). `hard_first` unless set; DataEval's default is `easy_first`.",
           "enum": [
             "easy_first",
             "hard_first"
@@ -12375,7 +12375,7 @@
     },
     "UncoveredItemsSettings": {
       "additionalProperties": false,
-      "description": "The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only.",
+      "description": "The `uncovered-items` check's field, read under `naive` coverage only.",
       "properties": {
         "warning": {
           "anyOf": [

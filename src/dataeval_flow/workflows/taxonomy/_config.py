@@ -20,7 +20,7 @@ from dataeval_flow.workflows.scope import RepresentationSettings
 
 
 class LeafCoverageSettings(BaseModel):
-    """The `leaf-coverage` check's fields, with legacy data-coverage's defaults."""
+    """The `leaf-coverage` check's fields."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -38,7 +38,7 @@ class LeafCoverageSettings(BaseModel):
 
 
 class LabelConformanceSettings(BaseModel):
-    """The `label-conformance` check's field, with legacy data-coverage's default."""
+    """The `label-conformance` check's field."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 

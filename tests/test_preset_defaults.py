@@ -31,8 +31,6 @@ _FIXED = {
     ("view", "operations"),  # splitting's `rebalance`
     ("embedding-divergence", "info"),  # audit derives it as the check does
 }
-# Defaults Task 4 consolidates; empty once it lands.
-_PENDING: set[tuple[str, str]] = set()
 _CHAIN_WIDE = {"ontology", "metadata", "stats"}
 _IDENTITY = {"name", "type", "input", "by", "optional", "pairs", "extractor"}
 _STEP_KINDS = ("check", "combine", "transform")
@@ -68,7 +66,7 @@ def _differences(preset: type) -> list[str]:
     found: set[str] = set()
     for entry in chain.evaluators or ():
         for name, field in type(entry).model_fields.items():
-            if name in skip or (entry.type, name) in _FIXED | _PENDING:
+            if name in skip or (entry.type, name) in _FIXED:
                 continue
             if _json(getattr(entry, name)) != _json(_default(field)):
                 found.add(f"{entry.type}.{name} = {getattr(entry, name)!r}")
@@ -79,7 +77,7 @@ def _differences(preset: type) -> list[str]:
         impl = inline_registry(kind).get(step[kind])
         ports = {port.name for port in impl.input_ports()}
         for name, value in step.items():
-            if name == kind or name in skip | ports or (step[kind], name) in _FIXED | _PENDING:
+            if name == kind or name in skip | ports or (step[kind], name) in _FIXED:
                 continue
             if _json(value) != _json(_default(impl.config_type.model_fields[name])):
                 found.add(f"{step[kind]}.{name} = {value!r}")
@@ -121,7 +119,7 @@ def test_a_settings_block_takes_its_step_s_defaults(model: type[BaseModel], step
     own = step.config_type.model_fields
     for name, field in model.model_fields.items():
         default = _default(field)
-        if name not in own or default is PydanticUndefined or (step.name, name) in _FIXED | _PENDING:
+        if name not in own or default is PydanticUndefined or (step.name, name) in _FIXED:
             continue  # a preset may require what its step leaves optional
         assert _json(default) == _json(_default(own[name])), f"{model.__name__}.{name}"
 

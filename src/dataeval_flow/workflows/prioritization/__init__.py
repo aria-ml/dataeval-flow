@@ -1,4 +1,4 @@
-"""Data prioritization workflow."""
+"""The ``prioritization`` preset."""
 
 __all__ = [
     "PrioritizationSettings",

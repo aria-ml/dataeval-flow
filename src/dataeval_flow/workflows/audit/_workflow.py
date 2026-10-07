@@ -64,23 +64,23 @@ _GROUPS = (
     ),
 )
 
-_DATA_COVERAGE = "Run scope for the uncovered items; collect data for them."
-_DATA_BIAS = "Run bias for the gaps; collect data for them."
+_SCOPE = "Run `scope` for the uncovered items; collect data for them."
+_BIAS = "Run `bias` for the gaps; collect data for them."
 _RESPLIT = "Re-split so evaluation draws from train's distribution, or document the shift as intended."
 _MORE_LABELS = "Collect more of the named classes, or rebalance train with a `view` step and `ClassBalance`."
 _NEXT_STEPS = NextSteps(
     by_check={
-        "image-outliers": "Run quality to list and remove them.",
-        "image-duplicates": "Run quality to list and remove them.",
-        "factor-issues": "Run triage for a policy that repairs them.",
+        "image-outliers": "Run `quality` to list and remove them.",
+        "image-duplicates": "Run `quality` to list and remove them.",
+        "factor-issues": "Run `triage` for a policy that repairs them.",
         "class-imbalance": _MORE_LABELS,
         "class-sufficiency": _MORE_LABELS,
         "untrained-classes": "Add the named classes to train, or remove them from the evaluation splits.",
-        "label-conformance": "Run taxonomy to resolve the class names.",
-        "class-coverage": _DATA_COVERAGE,
-        "uncovered-items": _DATA_COVERAGE,
-        "factor-coverage-gaps": _DATA_BIAS,
-        "dimensional-completeness": _DATA_COVERAGE,
+        "label-conformance": "Run `taxonomy` to resolve the class names.",
+        "class-coverage": _SCOPE,
+        "uncovered-items": _SCOPE,
+        "factor-coverage-gaps": _BIAS,
+        "dimensional-completeness": _SCOPE,
         "shortcut-risk": "Balance the named factors across classes, or confirm they are causal.",
         "leakage": "Re-split with `split`'s `split_on` on the leaking factor, or remove the cross-split duplicates.",
         "eval-coverage": _RESPLIT,
@@ -88,7 +88,7 @@ _NEXT_STEPS = NextSteps(
         "class-stratification": _RESPLIT,
     },
     by_reason={
-        NO_EVALUATION_SPLIT: "Give an evaluation split, or make one with splits.",
+        NO_EVALUATION_SPLIT: "Give an evaluation split, or make one with the `splits` preset.",
         "requires an extractor": "Name an extractor to assess these checks.",
         # DataEval's words for metadata with no factors; should they change, the reason reads as "failed" below.
         "No factors found in provided metadata": (

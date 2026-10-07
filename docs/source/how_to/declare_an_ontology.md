@@ -152,7 +152,7 @@ Labels that fail are reported in the ontology's structure.
   the wholly empty branches, and the `expected` shares not met.
 - Conformance, by `label-conformance`: which class names resolve to exactly one concept. It warns on an unmatched or
   an ambiguous name.
-- Alignment, by `mergeability`: whether the dataset's classes carry over to the ontology, with the `Relabel` stanza to
+- Alignment, by `label-mergeability`: whether the dataset's classes carry over to the ontology, with the `Relabel` stanza to
   paste into a view that conforms it.
 - Structure, by `ontology-structure`: the ontology's size, depth and naming. It warns on a label several concepts
   share.

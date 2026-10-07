@@ -132,9 +132,9 @@ code per format.
       surface from `dataeval` (frame-level drift / OOD / quality) behind a
       `dataeval-flow` workflow type with the same config / orchestration /
       caching contract as the existing eight.
-- [ ] **Standalone ontology workflow**: the `scope` workflow already
+- [ ] **Standalone ontology workflow**: the `taxonomy` preset already
       consumes an ontology (inline hierarchy or RDF artifact) for label-space gap
-      analysis; this promotes the remaining `dataeval` taxonomy surface
+      analysis (`scope` refuses one); this promotes the remaining `dataeval` taxonomy surface
       (class-mapping audits, cross-dataset label alignment) to a workflow of its own.
 - [ ] **`databridge` integration**: depend on the new `databridge`
       package for on-disk format interop (HuggingFace ↔ COCO ↔ YOLO ↔
@@ -166,8 +166,8 @@ code per format.
 The nine shipped workflows continue to receive bug fixes and minor enhancements
 throughout the v0.x line, and a task matrix runs any of them across a grid of settings:
 
-- Data Cleaning, Audit, Data Coverage, Dataset Splitting, Drift Detection
-  (including classwise), OOD Detection, Prioritization, Label Space, Metadata Triage
+- Quality, Audit, Scope, Splits, Shift (drift and OOD detection, including classwise), Prioritization,
+  Taxonomy, Bias, Triage
 
 ### Planned additions — TBD
 

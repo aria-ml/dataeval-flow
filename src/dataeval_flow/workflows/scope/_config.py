@@ -103,7 +103,7 @@ class RepresentationSettings(BaseModel):
 
 
 class ClassCoverageSettings(BaseModel):
-    """The `class-coverage` check's fields, with legacy data-coverage's defaults."""
+    """The `class-coverage` check's fields."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -135,7 +135,7 @@ class ClassCoverageSettings(BaseModel):
 
 
 class UncoveredItemsSettings(BaseModel):
-    """The `uncovered-items` check's field, with legacy data-coverage's default, read under `naive` coverage only."""
+    """The `uncovered-items` check's field, read under `naive` coverage only."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -151,7 +151,7 @@ class UncoveredItemsSettings(BaseModel):
 
 
 class DimensionalCompletenessSettings(BaseModel):
-    """The `dimensional-completeness` check's fields, with legacy data-coverage's defaults."""
+    """The `dimensional-completeness` check's fields."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 

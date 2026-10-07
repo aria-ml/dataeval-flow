@@ -869,7 +869,7 @@ reference first and then the pools, and hands each pool to this evaluator first.
 | `c` | `c` (clustering methods) | the square root of the item count |
 | `n_init` | `n_init` (`kmeans_*`): a count, or `auto` | DataEval's default (`auto`) |
 | `max_cluster_size` | `max_cluster_size` (`hdbscan_*`) | unbounded |
-| `order` | `order`: `easy_first` or `hard_first` | DataEval's default (`easy_first`) |
+| `order` | `order`: `easy_first` or `hard_first` | `hard_first` (DataEval's default is `easy_first`) |
 | `policy` | `policy`: `difficulty`, `stratified` or `class_balanced` | DataEval's default (`difficulty`) |
 | `num_bins` | `num_bins` (`stratified`) | DataEval's default (`50`) |
 

@@ -14,7 +14,7 @@ from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._preset import Preset, PresetChain
 from dataeval_flow.workflows.splits._config import SplitsConfig
 
-# Legacy's val share with one fold, where the entry sets none.
+# The `split` step's `val_frac` default.
 _VAL_FRAC: float = SplitConfig.model_fields["val_frac"].default
 _PARTS = ("train", "val", "test")
 

@@ -1,4 +1,4 @@
-"""Data cleaning workflow."""
+"""The ``quality`` preset."""
 
 __all__ = [
     "ClassOutliersSettings",

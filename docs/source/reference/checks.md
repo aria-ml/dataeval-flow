@@ -838,8 +838,9 @@ Judges an `ood-*` detector's output: warns when much of an evaluation split lies
 The percent of the split flagged is judged as `ood` judges its percent. Any OOD evaluator's Output can be judged, but
 only an `ood-kneighbors` Output relates the percent to a percentile of train: how much of the split lies farther from
 train than that percent of train lies from itself. The percentile is the `ood-kneighbors` entry's `threshold_perc`, or
-DataEval's 95 where unset; a split drawn like train has about 100 minus that percent flagged by construction, so
-`info: 2.0` suits `threshold_perc: 99`.
+DataEval's 95 where unset; a split drawn like train has about 100 minus that percent flagged by construction. `info`
+and `warning` are points past that baseline, so the defaults hold at any `threshold_perc`. Under a detector other
+than `ood-kneighbors` the baseline is 0.
 
 - **Reads:** `input`, an OOD evaluator's Output fitted on train and run on one evaluation split.
 - **Makes:** one finding, titled Eval Coverage.
@@ -849,8 +850,8 @@ DataEval's 95 where unset; a split drawn like train has about 100 minus that per
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | An OOD evaluator's Output fitted on train and run on one evaluation split, best an `ood-kneighbors` one |
-| `warning` | a percentage, or `null` | `10.0` | The percent flagged past which the finding warns |
-| `info` | a percentage, or `null` | `2.0` | The percent past which the finding is `info`, at or below which it is `ok` |
+| `warning` | a percentage, or `null` | `9.0` | The points of flagged percent past the baseline (100 - `threshold_perc` under `ood-kneighbors`, else 0) past which the finding warns |
+| `info` | a percentage, or `null` | `1.0` | The points past the baseline past which the finding is `info`, at or below which it is `ok` |
 
 - **Judges:** [`ood-domain-classifier`](evaluators.md#ood-domain-classifier),
   [`ood-kneighbors`](evaluators.md#ood-kneighbors)
@@ -865,7 +866,7 @@ workflows:
     inputs: [train, val]
     steps:
       - {name: knn, evaluator: knn, input: [train, val]}
-      - {name: eval-coverage, check: eval-coverage, input: knn, warning: 5.0, info: 2.0}
+      - {name: eval-coverage, check: eval-coverage, input: knn, warning: 5.0, info: 1.0}
 ```
 
 ## Has new data drifted?

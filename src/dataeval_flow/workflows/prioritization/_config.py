@@ -49,8 +49,8 @@ class PrioritizationSettings(BaseModel):
     order: OrderType = Field(
         default="hard_first",
         description=(
-            "Sort direction: easy_first (prototypical first) or hard_first (novel/challenging first), where the step's "
-            "own default is DataEval's easy_first."
+            "Sort direction: easy_first (prototypical first) or hard_first (novel/challenging first). "
+            "`hard_first` unless set; DataEval's default is `easy_first`."
         ),
     )
     policy: PolicyType | None = Field(

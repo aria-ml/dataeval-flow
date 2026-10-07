@@ -182,14 +182,14 @@ It runs DataEval's `split_dataset` over the Dataset's metadata.
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | The Dataset to split |
-| `test_frac` | a number from 0 up to, not including, 1 | `0.0` | The share held out as `test` |
-| `val_frac` | a number from 0 up to, not including, 1 | `0.0` | The share held out as `val` |
-| `stratify` | `true` or `false` | `false` | Whether each part keeps the input's class proportions |
+| `test_frac` | a number from 0 up to, not including, 1 | `0.2` | The share held out as `test` |
+| `val_frac` | a number from 0 up to, not including, 1 | `0.1` | The share held out as `val` |
+| `stratify` | `true` or `false` | `true` | Whether each part keeps the input's class proportions |
 | `split_on` | a list of metadata factor names | none | Factors whose values never straddle parts, such as a scene or site. Classification data only: DataEval ignores it on detection data, with a warning in the log |
 | `metadata` | the name of a `metadata:` policy | DataEval's defaults | The policy the Dataset's metadata is built under |
 
-Set `test_frac`, `val_frac` or both; together they must leave something to train on. A part whose fraction is 0 is
-empty, and a step that reads it fails the config load. With `test_frac` alone, DataEval's one holdout becomes `test`.
+`test_frac` and `val_frac` default to 0.2 and 0.1; together they must leave something to train on, and 0 for both is
+refused. A part whose fraction is 0 is empty, and a step that reads it fails the config load.
 
 - **Used in:** [`splits`](presets.md#splits)
 
@@ -218,8 +218,8 @@ It runs DataEval's `split_dataset` over the Dataset's metadata.
 | --- | --- | --- | --- |
 | `input` | an address | required | The Dataset to split |
 | `folds` | a whole number, 2 or more | required | How many train and val pairs |
-| `test_frac` | a number from 0 up to, not including, 1 | `0.0` | The share held out as `test` |
-| `stratify` | `true` or `false` | `false` | Whether each part keeps the input's class proportions |
+| `test_frac` | a number from 0 up to, not including, 1 | `0.2` | The share held out as `test` |
+| `stratify` | `true` or `false` | `true` | Whether each part keeps the input's class proportions |
 | `split_on` | a list of metadata factor names | none | Factors whose values never straddle parts, such as a scene or site. Classification data only: DataEval ignores it on detection data, with a warning in the log |
 | `metadata` | the name of a `metadata:` policy | DataEval's defaults | The policy the Dataset's metadata is built under |
 

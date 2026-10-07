@@ -324,7 +324,7 @@ Task
 
 Test Source
     A source a detector tests against the {term}`reference<Reference Dataset>`, as `shift`
-    takes after their reference. It is not an {term}`evaluation split<Evaluation Split>`, which is judged
+    takes after its reference. It is not an {term}`evaluation split<Evaluation Split>`, which is judged
     against `train` and not against a reference. See [Has new data drifted?](index.md#has-new-data-drifted).
 
 Threshold

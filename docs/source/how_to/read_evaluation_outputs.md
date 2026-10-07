@@ -26,9 +26,9 @@ print(result.report(detailed=False))  # the short form, which the console prints
 
 A workflow's report is laid out in this order:
 
-1. **Banner** — the friendly title of what ran, such as `Drift Monitoring`. The text report prints it in capitals;
+1. **Banner** — the friendly title of what ran, such as `Shift`. The text report prints it in capitals;
    HTML keeps its case, and its page title adds the entry where it differs from the id, as
-   `Drift Monitoring — drift`.
+   `Shift — drift`.
 2. **Provenance** — opens with a line naming what ran: `Workflow: drift (shift)`, the config entry beside
    its type id, or `Evaluator: dupes (duplicates)` for an evaluator task. Where the entry is named after its type, the
    line is the id alone, as `Workflow: shift`. Then the timestamp, duration, the sources the run read,

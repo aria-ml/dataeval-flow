@@ -130,13 +130,13 @@ splits. `crops` crops detection data and passes other Datasets through:
 | `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares). Every split's factors are encoded like train's, or like the source the policy's `reference_split` names |
 | `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; set, it adds `label-reconciliation` and `label-conformance` on each split; see [Settings every preset shares](#settings-every-preset-shares) |
 | `outliers` | a block | required | [`outliers`](evaluators.md#outliers)'s `flags` and `outlier_threshold`, both required, and `cluster_threshold`, `cluster_algorithm` and `n_clusters`; the preset sets `per_target: false` |
-| `coverage` | a block | `method: adaptive`, `num_observations: 50` where the step's own default is DataEval's 20, and the step's other defaults | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples` and `near_duplicate_factor`; the step runs on train when the task names an extractor |
+| `coverage` | a block | unset: DataEval's defaults, `adaptive`, 20, 0.01, 20 and 0.5 | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples` and `near_duplicate_factor`; the step runs on train when the task names an extractor |
 | `wrap` | a block | `params: {padding: 0.0, min_size: 1}` | [`wrap`](transforms.md#wrap)'s `params`, used on detection data only; the preset fixes the wrapper |
 | `factor-gaps` | a block, or `false` | `mi_threshold: 0.1`, `min_representation: 5` | [`factor-gaps`](combines.md#factor-gaps)'s `mi_threshold` and `min_representation`; `false` leaves out the gap analysis and its check |
 | `factor-leakage` | a block, or `null` | `null` | [`factor-leakage`](evaluators.md#factor-leakage)'s `factors`, at least one: the group factors, such as a scene or site, whose values must not sit in two splits; unset leaves group leakage out. A factor a split's metadata lacks fails the task, which then has no verdict |
 | `diversity` | a block | `method: simpson` | [`diversity`](evaluators.md#diversity)'s `method` |
 | `divergence` | a block | `method: mst` | [`divergence`](evaluators.md#divergence)'s `method`; the step runs when the task names an extractor |
-| `ood-kneighbors` | a block | `threshold_perc: 99.0`, and the step's own defaults otherwise | [`ood-kneighbors`](evaluators.md#ood-kneighbors)'s `k`, `distance_metric` and `threshold_perc`, where the step's own default is DataEval's 95; the step is fitted on train and runs on each evaluation split when the task names an extractor |
+| `ood-kneighbors` | a block | unset: DataEval's defaults, with `threshold_perc` 95 | [`ood-kneighbors`](evaluators.md#ood-kneighbors)'s `k`, `distance_metric` and `threshold_perc`; the step is fitted on train and runs on each evaluation split when the task names an extractor |
 | `blocking` | a list of check types | `[leakage, untrained-classes]` | The check types whose unaccepted warning makes the verdict "Not ready"; each must name a check the chain runs |
 | `accepted` | a mapping of a check type, check step or `step[split]` to a reason | `{}` | Why each warning is accepted, by check type (`image-outliers`), by check step for all its runs (`image-outliers-evals`), or by `step[split]` for one run of a step that runs once per evaluation split (`image-outliers-evals[test]`), as the verdict's `warnings[].step` names it: an accepted warning can't make the verdict not ready, but it still leaves it ready with caveats; each key must name a check or check step the chain runs, and a reason may not be blank |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
@@ -148,7 +148,7 @@ splits. `crops` crops detection data and passes other Datasets through:
 | [`image-outliers`](checks.md#image-outliers) | `warning: 3.0` |
 | [`image-duplicates`](checks.md#image-duplicates) | `exact: 0.0`, `near: 5.0` |
 | [`factor-issues`](checks.md#factor-issues) | `max_examples: 20` |
-| [`class-imbalance`](checks.md#class-imbalance) | `warning: 5.0`, `info: null`, `empty: false` |
+| [`class-imbalance`](checks.md#class-imbalance) | `warning: 5.0`, `info: null`, `empty: true` |
 | [`class-sufficiency`](checks.md#class-sufficiency) | `train: 20`, `eval: 30` |
 | [`untrained-classes`](checks.md#untrained-classes) | `declared: false` |
 | [`label-conformance`](checks.md#label-conformance) | `warning: 0`; run only where `ontology` is set |
@@ -158,7 +158,7 @@ splits. `crops` crops detection data and passes other Datasets through:
 | [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `warning: 2`; run unless `factor-gaps: false` |
 | [`shortcut-risk`](checks.md#shortcut-risk) | `warning: 0.1` |
 | [`leakage`](checks.md#leakage) | `exact: 0`, `near: 0`, `groups: 0` |
-| [`eval-coverage`](checks.md#eval-coverage) | `warning: 10.0`, `info: 2.0` |
+| [`eval-coverage`](checks.md#eval-coverage) | `warning: 9.0`, `info: 1.0`, points past the split's baseline |
 | [`class-stratification`](checks.md#class-stratification) | `info: 2.0`, `warning: 10.0` |
 | [`embedding-divergence`](checks.md#embedding-divergence) | `warning: 0.5`, and `info` 0.4 times `warning` |
 
@@ -353,7 +353,7 @@ detection data and passes other Datasets through:
 | --- | --- | --- | --- |
 | `ontology` | `null`; any other value is refused | `null` | Refused when set, as the config loads: judge the labels with a `taxonomy` entry on the same source; see [Settings every preset shares](#settings-every-preset-shares) |
 | `representation` | a block | the step's own defaults | [`representation`](evaluators.md#representation)'s `expected`: each class's minimum share |
-| `coverage` | a block | `method: adaptive`, `num_observations: 50` where the step's own default is DataEval's 20, and the step's other defaults | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples` and `near_duplicate_factor`; the step runs when the task names an extractor |
+| `coverage` | a block | unset: DataEval's defaults, `adaptive`, 20, 0.01, 20 and 0.5 | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples` and `near_duplicate_factor`; the step runs when the task names an extractor |
 | `wrap` | a block | `params: {padding: 0.0, min_size: 1}` | [`wrap`](transforms.md#wrap)'s `params`, used on detection data only; the preset fixes the wrapper |
 | `completeness` | `true` or `false` | `true` | Whether the completeness steps run, when the task names an extractor |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
@@ -427,7 +427,7 @@ under-represented combinations.
 
 | Check | Default settings |
 | --- | --- |
-| [`class-imbalance`](checks.md#class-imbalance) | `warning: 5.0`, `info: 2.0` |
+| [`class-imbalance`](checks.md#class-imbalance) | `warning: 5.0`, `info: null` |
 | [`shortcut-risk`](checks.md#shortcut-risk) | `warning: 0.1` |
 | [`factor-parity`](checks.md#factor-parity) | `warning: 0.3`, `p_value: 0.05` |
 | [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `warning: 2` |
@@ -622,7 +622,7 @@ Ranks each pool against a reference for labeling, and keeps the top.
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
-| `prioritization` | a block | `method: knn`, `n_init: auto`, `order: hard_first` where the step's own default is DataEval's `easy_first`, `policy: difficulty`, `num_bins: 50` | [`prioritization`](evaluators.md#prioritization)'s `method`, `k`, `c`, `n_init`, `max_cluster_size`, `order`, `policy` and `num_bins`: how each pool is ranked |
+| `prioritization` | a block | `order: hard_first` (DataEval's default is `easy_first`); `method`, `n_init`, `policy` and `num_bins` unset, so DataEval's `knn`, `auto`, `difficulty` and 50 apply | [`prioritization`](evaluators.md#prioritization)'s `method`, `k`, `c`, `n_init`, `max_cluster_size`, `order`, `policy` and `num_bins`: how each pool is ranked |
 | `select` | a block | `n: null`, `fraction: null` | [`select`](transforms.md#select)'s `n` and `fraction`: how much of each pool's ranking `selected` keeps |
 
 The preset has no `checks:`. `prioritization` ranks each pool against the reference, `hard_first` putting novel or

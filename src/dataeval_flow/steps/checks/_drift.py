@@ -109,7 +109,7 @@ class DriftCheck(Check[DriftConfig]):
 
 
 class EmbeddingDivergenceConfig(CheckConfig):
-    """A `embedding-divergence` step's input, and the bands of divergence that warn and inform."""
+    """An `embedding-divergence` step's input, and the bands of divergence that warn and inform."""
 
     input: str = Field(description="A `divergence` Output.")
     warning: float | None = Field(

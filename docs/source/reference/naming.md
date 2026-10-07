@@ -70,7 +70,7 @@ A check's findings are titled with the check's title, so `image-outliers` makes 
 Two checks title their findings differently, on purpose:
 
 - **`factor-issues`** makes one finding per kind of issue it finds, plus Suggested policy, Verified and Recommended
-  policy. Its titles carry the structure of the metadata report. Its key is still `factor-issues`.
+  policy. Its titles carry the structure of the metadata report. Its key is `factor-issues`.
 - **`drift` and `ood`** title each finding with the detector's subject: the `subject:` setting, or, where none is
   set, the evaluator's title followed by its entry's name where that differs from its type, as in Drift (MMD) · mmd.
   A chain with several detectors can then tell their findings apart.
