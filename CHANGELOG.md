@@ -397,38 +397,38 @@
 - `triage` is a preset: `factor-triage` reads the metadata, and `factor-issues` makes its findings, with
   `max_examples` set under `checks.factor-issues`. It
   returns a `ChainResult`: the issues, the stanza and the verification are its `factor-triage` step's output
-- `shift` is a preset: each detector is a step judged by a `drift` check, and each detector `classwise`
-  names also runs by class. Each test source is tested on its own against the reference, where they were merged;
-  `merge` them in a custom workflow to test them as one. `detectors:` takes drift evaluator entries
-  (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), `classwise:` lists detector
-  names, and `checks` is keyed by check type, `drift: {warn_on_drift, chunk_percent, consecutive_chunks}`.
-  It returns a `ChainResult`; a detector that raises fails its step and the task. A classwise detector makes a
-  whole-set finding and a by-class finding, so it can add two warnings where legacy added one. Classwise reads each
-  item's label through DataEval's `Metadata`, so it needs a dataset with `.metadata`; without it the by-class run is
-  skipped, where legacy read the labels from the targets. To upgrade:
-  - `method: univariate|mmd|kneighbors|domain_classifier` is
-    `type: drift-univariate|drift-mmd|drift-kneighbors|drift-domain-classifier`, and the univariate `test` is `method`
-  - a detector's `classwise: true` is its name in `classwise: [...]`
-  - `any_drift_is_warning` and `classwise_any_drift_is_warning` are `checks.drift.warn_on_drift`;
-    `chunk_drift_pct_warning` is `chunk_percent`, and `consecutive_chunks_warning: N` is
-    `consecutive_chunks: N-1`, since legacy warned at N drifted chunks in a row and this warns past the bound
-  - `chunking.threshold_multiplier: k` is `chunking.threshold: [zscore, k]`. Legacy chunked every detector with a
-    z-score threshold of 3, while an unset `threshold` now uses DataEval's default for the detector, a constant AUROC
-    band for `drift-domain-classifier`, so `threshold: [zscore, 3.0]` restores legacy's judgment
-- `shift` is a preset: each detector is a step judged by an `ood` check, an `ood-union` step groups each
-  flagged image as mutual, partial or unique and is judged by `ood-agreement`, and two optional steps explain the
-  flagged images by their metadata, as report sections where they were findings. Each test source is tested on its own
-  against the reference, where they were joined; `merge` them in a custom workflow to test them as one. It returns a
-  `ChainResult`; a detector that raises fails its step and the task. To upgrade:
-  - `method: kneighbors|domain_classifier` is `type: ood-kneighbors|ood-domain-classifier`, and two detectors of one
-    type need distinct `name`s
-  - a domain-classifier detector thresholds on `n_std` unless `threshold_perc` is written, where legacy always used
-    the 95th percentile: write `threshold_perc: 95` to keep legacy's verdicts
-  - `health_thresholds.ood_pct_warning` and `ood_pct_info` are `checks.ood.warning` and `info`, and
-    `checks["ood-agreement"]` judges the agreement
-  - `max_ood_insights` is `factor-deviation.max_items`, and `metadata_insights: false` is `factor-predictors: false` and
-    `factor-deviation: false`
-  - `value_range` and the `metadata_*` fields are gone: set `value_range` on the dataset, and name a `metadata:` policy
+- `shift` is a preset: each detector is a step judged by its family's check, a `drift` or an `ood` check. Each test
+  source is tested on its own against the reference, where drift merged them and OOD joined them; `merge` them in a
+  custom workflow to test them as one. It returns a `ChainResult`; a detector that raises fails its step and the task.
+  - Drift: each detector named in `classwise:` also runs by class. `detectors:` takes drift evaluator entries
+    (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), `classwise:` lists detector
+    names, and `checks` is keyed by check type, `drift: {warn_on_drift, chunk_percent, consecutive_chunks}`. A classwise
+    detector makes a whole-set finding and a by-class finding, so it can add two warnings where legacy added one.
+    Classwise reads each item's label through DataEval's `Metadata`, so it needs a dataset with `.metadata`; without it
+    the by-class run is skipped, where legacy read the labels from the targets
+  - OOD: an `ood-union` step groups each flagged image as mutual, partial or unique and is judged by `ood-agreement`,
+    and two optional steps explain the flagged images by their metadata, as report sections where they were findings
+  - To upgrade a drift detector:
+    - `method: univariate|mmd|kneighbors|domain_classifier` is
+      `type: drift-univariate|drift-mmd|drift-kneighbors|drift-domain-classifier`, and the univariate `test` is `method`
+    - a detector's `classwise: true` is its name in `classwise: [...]`
+    - `any_drift_is_warning` and `classwise_any_drift_is_warning` are `checks.drift.warn_on_drift`;
+      `chunk_drift_pct_warning` is `chunk_percent`, and `consecutive_chunks_warning: N` is
+      `consecutive_chunks: N-1`, since legacy warned at N drifted chunks in a row and this warns past the bound
+    - `chunking.threshold_multiplier: k` is `chunking.threshold: [zscore, k]`. Legacy chunked every detector with a
+      z-score threshold of 3, while an unset `threshold` now uses DataEval's default for the detector, a constant AUROC
+      band for `drift-domain-classifier`, so `threshold: [zscore, 3.0]` restores legacy's judgment
+  - To upgrade an OOD detector:
+    - `method: kneighbors|domain_classifier` is `type: ood-kneighbors|ood-domain-classifier`, and two detectors of one
+      type need distinct `name`s
+    - a domain-classifier detector thresholds on `n_std` unless `threshold_perc` is written, where legacy always used
+      the 95th percentile: write `threshold_perc: 95` to keep legacy's verdicts
+    - `health_thresholds.ood_pct_warning` and `ood_pct_info` are `checks.ood.warning` and `info`, and
+      `checks["ood-agreement"]` judges the agreement
+    - `max_ood_insights` is `factor-deviation.max_items`, and `metadata_insights: false` is `factor-predictors: false`
+      and `factor-deviation: false`
+    - `value_range` and the `metadata_*` fields are gone: set `value_range` on the dataset, and name a `metadata:`
+      policy
 - A result's JSON writes NaN and infinities as `null`, which strict JSON parsers require
 - `drift-kneighbors` on the `uncertainty` extractor refuses a written `distance_metric: cosine`, which cannot rank one
   number
