@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from dataeval_flow._policy import ResolvedPolicy
     from dataeval_flow._result import Result, ResultMetadata
     from dataeval_flow._sources import ResolvedSource, SourceOperand
-    from dataeval_flow._stats import ResolvedStatsPolicy
+    from dataeval_flow._stats import BandGroup, ResolvedStatsPolicy
     from dataeval_flow._tables import TableLimits
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.config._schemas._task import TaskConfig
@@ -188,9 +188,9 @@ def _value_range_of(resolved: "ResolvedSource") -> "tuple[float, float] | None":
 
 
 def _merge_channel_groups(
-    declarations: "Iterable[Mapping[str, Any] | None]",
+    declarations: "Iterable[Mapping[str, BandGroup] | None]",
     subject: str,
-) -> "Mapping[str, tuple[int, ...]] | None":
+) -> "Mapping[str, BandGroup] | None":
     """Union declared band groups, refusing two definitions of one name.
 
     *subject* names what is being merged, for the error.
@@ -198,36 +198,39 @@ def _merge_channel_groups(
     Raises
     ------
     ValueError
-        When one group name is given different bands. `ir_mean` measured over different
-        bands is not one statistic, and the merged column would hold both.
+        When one group name is given different bands or a different range. `ir_mean`
+        measured over different bands is not one statistic, and the merged column would
+        hold both.
     """
-    merged: dict[str, tuple[int, ...]] = {}
+    merged: dict[str, BandGroup] = {}
     for declared in declarations:
-        for name, bands in (declared or {}).items():
-            indices = (bands,) if isinstance(bands, int) else tuple(bands)
+        for name, group in (declared or {}).items():
             existing = merged.get(name)
-            if existing is not None and existing != indices:
+            if existing is not None and existing != group:
                 raise ValueError(
-                    f"{subject} declares different bands for channel group {name!r} "
-                    f"({list(existing)} and {list(indices)}). One column name means one "
-                    "measurement, so there is no right answer to pick — give them one "
-                    "definition, or rename one group.",
+                    f"{subject} declares channel group {name!r} twice, differently "
+                    f"(bands {list(existing[0])}, range {existing[1]} and bands {list(group[0])}, "
+                    f"range {group[1]}). One column name means one measurement, so there is no "
+                    "right answer to pick — give them one definition, or rename one group.",
                 )
-            merged[name] = indices
+            merged[name] = group
     return merged or None
 
 
-def _channel_groups_of(resolved: "ResolvedSource") -> "Mapping[str, tuple[int, ...]] | None":
+def _channel_groups_of(resolved: "ResolvedSource") -> "Mapping[str, BandGroup] | None":
     """Return the band groups *resolved* declares, or None where no operand declares any."""
+    from dataeval_flow.config._schemas._dataset import band_group
+
+    declared = (getattr(operand.dataset_config, "channel_groups", None) or {} for operand in resolved.operands)
     return _merge_channel_groups(
-        (getattr(operand.dataset_config, "channel_groups", None) for operand in resolved.operands),
+        ({name: band_group(value) for name, value in groups.items()} for groups in declared),
         f"Source {resolved.name!r}",
     )
 
 
 def _channel_groups_for(
     dataset_contexts: "Mapping[str, DatasetContext]",
-) -> "Mapping[str, tuple[int, ...]] | None":
+) -> "Mapping[str, BandGroup] | None":
     """Return the band groups every dataset this workflow reads declares."""
     return _merge_channel_groups(
         (ctx.channel_groups for ctx in dataset_contexts.values()),

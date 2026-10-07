@@ -102,7 +102,8 @@
 - Top-level `exports:` key exporting sources to COCO, YOLO, Hugging Face, or VisDrone format with `provenance.json`
 - `ontology:` support across all workflows but `scope`, attaching the label-space digest to results
 - `label_space` on result envelopes, recording conformed vocabulary and matching label-space digest
-- `channel_groups:` on datasets, measuring band groups separately as `<group>_<statistic>` columns
+- `channel_groups:` on datasets, measuring band groups separately as `<group>_<statistic>` columns; a group written
+  `{bands: ..., value_range: [low, high]}` is read against its own range rather than the dataset's
 - Top-level `stats:` key defining policies for measured statistics, background inclusion, and outlier/factor views
 - Statistic sub-groups wherever a family is named — a stats policy's `measure`, `outliers.flags` and
   `intrinsic_factors`: `pixel_basic`, `pixel_distribution`, `visual_basic`, `dimension_basic`, `dimension_box`,
@@ -330,7 +331,8 @@
 - `WorkflowResult` takes every argument by keyword only: `type`, `success`, `output`, `metadata`, …
 - Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of `harbor.jatic.net/aria/dataeval`
 - Metadata cache key includes stats policy `factor_identity()`, recomputing metadata archives on upgrade
-- Stats cache keys remain unaffected, preserving cached stats for policies without band groups or background
+- Stats cache keys remain unaffected: every stats policy asked of a dataset grows one entry, band groups and
+  background included, which records each group's bands and range and remeasures a group whose definition changed
 - Console logs now include ISO-8601 UTC timestamps and levels; use `--log-format plain` for bare messages
 - `main-<variant>` tracks the default branch; `latest-<variant>` is a retag of the newest stable release
 - Images are scanned before publication; a HIGH or CRITICAL finding fails the build before anything is pushed

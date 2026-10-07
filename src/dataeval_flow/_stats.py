@@ -11,6 +11,7 @@ family a consumer needs and nothing measures costs a config error rather than an
 
 __all__ = [
     "HASH_FLAG_MAP",
+    "BandGroup",
     "OUTLIER_FLAG_MAP",
     "ResolvedStatsPolicy",
     "check_consumers",
@@ -21,7 +22,6 @@ __all__ = [
     "stats_policy_for",
 ]
 
-import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
@@ -32,6 +32,8 @@ from dataeval.flags import ImageStats
 from dataeval_flow._metadata import IMAGE_STAT_GROUPS, stat_names_for
 
 if TYPE_CHECKING:
+    from dataeval.utils.preprocessing import ChannelGroup
+
     from dataeval_flow.config._models import PipelineConfig
 
 # Families the background is measured for. Hash and dimension are computed for the image
@@ -51,6 +53,12 @@ OUTLIER_FLAG_MAP: dict[str, ImageStats] = {
 
 # Hash sets as `duplicate_flags` spells them.
 HASH_FLAG_MAP: dict[str, ImageStats] = {name: IMAGE_STAT_GROUPS[name] for name in ("hash_basic", "hash_d4")}
+
+BandGroup = tuple[tuple[int, ...], tuple[float, float] | None]
+"""A band group as a dataset declares it: its bands, and the value range they are read against.
+
+The range is the group's own, and None where the group reads against the dataset's.
+"""
 
 
 def _is_background(view: str | None) -> bool:
@@ -106,6 +114,12 @@ def restrict_columns(calc_result: "Mapping[str, Any]", allowed: "set[str]") -> "
     )
 
 
+def _group_record(group: BandGroup) -> list[Any]:
+    """*group* as plain JSON, the form a cache entry records it in."""
+    bands, value_range = group
+    return [list(bands), list(value_range) if value_range is not None else None]
+
+
 @dataclass(frozen=True)
 class ResolvedStatsPolicy:
     """A stats policy with its families resolved and its bands taken from the dataset.
@@ -117,8 +131,8 @@ class ResolvedStatsPolicy:
     name: str | None = None
     measure: tuple[tuple[str | None, ImageStats], ...] = ()
     """What to compute, one entry per band view. `None` is the whole image."""
-    channels: tuple[tuple[str, tuple[int, ...]], ...] = ()
-    """The band groups `measure` names, with the bands the dataset gave them.
+    channels: tuple[tuple[str, BandGroup], ...] = ()
+    """The band groups `measure` names, with the bands and range the dataset gave them.
 
     Only the named ones. A dataset may declare groups a policy does not measure, and
     `compute_stats` refuses a `stats` mapping whose keys are not exactly `channels`'.
@@ -142,9 +156,33 @@ class ResolvedStatsPolicy:
         return dict(self.measure)
 
     @property
-    def channel_map(self) -> dict[str, list[int]] | None:
+    def channel_map(self) -> "dict[str, ChannelGroup] | None":
         """What to pass `compute_stats` as `channels`, or None where no group is measured."""
-        return {name: list(bands) for name, bands in self.channels} or None
+        from dataeval.utils.preprocessing import ChannelGroup
+
+        return {
+            name: ChannelGroup(list(bands), value_range=value_range) for name, (bands, value_range) in self.channels
+        } or None
+
+    def group_records(self) -> dict[str, list[Any]]:
+        """Each measured group's definition, as the cache records it beside the columns it produced.
+
+        A group's columns mean what its bands and range made them, so an entry holding `rgb_*`
+        columns answers for `rgb` only while this record matches.
+        """
+        return {name: _group_record(group) for name, group in self.channels}
+
+    def columns(self) -> set[str]:
+        """Every column this policy's `compute_stats` call returns that a consumer can read."""
+        columns: set[str] = set()
+        for view, flags in self.measure:
+            columns |= columns_for([view], measurable_in(view, flags))
+            if self.background:
+                background = "background" if view is None else f"background_{view}"
+                columns |= columns_for([background], measurable_in(background, flags))
+        if self.background:
+            columns.add(_BACKGROUND_FRACTION)
+        return columns
 
     def families_of(self, view: str | None) -> ImageStats:
         """The families measured for *view*, limited to what that view can carry.
@@ -159,22 +197,6 @@ class ResolvedStatsPolicy:
             base = None if view == "background" else str(view).removeprefix("background_")
         return measurable_in(view, self.request.get(base, ImageStats.NONE))
 
-    def scope_fragment(self) -> str:
-        """What decides whether two results can share a stats cache entry.
-
-        Only the band definitions and `background`. `measure` and the consumer view sets
-        change which columns are computed, not what any column holds, and the cache merges
-        columns on a partial hit — folding them in would fragment the cache and buy nothing.
-        Empty for a policy that declares neither, so a config without band groups keys
-        exactly as it did before this field existed.
-        """
-        if not self.channels and not self.background:
-            return ""
-        return json.dumps(
-            {"channels": [[name, list(bands)] for name, bands in self.channels], "background": self.background},
-            sort_keys=True,
-        )
-
     def narrowed_to(self, request: "Mapping[str | None, ImageStats]") -> "ResolvedStatsPolicy":
         """Return this policy asking only for *request*, with its bands narrowed to match.
 
@@ -185,7 +207,7 @@ class ResolvedStatsPolicy:
         return replace(
             self,
             measure=tuple(request.items()),
-            channels=tuple((name, bands) for name, bands in self.channels if name in request),
+            channels=tuple((name, group) for name, group in self.channels if name in request),
         )
 
     def factor_identity(self) -> dict[str, Any]:
@@ -197,7 +219,7 @@ class ResolvedStatsPolicy:
         """
         return {
             "measure": sorted(["~" if view is None else view, flags.value] for view, flags in self.measure),
-            "channels": sorted([name, list(bands)] for name, bands in self.channels),
+            "channels": sorted([name, *_group_record(group)] for name, group in self.channels),
             "background": self.background,
             "factors_from": sorted("~" if view is None else view for view in self.factors_from),
         }
@@ -206,7 +228,7 @@ class ResolvedStatsPolicy:
 def resolve_stats_policy(
     params: Any,
     config: "PipelineConfig | None",
-    channel_groups: "Mapping[str, tuple[int, ...]] | None",
+    channel_groups: "Mapping[str, BandGroup] | None",
 ) -> ResolvedStatsPolicy | None:
     """Resolve the stats policy *params* names, or None where it names none.
 
@@ -216,8 +238,8 @@ def resolve_stats_policy(
         Workflow parameters, whose `stats` field names a policy in the pool.
     config : PipelineConfig or None
         The pipeline the policy pool lives on. Required only when a policy is named.
-    channel_groups : Mapping[str, tuple[int, ...]] or None
-        Band groups the datasets declare, which `measure` selects from.
+    channel_groups : Mapping[str, BandGroup] or None
+        Band groups the datasets declare, with their ranges, which `measure` selects from.
 
     Raises
     ------
@@ -241,7 +263,7 @@ def resolve_stats_policy(
     available = dict(channel_groups or {})
 
     measure: list[tuple[str | None, ImageStats]] = []
-    selected: dict[str, tuple[int, ...]] = {}
+    selected: dict[str, BandGroup] = {}
     for entry in declared.measure:
         try:
             flags = resolve_families("image", list(entry.families))
@@ -257,7 +279,7 @@ def resolve_stats_policy(
                     f"{entry.bands!r}. Groups it declares: {known}. Declare the group under "
                     "the dataset's `channel_groups`, or drop the `measure` entry.",
                 )
-            selected[entry.bands] = tuple(available[entry.bands])
+            selected[entry.bands] = available[entry.bands]
 
     return ResolvedStatsPolicy(
         name=name,

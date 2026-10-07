@@ -65,8 +65,7 @@ def _with_stats_unions(graph: ChainGraph, contexts: Mapping[str, StepContext]) -
 
     Each such step asks the cache for its own families, and the cache computes only what it lacks, so no statistic is
     computed twice; but each step's request reads the Dataset again. The union of every request made of a Dataset,
-    asked for first, reads it once. Requests whose scope fragments differ cannot share a cache entry, so a step's
-    union takes in only those whose fragment is its own. A step keeps only the unions wider than its own request.
+    asked for first, reads it once. A step keeps only the unions wider than its own request.
     """
     requested = {
         spec.name: (policy, _reads(graph, spec))
@@ -83,7 +82,7 @@ def _with_stats_unions(graph: ChainGraph, contexts: Mapping[str, StepContext]) -
         for read in reads:
             for (base, key), requests in _requests_of(read, readers).items():
                 union = _union(policy, requests)
-                if union.request != policy.request:
+                if union != policy:
                     unions[str(Address(base, key=key))] = union
         if unions:
             planned[name] = replace(contexts[name], stats_unions=unions)
@@ -136,15 +135,24 @@ def _requests_of(
 
 
 def _union(policy: "ResolvedStatsPolicy", requests: Sequence["ResolvedStatsPolicy"]) -> "ResolvedStatsPolicy":
-    """`policy`, widened to measure, view by view, every family any of `requests` sharing its cache entry measures."""
-    fragment = policy.scope_fragment()
+    """`policy`, widened to measure, view by view, every family, band group and background any of `requests` measures.
+
+    A request defining one of `policy`'s groups differently is left out: both cannot be held under one name, and the
+    cache recomputes the group for whichever asks second.
+    """
     measure = dict(policy.measure)
+    channels = dict(policy.channels)
+    background = policy.background
     for request in requests:
-        if request.scope_fragment() != fragment:
+        if any(channels.get(name, group) != group for name, group in request.channels):
             continue
+        channels.update(request.channels)
+        background = background or request.background
         for view, flags in request.measure:
             measure[view] = measure[view] | flags if view in measure else flags
-    return replace(policy, measure=tuple(measure.items()))
+    return replace(
+        policy, measure=tuple(measure.items()), channels=tuple(sorted(channels.items())), background=background
+    )
 
 
 def _slots_reached(graph: ChainGraph) -> dict[str, list[str]]:

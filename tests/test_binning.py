@@ -474,7 +474,7 @@ class TestInjectedFactorsCoverBandViews:
 
         stats = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("rgb", ImageStats.VISUAL)),
-            channels=(("rgb", (0, 1, 2)),),
+            channels=(("rgb", ((0, 1, 2), None)),),
             factors_from=tuple(factors_from),
         )
         return ResolvedPolicy(

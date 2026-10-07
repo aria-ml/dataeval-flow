@@ -5,6 +5,7 @@ shipped in its `stats:` block because of that. These tests un-comment the releva
 sections and run them through the real config and stats machinery.
 """
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -14,11 +15,13 @@ from dataeval.flags import ImageStats
 from dataeval_flow._metadata import resolve_families
 from dataeval_flow._stats import (
     OUTLIER_FLAG_MAP,
+    BandGroup,
     ResolvedStatsPolicy,
     check_consumers,
     resolve_stats_policy,
 )
 from dataeval_flow.config import PipelineConfig, StatsPolicyConfig
+from dataeval_flow.config._schemas._dataset import band_group
 from dataeval_flow.workflows.quality import QualityConfig
 
 _EXAMPLE_PATH = Path(__file__).resolve().parents[1] / "config" / "params.example.yaml"
@@ -58,14 +61,12 @@ def _load_example_sections() -> dict[str, list[dict[str, Any]]]:
     }
 
 
-def _channel_groups_of(dataset: dict[str, Any]) -> dict[str, tuple[int, ...]]:
+def _channel_groups_of(dataset: dict[str, Any]) -> dict[str, BandGroup]:
     """The `channel_groups` a parsed dataset dict declares, in `resolve_stats_policy`'s shape."""
-    return {
-        name: (bands,) if isinstance(bands, int) else tuple(bands) for name, bands in dataset["channel_groups"].items()
-    }
+    return {name: band_group(bands) for name, bands in dataset["channel_groups"].items()}
 
 
-def _build_clean_config() -> tuple[PipelineConfig, QualityConfig, dict[str, tuple[int, ...]]]:
+def _build_clean_config() -> tuple[PipelineConfig, QualityConfig, Mapping[str, BandGroup] | None]:
     """Build a `PipelineConfig` scoped to just `m3fd`, `multispectral`, and the `clean` workflow."""
     sections = _load_example_sections()
     m3fd = next(d for d in sections["datasets"] if d["name"] == "m3fd")

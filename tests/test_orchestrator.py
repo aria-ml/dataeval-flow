@@ -2060,7 +2060,25 @@ class TestChannelGroupsOnContext:
         from dataeval_flow._orchestrator import _channel_groups_of
 
         resolved = _resolved_source_with(channel_groups=[{"rgb": [0, 1, 2], "ir": 3}])
-        assert _channel_groups_of(resolved) == {"rgb": (0, 1, 2), "ir": (3,)}
+        assert _channel_groups_of(resolved) == {"rgb": ((0, 1, 2), None), "ir": ((3,), None)}
+
+    def test_carries_a_groups_own_range(self):
+        from dataeval_flow._orchestrator import _channel_groups_of
+        from dataeval_flow.config import ChannelGroupConfig
+
+        thermal = ChannelGroupConfig(bands=3, value_range=(-40, 120))
+        resolved = _resolved_source_with(channel_groups=[{"thermal": thermal}])
+        assert _channel_groups_of(resolved) == {"thermal": ((3,), (-40.0, 120.0))}
+
+    def test_refuses_operands_giving_one_group_different_ranges(self):
+        from dataeval_flow._orchestrator import _channel_groups_of
+        from dataeval_flow.config import ChannelGroupConfig
+
+        resolved = _resolved_source_with(
+            channel_groups=[{"ir": 3}, {"ir": ChannelGroupConfig(bands=3, value_range=(0, 1))}]
+        )
+        with pytest.raises(ValueError, match="channel group 'ir' twice, differently"):
+            _channel_groups_of(resolved)
 
     def test_none_when_nothing_declares_groups(self):
         from dataeval_flow._orchestrator import _channel_groups_of
@@ -2071,14 +2089,14 @@ class TestChannelGroupsOnContext:
         from dataeval_flow._orchestrator import _channel_groups_of
 
         resolved = _resolved_source_with(channel_groups=[{"rgb": [0, 1, 2]}, {"rgb": [0, 1]}])
-        with pytest.raises(ValueError, match="different bands for channel group 'rgb'"):
+        with pytest.raises(ValueError, match="channel group 'rgb' twice, differently"):
             _channel_groups_of(resolved)
 
     def test_unions_groups_the_operands_do_not_share(self):
         from dataeval_flow._orchestrator import _channel_groups_of
 
         resolved = _resolved_source_with(channel_groups=[{"rgb": [0, 1, 2]}, {"ir": 3}])
-        assert _channel_groups_of(resolved) == {"rgb": (0, 1, 2), "ir": (3,)}
+        assert _channel_groups_of(resolved) == {"rgb": ((0, 1, 2), None), "ir": ((3,), None)}
 
 
 @pytest.mark.required
@@ -2096,14 +2114,14 @@ class TestResolveStatsPolicy:
     def test_unions_groups_across_the_datasets_a_workflow_reads(self):
         from dataeval_flow._orchestrator import _channel_groups_for
 
-        merged = _channel_groups_for(self._contexts({"rgb": (0, 1, 2)}, {"ir": (3,)}))
-        assert merged == {"rgb": (0, 1, 2), "ir": (3,)}
+        merged = _channel_groups_for(self._contexts({"rgb": ((0, 1, 2), None)}, {"ir": ((3,), None)}))
+        assert merged == {"rgb": ((0, 1, 2), None), "ir": ((3,), None)}
 
     def test_refuses_two_datasets_defining_one_group_differently(self):
         from dataeval_flow._orchestrator import _channel_groups_for
 
-        with pytest.raises(ValueError, match="different bands for channel group 'rgb'"):
-            _channel_groups_for(self._contexts({"rgb": (0, 1, 2)}, {"rgb": (0, 1)}))
+        with pytest.raises(ValueError, match="channel group 'rgb' twice, differently"):
+            _channel_groups_for(self._contexts({"rgb": ((0, 1, 2), None)}, {"rgb": ((0, 1), None)}))
 
     def test_none_for_a_workflow_that_computes_no_statistics(self):
         from dataeval_flow._orchestrator import _resolve_stats_policy

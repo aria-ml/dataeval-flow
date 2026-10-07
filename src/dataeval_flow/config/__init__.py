@@ -15,6 +15,7 @@ __all__ = [
     # The pipeline
     "PipelineConfig",
     # Dataset configs
+    "ChannelGroupConfig",
     "CocoDatasetConfig",
     "DatasetConfig",
     "DatasetProtocolConfig",
@@ -60,6 +61,7 @@ __all__ = [
 from dataeval_flow.config._models import LoggingConfig, PipelineConfig, ResultConfig, SourceConfig
 from dataeval_flow.config._schemas import (
     AggregatorConfig,
+    ChannelGroupConfig,
     CocoDatasetConfig,
     DatasetConfig,
     DatasetProtocolConfig,

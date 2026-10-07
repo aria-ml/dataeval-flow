@@ -2313,46 +2313,14 @@ class TestCachedMetadataKeepsTheExpansion:
 
 
 @pytest.mark.required
-class TestScopeKeyWithBands:
-    """A scope key separates results that cannot be merged, and nothing else."""
+class TestMissingViews:
+    """Coverage is asked per view and metric, and per group definition."""
 
-    def _policy(self, **kwargs):
-        from dataeval.flags import ImageStats
-
+    @staticmethod
+    def _policy(measure, groups=(), background=False):
         from dataeval_flow._stats import ResolvedStatsPolicy
 
-        return ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL),), **kwargs)
-
-    def test_unchanged_for_a_policy_declaring_no_bands_or_background(self):
-        from dataeval_flow._cache import scope_key
-
-        assert scope_key(True, True, None, self._policy()) == scope_key(True, True, None)
-
-    def test_two_definitions_of_one_group_do_not_share_an_entry(self):
-        from dataeval_flow._cache import scope_key
-
-        a = self._policy(channels=(("rgb", (0, 1, 2)),))
-        b = self._policy(channels=(("rgb", (0, 1)),))
-        assert scope_key(True, True, None, a) != scope_key(True, True, None, b)
-
-    def test_background_separates_entries(self):
-        from dataeval_flow._cache import scope_key
-
-        assert scope_key(True, True, None, self._policy(background=True)) != scope_key(
-            True, True, None, self._policy(background=False)
-        )
-
-    def test_the_consumer_view_sets_do_not_separate_entries(self):
-        from dataeval_flow._cache import scope_key
-
-        a = self._policy(channels=(("rgb", (0, 1, 2)),), outliers_from=(None,))
-        b = self._policy(channels=(("rgb", (0, 1, 2)),), outliers_from=(None, "rgb"))
-        assert scope_key(True, True, None, a) == scope_key(True, True, None, b)
-
-
-@pytest.mark.required
-class TestMissingViews:
-    """Coverage is asked per view and metric, not per metric alone."""
+        return ResolvedStatsPolicy(measure=tuple(measure.items()), channels=groups, background=background)
 
     def test_nothing_missing_when_every_column_is_cached(self):
         from dataeval.flags import ImageStats
@@ -2360,7 +2328,7 @@ class TestMissingViews:
         from dataeval_flow._cache import missing_views
 
         cached = {"brightness", "contrast", "darkness", "sharpness", "percentiles"}
-        assert missing_views(cached, {None: ImageStats.VISUAL}) == {}
+        assert missing_views(cached, {}, self._policy({None: ImageStats.VISUAL})) == {}
 
     def test_a_prefixed_column_is_not_covered_by_the_bare_one(self):
         from dataeval.flags import ImageStats
@@ -2368,19 +2336,19 @@ class TestMissingViews:
         from dataeval_flow._cache import missing_views
 
         cached = {"brightness", "contrast", "darkness", "sharpness", "percentiles"}
-        missing = missing_views(cached, {"rgb": ImageStats.VISUAL_BRIGHTNESS})
-        assert missing == {"rgb": ImageStats.VISUAL_BRIGHTNESS}
+        policy = self._policy({"rgb": ImageStats.VISUAL_BRIGHTNESS}, (("rgb", ((0, 1, 2), None)),))
+        assert missing_views(cached, {"rgb": [[0, 1, 2], None]}, policy) == {"rgb": ImageStats.VISUAL_BRIGHTNESS}
 
     def test_reports_only_the_uncovered_views(self):
         from dataeval.flags import ImageStats
 
         from dataeval_flow._cache import missing_views
 
-        cached = {"brightness", "rgb_mean"}
-        missing = missing_views(
-            cached,
+        policy = self._policy(
             {None: ImageStats.VISUAL_BRIGHTNESS, "rgb": ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD},
+            (("rgb", ((0, 1, 2), None)),),
         )
+        missing = missing_views({"brightness", "rgb_mean"}, {"rgb": [[0, 1, 2], None]}, policy)
         assert missing == {"rgb": ImageStats.PIXEL_STD}
 
     def test_an_empty_cache_asks_for_everything(self):
@@ -2389,7 +2357,161 @@ class TestMissingViews:
         from dataeval_flow._cache import missing_views
 
         request = {None: ImageStats.VISUAL_BRIGHTNESS, "ir": ImageStats.PIXEL_MEAN}
-        assert missing_views(set(), request) == request
+        assert missing_views(set(), {}, self._policy(request, (("ir", ((3,), None)),))) == request
+
+    @pytest.mark.parametrize("recorded", [None, [[2], None], [[3], [0.0, 1.0]]])
+    def test_a_group_recorded_under_another_definition_is_missing_whole(self, recorded):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow._cache import missing_views
+
+        policy = self._policy({"ir": ImageStats.PIXEL_MEAN}, (("ir", ((3,), None)),))
+        groups = {} if recorded is None else {"ir": recorded}
+        assert missing_views({"ir_mean"}, groups, policy) == {"ir": ImageStats.PIXEL_MEAN}
+
+    def test_a_groups_own_range_is_part_of_its_definition(self):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow._cache import missing_views
+
+        policy = self._policy({"ir": ImageStats.PIXEL_MEAN}, (("ir", ((3,), (-40.0, 120.0))),))
+        assert missing_views({"ir_mean"}, {"ir": [[3], [-40.0, 120.0]]}, policy) == {}
+
+    def test_under_background_a_missing_background_column_is_missing(self):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow._cache import missing_views
+
+        policy = self._policy({None: ImageStats.VISUAL_BRIGHTNESS | ImageStats.HASH_XXHASH}, background=True)
+        assert missing_views({"brightness", "xxhash"}, {}, policy) == {None: ImageStats.VISUAL_BRIGHTNESS}
+        assert missing_views({"brightness", "xxhash", "background_brightness"}, {}, policy) == {}
+
+    def test_geometry_asked_of_a_group_is_never_missing(self):
+        """A group produces no `rgb_width`; counting it as missing recomputed the group on every run."""
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow._cache import missing_views
+
+        policy = self._policy(
+            {None: ImageStats.DIMENSION_WIDTH, "rgb": ImageStats.DIMENSION_WIDTH | ImageStats.PIXEL_MEAN},
+            (("rgb", ((0, 1, 2), None)),),
+        )
+        assert missing_views({"width", "rgb_mean"}, {"rgb": [[0, 1, 2], None]}, policy) == {}
+
+
+@pytest.mark.required
+class TestOneEntryGrowsAcrossPolicies:
+    """Every policy asked of a dataset shares one entry, which computes only what it lacks."""
+
+    @pytest.fixture
+    def computed(self, monkeypatch):
+        """Each request `compute_stats` is sent, with whether it measured the background."""
+        import dataeval_flow._cache as cache_mod
+
+        calls = []
+        real = cache_mod._do_compute_stats
+
+        def _spy(dataset, policy, *args, **kwargs):
+            calls.append((policy.request, policy.background))
+            return real(dataset, policy, *args, **kwargs)
+
+        monkeypatch.setattr(cache_mod, "_do_compute_stats", _spy)
+        return calls
+
+    @staticmethod
+    def _ask(cache, dataset, policy):
+        from dataeval_flow._cache import active_cache, get_or_compute_stats
+
+        with active_cache(cache, "sel:all"):
+            return get_or_compute_stats(policy, dataset=dataset, per_target=False)
+
+    def test_a_new_group_computes_only_that_group(self, toy_multiband_dataset, computed):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow._cache import DatasetCache
+        from dataeval_flow._stats import ResolvedStatsPolicy
+
+        cache = DatasetCache.get_or_create(None, name="toy", cache_key="grow-group")
+        rgb = ("rgb", ((0, 1, 2), None))
+        ir = ("ir", ((3,), None))
+        self._ask(cache, toy_multiband_dataset, ResolvedStatsPolicy.of_flags(ImageStats.VISUAL))
+        self._ask(
+            cache,
+            toy_multiband_dataset,
+            ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL), ("rgb", ImageStats.PIXEL_MEAN)), channels=(rgb,)),
+        )
+        result = self._ask(
+            cache,
+            toy_multiband_dataset,
+            ResolvedStatsPolicy(
+                measure=(("rgb", ImageStats.PIXEL_MEAN), ("ir", ImageStats.PIXEL_MEAN)), channels=(ir, rgb)
+            ),
+        )
+
+        assert [request for request, _ in computed] == [
+            {None: ImageStats.VISUAL},
+            {"rgb": ImageStats.PIXEL_MEAN},
+            {"ir": ImageStats.PIXEL_MEAN},
+        ]
+        assert set(result["stats"]) == {"rgb_mean", "ir_mean"}
+
+    def test_the_background_is_added_to_an_entry_without_it(self, toy_multiband_dataset, computed):
+        from dataclasses import replace
+
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow._cache import DatasetCache
+        from dataeval_flow._stats import ResolvedStatsPolicy
+
+        cache = DatasetCache.get_or_create(None, name="toy", cache_key="grow-background")
+        plain = ResolvedStatsPolicy.of_flags(ImageStats.VISUAL_BRIGHTNESS | ImageStats.HASH_XXHASH)
+        self._ask(cache, toy_multiband_dataset, plain)
+        with_background = self._ask(cache, toy_multiband_dataset, replace(plain, background=True))
+        without = self._ask(cache, toy_multiband_dataset, plain)
+
+        assert computed == [
+            ({None: ImageStats.VISUAL_BRIGHTNESS | ImageStats.HASH_XXHASH}, False),
+            ({None: ImageStats.VISUAL_BRIGHTNESS}, True),
+        ]
+        assert {"background_brightness", "background_fraction"} <= set(with_background["stats"])
+        assert set(without["stats"]) == {"brightness", "xxhash"}
+
+    def test_a_redefined_group_replaces_every_column_of_the_old_one(self, toy_multiband_dataset, computed):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow._cache import DatasetCache, scope_key
+        from dataeval_flow._stats import ResolvedStatsPolicy
+
+        cache = DatasetCache.get_or_create(None, name="toy", cache_key="redefine")
+        wide = ResolvedStatsPolicy(
+            measure=(("rgb", ImageStats.PIXEL_MEAN | ImageStats.PIXEL_STD),), channels=(("rgb", ((0, 1, 2), None)),)
+        )
+        narrow = ResolvedStatsPolicy(measure=(("rgb", ImageStats.PIXEL_MEAN),), channels=(("rgb", ((0,), None)),))
+        first = self._ask(cache, toy_multiband_dataset, wide)
+        second = self._ask(cache, toy_multiband_dataset, narrow)
+
+        assert len(computed) == 2
+        assert not np.array_equal(first["stats"]["rgb_mean"], second["stats"]["rgb_mean"])
+        held = cache.load_stats("sel:all", scope_key(True, False))
+        assert held is not None
+        assert "rgb_std" not in held["stats"]
+        assert cache.load_stats_groups("sel:all", scope_key(True, False)) == {"rgb": [[0], None]}
+
+    def test_the_group_record_survives_a_disk_round_trip(self, toy_multiband_dataset, computed, tmp_path):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow._cache import DatasetCache
+        from dataeval_flow._stats import ResolvedStatsPolicy
+
+        cache = DatasetCache.get_or_create(tmp_path, name="toy", cache_key="disk")
+        policy = ResolvedStatsPolicy(
+            measure=(("ir", ImageStats.VISUAL_BRIGHTNESS),), channels=(("ir", ((3,), (0.0, 2.0))),)
+        )
+        self._ask(cache, toy_multiband_dataset, policy)
+        cache._memory.clear()
+        self._ask(cache, toy_multiband_dataset, policy)
+
+        assert len(computed) == 1
 
 
 @pytest.mark.required
@@ -2404,12 +2526,29 @@ class TestBandAwareCompute:
 
         policy = ResolvedStatsPolicy(
             measure=((None, ImageStats.DIMENSION), ("ir", ImageStats.PIXEL_MEAN)),
-            channels=(("ir", (3,)),),
+            channels=(("ir", ((3,), None)),),
         )
         result = get_or_compute_stats(policy, dataset=toy_multiband_dataset, per_target=False)
         assert "ir_mean" in result["stats"]
         assert "width" in result["stats"]
         assert "mean" not in result["stats"]
+
+    def test_a_group_is_read_against_its_own_range(self, toy_multiband_dataset):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow._cache import get_or_compute_stats
+        from dataeval_flow._stats import ResolvedStatsPolicy
+
+        def brightness(value_range):
+            policy = ResolvedStatsPolicy(
+                measure=(("ir", ImageStats.VISUAL_BRIGHTNESS),), channels=(("ir", ((3,), value_range)),)
+            )
+            return get_or_compute_stats(policy, dataset=toy_multiband_dataset, per_target=False)["stats"][
+                "ir_brightness"
+            ]
+
+        # uint8 data decodes to 0-255; declaring twice that halves where every value sits.
+        np.testing.assert_allclose(brightness((0.0, 510.0)), brightness(None) / 2, atol=1.0)
 
     def test_background_produces_the_fraction(self, toy_multiband_dataset):
         from dataeval.flags import ImageStats
@@ -2463,7 +2602,7 @@ class TestUnsatisfiableGroup:
 
         policy = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("swir", ImageStats.PIXEL_MEAN)),
-            channels=(("swir", (7,)),),
+            channels=(("swir", ((7,), None)),),
         )
         result = get_or_compute_stats(policy, dataset=toy_images, per_target=False)
         assert np.isnan(result["stats"]["swir_mean"]).all()
@@ -2477,7 +2616,7 @@ class TestUnsatisfiableGroup:
 
         policy = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("swir", ImageStats.PIXEL_MEAN)),
-            channels=(("swir", (7,)),),
+            channels=(("swir", ((7,), None)),),
             outliers_from=("swir",),
         )
         result = get_or_compute_stats(policy, dataset=toy_images, per_target=False)
@@ -2498,7 +2637,7 @@ class TestPrefixedFactorsSplitByLevel:
 
         stats = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("ir", ImageStats.VISUAL)),
-            channels=(("ir", (3,)),),
+            channels=(("ir", ((3,), None)),),
             factors_from=(None, "ir"),
         )
         policy = ResolvedPolicy(intrinsic_factors=("visual",), stats=stats)
@@ -2524,13 +2663,15 @@ class TestPartialHitNarrowsChannelsToMatch:
 
         cache = DatasetCache.get_or_create(None, name="toy", cache_key="group-first")
 
-        group_only = ResolvedStatsPolicy(measure=(("rgb", ImageStats.PIXEL_MEAN),), channels=(("rgb", (0, 1, 2)),))
+        group_only = ResolvedStatsPolicy(
+            measure=(("rgb", ImageStats.PIXEL_MEAN),), channels=(("rgb", ((0, 1, 2), None)),)
+        )
         with active_cache(cache, "sel:all"):
             get_or_compute_stats(group_only, dataset=toy_multiband_dataset, per_target=False)
 
         both = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("rgb", ImageStats.PIXEL_MEAN)),
-            channels=(("rgb", (0, 1, 2)),),
+            channels=(("rgb", ((0, 1, 2), None)),),
         )
         with active_cache(cache, "sel:all"):
             result = get_or_compute_stats(both, dataset=toy_multiband_dataset, per_target=False)
@@ -2548,13 +2689,13 @@ class TestPartialHitNarrowsChannelsToMatch:
 
         # Declares the same `channels` as `both` below so the two calls share one scope key,
         # even though this policy's own `measure` never asks for the group.
-        bare_only = ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL),), channels=(("rgb", (0, 1, 2)),))
+        bare_only = ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL),), channels=(("rgb", ((0, 1, 2), None)),))
         with active_cache(cache, "sel:all"):
             get_or_compute_stats(bare_only, dataset=toy_multiband_dataset, per_target=False)
 
         both = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("rgb", ImageStats.PIXEL_MEAN)),
-            channels=(("rgb", (0, 1, 2)),),
+            channels=(("rgb", ((0, 1, 2), None)),),
         )
         with active_cache(cache, "sel:all"):
             result = get_or_compute_stats(both, dataset=toy_multiband_dataset, per_target=False)
@@ -2583,7 +2724,7 @@ class TestUncachedNarrowsChannelsToMatch:
         # `channels` names `rgb`, but `measure` never asks for it — `resolve_stats_policy`
         # cannot build this shape, but nothing stops a test, or a hand-built context, from
         # constructing one directly.
-        policy = ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL),), channels=(("rgb", (0, 1, 2)),))
+        policy = ResolvedStatsPolicy(measure=((None, ImageStats.VISUAL),), channels=(("rgb", ((0, 1, 2), None)),))
 
         result = get_or_compute_stats(policy, dataset=toy_multiband_dataset, per_target=False)
 

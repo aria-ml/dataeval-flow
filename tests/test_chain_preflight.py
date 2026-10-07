@@ -181,10 +181,14 @@ def _splits_step(ranges: tuple[tuple[float, float], tuple[float, float]]):
     graph = build_graph(config.workflows[0], config)  # type: ignore[arg-type,index]
     contexts = {
         "a": [
-            DatasetContext(name="one", dataset=ToyImages(), value_range=ranges[0], channel_groups={"rgb": (0, 1, 2)})
+            DatasetContext(
+                name="one", dataset=ToyImages(), value_range=ranges[0], channel_groups={"rgb": ((0, 1, 2), None)}
+            )
         ],
         "b": [
-            DatasetContext(name="two", dataset=ToyImages(seed=1), value_range=ranges[1], channel_groups={"ir": (3,)})
+            DatasetContext(
+                name="two", dataset=ToyImages(seed=1), value_range=ranges[1], channel_groups={"ir": ((3,), None)}
+            )
         ],
     }
     return graph, config, contexts
@@ -197,7 +201,7 @@ def test_a_step_reading_two_sources_takes_their_value_range_and_both_their_band_
     assert metadata is not None
     assert stats is not None
     assert metadata.value_range == (0.0, 255.0)
-    assert stats.channels == (("ir", (3,)), ("rgb", (0, 1, 2)))
+    assert stats.channels == (("ir", ((3,), None)), ("rgb", ((0, 1, 2), None)))
 
 
 def test_a_step_reading_two_sources_of_different_value_ranges_is_refused() -> None:

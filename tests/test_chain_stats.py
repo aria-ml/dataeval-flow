@@ -206,14 +206,14 @@ def _policies(toy_multiband_dataset: Any, outliers: dict[str, Any], dupes: dict[
     )
 
 
-def test_policies_that_cannot_share_a_cache_entry_compute_separately(toy_multiband_dataset: Any) -> None:
-    # `background` is in a policy's scope fragment, as its band groups are; an in-memory dataset declares no groups.
+def test_a_policy_with_the_background_and_one_without_compute_their_union_once(toy_multiband_dataset: Any) -> None:
+    # The background adds columns to an entry rather than keying its own, so the union measures it for both.
     config = _policies(
         toy_multiband_dataset,
         {"measure": [{"bands": None, "families": ["pixel", "visual"]}], "background": True},
         {"measure": [{"bands": None, "families": ["hash"]}]},
     )
-    assert _computed(config) == [{None: ImageStats.PIXEL | ImageStats.VISUAL}, {None: ImageStats.HASH}]
+    assert _computed(config) == [{None: ImageStats.PIXEL | ImageStats.VISUAL | ImageStats.HASH}]
 
 
 def test_policies_that_share_a_cache_entry_compute_their_union_once(toy_multiband_dataset: Any) -> None:

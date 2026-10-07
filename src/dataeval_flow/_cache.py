@@ -541,7 +541,6 @@ def scope_key(
     per_image: bool = True,
     per_target: bool = True,
     value_range: tuple[float, float] | None = None,
-    stats_policy: "ResolvedStatsPolicy | None" = None,
 ) -> str:
     """Build a deterministic scope key from the settings that make results unmergeable.
 
@@ -552,12 +551,11 @@ def scope_key(
     family, ``PIXEL_HISTOGRAM``, ``PIXEL_ENTROPY`` and ``DIMENSION_DEPTH`` all read it, and
     answer ``NaN`` without one on float data.
 
-    The stats policy participates through its band definitions and ``background`` only. Two
-    runs defining ``rgb`` as ``[0, 1, 2]`` and as ``[0, 1]`` must not share an entry.
-    ``background`` is in the key so that coverage can be asked of base columns alone: inside
-    one entry every compute ran with the same ``per_background``, so a view's background
-    columns always arrive with its base ones. Which families a policy asks for is not here,
-    because it changes which columns exist, and the cache merges columns on a partial hit.
+    A stats policy does not participate. Its band groups, background and families each add
+    columns to the same rows, so one entry grows to hold every policy asked of a dataset. A
+    group's columns are checked against the definition recorded beside them instead (see
+    :func:`missing_views`): ``rgb`` as ``[0, 1, 2]`` and as ``[0, 1]`` share an entry, and
+    the second replaces the first's columns rather than reading them.
     """
     parts: list[str] = []
     if per_image:
@@ -567,42 +565,56 @@ def scope_key(
     key = "+".join(parts) or "none"
     if value_range is not None:
         key = f"{key}_vr{value_range[0]:g}-{value_range[1]:g}"
-    fragment = stats_policy.scope_fragment() if stats_policy is not None else ""
-    if fragment:
-        key = f"{key}_st{_config_hash(fragment)}"
     return key
 
 
 def missing_views(
     cached_metrics: set[str],
-    request: "Mapping[str | None, ImageStats]",
+    cached_groups: "Mapping[str, Any]",
+    policy: "ResolvedStatsPolicy",
 ) -> dict[str | None, ImageStats]:
-    """Return the part of *request* the cache does not already hold, per view.
+    """Return the part of *policy*'s request the cache does not already hold, per view.
 
     Coverage is checked per ``(view, metric)``: ``rgb_brightness`` and ``brightness``
-    are different columns, and an entry holding one answers nothing about the other.
+    are different columns, and an entry holding one answers nothing about the other. Under
+    ``background``, a view's ``background_`` column is checked as well.
 
-    Only base columns are checked. ``background`` is in the scope key, so within one entry
-    every compute used the same ``per_background`` and a view's background columns arrived
-    with its base ones.
+    A band group's columns count only while *cached_groups*, the definitions the entry
+    recorded for them, matches the policy's: a group whose bands or range changed is
+    missing whole. Only what a view can carry is checked — a band group has no geometry
+    and the background no hashes, so asking for those names a column never produced.
 
     Returns a mapping in the shape ``compute_stats`` takes, naming only uncovered views, so
     a partial recomputation asks for exactly what is missing.
     """
+    from dataeval_flow._stats import measurable_in
+
+    records = policy.group_records()
     uncovered: dict[str | None, ImageStats] = {}
-    for view, desired in request.items():
+    for view, desired in policy.request.items():
+        if view is not None and cached_groups.get(view) != records[view]:
+            uncovered[view] = desired
+            continue
+        background = ("background" if view is None else f"background_{view}") if policy.background else None
         missing = ImageStats.NONE
         # Iterating a flag yields only its atomic members, the ones that name a column.
-        for flag in desired:
+        for flag in measurable_in(view, desired):
             metric = FLAG_TO_METRIC.get(flag)
             if metric is None:
                 continue
-            column = metric if view is None else f"{view}_{metric}"
-            if column not in cached_metrics:
+            columns = [metric if view is None else f"{view}_{metric}"]
+            if background is not None and measurable_in(background, flag):
+                columns.append(f"{background}_{metric}")
+            if any(column not in cached_metrics for column in columns):
                 missing |= flag
         if missing:
             uncovered[view] = missing
     return uncovered
+
+
+def _group_columns(group: str) -> set[str]:
+    """Every column band group *group* can own, background included."""
+    return {f"{prefix}_{metric}" for prefix in (group, f"background_{group}") for metric in METRIC_TO_FLAG}
 
 
 # ---------------------------------------------------------------------------
@@ -701,24 +713,30 @@ def get_or_compute_stats(
     Uses the :func:`active_cache` context when set, otherwise computes directly without any
     caching.
     """
+    from dataeval_flow._stats import restrict_columns
+
     ctx = _active_cache.get()
     if ctx is not None:
         cache, sel_key = ctx
-        return cache.load_or_compute_stats(
+        result = cache.load_or_compute_stats(
             sel_key,
-            scope_key(per_image, per_target, value_range, policy),
+            scope_key(per_image, per_target, value_range),
             policy,
             dataset,
             per_image=per_image,
             per_target=per_target,
             value_range=value_range,
         )
-    _logger.info("Computing stats (no cache)")
-    # Narrow to the policy's own request, as the cached path does. `compute_stats` requires
-    # the `stats` mapping's keys to be exactly the `channels` names, in both directions — a
-    # policy whose `channels` names a group `measure` does not would otherwise raise here,
-    # working only when a cache hit narrows it away first.
-    return _do_compute_stats(dataset, policy.narrowed_to(policy.request), per_image, per_target, value_range)
+    else:
+        _logger.info("Computing stats (no cache)")
+        # Narrow to the policy's own request, as the cached path does. `compute_stats` requires
+        # the `stats` mapping's keys to be exactly the `channels` names, in both directions — a
+        # policy whose `channels` names a group `measure` does not would otherwise raise here,
+        # working only when a cache hit narrows it away first.
+        result = _do_compute_stats(dataset, policy.narrowed_to(policy.request), per_image, per_target, value_range)
+    # A cache entry holds every policy asked of the dataset, other groups and the background
+    # included: hand back only this one's columns.
+    return restrict_columns(result, policy.columns())
 
 
 def get_or_compute_metadata(
@@ -1544,6 +1562,7 @@ class DatasetCache:
                 stats=stats,
             )
             self._mem_set(selection_repr, obj_key, result)
+            self._mem_set(selection_repr, f"{obj_key}_groups", aux.get("groups", {}))
             return result
         except Exception:
             _logger.warning(
@@ -1555,19 +1574,43 @@ class DatasetCache:
             )
             return None
 
+    def load_stats_groups(self, selection_repr: str, scope: str) -> dict[str, Any]:
+        """The band group definitions the cached entry's group columns were computed under.
+
+        Empty where nothing is cached, and for an entry written before groups were recorded,
+        whose group columns, if it had any, then read as stale rather than as current.
+        """
+        obj_key = f"stats_{_config_hash(scope)}_groups"
+        cached = self._mem_get(selection_repr, obj_key)
+        if cached is not None:
+            return cached
+        _, json_path = self._stats_paths(selection_repr, scope)
+        if json_path is None or not json_path.exists():
+            return {}
+        try:
+            groups = json.loads(json_path.read_text(encoding="utf-8")).get("groups", {})
+        except Exception:  # noqa: BLE001 - an unreadable record makes every group stale, which recomputes them
+            return {}
+        self._mem_set(selection_repr, obj_key, groups)
+        return groups
+
     def save_stats(
         self,
         selection_repr: str,
         scope: str,
         stats: dict[str, Any],
+        groups: "Mapping[str, Any] | None" = None,
     ) -> None:
         """Persist ``StatsResult`` to cache (no-op on disk when not disk-backed).
 
         Handles scalar arrays, object-dtype hash strings, and 2D arrays
-        (histogram, percentiles, center) via Polars list columns.
+        (histogram, percentiles, center) via Polars list columns. *groups* records the
+        definition each band group's columns were computed under, as
+        :meth:`ResolvedStatsPolicy.group_records` gives it.
         """
         obj_key = f"stats_{_config_hash(scope)}"
         self._mem_set(selection_repr, obj_key, stats)
+        self._mem_set(selection_repr, f"{obj_key}_groups", dict(groups or {}))
 
         pq_path, json_path = self._stats_paths(selection_repr, scope)
         if pq_path is None or json_path is None:
@@ -1591,6 +1634,7 @@ class DatasetCache:
             "object_count": [int(v) for v in stats["object_count"]],
             "invalid_box_count": [int(v) for v in stats["invalid_box_count"]],
             "image_count": int(stats["image_count"]),
+            "groups": dict(groups or {}),
         }
         _atomic_write_pair(
             pq_path,
@@ -1639,8 +1683,9 @@ class DatasetCache:
             requested metrics.
         """
         cached = self.load_stats(selection_repr, scope)
+        cached_groups = self.load_stats_groups(selection_repr, scope) if cached is not None else {}
         if cached is not None:
-            to_compute = missing_views(set(cached["stats"].keys()), policy.request)
+            to_compute = missing_views(set(cached["stats"].keys()), cached_groups, policy)
         else:
             to_compute = policy.request
 
@@ -1655,15 +1700,21 @@ class DatasetCache:
             )
 
         # Compute the missing stats
-        fresh = _do_compute_stats(dataset, policy.narrowed_to(to_compute), per_image, per_target, value_range)
+        narrowed = policy.narrowed_to(to_compute)
+        fresh = _do_compute_stats(dataset, narrowed, per_image, per_target, value_range)
 
         if cached is None:
-            self.save_stats(selection_repr, scope, dict(fresh))
+            self.save_stats(selection_repr, scope, dict(fresh), narrowed.group_records())
             return fresh
 
-        # Merge: cached structural fields + merged stats dict
-        merged_stats = dict(cached["stats"])
+        # Merge: cached structural fields + merged stats dict. A group recomputed under a
+        # different definition drops its old columns first, so none survive that the new
+        # definition did not produce.
+        redefined = [name for name, record in narrowed.group_records().items() if cached_groups.get(name) != record]
+        stale = set().union(*(_group_columns(name) for name in redefined))
+        merged_stats = {name: array for name, array in cached["stats"].items() if name not in stale}
         merged_stats.update(fresh["stats"])
+        merged_groups = {**cached_groups, **narrowed.group_records()}
 
         merged = StatsResult(
             source_index=cached["source_index"],
@@ -1673,5 +1724,5 @@ class DatasetCache:
             stats=merged_stats,
         )
 
-        self.save_stats(selection_repr, scope, dict(merged))
+        self.save_stats(selection_repr, scope, dict(merged), merged_groups)
         return merged

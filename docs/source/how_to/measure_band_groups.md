@@ -20,6 +20,18 @@ datasets:
 A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed whole-image ones — `rgb_brightness`
 beside `brightness`. Write one band as a bare index (`ir: 3`) or several as a list (`rgb: [0, 1, 2]`).
 
+A group reads its values against the dataset's `value_range`. A band holding physical units — a temperature, an
+elevation, a reflectance — beside ordinary imagery declares its own instead:
+
+```yaml
+    channel_groups:
+      rgb: [0, 1, 2]
+      thermal: {bands: 3, value_range: [-40.0, 120.0]}
+```
+
+Without it, `thermal`'s visual statistics read a Celsius value as if it were a pixel intensity, and saturate or
+answer NaN.
+
 Declare it on the dataset: that channel 3 is infrared is a fact about the sensor. Every workflow reading m3fd then
 sees the same groups. `value_range` and an ontology belong on the dataset for the same reason — see
 {doc}`configure_metadata_binning` and

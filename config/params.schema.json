@@ -671,6 +671,48 @@
         }
       ]
     },
+    "ChannelGroupConfig": {
+      "additionalProperties": false,
+      "description": "A band group whose values are read against their own range rather than the dataset's.\n\nYAML example::\n\n    channel_groups:\n      rgb: [0, 1, 2]\n      thermal: {bands: 3, value_range: [-40.0, 120.0]}",
+      "properties": {
+        "bands": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "The group's bands, as an index or a list of indices.",
+          "title": "Bands"
+        },
+        "value_range": {
+          "description": "Interval this group's values occupy, as (low, high). Declare it for bands holding physical units, such as temperature or elevation, beside ordinary imagery: without it they are read against the dataset's `value_range` and their visual statistics answer NaN or saturate.",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Value Range",
+          "type": "array"
+        }
+      },
+      "required": [
+        "bands",
+        "value_range"
+      ],
+      "title": "ChannelGroupConfig",
+      "type": "object"
+    },
     "CheckStep_class-coverage": {
       "additionalProperties": false,
       "properties": {
@@ -3438,6 +3480,9 @@
                       "type": "integer"
                     },
                     "type": "array"
+                  },
+                  {
+                    "$ref": "#/$defs/ChannelGroupConfig"
                   }
                 ]
               },
@@ -3448,7 +3493,7 @@
             }
           ],
           "default": null,
-          "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
+          "description": "Named groups of bands measured separately, as `name: index`, `name: [indices]`, or `name: {bands: ..., value_range: [low, high]}` for a group read against its own range. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
           "title": "Channel Groups"
         },
         "provenance": {
@@ -4398,6 +4443,9 @@
                       "type": "integer"
                     },
                     "type": "array"
+                  },
+                  {
+                    "$ref": "#/$defs/ChannelGroupConfig"
                   }
                 ]
               },
@@ -4408,7 +4456,7 @@
             }
           ],
           "default": null,
-          "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
+          "description": "Named groups of bands measured separately, as `name: index`, `name: [indices]`, or `name: {bands: ..., value_range: [low, high]}` for a group read against its own range. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
           "title": "Channel Groups"
         },
         "provenance": {
@@ -6419,6 +6467,9 @@
                       "type": "integer"
                     },
                     "type": "array"
+                  },
+                  {
+                    "$ref": "#/$defs/ChannelGroupConfig"
                   }
                 ]
               },
@@ -6429,7 +6480,7 @@
             }
           ],
           "default": null,
-          "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
+          "description": "Named groups of bands measured separately, as `name: index`, `name: [indices]`, or `name: {bands: ..., value_range: [low, high]}` for a group read against its own range. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
           "title": "Channel Groups"
         },
         "provenance": {
@@ -6587,6 +6638,9 @@
                       "type": "integer"
                     },
                     "type": "array"
+                  },
+                  {
+                    "$ref": "#/$defs/ChannelGroupConfig"
                   }
                 ]
               },
@@ -6597,7 +6651,7 @@
             }
           ],
           "default": null,
-          "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
+          "description": "Named groups of bands measured separately, as `name: index`, `name: [indices]`, or `name: {bands: ..., value_range: [low, high]}` for a group read against its own range. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
           "title": "Channel Groups"
         },
         "provenance": {
@@ -12653,6 +12707,9 @@
                       "type": "integer"
                     },
                     "type": "array"
+                  },
+                  {
+                    "$ref": "#/$defs/ChannelGroupConfig"
                   }
                 ]
               },
@@ -12663,7 +12720,7 @@
             }
           ],
           "default": null,
-          "description": "Named groups of bands measured separately, as `name: index` or `name: [indices]`. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
+          "description": "Named groups of bands measured separately, as `name: index`, `name: [indices]`, or `name: {bands: ..., value_range: [low, high]}` for a group read against its own range. That channel 3 is infrared is a fact about the sensor, so declare it here and every workflow reading this dataset sees the same one. A group becomes a set of `<name>_<statistic>` columns alongside the unprefixed ones. Reference the groups from a `stats:` policy's `measure` to decide which statistics each one gets. Leave unset for single-band or undifferentiated imagery.",
           "title": "Channel Groups"
         },
         "provenance": {

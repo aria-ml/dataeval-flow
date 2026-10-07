@@ -13,6 +13,7 @@ from typing import Annotated
 from pydantic import Field
 
 from dataeval_flow.config._schemas._dataset import (
+    ChannelGroupConfig,
     CocoDatasetConfig,
     DatasetProtocolConfig,
     DemoDatasetConfig,
@@ -50,6 +51,7 @@ DatasetConfig = Annotated[
 
 __all__ = [
     # Dataset
+    "ChannelGroupConfig",
     "CocoDatasetConfig",
     "DatasetConfig",
     "DatasetProtocolConfig",

@@ -1353,6 +1353,20 @@ class TestChannelGroups:
         with pytest.raises(ValidationError, match="negative"):
             CocoDatasetConfig(name="d", path="d", channel_groups={"rgb": [0, -1]})
 
+    def test_accepts_a_group_with_its_own_range(self):
+        from dataeval_flow.config import ChannelGroupConfig
+
+        cfg = CocoDatasetConfig(name="d", path="d", channel_groups={"thermal": {"bands": 3, "value_range": [-40, 120]}})  # type: ignore[arg-type]
+        assert cfg.channel_groups == {"thermal": ChannelGroupConfig(bands=3, value_range=(-40.0, 120.0))}
+
+    def test_refuses_a_range_that_is_not_low_then_high(self):
+        with pytest.raises(ValidationError, match="low < high"):
+            CocoDatasetConfig(name="d", path="d", channel_groups={"t": {"bands": 3, "value_range": [5, 5]}})  # type: ignore[arg-type]
+
+    def test_checks_the_bands_of_a_ranged_group(self):
+        with pytest.raises(ValidationError, match="negative"):
+            CocoDatasetConfig(name="d", path="d", channel_groups={"t": {"bands": [-1], "value_range": [0, 1]}})  # type: ignore[arg-type]
+
 
 @pytest.mark.required
 class TestStatsPolicyConfig:

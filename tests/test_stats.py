@@ -1,8 +1,11 @@
 """The stats policy: resolution, the view namespace, and the column filter."""
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 from dataeval.flags import ImageStats
+from dataeval.utils.preprocessing import ChannelGroup
 
 from dataeval_flow._stats import (
     ResolvedStatsPolicy,
@@ -18,7 +21,7 @@ from dataeval_flow._stats import (
 def _policy(**kwargs):
     base = {
         "measure": ((None, ImageStats.VISUAL | ImageStats.HASH), ("ir", ImageStats.PIXEL)),
-        "channels": (("ir", (3,)),),
+        "channels": (("ir", ((3,), None)),),
     }
     return ResolvedStatsPolicy(**{**base, **kwargs})
 
@@ -110,23 +113,35 @@ class TestResolvedStatsPolicy:
         assert ResolvedStatsPolicy.of_flags(ImageStats.VISUAL).channel_map is None
 
     def test_channel_map_holds_the_selected_groups(self):
-        assert _policy().channel_map == {"ir": [3]}
+        assert _policy().channel_map == {"ir": ChannelGroup([3])}
 
-    def test_scope_fragment_is_empty_for_a_plain_policy(self):
-        assert ResolvedStatsPolicy.of_flags(ImageStats.VISUAL).scope_fragment() == ""
+    def test_channel_map_carries_a_groups_own_range(self):
+        policy = _policy(channels=(("ir", ((3,), (-40.0, 120.0))),))
+        assert policy.channel_map == {"ir": ChannelGroup([3], value_range=(-40.0, 120.0))}
 
-    def test_scope_fragment_separates_two_definitions_of_one_name(self):
-        a = _policy(channels=(("ir", (3,)),))
-        b = _policy(channels=(("ir", (2,)),))
-        assert a.scope_fragment() != b.scope_fragment()
+    def test_group_records_are_empty_for_a_plain_policy(self):
+        assert ResolvedStatsPolicy.of_flags(ImageStats.VISUAL).group_records() == {}
 
-    def test_scope_fragment_separates_background_from_none(self):
-        assert _policy(background=True).scope_fragment() != _policy(background=False).scope_fragment()
+    def test_group_records_tell_two_definitions_of_one_name_apart(self):
+        plain = _policy().group_records()
+        other_bands = _policy(channels=(("ir", ((2,), None)),)).group_records()
+        own_range = _policy(channels=(("ir", ((3,), (0.0, 1.0))),)).group_records()
+        assert plain != other_bands
+        assert plain != own_range
 
-    def test_scope_fragment_ignores_the_consumer_view_sets(self):
-        a = _policy(outliers_from=(None,), factors_from=(None,))
-        b = _policy(outliers_from=(None, "ir"), factors_from=())
-        assert a.scope_fragment() == b.scope_fragment()
+    def test_columns_add_the_background_views_only_under_background(self):
+        policy = _policy(
+            measure=((None, ImageStats.VISUAL_BRIGHTNESS), ("ir", ImageStats.PIXEL_MEAN | ImageStats.HASH_XXHASH))
+        )
+        assert policy.columns() == {"brightness", "ir_mean", "ir_xxhash"}
+        assert replace(policy, background=True).columns() == {
+            "brightness",
+            "ir_mean",
+            "ir_xxhash",
+            "background_brightness",
+            "background_ir_mean",
+            "background_fraction",
+        }
 
     def test_factor_identity_ignores_outliers_from(self):
         a = _policy(outliers_from=(None,))
@@ -151,16 +166,16 @@ class TestNarrowedTo:
     """Narrowing a request narrows the bands to match, so `compute_stats` never sees a mismatch."""
 
     def test_narrowing_to_the_bare_view_drops_every_group(self):
-        policy = _policy(channels=(("ir", (3,)),))
+        policy = _policy(channels=(("ir", ((3,), None)),))
         narrowed = policy.narrowed_to({None: ImageStats.VISUAL})
         assert narrowed.request == {None: ImageStats.VISUAL}
         assert narrowed.channel_map is None
 
     def test_narrowing_to_a_group_alone_keeps_only_that_group(self):
-        policy = _policy(channels=(("ir", (3,)), ("rgb", (0, 1, 2))))
+        policy = _policy(channels=(("ir", ((3,), None)), ("rgb", ((0, 1, 2), None))))
         narrowed = policy.narrowed_to({"ir": ImageStats.PIXEL_MEAN})
         assert narrowed.request == {"ir": ImageStats.PIXEL_MEAN}
-        assert narrowed.channel_map == {"ir": [3]}
+        assert narrowed.channel_map == {"ir": ChannelGroup([3])}
 
     def test_background_and_consumer_view_sets_are_carried_through(self):
         policy = _policy(background=True, outliers_from=(None, "ir"), factors_from=("ir",))
@@ -199,16 +214,16 @@ class TestResolveStatsPolicy:
         config = self._config(
             measure=[{"bands": None, "families": ["visual", "hash"]}, {"bands": "ir", "families": ["pixel"]}]
         )
-        policy = resolve_stats_policy(self._params("p"), config, {"rgb": (0, 1, 2), "ir": (3,)})
+        policy = resolve_stats_policy(self._params("p"), config, {"rgb": ((0, 1, 2), None), "ir": ((3,), None)})
         assert policy is not None
-        assert policy.channel_map == {"ir": [3]}
+        assert policy.channel_map == {"ir": ChannelGroup([3])}
 
     def test_refuses_a_group_the_dataset_does_not_declare(self):
         config = self._config(
             measure=[{"bands": None, "families": ["visual", "hash"]}, {"bands": "swir", "families": ["pixel"]}]
         )
         with pytest.raises(ValueError, match="does not declare a channel group 'swir'"):
-            resolve_stats_policy(self._params("p"), config, {"ir": (3,)})
+            resolve_stats_policy(self._params("p"), config, {"ir": ((3,), None)})
 
     def test_refuses_a_name_that_is_not_in_the_pool(self):
         with pytest.raises(ValueError, match="stats policy"):

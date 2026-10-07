@@ -57,7 +57,10 @@ Four artifact types, each the expensive part of some workflow:
 
 Statistics accumulate incrementally. Two workflows that request different `ImageStats` flags share one cache entry and
 only the missing metrics are computed — so adding `visual` to a run that already computed `dimension` and `pixel` pays
-for `visual` alone.
+for `visual` alone. The same holds for {doc}`band groups and the background <measure_band_groups>`: a policy adding
+an `ir` group or `background: true` to a dataset already measured computes the `ir_*` or `background_*` columns alone.
+The entry records the bands and range each group's columns were measured over, and a group whose definition changed is
+measured again, replacing its old columns.
 
 ## What invalidates it
 
@@ -67,7 +70,8 @@ The cache is keyed on the things that would change the answer, so a hit means th
 - **The view** — a hash of the {term}`view <View>` applied to it, so the same dataset under two views keeps two
   separate entries.
 - **The artifact configuration** — for embeddings, the extractor's model, parameters, preprocessor, and the content
-  hash of the model file itself; for statistics, the set of metrics requested. An extractor that fits itself to the
+  hash of the model file itself; for statistics, whether images or targets are measured and the dataset's
+  `value_range`. An extractor that fits itself to the
   data, such as BoVW, is fitted once per task on the first source to ask. Its embeddings, and the clusters built
   from them, are keyed by that source, the batch size that picked its fitting images, and the `seed` it was fitted
   under. They are only reused under the same vocabulary. Without a `seed` each fit learns a different vocabulary,

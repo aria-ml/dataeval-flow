@@ -125,7 +125,7 @@ class TestOutlierColumnsAreDeclared:
         """Asserts on `restrict_columns` directly — the column filter, not a workflow."""
         policy = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("ir", ImageStats.PIXEL)),
-            channels=(("ir", (3,)),),
+            channels=(("ir", ((3,), None)),),
             outliers_from=(None,),
         )
         result = _in_fresh_cache(lambda: get_or_compute_stats(policy, dataset=toy_multiband_dataset, per_target=False))
@@ -324,7 +324,7 @@ class TestFactorColumnsAreDeclared:
 
         stats = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("ir", ImageStats.VISUAL)),
-            channels=(("ir", (3,)),),
+            channels=(("ir", ((3,), None)),),
             factors_from=(None,),
         )
         policy = ResolvedPolicy(intrinsic_factors=("visual",), stats=stats)
@@ -336,7 +336,7 @@ class TestFactorColumnsAreDeclared:
 
         stats = ResolvedStatsPolicy(
             measure=((None, ImageStats.VISUAL), ("ir", ImageStats.VISUAL)),
-            channels=(("ir", (3,)),),
+            channels=(("ir", ((3,), None)),),
             factors_from=(None, "ir"),
         )
         policy = ResolvedPolicy(intrinsic_factors=("visual",), stats=stats)

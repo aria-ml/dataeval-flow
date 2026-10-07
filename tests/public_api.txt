@@ -20,6 +20,7 @@ dataeval_flow:run_task
 dataeval_flow:run_tasks
 dataeval_flow:set_device
 dataeval_flow.config:AggregatorConfig
+dataeval_flow.config:ChannelGroupConfig
 dataeval_flow.config:CocoDatasetConfig
 dataeval_flow.config:DatasetConfig
 dataeval_flow.config:DatasetProtocolConfig

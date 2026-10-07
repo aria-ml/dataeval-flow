@@ -2,11 +2,54 @@
 
 from collections.abc import Mapping, Sequence
 from datetime import date
-from typing import Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from dataeval_flow.config._paths import validate_config_path
+
+if TYPE_CHECKING:
+    from dataeval_flow._stats import BandGroup
+
+
+class ChannelGroupConfig(BaseModel):
+    """A band group whose values are read against their own range rather than the dataset's.
+
+    YAML example::
+
+        channel_groups:
+          rgb: [0, 1, 2]
+          thermal: {bands: 3, value_range: [-40.0, 120.0]}
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    bands: int | Sequence[int] = Field(description="The group's bands, as an index or a list of indices.")
+    value_range: tuple[float, float] = Field(
+        description=(
+            "Interval this group's values occupy, as (low, high). Declare it for bands holding physical units, "
+            "such as temperature or elevation, beside ordinary imagery: without it they are read against the "
+            "dataset's `value_range` and their visual statistics answer NaN or saturate."
+        ),
+    )
+
+    @field_validator("value_range")
+    @classmethod
+    def _range_is_ordered(cls, value: tuple[float, float]) -> tuple[float, float]:
+        if not value[0] < value[1]:
+            raise ValueError(f"A channel group's `value_range` must be (low, high) with low < high, not {value}.")
+        return value
+
+    def indices(self) -> tuple[int, ...]:
+        """The group's bands as a tuple."""
+        return (self.bands,) if isinstance(self.bands, int) else tuple(self.bands)
+
+
+def band_group(declared: "int | Sequence[int] | ChannelGroupConfig") -> "BandGroup":
+    """One `channel_groups` value, however it is spelled, as its bands and its own range."""
+    if isinstance(declared, ChannelGroupConfig):
+        return declared.indices(), declared.value_range
+    return ((declared,) if isinstance(declared, int) else tuple(declared)), None
 
 
 class _DatasetConfigBase(BaseModel):
@@ -34,11 +77,12 @@ class _DatasetConfigBase(BaseModel):
             "imagery."
         ),
     )
-    channel_groups: Mapping[str, int | Sequence[int]] | None = Field(
+    channel_groups: Mapping[str, int | Sequence[int] | ChannelGroupConfig] | None = Field(
         default=None,
         description=(
-            "Named groups of bands measured separately, as `name: index` or "
-            "`name: [indices]`. That channel 3 is infrared is a fact about the sensor, so "
+            "Named groups of bands measured separately, as `name: index`, "
+            "`name: [indices]`, or `name: {bands: ..., value_range: [low, high]}` for a group "
+            "read against its own range. That channel 3 is infrared is a fact about the sensor, so "
             "declare it here and every workflow reading this dataset sees the same one. "
             "A group becomes a set of `<name>_<statistic>` columns alongside the "
             "unprefixed ones. Reference the groups from a `stats:` policy's `measure` to "
@@ -65,8 +109,8 @@ class _DatasetConfigBase(BaseModel):
     @field_validator("channel_groups")
     @classmethod
     def _groups_are_usable(
-        cls, value: "Mapping[str, int | Sequence[int]] | None"
-    ) -> "Mapping[str, int | Sequence[int]] | None":
+        cls, value: "Mapping[str, int | Sequence[int] | ChannelGroupConfig] | None"
+    ) -> "Mapping[str, int | Sequence[int] | ChannelGroupConfig] | None":
         """Refuse a group name or band list that cannot produce a column.
 
         Check here rather than at the stats call: a collision surfaces as a silently
@@ -89,7 +133,7 @@ class _DatasetConfigBase(BaseModel):
                     "its columns are named `<group>_<statistic>` and would be "
                     "indistinguishable. Rename the group.",
                 )
-            indices = [bands] if isinstance(bands, int) else list(bands)
+            indices = band_group(bands)[0]
             if not indices:
                 raise ValueError(f"Channel group {name!r} names no bands. Give it an index or a list of indices.")
             if any(index < 0 for index in indices):

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from dataeval_flow._cache import DatasetCache
     from dataeval_flow._policy import ResolvedPolicy
     from dataeval_flow._predictions import Predictions
-    from dataeval_flow._stats import ResolvedStatsPolicy
+    from dataeval_flow._stats import BandGroup, ResolvedStatsPolicy
     from dataeval_flow.config._schemas import ViewOperation
     from dataeval_flow.config.extractors._base import ExtractorConfig
 
@@ -59,7 +59,7 @@ class DatasetContext:
     provenance."""
     value_range: "tuple[float, float] | None" = None
     """The interval the dataset's imagery occupies, as its dataset config declares it, or ``None``."""
-    channel_groups: "Mapping[str, tuple[int, ...]] | None" = None
+    channel_groups: "Mapping[str, BandGroup] | None" = None
     """Named band groups this dataset declares, taken from the dataset config.
 
     Read by the stats policy, which selects the groups it measures from these.

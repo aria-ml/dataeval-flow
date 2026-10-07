@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from dataeval_flow.steps._port import DataType
 
 if TYPE_CHECKING:
+    from dataeval_flow._stats import BandGroup
     from dataeval_flow.workflows._context import DatasetContext
 
 
@@ -19,7 +20,7 @@ class Root:
     source: str
     cache_name: str
     value_range: tuple[float, float] | None = None
-    channel_groups: Mapping[str, tuple[int, ...]] | None = None
+    channel_groups: "Mapping[str, BandGroup] | None" = None
     label_source: str | Sequence[str] | None = None
 
 
