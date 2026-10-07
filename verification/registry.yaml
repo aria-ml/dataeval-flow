@@ -46,6 +46,9 @@ aliases:
   log: verification/nonfunctional/test_logging.py::TestLogging
   dsetload: verification/functional/dataset/test_dataset_configs.py::TestLoadDataset
   optx: verification/functional/install/test_pip_install.py::TestOptionalExtras
+  clirun: verification/functional/cli/test_cli_headless.py::TestHeadlessCLI
+  cuda: verification/nonfunctional/compatibility/test_cuda_fallback.py::TestCudaFallback
+  maxp: verification/nonfunctional/performance/test_max_processes.py::TestMaxProcesses
 requirements:
 - id: FR-1
   name: Installation & Optional Extras
@@ -686,7 +689,7 @@ test_cases:
   - do: Cache the same content for two different sources.
     expect: The entries are separate.
     tests:
-    - 'NEW: cache entries isolated per source'
+    - cache::test_cache_entries_are_isolated_per_source
 - id: 15-1
   req: FR-15
   name: Command-Line Interface
@@ -710,11 +713,11 @@ test_cases:
   - do: Run the headless pipeline end to end with flags.
     expect: Result files are written to the output directory and the exit code is 0.
     tests:
-    - 'NEW: headless run end to end with flags'
+    - clirun::test_headless_run_with_flags_writes_results
   - do: Run it again with the same options set as `DATAEVAL_*` variables, and with a conflicting flag.
     expect: The variables configure the run and the flag takes precedence.
     tests:
-    - 'NEW: DATAEVAL_* variables configure the run and flags win'
+    - clirun::test_environment_variables_configure_the_run_and_flags_win
   - do: Run a pipeline that produces a warning with `--fail-on-warning`.
     expect: The exit code is non-zero.
     tests:
@@ -878,13 +881,13 @@ test_cases:
   - do: Run the same task alone and after other tasks.
     expect: The result does not depend on which tasks ran before it.
     tests:
-    - 'NEW: seed applied per task, independent of task order'
+    - seed::test_seed_is_applied_per_task_independent_of_task_order
   - do: Check the module loggers and root logger.
     expect: Module loggers are standard loggers, and importing the package adds no root handler.
     tests:
     - log::test_logging_module_exports_setup
     - log::test_module_logger_is_logging_logger
-    - 'NEW: importing dataeval_flow attaches no root handler'
+    - log::test_importing_the_package_attaches_no_root_handler
   - do: Run the CLI with each `--log-format`.
     expect: Records carry the UTC timestamp and level in the selected format.
     tests:
@@ -913,7 +916,9 @@ test_cases:
   - do: Run a pipeline with `max_processes` set in the config, by flag, and by environment variable.
     expect: Each setting reaches DataEval's `set_max_processes` for every task and appears in `resolved_config`.
     tests:
-    - 'NEW: max_processes lever (config, flag, DATAEVAL_MAX_PROCESSES) applied per task and recorded'
+    - maxp::test_config_field_reaches_dataeval_for_every_task_and_is_recorded
+    - maxp::test_flag_and_variable_reach_dataeval_for_every_task_and_are_recorded
+    - maxp::test_flag_overrides_the_config_field
   - do: Run `data-analysis` on 4,000 images of 224x224 pixels at 1 process and at 4 processes.
     expect: Both times are recorded. The development-machine baseline was 0.45 times the single-process time at
       4 processes; the result is reported, not gated, because the benefit varies by platform.
@@ -923,7 +928,7 @@ test_cases:
     expect: Each completes within its budget. Development-machine baselines are 6.1 s and 11.8 s, so the budgets
       are about 12 s and 24 s until they are re-measured on the runner.
     tests:
-    - 'NEW: reference-pipeline timing against recorded budgets'
+    - scale::test_reference_pipeline_completes_within_budget
 - id: 26-1
   req: NFR-6
   name: Error Handling
@@ -936,11 +941,13 @@ test_cases:
     expect: Each prints a clear error and exits non-zero.
     tests:
     - cfg::test_invalid_config_raises_validation_error
-    - 'NEW: CLI errors and exit codes for missing config, missing data, and invalid config'
+    - clirun::test_missing_config_reports_an_error_and_exits_nonzero
+    - clirun::test_missing_data_directory_reports_an_error_and_exits_nonzero
+    - clirun::test_invalid_config_reports_an_error_and_exits_nonzero
   - do: Run a pipeline in which one task fails.
     expect: The failure is in that task's result, the other tasks run, and the exit code is non-zero.
     tests:
-    - 'NEW: failing task sets a non-zero exit code after remaining tasks run'
+    - clirun::test_failing_task_sets_nonzero_exit_after_remaining_tasks_run
   - do: Request an unknown workflow name.
     expect: An error names the workflow.
     tests:

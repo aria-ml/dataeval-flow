@@ -256,6 +256,7 @@ addopts = [
 markers = [
     "required: marks tests for required functionality [TR-4-H-3]",
     "optional: marks tests for optional functionality [TR-4-H-4]",
+    "performance: timing, memory, and scale measurements (deselect with -m 'not performance')",
 ]
 
 # --- Coverage ---

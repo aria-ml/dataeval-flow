@@ -105,3 +105,35 @@ class TestSeedConfiguration:
         assert first.success
         assert second.success
         assert first.data.raw.model_dump(mode="json") == second.data.raw.model_dump(mode="json")
+
+    def test_seed_is_applied_per_task_independent_of_task_order(
+        self,
+        image_folder_pipeline_builder: Callable[..., tuple[PipelineConfig, Path]],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A task gives the same result alone as after other tasks, because the seed is reapplied for each one."""
+        import dataeval.config
+
+        cfg, data_dir = _seeded_cleaning_pipeline(image_folder_pipeline_builder, seed=5)
+        (first_task,) = cfg.tasks or []
+        cfg = cfg.model_copy(update={"tasks": [first_task, first_task.model_copy(update={"name": "clean_task_b"})]})
+
+        seeds: list[int | None] = []
+        real_set_seed = dataeval.config.set_seed
+
+        def spy(seed: int | None, *args: object, **kwargs: object) -> None:
+            seeds.append(seed)
+            real_set_seed(seed, *args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(dataeval.config, "set_seed", spy)
+
+        alone = run_tasks(cfg, "clean_task_b", data_dir=data_dir)[0]
+        assert seeds == [5]
+
+        seeds.clear()
+        after_other = run_tasks(cfg, data_dir=data_dir)[1]
+        assert seeds == [5, 5]  # once per task, not once per pipeline
+
+        assert alone.success
+        assert after_other.success
+        assert alone.data.raw.model_dump(mode="json") == after_other.data.raw.model_dump(mode="json")
