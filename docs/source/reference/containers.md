@@ -198,8 +198,8 @@ Defaults for the top-level inputs are listed in the tables above. Within a
 config, notable defaults include: `--config` auto-discovers and merges root-level
 YAML/JSON; ONNX extractors default `flatten: true`; BoVW defaults
 `vocab_size: 2048`. Each evaluator workflow carries its own defaults; see the
-generated [API Reference](autoapi/dataeval_flow/index) for the full field-level
-defaults of every config model.
+{ref}`Config Reference <config-reference>` for every key's type and default, or the
+generated [API Reference](autoapi/dataeval_flow/index) for the config models.
 
 ## Dependencies between configuration parameters
 

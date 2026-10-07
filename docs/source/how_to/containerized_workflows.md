@@ -481,7 +481,8 @@ tasks:
 ```{tip}
 The repository includes annotated example configs at `config/params.example.yaml`
 and `config/params.multi-dataset.example.yaml`. A JSON Schema is available at
-`config/params.schema.json` for IDE autocompletion.
+`config/params.schema.json` for IDE autocompletion, and the
+{ref}`Config Reference <config-reference>` lists every key it takes.
 ```
 
 (run-the-container)=

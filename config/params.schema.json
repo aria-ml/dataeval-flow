@@ -11299,7 +11299,7 @@
     },
     "TaskConfig": {
       "additionalProperties": false,
-      "description": "Task/workflow configuration schema.\n\nTasks reference sources (dataset+selection bundles) and an optional\nextractor (model+preprocessor+batch_size bundle) by name.\n\nA config file names what a task runs under ``workflow:`` or ``evaluator:``, so the\nfile says which kind of task it is. Loaded, either lands in ``workflow``, and ``kind``\nrecords which key the file used. Running a task reads ``kind`` only to look the name\nup in ``workflows:`` or ``evaluators:``; saved, the task is written back under its key.",
+      "description": "One run: a workflow or an evaluator, on named sources, with an optional extractor.\n\nA task names what it runs under ``workflow:`` or ``evaluator:``, by its name in ``workflows:`` or\n``evaluators:``, and the sources it reads, and the extractor where it needs one, by their names in ``sources:``\nand ``extractors:``.\n\nYAML example::\n\n    tasks:\n      - name: check_splits\n        workflow: split_audit\n        sources: [train, test]\n        extractor: bovw_ext\n      - name: find_outliers\n        evaluator: outliers\n        sources: train",
       "oneOf": [
         {
           "required": [

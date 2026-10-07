@@ -135,3 +135,8 @@ div.cell_output .output pre {
         order: 5;
     }
 }
+
+/* Config Reference tables (docs/build_config_reference.py): a key's name stays on one line. */
+table.config-keys td:first-child code {
+    white-space: nowrap;
+}
