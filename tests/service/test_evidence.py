@@ -157,3 +157,15 @@ def test_a_manifest_still_being_written_reads_as_not_yet_recorded(data_root, tmp
     manifest = tmp_path / "out" / "runs" / run_id / "results" / "manifests" / "digest" / "content-digest.json"
     manifest.write_text(manifest.read_text()[:100])
     assert client.get(f"/v1/runs/{run_id}/items/data/0").json()["status"] == "evidence_unavailable"
+
+
+def test_index_0_of_two_sources_names_each_source_s_own_item(data_root, tmp_path, pipeline, client) -> None:
+    tail = {"name": "tail", "operations": [{"type": "Indices", "params": {"indices": [11, 10]}}]}
+    two = _inspection(pipeline)
+    two["views"] = [tail]
+    two["sources"].append({"name": "tail", "dataset": "fixture", "view": "tail"})
+    two["tasks"].append({"name": "digest-tail", "evaluator": "digest", "sources": "tail"})
+    run_id = _finished(data_root, tmp_path / "out", two)
+    data, tail_item = (client.get(f"/v1/runs/{run_id}/items/{source}/0").json() for source in ("data", "tail"))
+    assert (data["status"], data["root_index"], data["metadata"]["altitude"]) == ("verified", 0, 1.0)
+    assert (tail_item["status"], tail_item["root_index"], tail_item["metadata"]["altitude"]) == ("verified", 11, 12.0)
