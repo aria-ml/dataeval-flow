@@ -500,9 +500,10 @@ class MetadataPolicyConfig(BaseModel):
         default_factory=list,
         description=(
             "Statistic families computed from the imagery and injected as metadata "
-            "factors, so bias analysis can read them: `visual`, `pixel`, `dimension`. "
-            "Named as families rather than individual statistics because that is the "
-            "granularity worth deciding — `visual` and `pixel` are the bias workhorses, "
+            "factors, so bias analysis can read them: `visual`, `pixel`, `dimension`, or a "
+            "sub-group of one such as `visual_basic` or `pixel_basic`. Named as groups "
+            "rather than individual statistics because that is the granularity worth "
+            "deciding — `visual` and `pixel` are the bias workhorses, "
             "`dimension` is meaningful only for variable-size imagery. Hashes are never "
             "injected: they are near-unique per item, so a factor made from one "
             "correlates with everything and describes nothing. Empty means inject "

@@ -1,10 +1,17 @@
 """Metadata convenience builder wrapping DataEval."""
 
-__all__ = ["build_metadata", "expand_declared_bins", "inject_intrinsic_factors", "resolve_families", "stat_names_for"]
+__all__ = [
+    "IMAGE_STAT_GROUPS",
+    "build_metadata",
+    "expand_declared_bins",
+    "inject_intrinsic_factors",
+    "resolve_families",
+    "stat_names_for",
+]
 
 from collections.abc import Iterable, Mapping, Sequence
 from enum import Flag
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from dataeval import Metadata
 from dataeval.flags import ImageStats
@@ -13,55 +20,72 @@ from dataeval.protocols import AnnotatedDataset
 if TYPE_CHECKING:
     from dataeval_flow._policy import ResolvedPolicy
 
-# The only place a dataset modality maps to a statistics enum.  Adding VideoStats is an
-# entry here, not a schema change: the config names families, which both enums share.
-# The family set is explicit rather than derived, because `getattr(ImageStats, name)` also
-# resolves individual statistics (`PIXEL_MEAN`) and the two degenerate wholes
-# (`NONE`, `ALL`) — accepting those would make the config mean something it does not say.
-_STAT_FAMILIES: dict[str, tuple[type[Flag], frozenset[str]]] = {
-    "image": (ImageStats, frozenset({"VISUAL", "PIXEL", "DIMENSION", "HASH"})),
-    # "video": (VideoStats, frozenset({"VISUAL", "PIXEL", "TEMPORAL"})),
+# The names config uses for groups of statistics, each mapped to its flags: the four families
+# and the sub-groups DataEval defines inside them. Explicit rather than derived, because
+# `getattr(ImageStats, name)` also resolves individual statistics (`PIXEL_MEAN`) and the two
+# degenerate wholes (`NONE`, `ALL`) — accepting those would make the config mean something it
+# does not say. The hash sub-groups keep the spelling `duplicates.flags` has always used.
+IMAGE_STAT_GROUPS: dict[str, ImageStats] = {
+    "dimension": ImageStats.DIMENSION,
+    "dimension_basic": ImageStats.DIMENSION_BASIC,
+    "dimension_box": ImageStats.DIMENSION_BOX,
+    "dimension_offset": ImageStats.DIMENSION_OFFSET,
+    "dimension_position": ImageStats.DIMENSION_POSITION,
+    "hash": ImageStats.HASH,
+    "hash_basic": ImageStats.HASH_DUPLICATES_BASIC,
+    "hash_d4": ImageStats.HASH_DUPLICATES_D4,
+    "pixel": ImageStats.PIXEL,
+    "pixel_basic": ImageStats.PIXEL_BASIC,
+    "pixel_distribution": ImageStats.PIXEL_DISTRIBUTION,
+    "visual": ImageStats.VISUAL,
+    "visual_basic": ImageStats.VISUAL_BASIC,
+}
+
+# The only place a dataset modality maps to its statistic groups. Adding VideoStats is an
+# entry here, not a schema change: the config names groups, which both enums share.
+_STAT_FAMILIES: "dict[str, Mapping[str, Flag]]" = {
+    "image": IMAGE_STAT_GROUPS,
+    # "video": VIDEO_STAT_GROUPS,
 }
 
 
 def resolve_families(modality: str, families: Sequence[str]) -> Flag:
-    """Resolve config-named statistic families to a flag set for *modality*.
+    """Resolve config-named statistic families and sub-groups to a flag set for *modality*.
 
     Parameters
     ----------
     modality : str
         The dataset's modality, which chooses the enum.
     families : Sequence[str]
-        Family names as written in config, case-insensitively.
+        Family or sub-group names as written in config, case-insensitively.
 
     Returns
     -------
     Flag
-        The OR of the named families, or the enum's ``NONE`` when none are named.
+        The OR of the named groups, or the enum's ``NONE`` when none are named.
 
     Raises
     ------
     ValueError
-        When the modality has no enum, or a name is not one of its families.  The message
+        When the modality has no enum, or a name is not one of its groups.  The message
         states the requested name and the valid names: a silent empty injection is the
         failure this field exists to remove.
     """
-    entry = _STAT_FAMILIES.get(modality)
-    if entry is None:
+    groups = _STAT_FAMILIES.get(modality)
+    if groups is None:
         known = ", ".join(sorted(_STAT_FAMILIES))
         raise ValueError(f"No statistics are defined for modality {modality!r}. Known modalities: {known}.")
-    enum, allowed = entry
-    flags = enum(0)
+    flags = type(next(iter(groups.values())))(0)
     for family in families:
-        key = family.upper()
-        if key not in allowed:
-            valid = ", ".join(sorted(name.lower() for name in allowed))
+        group = groups.get(family.lower())
+        if group is None:
+            valid = ", ".join(sorted(groups))
             raise ValueError(
                 f"{family!r} is not a statistic family for modality {modality!r}. "
                 f"Valid families: {valid}. Families are groups, not individual statistics — "
-                "declare `pixel` rather than `pixel_mean`."
+                "declare `pixel` or `pixel_basic` rather than `pixel_mean`."
             )
-        flags |= cast(Flag, getattr(enum, key))
+        flags |= group
     return flags
 
 

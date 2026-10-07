@@ -24,6 +24,7 @@ from pydantic import Field, model_validator
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.config._schemas._stats import OutlierFamily
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators._threshold import ThresholdSpec
 from dataeval_flow.evaluators.quality._result import (
@@ -288,10 +289,13 @@ class OutliersConfig(_QualityConfig[OutliersResult]):
     """
 
     type: str = Field(default="outliers", description="The evaluator type this entry configures: `outliers`.")
-    flags: Sequence[Literal["dimension", "pixel", "visual"]] | None = Field(
+    flags: Sequence[OutlierFamily] | None = Field(
         default=None,
         min_length=1,
-        description="Statistics families to test. Unset uses DataEval's default.",
+        description=(
+            "Statistics families or sub-groups to test, such as `pixel` or `visual_basic`. "
+            "Unset uses DataEval's default."
+        ),
     )
     outlier_threshold: ThresholdSpec | Mapping[str, ThresholdSpec] | None = Field(
         default=None,

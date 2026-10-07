@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 from dataeval.core import StatsResult
 from dataeval.flags import ImageStats
 
-from dataeval_flow._metadata import stat_names_for
+from dataeval_flow._metadata import IMAGE_STAT_GROUPS, stat_names_for
 
 if TYPE_CHECKING:
     from dataeval_flow.config._models import PipelineConfig
@@ -44,18 +44,13 @@ _GROUP_FAMILIES = ImageStats.PIXEL | ImageStats.VISUAL | ImageStats.HASH
 # Always emitted with the background, and named for no family.
 _BACKGROUND_FRACTION = "background_fraction"
 
-# Outlier families as `outlier_flags` spells them.
+# Outlier families and sub-groups as `outlier_flags` spells them: every group but the hashes.
 OUTLIER_FLAG_MAP: dict[str, ImageStats] = {
-    "dimension": ImageStats.DIMENSION,
-    "pixel": ImageStats.PIXEL,
-    "visual": ImageStats.VISUAL,
+    name: flags for name, flags in IMAGE_STAT_GROUPS.items() if not name.startswith("hash")
 }
 
 # Hash sets as `duplicate_flags` spells them.
-HASH_FLAG_MAP: dict[str, ImageStats] = {
-    "hash_basic": ImageStats.HASH_DUPLICATES_BASIC,
-    "hash_d4": ImageStats.HASH_DUPLICATES_D4,
-}
+HASH_FLAG_MAP: dict[str, ImageStats] = {name: IMAGE_STAT_GROUPS[name] for name in ("hash_basic", "hash_d4")}
 
 
 def _is_background(view: str | None) -> bool:

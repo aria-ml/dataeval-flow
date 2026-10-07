@@ -7201,7 +7201,7 @@
           "title": "Factor Source"
         },
         "intrinsic_factors": {
-          "description": "Statistic families computed from the imagery and injected as metadata factors, so bias analysis can read them: `visual`, `pixel`, `dimension`. Named as families rather than individual statistics because that is the granularity worth deciding \u2014 `visual` and `pixel` are the bias workhorses, `dimension` is meaningful only for variable-size imagery. Hashes are never injected: they are near-unique per item, so a factor made from one correlates with everything and describes nothing. Empty means inject nothing, which costs exactly what a run costs today.",
+          "description": "Statistic families computed from the imagery and injected as metadata factors, so bias analysis can read them: `visual`, `pixel`, `dimension`, or a sub-group of one such as `visual_basic` or `pixel_basic`. Named as groups rather than individual statistics because that is the granularity worth deciding \u2014 `visual` and `pixel` are the bias workhorses, `dimension` is meaningful only for variable-size imagery. Hashes are never injected: they are near-unique per item, so a factor made from one correlates with everything and describes nothing. Empty means inject nothing, which costs exactly what a run costs today.",
           "items": {
             "type": "string"
           },
@@ -8006,8 +8006,15 @@
               "items": {
                 "enum": [
                   "dimension",
+                  "dimension_basic",
+                  "dimension_box",
+                  "dimension_offset",
+                  "dimension_position",
                   "pixel",
-                  "visual"
+                  "pixel_basic",
+                  "pixel_distribution",
+                  "visual",
+                  "visual_basic"
                 ],
                 "type": "string"
               },
@@ -8019,7 +8026,7 @@
             }
           ],
           "default": null,
-          "description": "Statistics families to test. Unset uses DataEval's default.",
+          "description": "Statistics families or sub-groups to test, such as `pixel` or `visual_basic`. Unset uses DataEval's default.",
           "title": "Flags"
         },
         "outlier_threshold": {
@@ -8733,12 +8740,19 @@
       "description": "The `outliers` step's settings: which statistics, and how far out an outlier sits. audit's `outliers:` takes\nthe same block.",
       "properties": {
         "flags": {
-          "description": "Image statistics groups to judge. At least one.",
+          "description": "Image statistics families or sub-groups to judge, such as `pixel` or `visual_basic`. At least one.",
           "items": {
             "enum": [
               "dimension",
+              "dimension_basic",
+              "dimension_box",
+              "dimension_offset",
+              "dimension_position",
               "pixel",
-              "visual"
+              "pixel_basic",
+              "pixel_distribution",
+              "visual",
+              "visual_basic"
             ],
             "type": "string"
           },
@@ -11099,15 +11113,33 @@
           "title": "Bands"
         },
         "families": {
-          "description": "Statistic families measured over this view. Families are groups, not individual statistics \u2014 declare `pixel` rather than `pixel_mean`.",
+          "description": "Statistic families measured over this view: `dimension`, `pixel`, `visual`, `hash`, or a sub-group of one \u2014 `pixel_basic`, `pixel_distribution`, `visual_basic`, `dimension_basic`, `dimension_box`, `dimension_offset`, `dimension_position`, `hash_basic`, `hash_d4`. Groups, not individual statistics \u2014 declare `pixel_basic` rather than `pixel_mean`.",
           "items": {
-            "enum": [
-              "dimension",
-              "pixel",
-              "visual",
-              "hash"
-            ],
-            "type": "string"
+            "anyOf": [
+              {
+                "enum": [
+                  "dimension",
+                  "dimension_basic",
+                  "dimension_box",
+                  "dimension_offset",
+                  "dimension_position",
+                  "pixel",
+                  "pixel_basic",
+                  "pixel_distribution",
+                  "visual",
+                  "visual_basic"
+                ],
+                "type": "string"
+              },
+              {
+                "enum": [
+                  "hash",
+                  "hash_basic",
+                  "hash_d4"
+                ],
+                "type": "string"
+              }
+            ]
           },
           "minItems": 1,
           "title": "Families",

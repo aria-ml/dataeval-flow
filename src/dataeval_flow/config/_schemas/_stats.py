@@ -1,18 +1,46 @@
 """Stats policy schemas: which statistics over which views, defined once and shared."""
 
 from collections.abc import Sequence
-from typing import ClassVar, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-__all__ = ["StatsMeasureConfig", "StatsPolicyConfig"]
+if TYPE_CHECKING:
+    from dataeval.flags import ImageStats
 
-# Families that can be measured over the background. Hash and dimension are computed for
-# the image and its boxes as usual and skipped for the background, which has no meaningful
-# hash and no geometry of its own.
-_BACKGROUND_FAMILIES = frozenset({"pixel", "visual"})
+__all__ = ["OutlierFamily", "StatFamily", "StatsMeasureConfig", "StatsPolicyConfig"]
 
-StatFamily = Literal["dimension", "pixel", "visual", "hash"]
+OutlierFamily = Literal[
+    "dimension",
+    "dimension_basic",
+    "dimension_box",
+    "dimension_offset",
+    "dimension_position",
+    "pixel",
+    "pixel_basic",
+    "pixel_distribution",
+    "visual",
+    "visual_basic",
+]
+"""The statistic families and sub-groups outlier detection can judge: every group but the hashes."""
+
+StatFamily = OutlierFamily | Literal["hash", "hash_basic", "hash_d4"]
+"""Every statistic family and sub-group a policy can measure."""
+
+
+def _flags(families: "Sequence[str]") -> "ImageStats":
+    from dataeval.flags import ImageStats
+
+    from dataeval_flow._metadata import resolve_families
+
+    return ImageStats(resolve_families("image", families))
+
+
+def _carries_background(families: "Sequence[str]") -> bool:
+    """Whether *families* holds anything measured over the background: pixel and visual statistics only."""
+    from dataeval.flags import ImageStats
+
+    return bool(_flags(families) & (ImageStats.PIXEL | ImageStats.VISUAL))
 
 
 def _render_view(view: str | None) -> str:
@@ -36,8 +64,11 @@ class StatsMeasureConfig(BaseModel):
     families: Sequence[StatFamily] = Field(
         min_length=1,
         description=(
-            "Statistic families measured over this view. Families are groups, not "
-            "individual statistics — declare `pixel` rather than `pixel_mean`."
+            "Statistic families measured over this view: `dimension`, `pixel`, `visual`, "
+            "`hash`, or a sub-group of one — `pixel_basic`, `pixel_distribution`, "
+            "`visual_basic`, `dimension_basic`, `dimension_box`, `dimension_offset`, "
+            "`dimension_position`, `hash_basic`, `hash_d4`. Groups, not individual "
+            "statistics — declare `pixel_basic` rather than `pixel_mean`."
         ),
     )
 
@@ -119,7 +150,7 @@ class StatsPolicyConfig(BaseModel):
         views: set[str | None] = set()
         for entry in self.measure:
             views.add(entry.bands)
-            if self.background and _BACKGROUND_FAMILIES.intersection(entry.families):
+            if self.background and _carries_background(entry.families):
                 views.add("background" if entry.bands is None else f"background_{entry.bands}")
         return views
 
@@ -135,29 +166,33 @@ class StatsPolicyConfig(BaseModel):
                 )
             seen.add(entry.bands)
 
+        from dataeval.flags import ImageStats
+
         whole_image = next((entry for entry in self.measure if entry.bands is None), None)
-        whole_families = set(whole_image.families) if whole_image is not None else set()
+        whole_flags = _flags(whole_image.families) if whole_image is not None else ImageStats.NONE
         for entry in self.measure:
             if entry.bands is None:
                 continue
-            if "dimension" in entry.families and "dimension" not in whole_families:
+            flags = _flags(entry.families)
+            geometry = flags & ImageStats.DIMENSION
+            if geometry & ~whole_flags:
                 raise ValueError(
-                    f"Stats policy {self.name!r} asks `dimension` of group {entry.bands!r}, "
-                    "but geometry does not vary with a band subset, so no "
-                    f"`{entry.bands}_width` is produced and that family is computed "
-                    "nowhere. Ask `dimension` of the whole image instead, with a "
+                    f"Stats policy {self.name!r} asks dimension statistics of group "
+                    f"{entry.bands!r}, but geometry does not vary with a band subset, so no "
+                    f"`{entry.bands}_width` is produced and those statistics are computed "
+                    "nowhere. Ask them of the whole image instead, with a "
                     "`{bands: ~, families: [dimension, ...]}` entry.",
                 )
-            if not set(entry.families) - {"dimension"}:
+            if not flags & ~ImageStats.DIMENSION:
                 raise ValueError(
                     f"Stats policy {self.name!r} asks only `dimension` of group "
                     f"{entry.bands!r}. Geometry does not vary with a band subset, so this "
                     f"entry produces no columns: no `{entry.bands}_*` column is ever "
                     "computed, whether or not the whole image also asks for `dimension`. "
-                    "Add `pixel`, `visual` or `hash` to this entry, or drop it.",
+                    "Add a `pixel`, `visual` or `hash` family to this entry, or drop it.",
                 )
 
-        if self.background and not any(_BACKGROUND_FAMILIES.intersection(e.families) for e in self.measure):
+        if self.background and not any(_carries_background(e.families) for e in self.measure):
             raise ValueError(
                 f"Stats policy {self.name!r} sets `background: true` but measures nothing "
                 "the background is measured for. Add `pixel` or `visual` to a `measure` "

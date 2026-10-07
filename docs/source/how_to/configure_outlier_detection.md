@@ -46,7 +46,8 @@ Float imagery needs `value_range` before the `visual` group — and pixel histog
 all; without it they answer `NaN`. Declare it on the dataset — see {doc}`configure_metadata_binning`.
 
 Narrow the list when you already know what kind of defect you are hunting. A dimension-only run over a freshly
-converted dataset is fast and answers one question cleanly.
+converted dataset is fast and answers one question cleanly. To narrow further, name a sub-group — `pixel_basic`,
+`visual_basic`, `dimension_basic` and the others listed in {doc}`measure_band_groups` — in place of its family.
 
 ## Override the threshold
 

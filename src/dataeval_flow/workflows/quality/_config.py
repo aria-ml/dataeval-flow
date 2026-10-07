@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.config._schemas._stats import OutlierFamily
 from dataeval_flow.evaluators._threshold import ThresholdSpec
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
@@ -132,8 +133,11 @@ class OutliersSettings(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    flags: Sequence[Literal["dimension", "pixel", "visual"]] = Field(
-        min_length=1, description="Image statistics groups to judge. At least one."
+    flags: Sequence[OutlierFamily] = Field(
+        min_length=1,
+        description=(
+            "Image statistics families or sub-groups to judge, such as `pixel` or `visual_basic`. At least one."
+        ),
     )
     outlier_threshold: ThresholdSpec | Mapping[str, ThresholdSpec] = Field(
         description=(

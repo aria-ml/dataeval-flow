@@ -104,6 +104,9 @@
 - `label_space` on result envelopes, recording conformed vocabulary and matching label-space digest
 - `channel_groups:` on datasets, measuring band groups separately as `<group>_<statistic>` columns
 - Top-level `stats:` key defining policies for measured statistics, background inclusion, and outlier/factor views
+- Statistic sub-groups wherever a family is named — a stats policy's `measure`, `outliers.flags` and
+  `intrinsic_factors`: `pixel_basic`, `pixel_distribution`, `visual_basic`, `dimension_basic`, `dimension_box`,
+  `dimension_offset`, `dimension_position`, and in `measure` `hash_basic` and `hash_d4`
 - `format: demo` dataset loader resolving tutorial datasets from a fixed table without arbitrary imports
 - `wrap:` on `scope`, `DetectionCrops`' `params` (`padding` and `min_size`), with the `crops` step's `details`
   counting the detections dropped

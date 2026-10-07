@@ -1450,6 +1450,65 @@ class TestStatsPolicyConfig:
         with pytest.raises(ValidationError):
             self._policy(measure=[{"bands": None, "families": []}])
 
+    def test_accepts_sub_groups(self):
+        policy = self._policy(
+            measure=[
+                {"bands": None, "families": ["dimension_basic", "hash_basic"]},
+                {"bands": "ir", "families": ["pixel_basic", "visual_basic"]},
+            ],
+            background=True,
+        )
+        assert policy.produced_views() == {None, "ir", "background_ir"}
+
+    def test_refuses_an_individual_statistic(self):
+        with pytest.raises(ValidationError):
+            self._policy(measure=[{"bands": None, "families": ["pixel_mean"]}])
+
+    def test_refuses_a_dimension_sub_group_of_a_group_the_whole_image_does_not_cover(self):
+        with pytest.raises(ValidationError, match="does not vary with a band subset"):
+            self._policy(
+                measure=[
+                    {"bands": None, "families": ["dimension_basic"]},
+                    {"bands": "rgb", "families": ["dimension_box", "visual"]},
+                ]
+            )
+
+    def test_refuses_background_with_only_hash_sub_groups(self):
+        with pytest.raises(ValidationError, match="measures nothing"):
+            self._policy(measure=[{"bands": None, "families": ["hash_d4"]}], background=True)
+
+
+@pytest.mark.required
+class TestStatGroupVocabulary:
+    """Every name config accepts for a group of statistics resolves to flags, and the outlier names are those less the
+    hashes."""
+
+    def test_the_policy_vocabulary_is_the_resolvers(self):
+        from typing import get_args
+
+        from dataeval_flow._metadata import IMAGE_STAT_GROUPS
+        from dataeval_flow.config._schemas._stats import StatFamily
+
+        names = {name for member in get_args(StatFamily) for name in get_args(member)}
+        assert names == set(IMAGE_STAT_GROUPS)
+
+    def test_the_outlier_vocabulary_is_every_group_but_the_hashes(self):
+        from typing import get_args
+
+        from dataeval_flow._stats import OUTLIER_FLAG_MAP
+        from dataeval_flow.config._schemas._stats import OutlierFamily
+
+        assert set(get_args(OutlierFamily)) == set(OUTLIER_FLAG_MAP)
+        assert not any(name.startswith("hash") for name in OUTLIER_FLAG_MAP)
+
+    def test_outliers_judge_a_sub_group(self):
+        from dataeval.flags import ImageStats
+
+        from dataeval_flow.evaluators.quality import OutliersConfig
+
+        config = OutliersConfig(name="o", flags=["visual_basic", "pixel_basic"])  # type: ignore[arg-type]
+        assert config.stats_flags() == ImageStats.VISUAL_BASIC | ImageStats.PIXEL_BASIC
+
 
 @pytest.mark.required
 class TestStatsPoolWiring:

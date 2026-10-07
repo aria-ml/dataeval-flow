@@ -64,6 +64,32 @@ inferred for a missing whole-image entry. Write out `{bands: ~, ...}` if you wan
 Geometry does not vary with a band subset, so `rgb_width` is never produced. A `measure` entry asking only
 `dimension` of a band group is refused, because it would compute nothing. Ask `dimension` of the whole image.
 
+### Ask a group for less than a whole family
+
+A family is every statistic of its kind. Where a group needs only a few, name a sub-group instead:
+
+| Sub-group | Statistics |
+| --- | --- |
+| `pixel_basic` | mean, std, var |
+| `pixel_distribution` | skew, kurtosis, entropy, histogram |
+| `visual_basic` | brightness, contrast, sharpness |
+| `dimension_basic` | width, height, channels |
+| `dimension_box` | width, height, aspect ratio, size, offsets, distances to center and edge, invalid box |
+| `dimension_offset` | offset x and y |
+| `dimension_position` | center, distances to center and edge |
+| `hash_basic` | xxhash, phash, dhash |
+| `hash_d4` | xxhash and the rotation- and flip-invariant phash and dhash |
+
+```yaml
+    measure:
+      - {bands: ~,       families: [dimension_basic, visual, hash_basic]}
+      - {bands: thermal, families: [pixel_basic]}
+```
+
+`outliers.flags` and the metadata policy's `intrinsic_factors` take the same names, less the hashes for
+`outliers.flags`. A consumer is checked against what its views measure statistic by statistic, so `flags: [pixel]`
+against a view measuring only `pixel_basic` is refused before the dataset is read.
+
 ### Measure the background
 
 `background: true` adds a further pass over every pixel none of the item's boxes cover, describing the scene it was
