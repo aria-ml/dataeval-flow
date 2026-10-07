@@ -25,8 +25,8 @@ from dataeval_flow.evaluators.quality import DuplicatesConfig, DuplicatesResult,
 from dataeval_flow.evaluators.shift import DriftMMDConfig
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows import DatasetContext, WorkflowConfig, WorkflowContext
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 from dataeval_flow.workflows.quality import QualityConfig
+from dataeval_flow.workflows.shift import ShiftConfig
 from tests.evaluator_toys import ToyImages, toy_pipeline
 
 
@@ -48,14 +48,14 @@ def test_run_matches_a_pipeline() -> None:
 def test_run_is_typed_to_the_configs_result() -> None:
     """Checked by pyright: the config's type parameter is the type `run` returns."""
     assert_type(run(DuplicatesConfig(), ToyImages()), DuplicatesResult)
-    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
+    drift = ShiftConfig(detectors=[DriftMMDConfig()])
     data = {"reference": ToyImages(seed=0), "test": ToyImages(seed=1)}
     assert_type(run(drift, data, extractor=FlattenExtractorConfig(batch_size=8)), ChainResult)
 
 
 def test_several_sources_run_in_the_order_given() -> None:
     """Out of alphabetical order, so a run that sorted its sources would read `incoming` as the reference."""
-    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
+    drift = ShiftConfig(detectors=[DriftMMDConfig()])
     result = run(
         drift,
         {"reference": ToyImages(seed=0), "incoming": ToyImages(seed=1)},
@@ -87,7 +87,7 @@ def test_an_extractor_config_needs_no_name() -> None:
 
 
 def test_a_protocol_extractor_runs_and_is_not_cached_to_disk(tmp_path: Path) -> None:
-    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
+    drift = ShiftConfig(detectors=[DriftMMDConfig()])
     with use_batch_size(8):
         result = run(
             drift, {"reference": ToyImages(seed=0), "test": ToyImages(seed=1)}, extractor=_flatten, cache_dir=tmp_path
@@ -98,7 +98,7 @@ def test_a_protocol_extractor_runs_and_is_not_cached_to_disk(tmp_path: Path) -> 
 
 def test_an_extractor_config_is_cached_to_disk(tmp_path: Path) -> None:
     """The counterpart of the test above, so its empty cache means what it says."""
-    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
+    drift = ShiftConfig(detectors=[DriftMMDConfig()])
     extractor = FlattenExtractorConfig(batch_size=8)
     result = run(
         drift, {"reference": ToyImages(seed=0), "test": ToyImages(seed=1)}, extractor=extractor, cache_dir=tmp_path
@@ -239,7 +239,7 @@ def test_a_definition_of_another_type_is_refused() -> None:
 
 
 def test_inputs_are_checked_before_anything_runs() -> None:
-    drift = DriftMonitoringConfig(detectors=[DriftMMDConfig()])
+    drift = ShiftConfig(detectors=[DriftMMDConfig()])
     with pytest.raises(ValidationError, match="two or more sources"):
         run(drift, ToyImages(), extractor=FlattenExtractorConfig())
 
@@ -287,7 +287,7 @@ def test_an_ood_run_reads_each_image_s_thumbnail_from_its_own_test_source() -> N
 
     from PIL import Image
 
-    from dataeval_flow.workflows.ood_detection import OODDetectionConfig
+    from dataeval_flow.workflows.shift import ShiftConfig
 
     class Dark(ToyImages):
         def __getitem__(self, index: int) -> tuple[Any, Any, dict[str, Any]]:
@@ -295,7 +295,7 @@ def test_an_ood_run_reads_each_image_s_thumbnail_from_its_own_test_source() -> N
             return np.zeros_like(image), target, datum
 
     detectors = [{"type": "ood-kneighbors", "name": "k3", "k": 3}, {"type": "ood-kneighbors", "name": "k5", "k": 5}]
-    config = OODDetectionConfig.model_validate(
+    config = ShiftConfig.model_validate(
         {"name": "ood", "detectors": detectors, "factor-predictors": False, "factor-deviation": False}
     )
     data = {"reference": ToyImages(seed=0, count=20), "day": ToyImages(seed=1, count=12), "night": Dark(count=4)}
@@ -331,7 +331,7 @@ def test_an_ood_thumbnail_is_the_image_scored_though_its_view_shuffles_unseeded(
     from dataeval_flow._blocks import ItemRef
     from dataeval_flow.config import DatasetProtocolConfig, ViewOperation
     from dataeval_flow.steps import ChainResult
-    from dataeval_flow.workflows.ood_detection import OODDetectionConfig
+    from dataeval_flow.workflows.shift import ShiftConfig
 
     class Mixed(ToyImages):
         """Items 0 to 3 black, which the reference has never seen; the rest noise like the reference's."""
@@ -353,7 +353,7 @@ def test_an_ood_thumbnail_is_the_image_scored_though_its_view_shuffles_unseeded(
         ],
         extractors=[FlattenExtractorConfig(name="flat", batch_size=8)],
         workflows=[
-            OODDetectionConfig.model_validate(
+            ShiftConfig.model_validate(
                 {"name": "ood", "detectors": detectors, "factor-predictors": False, "factor-deviation": False}
             )
         ],

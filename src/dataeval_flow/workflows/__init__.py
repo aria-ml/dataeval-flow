@@ -1,7 +1,7 @@
 """Workflows: the framework for writing a workflow type, and the built-in ones.
 
 A workflow type's settings expand to a chain of steps whose checks give a verdict — findings judged against health
-thresholds. Each built-in lives in its own subpackage (``data_cleaning``, ``drift_monitoring``, …); the names here
+thresholds. Each built-in lives in its own subpackage (``quality``, ``shift``, …); the names here
 are what a new workflow type subclasses.
 """
 

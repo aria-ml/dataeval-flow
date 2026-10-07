@@ -5163,104 +5163,6 @@
       "title": "DriftMMDDetector",
       "type": "object"
     },
-    "DriftMonitoringChecks": {
-      "additionalProperties": false,
-      "description": "When drift-monitoring's findings warn: the `drift` check's fields, applied to every detector's checks.",
-      "properties": {
-        "drift": {
-          "$ref": "#/$defs/DriftThresholds",
-          "description": "The `drift` check's thresholds, whole-set and by class."
-        }
-      },
-      "title": "DriftMonitoringChecks",
-      "type": "object"
-    },
-    "DriftMonitoringConfig": {
-      "additionalProperties": false,
-      "description": "The settings of one ``drift-monitoring`` entry: the detectors each test source is tested with, which also run\nby class, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: drift\n        type: drift-monitoring\n        detectors:\n          - {type: drift-mmd}\n          - {name: ks, type: drift-univariate, chunking: {chunk_count: 5}}\n        classwise:\n          drift-mmd: class",
-      "properties": {
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "drift-monitoring",
-          "default": "drift-monitoring",
-          "description": "The workflow type this entry configures: `drift-monitoring`.",
-          "title": "Type",
-          "type": "string"
-        },
-        "ontology": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
-          "title": "Ontology"
-        },
-        "detectors": {
-          "description": "Drift evaluator entries (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), each tested on every test source against the reference. An entry's `name` names its step. An entry may name its own `extractor:`.",
-          "items": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/DriftUnivariateDetector"
-              },
-              {
-                "$ref": "#/$defs/DriftMMDDetector"
-              },
-              {
-                "$ref": "#/$defs/DriftKNeighborsDetector"
-              },
-              {
-                "$ref": "#/$defs/DriftDomainClassifierDetector"
-              },
-              {
-                "$ref": "#/$defs/DriftUnivariateConfig"
-              },
-              {
-                "$ref": "#/$defs/DriftMMDConfig"
-              },
-              {
-                "$ref": "#/$defs/DriftKNeighborsConfig"
-              },
-              {
-                "$ref": "#/$defs/DriftDomainClassifierConfig"
-              }
-            ]
-          },
-          "minItems": 1,
-          "title": "Detectors",
-          "type": "array"
-        },
-        "classwise": {
-          "additionalProperties": {
-            "$ref": "#/$defs/ByConfig"
-          },
-          "description": "Detectors to also run per key, unchunked, each with its `by:`: `{drift-mmd: class}`, `{uncertainty: predicted}`, or with settings; `min_items` is 2 unless written.",
-          "title": "Classwise",
-          "type": "object"
-        },
-        "checks": {
-          "$ref": "#/$defs/DriftMonitoringChecks",
-          "description": "When findings warn, keyed by check type."
-        }
-      },
-      "required": [
-        "detectors"
-      ],
-      "title": "DriftMonitoringConfig",
-      "type": "object"
-    },
     "DriftThresholds": {
       "additionalProperties": false,
       "description": "When a drift verdict warns: on drift, or, chunk by chunk, on how many chunks drift and how many in a row.",
@@ -7311,141 +7213,6 @@
         "name"
       ],
       "title": "MetadataPolicyConfig",
-      "type": "object"
-    },
-    "OODDetectionChecks": {
-      "additionalProperties": false,
-      "description": "When ood-detection's findings warn: each check's fields, keyed by check type.",
-      "properties": {
-        "ood": {
-          "$ref": "#/$defs/OODThresholds",
-          "description": "The `ood` check's thresholds, applied to each detector's check."
-        },
-        "ood-agreement": {
-          "$ref": "#/$defs/OODThresholds",
-          "description": "The `ood-agreement` check's thresholds, applied to the agreement findings. Its defaults are `ood`'s."
-        }
-      },
-      "title": "OODDetectionChecks",
-      "type": "object"
-    },
-    "OODDetectionConfig": {
-      "additionalProperties": false,
-      "description": "The settings of one ``ood-detection`` entry: the detectors each test source is scored with, whether the metadata\nbehind what they flag is explained, and when a finding warns.\n\nExample YAML::\n\n    workflows:\n      - name: ood\n        type: ood-detection\n        detectors:\n          - {type: ood-kneighbors, k: 10}\n          - {type: ood-domain-classifier, n_folds: 5}\n        checks:\n          ood: {warning: 10.0, info: 1.0}",
-      "properties": {
-        "stats": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
-          "title": "Stats"
-        },
-        "metadata": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
-        },
-        "name": {
-          "description": "The name this entry is referenced by. Defaults to its `type`.",
-          "title": "Name",
-          "type": "string"
-        },
-        "type": {
-          "const": "ood-detection",
-          "default": "ood-detection",
-          "description": "The workflow type this entry configures: `ood-detection`.",
-          "title": "Type",
-          "type": "string"
-        },
-        "ontology": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
-          "title": "Ontology"
-        },
-        "detectors": {
-          "description": "OOD evaluator entries (`ood-kneighbors`, `ood-domain-classifier`), each scoring every test source against the reference. An entry's `name` names its step. An entry may name its own `extractor:`.",
-          "items": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/OODKNeighborsDetector"
-              },
-              {
-                "$ref": "#/$defs/OODDomainClassifierDetector"
-              },
-              {
-                "$ref": "#/$defs/OODKNeighborsConfig"
-              },
-              {
-                "$ref": "#/$defs/OODDomainClassifierConfig"
-              }
-            ]
-          },
-          "minItems": 1,
-          "title": "Detectors",
-          "type": "array"
-        },
-        "factor-predictors": {
-          "anyOf": [
-            {
-              "const": false,
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "`false` leaves out the `factor-predictors` step; it takes no settings.",
-          "title": "Factor-Predictors"
-        },
-        "factor-deviation": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/FactorDeviationSettings"
-            },
-            {
-              "const": false,
-              "type": "boolean"
-            }
-          ],
-          "description": "The `factor-deviation` step's settings; `false` leaves it out.",
-          "title": "Factor-Deviation"
-        },
-        "checks": {
-          "$ref": "#/$defs/OODDetectionChecks",
-          "description": "When findings warn, keyed by check type."
-        }
-      },
-      "required": [
-        "detectors"
-      ],
-      "title": "OODDetectionConfig",
       "type": "object"
     },
     "OODDomainClassifierConfig": {
@@ -10930,6 +10697,174 @@
       "title": "SelectSettings",
       "type": "object"
     },
+    "ShiftChecks": {
+      "additionalProperties": false,
+      "description": "When shift's findings warn: each check's fields, keyed by check type.",
+      "properties": {
+        "drift": {
+          "$ref": "#/$defs/DriftThresholds",
+          "description": "The `drift` check's thresholds, whole-set and by class, applied to each drift detector's checks."
+        },
+        "ood": {
+          "$ref": "#/$defs/OODThresholds",
+          "description": "The `ood` check's thresholds, applied to each OOD detector's check."
+        },
+        "ood-agreement": {
+          "$ref": "#/$defs/OODThresholds",
+          "description": "The `ood-agreement` check's thresholds, applied to the agreement findings."
+        }
+      },
+      "title": "ShiftChecks",
+      "type": "object"
+    },
+    "ShiftConfig": {
+      "additionalProperties": false,
+      "description": "The settings of one ``shift`` entry: the drift and OOD detectors each test source is tested with against the\nreference, which drift detectors also run by class, whether the metadata behind OOD flags is explained, and when a\nfinding warns.\n\nExample YAML::\n\n    workflows:\n      - name: shift\n        type: shift\n        detectors:\n          - {type: drift-univariate}\n          - {name: mmd, type: drift-mmd, chunking: {chunk_count: 5}}\n          - {type: ood-kneighbors, k: 10}\n        classwise:\n          mmd: class",
+      "properties": {
+        "stats": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
+          "title": "Stats"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "shift",
+          "default": "shift",
+          "description": "The workflow type this entry configures: `shift`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "ontology": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
+          "title": "Ontology"
+        },
+        "detectors": {
+          "description": "Drift (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`) and OOD (`ood-kneighbors`, `ood-domain-classifier`) evaluator entries, each testing every test source against the reference. An entry's `name` names its step, and it may name its own `extractor:`. Unset is `drift-univariate` and `ood-kneighbors`.",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/DriftUnivariateDetector"
+              },
+              {
+                "$ref": "#/$defs/DriftMMDDetector"
+              },
+              {
+                "$ref": "#/$defs/DriftKNeighborsDetector"
+              },
+              {
+                "$ref": "#/$defs/DriftDomainClassifierDetector"
+              },
+              {
+                "$ref": "#/$defs/OODKNeighborsDetector"
+              },
+              {
+                "$ref": "#/$defs/OODDomainClassifierDetector"
+              },
+              {
+                "$ref": "#/$defs/DriftUnivariateConfig"
+              },
+              {
+                "$ref": "#/$defs/DriftMMDConfig"
+              },
+              {
+                "$ref": "#/$defs/DriftKNeighborsConfig"
+              },
+              {
+                "$ref": "#/$defs/DriftDomainClassifierConfig"
+              },
+              {
+                "$ref": "#/$defs/OODKNeighborsConfig"
+              },
+              {
+                "$ref": "#/$defs/OODDomainClassifierConfig"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Detectors",
+          "type": "array"
+        },
+        "classwise": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ByConfig"
+          },
+          "description": "Drift detectors to also run per key, unchunked, each with its `by:`: `{drift-mmd: class}`, `{uncertainty: predicted}`, or with settings; `min_items` is 2 unless written.",
+          "title": "Classwise",
+          "type": "object"
+        },
+        "factor-predictors": {
+          "anyOf": [
+            {
+              "const": false,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`false` leaves out the `factor-predictors` step; it takes no settings.",
+          "title": "Factor-Predictors"
+        },
+        "factor-deviation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactorDeviationSettings"
+            },
+            {
+              "const": false,
+              "type": "boolean"
+            }
+          ],
+          "description": "The `factor-deviation` step's settings; `false` leaves it out.",
+          "title": "Factor-Deviation"
+        },
+        "checks": {
+          "$ref": "#/$defs/ShiftChecks",
+          "description": "When findings warn, keyed by check type."
+        }
+      },
+      "title": "ShiftConfig",
+      "type": "object"
+    },
     "ShortcutRiskSettings": {
       "additionalProperties": false,
       "description": "The `shortcut-risk` check's settings.",
@@ -13019,12 +12954,6 @@
                 "$ref": "#/$defs/BiasConfig"
               },
               {
-                "$ref": "#/$defs/DriftMonitoringConfig"
-              },
-              {
-                "$ref": "#/$defs/OODDetectionConfig"
-              },
-              {
                 "$ref": "#/$defs/PrioritizationWorkflowConfig"
               },
               {
@@ -13032,6 +12961,9 @@
               },
               {
                 "$ref": "#/$defs/ScopeConfig"
+              },
+              {
+                "$ref": "#/$defs/ShiftConfig"
               },
               {
                 "$ref": "#/$defs/SplitsConfig"

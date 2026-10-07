@@ -271,7 +271,7 @@ from dataeval_flow.config import (
 from dataeval_flow.config.extractors import TorchExtractorConfig
 from dataeval_flow.evaluators.shift import ChunkedDriftConfig, DriftKNeighborsConfig
 from dataeval_flow.steps.checks import DriftThresholds
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringChecks, DriftMonitoringConfig
+from dataeval_flow.workflows.shift import ShiftChecks, ShiftConfig
 
 # --- Datasets (in-memory via DatasetProtocolConfig) ---
 ref_config = DatasetProtocolConfig(
@@ -319,12 +319,12 @@ extractor_config = TorchExtractorConfig(
 )
 
 # --- Workflows ---
-drift_workflow_config = DriftMonitoringConfig(
+drift_workflow_config = ShiftConfig(
     name="overall-drift",
     detectors=[
         DriftKNeighborsConfig(k=10, chunking=ChunkedDriftConfig(chunk_count=5, threshold=("zscore", 1.5))),
     ],
-    checks=DriftMonitoringChecks(drift=DriftThresholds(chunk_percent=15.0, consecutive_chunks=2)),
+    checks=ShiftChecks(drift=DriftThresholds(chunk_percent=15.0, consecutive_chunks=2)),
 )
 
 # --- Phase 1: Overall drift with chunking (no classwise) ---
@@ -395,14 +395,14 @@ classwise_config = PipelineConfig(
     preprocessors=[preprocessor_config],
     extractors=[extractor_config],
     workflows=[
-        DriftMonitoringConfig(
+        ShiftConfig(
             name="classwise-drift",
             detectors=[
                 DriftMMDConfig(n_permutations=100),
                 DriftUnivariateConfig(method="cvm"),
             ],
             classwise={"drift-mmd": "class", "drift-univariate": "class"},
-            checks=DriftMonitoringChecks(drift=DriftThresholds(warn_on_drift=True)),
+            checks=ShiftChecks(drift=DriftThresholds(warn_on_drift=True)),
         ),
     ],
     tasks=[classwise_task],

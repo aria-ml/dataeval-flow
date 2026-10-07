@@ -104,7 +104,7 @@ an evaluation split holds a class train lacks.
 Tests whether incoming data has drifted from a reference, whole, chunk by chunk and by class. `drift-wasserstein`
 needs a validation set as a third source, which the preset does not take, so it runs in a workflow of your own.
 
-- **Preset:** [`drift-monitoring`](presets.md#drift-monitoring)
+- **Preset:** [`shift`](presets.md#shift)
 - **Evaluators:** [`drift-univariate`](evaluators.md#drift-univariate), [`drift-mmd`](evaluators.md#drift-mmd),
   [`drift-kneighbors`](evaluators.md#drift-kneighbors),
   [`drift-domain-classifier`](evaluators.md#drift-domain-classifier)
@@ -117,7 +117,7 @@ needs a validation set as a third source, which the preset does not take, so it 
 Flags the test images unlike the reference, by each detector and by their agreement, and names the metadata factors that
 go with them.
 
-- **Preset:** [`ood-detection`](presets.md#ood-detection)
+- **Preset:** [`shift`](presets.md#shift)
 - **Evaluators:** [`ood-kneighbors`](evaluators.md#ood-kneighbors),
   [`ood-domain-classifier`](evaluators.md#ood-domain-classifier)
 - **Combines:** [`ood-union`](combines.md#ood-union), [`factor-predictors`](combines.md#factor-predictors),

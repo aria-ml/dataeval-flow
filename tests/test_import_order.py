@@ -9,11 +9,10 @@ import pytest
 WORKFLOW_PACKAGES = [
     "audit",
     "bias",
-    "drift_monitoring",
-    "ood_detection",
     "prioritization",
     "quality",
     "scope",
+    "shift",
     "splits",
     "taxonomy",
     "triage",

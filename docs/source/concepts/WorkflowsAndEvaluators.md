@@ -13,7 +13,7 @@ Each tier encodes more policy than the one below it.
 | --- | --- | --- | --- |
 | Encodes | No policy: pure computation | DataEval's policy: a threshold or gate, and a determination made against it | Flow's policy on top: health and readiness, judged from those determinations against each check's thresholds |
 | Answers | "What are the hashes? The statistics?" | "Which images are duplicates? Did the test set drift at p < 0.05?" | "Is this data clean enough? Is it ready to train on?" |
-| Example | `phash`, `compute_stats` | `balance`, `coverage`, `drift-mmd` | `image-outliers` in `quality`, `drift` in `drift-monitoring` |
+| Example | `phash`, `compute_stats` | `balance`, `coverage`, `drift-mmd` | `image-outliers` in `quality`, `drift` in `shift` |
 | Output | Raw numbers | Determinations (flags, groups, p-values) and the numbers behind them | Findings, each `ok`, `info` or `warning`, rolled up into a health status |
 | Configured under | not exposed | `evaluators:`, run by a task's `evaluator:` | a preset's `checks:`, or a `check:` step written beside the evaluator steps of a custom workflow; the workflow is run by a task's `workflow:` |
 

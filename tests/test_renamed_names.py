@@ -50,3 +50,9 @@ def test_the_label_space_concept_keeps_its_names() -> None:
 
     assert {"label_space", "label_space_digest"} <= set(ResultMetadata.model_fields)
     assert LabelSpaceRecord.__name__ == "LabelSpaceRecord"
+
+
+def test_the_old_presets_are_unknown() -> None:
+    for old in ("drift-monitoring", "ood-detection"):
+        with pytest.raises(ValueError, match=rf"Unknown workflow: '{old}'"):
+            get_workflow(old)

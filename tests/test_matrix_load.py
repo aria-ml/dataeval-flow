@@ -18,7 +18,7 @@ _CLEANING = {
     "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"},
 }
 _KNN = {"name": "knn", "type": "ood-kneighbors", "k": 5, "distance_metric": "euclidean"}
-_OOD = {"name": "ood", "type": "ood-detection", "detectors": [_KNN, {"type": "ood-domain-classifier", "n_folds": 3}]}
+_OOD = {"name": "ood", "type": "shift", "detectors": [_KNN, {"type": "ood-domain-classifier", "n_folds": 3}]}
 
 
 @pytest.fixture(autouse=True)

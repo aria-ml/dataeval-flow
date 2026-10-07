@@ -41,7 +41,7 @@
 #
 # - `quality` on the reference campaigns. It runs as a chain of steps, and its `outliers` step lists every
 #   flagged image and every flagged bounding box with the metrics that flagged it;
-# - `drift-monitoring` of the operational archive against the reference, in chunks of 50 frames, so each chunk's
+# - `shift` tests the operational archive against the reference, in chunks of 50 frames, so each chunk's
 #   distance is drawn against the drift thresholds, and its finding is drawn as a card.
 #
 # {doc}`Monitor incoming data for drift <drift_monitoring>` walks through the same drift configuration in depth.
@@ -63,8 +63,8 @@ from dataeval_flow.config import (
 )
 from dataeval_flow.config.extractors import BoVWExtractorConfig
 from dataeval_flow.evaluators.shift import ChunkedDriftConfig, DriftKNeighborsConfig
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
 from dataeval_flow.workflows.quality import QualityConfig
+from dataeval_flow.workflows.shift import ShiftConfig
 
 data_root = Path("./data")
 
@@ -100,7 +100,7 @@ config = PipelineConfig(
         QualityConfig(
             name="clean", outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}, metadata="milco"
         ),
-        DriftMonitoringConfig(
+        ShiftConfig(
             name="drift",
             detectors=[
                 DriftKNeighborsConfig(
@@ -200,7 +200,7 @@ show(clean.to_html())
 # %% [markdown]
 # ## Finding cards, and thresholds on a scale
 #
-# A workflow such as `drift-monitoring` draws each finding as a card headed by its title, its value and its severity,
+# A workflow such as `shift` draws each finding as a card headed by its title, its value and its severity,
 # so the cards read as the report's summary. A warning starts open, and the rest start closed as one line each.
 #
 # A bar chart with thresholds draws each one as a dashed line across the bars, and labels it on a scale below the

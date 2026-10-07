@@ -22,11 +22,10 @@ from tests.example_plugin import BrightnessConfig, CountConfig, CountWorkflow
 BUILTIN_WORKFLOWS = [
     "audit",
     "bias",
-    "drift-monitoring",
-    "ood-detection",
     "prioritization",
     "quality",
     "scope",
+    "shift",
     "splits",
     "taxonomy",
     "triage",

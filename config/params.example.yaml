@@ -275,7 +275,7 @@
 #       image-outliers: {warning: 1.0}
 #
 #   - name: basic_drift
-#     type: drift-monitoring          # each test source is tested on its own against the first, the reference
+#     type: shift                     # each test source is tested on its own against the first, the reference
 #     detectors:                      # drift evaluator entries: drift-univariate | drift-mmd | drift-kneighbors |
 #       - type: drift-univariate      #   drift-domain-classifier; an entry's `name` (default: its type) names its step
 #         method: ks                  # ks | cvm | mwu | anderson | bws

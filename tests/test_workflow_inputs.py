@@ -16,10 +16,9 @@ SPECS = {
     "scope": (SourceCount.ONE, {InputKind.LABELS}, {InputKind.EMBEDDINGS}),
     "prioritization": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, set()),
     "splits": (SourceCount.ONE, {InputKind.METADATA}, set()),
-    "drift-monitoring": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.LABELS}),
     "taxonomy": (SourceCount.ONE, {InputKind.LABELS}, set()),
     "triage": (SourceCount.ONE, {InputKind.METADATA}, set()),
-    "ood-detection": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.METADATA, InputKind.STATS}),
+    "shift": (SourceCount.TWO_OR_MORE, {InputKind.EMBEDDINGS}, {InputKind.LABELS, InputKind.METADATA, InputKind.STATS}),
 }
 
 
@@ -44,7 +43,7 @@ def test_drift_with_one_source_is_refused_at_load() -> None:
     with pytest.raises(ValidationError, match="two or more sources"):
         PipelineConfig.model_validate(
             _pipeline(
-                {"type": "drift-monitoring", "detectors": [{"type": "drift-mmd"}]},
+                {"type": "shift", "detectors": [{"type": "drift-mmd"}]},
                 {"sources": "a", "extractor": "flat"},
             )
         )

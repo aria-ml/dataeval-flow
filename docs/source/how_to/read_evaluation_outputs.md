@@ -29,9 +29,9 @@ A workflow's report is laid out in this order:
 1. **Banner** — the friendly title of what ran, such as `Drift Monitoring`. The text report prints it in capitals;
    HTML keeps its case, and its page title adds the entry where it differs from the id, as
    `Drift Monitoring — drift`.
-2. **Provenance** — opens with a line naming what ran: `Workflow: drift (drift-monitoring)`, the config entry beside
+2. **Provenance** — opens with a line naming what ran: `Workflow: drift (shift)`, the config entry beside
    its type id, or `Evaluator: dupes (duplicates)` for an evaluator task. Where the entry is named after its type, the
-   line is the id alone, as `Workflow: drift-monitoring`. Then the timestamp, duration, the sources the run read,
+   line is the id alone, as `Workflow: shift`. Then the timestamp, duration, the sources the run read,
    model and preprocessor identifiers.
 3. **Summary sentence** — the workflow's one-line account of the run, such as
    `Steps: 4 ran` for a preset, which runs a chain of steps.

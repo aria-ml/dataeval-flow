@@ -121,7 +121,7 @@ refuses Outputs computed on different Datasets.
 | `input` | an address, or a list of them | required | Each detector's OOD Output, every one computed on the same reference and test source |
 
 - **Judged by:** [`ood-agreement`](checks.md#ood-agreement)
-- **Used in:** [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -165,7 +165,7 @@ than `reference` and `input`.
 | `stats` | a policy name, or `null` | `null` | The stats policy the statistics are measured under; unset, every statistic |
 
 - **Judged by:** none
-- **Used in:** [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -206,7 +206,7 @@ reads the factors `factor-predictors` reads.
 | `stats` | a policy name, or `null` | `null` | The stats policy the statistics are measured under; unset, every statistic |
 
 - **Judged by:** none
-- **Used in:** [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:

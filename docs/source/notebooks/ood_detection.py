@@ -17,7 +17,7 @@
 # # Detect out-of-distribution images
 #
 # Find individual images in incoming data that fall outside the reference
-# distribution using the config-driven `ood-detection` workflow.
+# distribution using the config-driven `shift` workflow.
 
 # %% [markdown]
 # **Target audience**: You are a T&E engineer who needs to flag individual incoming
@@ -34,7 +34,7 @@
 #
 # - Load MilitaryVehicles as a MAITE dataset using datamaite.
 # - Synthesize incoming test data containing misaligned imagery: ship images inserted under vehicle labels.
-# - Configure the `ood-detection` workflow with K-Neighbors and Domain Classifier detectors using ResNet-18 embeddings.
+# - Configure the `shift` workflow with K-Neighbors and Domain Classifier detectors using ResNet-18 embeddings.
 # - Read the factor steps to identify factors correlated with OOD status.
 # - Inspect the OOD report, score distributions, and flagged images.
 # - Evaluate detector performance on Gaussian noise sensor corruption.
@@ -42,7 +42,7 @@
 # %% [markdown]
 # ## What you will learn
 #
-# - How to configure and execute the `ood-detection` workflow with `run_task()`.
+# - How to configure and execute the `shift` workflow with `run_task()`.
 # - How K-Neighbors (distance-based) and Domain Classifier (LightGBM-based) detectors operate.
 # - How feature representations influence OOD boundaries.
 # - How the `factor-predictors` and `factor-deviation` steps explain OOD flags.
@@ -187,7 +187,7 @@ plt.show()
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
 #
-# To configure the `ood-detection` workflow, specify:
+# To configure the `shift` workflow, specify:
 #
 # 1. **Datasets**: A reference dataset and incoming test datasets.
 # 2. **Extractor**: Pretrained models or algorithms to produce embeddings.
@@ -276,7 +276,7 @@ extractor_config = TorchExtractorConfig(
 # %%
 from dataeval_flow import run_task
 from dataeval_flow.config import TaskConfig
-from dataeval_flow.workflows.ood_detection import OODDetectionConfig
+from dataeval_flow.workflows.shift import ShiftConfig
 
 task = TaskConfig(
     name="vehicles-ood-check",
@@ -294,7 +294,7 @@ config = PipelineConfig(
     preprocessors=[preprocessor_config],
     extractors=[extractor_config],
     workflows=[
-        OODDetectionConfig.model_validate(
+        ShiftConfig.model_validate(
             {
                 "name": "vehicles-ood",
                 "detectors": [
@@ -584,7 +584,7 @@ print(json_str[:600] + "\n...")
 #
 # In this tutorial, you learned how to:
 #
-# - Configure the `ood-detection` workflow with K-Neighbors and Domain Classifier detectors.
+# - Configure the `shift` workflow with K-Neighbors and Domain Classifier detectors.
 # - Extract embedding features using pretrained ResNet-18 models.
 # - Execute OOD detection workflows and inspect formatted reports.
 # - Score detector precision and recall against known anomaly labels.
@@ -597,8 +597,8 @@ print(json_str[:600] + "\n...")
 #
 # - **Threshold tuning**: Adjust `threshold_perc` to tune the balance between detection
 #   recall and false-positive rates.
-# - **Integrated pipelines**: Combine `drift-monitoring` and `ood-detection` tasks in
-#   a single pipeline configuration to track both batch drift and individual anomalies.
+# - **Integrated pipelines**: List drift and OOD detectors together
+#   in one `shift` configuration to track both batch drift and individual anomalies.
 
 # %% [markdown]
 # ## Related guides

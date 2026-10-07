@@ -1444,7 +1444,7 @@ def run_task(
     Result
         The result of the workflow or evaluator the task runs, as that type's own result class —
         ``isinstance(result, ChainResult)`` narrows it. A run that raised returns a failed
-        result of the same class. A custom workflow's, or a preset's such as drift-monitoring's, is a
+        result of the same class. A custom workflow's, or a preset's such as shift's, is a
         :class:`~dataeval_flow.steps.ChainResult`, holding every step's outcome whether or not one failed.
         A task with a `matrix:` returns a :class:`~dataeval_flow.MatrixResult`.
     """

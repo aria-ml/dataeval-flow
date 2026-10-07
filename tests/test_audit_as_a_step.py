@@ -386,8 +386,8 @@ def test_an_element_keyed_like_a_single_slot_is_refused_at_load() -> None:
 
 
 def test_a_spliced_preset_that_records_nothing_takes_an_element_keyed_like_its_slot() -> None:
-    # A collision confuses only a record's columns and a preflight's names; drift-monitoring keeps neither.
-    drift = {"name": "drift", "type": "drift-monitoring", "detectors": [{"type": "drift-kneighbors", "k": 3}]}
+    # A collision confuses only a record's columns and a preflight's names; shift keeps neither.
+    drift = {"name": "drift", "type": "shift", "detectors": [{"type": "drift-kneighbors", "k": 3}]}
     steps = [
         {"name": "evals", "transform": "collect", "input": ["val", "test"], "keys": ["reference", "test"]},
         {"name": "drift", "workflow": "drift", "input": ["train", "evals"]},

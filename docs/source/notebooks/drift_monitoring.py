@@ -17,7 +17,7 @@
 # # Monitor incoming data for drift
 #
 # Detect distribution drift between a reference dataset and incoming data using
-# the config-driven `drift-monitoring` workflow.
+# the config-driven `shift` workflow.
 
 # %% [markdown]
 # **Target audience**: You are a T&E engineer operating a deployed model who needs
@@ -35,14 +35,14 @@
 # - Load MILCO side-scan sonar imagery partitioned into reference and operational splits by collection year.
 # - Use the 2015, 2017, and 2021 campaigns as the baseline reference set.
 # - Monitor the 2010 and 2018 operational archive for distribution drift.
-# - Configure the `drift-monitoring` workflow with K-Neighbors, MMD, and Univariate CVM detectors.
+# - Configure the `shift` workflow with K-Neighbors, MMD, and Univariate CVM detectors.
 # - Configure per-detector chunking to evaluate temporal drift progression.
 # - Run a control comparison using reference subsets to calibrate baseline campaign variation.
 
 # %% [markdown]
 # ## What you will learn
 #
-# - How to configure and execute the `drift-monitoring` workflow with `run_task()`.
+# - How to configure and execute the `shift` workflow with `run_task()`.
 # - How to combine chunked and non-chunked detectors in a single pipeline.
 # - How the size of the reference limits the chunk size.
 # - How to interpret formatted drift reports and chunked metric trends.
@@ -149,7 +149,7 @@ plt.show()
 # %% [markdown]
 # ## Step 1: Build the workflow configuration
 #
-# To configure the `drift-monitoring` workflow, you specify:
+# To configure the `shift` workflow, you specify:
 #
 # 1. **Datasets**: A reference dataset followed by one or more test sources.
 # 2. **Extractor**: An extractor to produce embedding vectors.
@@ -230,7 +230,7 @@ from dataeval_flow.evaluators.shift import (
     DriftUnivariateConfig,
 )
 from dataeval_flow.steps.checks import DriftThresholds
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringChecks, DriftMonitoringConfig
+from dataeval_flow.workflows.shift import ShiftChecks, ShiftConfig
 
 drift_task = TaskConfig(
     name="milco-drift-overall",
@@ -254,14 +254,14 @@ config = PipelineConfig(
     preprocessors=[preprocessor_config],
     extractors=[extractor_config],
     workflows=[
-        DriftMonitoringConfig(
+        ShiftConfig(
             name="milco-drift",
             detectors=[
                 DriftKNeighborsConfig(k=10, chunking=chunking),
                 DriftMMDConfig(n_permutations=100, chunking=chunking),
                 DriftUnivariateConfig(method="cvm"),  # non-chunked overall test
             ],
-            checks=DriftMonitoringChecks(
+            checks=ShiftChecks(
                 drift=DriftThresholds(
                     chunk_percent=15.0,  # warn if >15% of chunks drift
                     consecutive_chunks=2,  # warn on 2+ consecutive drifted chunks
@@ -373,7 +373,7 @@ control_config = PipelineConfig(
     preprocessors=[preprocessor_config],
     extractors=[extractor_config],
     workflows=[
-        DriftMonitoringConfig(
+        ShiftConfig(
             name="milco-drift-control",
             # No chunking: 141 incoming frames forms a single window to test baseline variation.
             detectors=[
@@ -521,7 +521,7 @@ print(json_str[:600] + "\n...")
 #
 # This tutorial shows how to:
 #
-# - Configure the `drift-monitoring` workflow across reference and operational datasets.
+# - Configure the `shift` workflow across reference and operational datasets.
 # - Use BoVW feature extractors to generate fixed-length descriptors from variable-sized sonar frames.
 # - Combine chunked and non-chunked detectors in a single workflow.
 # - Choose a chunk size the reference can support, and merge a short final reference chunk

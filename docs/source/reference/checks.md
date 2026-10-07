@@ -895,7 +895,7 @@ not a chunk drifted.
 - **Judges:** [`drift-domain-classifier`](evaluators.md#drift-domain-classifier),
   [`drift-kneighbors`](evaluators.md#drift-kneighbors), [`drift-mmd`](evaluators.md#drift-mmd),
   [`drift-univariate`](evaluators.md#drift-univariate), [`drift-wasserstein`](evaluators.md#drift-wasserstein)
-- **Used in:** [`drift-monitoring`](presets.md#drift-monitoring)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -935,7 +935,7 @@ it; a `null` threshold judges nothing at its level, and with both `null` the fin
 
 - **Judges:** [`ood-domain-classifier`](evaluators.md#ood-domain-classifier),
   [`ood-kneighbors`](evaluators.md#ood-kneighbors)
-- **Used in:** [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -968,7 +968,7 @@ The aggregate finding judges the percent of assessed test images every detector 
 | `info` | a percentage, or `null` | `1.0` | The percent past which the finding is `info`, at or below which it is `ok` |
 
 - **Judges:** [`ood-union`](combines.md#ood-union)
-- **Used in:** [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:

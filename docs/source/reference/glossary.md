@@ -112,7 +112,7 @@ Domain Classifier
 Drift
     A change over time in the statistical properties of data relative to the
     training {term}`reference dataset<Reference Dataset>`, which degrades model
-    performance. DataEval Flow's `drift-monitoring` workflow detects population-level drift;
+    performance. DataEval Flow's `shift` workflow detects population-level drift;
     see the
     [DataEval Distribution Shift explanation](https://dataeval.readthedocs.io/en/latest/concepts/DistributionShift.html).
 
@@ -323,8 +323,8 @@ Task
     {term}`workflow<Workflow>` or {term}`evaluator<Evaluator>`.
 
 Test Source
-    A source a detector tests against the {term}`reference<Reference Dataset>`, as `drift-monitoring` and
-    `ood-detection` take after their reference. It is not an {term}`evaluation split<Evaluation Split>`, which is judged
+    A source a detector tests against the {term}`reference<Reference Dataset>`, as `shift`
+    takes after their reference. It is not an {term}`evaluation split<Evaluation Split>`, which is judged
     against `train` and not against a reference. See [Has new data drifted?](index.md#has-new-data-drifted).
 
 Threshold

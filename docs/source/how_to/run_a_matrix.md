@@ -182,13 +182,13 @@ A path walks fields by name: `checks.image-outliers.warning` sets one field of `
 
 ### List items by name
 
-Where a path meets a list of entries, such as an `ood-detection` entry's `detectors`, it picks the item by its `name`.
+Where a path meets a list of entries, such as a `shift` entry's `detectors`, it picks the item by its `name`.
 An entry without a `name` is named by its type, so an unnamed detector is reached by its type:
 
 ```yaml
 workflows:
   - name: ood
-    type: ood-detection
+    type: shift
     detectors:
       - {name: knn, type: ood-kneighbors, k: 10}
       - {type: ood-domain-classifier, n_folds: 5}
@@ -206,7 +206,7 @@ tasks:
 A path may end on a whole item, written whole, and the item keeps its name:
 `detectors.knn: [{type: ood-kneighbors, k: 5}, {type: ood-kneighbors, k: 20, distance_metric: euclidean}]`. Items
 are not reached by their position. A name no item has fails the load, listing the names there are:
-`` `detectors` in ood-detection has no item named `knn2` (it has `knn`, `ood-domain-classifier`) ``.
+`` `detectors` in shift has no item named `knn2` (it has `knn`, `ood-domain-classifier`) ``.
 
 ### Keys of a mapping
 
@@ -375,7 +375,7 @@ and every run that finished are still printed and written.
 their values and whether each ran (`[ok]` or `failed`), its health line says the runs ran, and each run's report shows
 its output. To compare runs by their findings, vary a workflow that judges:
 
-- a preset's settings, such as `detectors.knn.k` on an `ood-detection` task, whose checks judge each detector;
+- a preset's settings, such as `detectors.knn.k` on an `shift` task, whose checks judge each detector;
 - or a custom workflow that runs the evaluator and a check on it, varying `evaluators.knn.k` as in section 3.
 
 ## 5. What the runs share

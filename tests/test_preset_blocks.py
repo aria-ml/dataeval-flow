@@ -6,10 +6,10 @@ import pytest
 from pydantic import ValidationError
 
 from dataeval_flow.workflows.bias import BiasConfig, BiasWorkflow
-from dataeval_flow.workflows.ood_detection import OODDetectionConfig, OODDetectionWorkflow
 from dataeval_flow.workflows.prioritization import PrioritizationWorkflow, PrioritizationWorkflowConfig
 from dataeval_flow.workflows.quality import QualityConfig, QualityWorkflow
 from dataeval_flow.workflows.scope import ScopeConfig, ScopeWorkflow
+from dataeval_flow.workflows.shift import ShiftConfig, ShiftWorkflow
 from dataeval_flow.workflows.taxonomy import TaxonomyConfig, TaxonomyWorkflow
 
 _DETECTORS = [{"name": "knn", "type": "ood-kneighbors", "distance_metric": "euclidean"}]
@@ -143,20 +143,18 @@ def test_label_space_keys_its_step_settings_by_step_type() -> None:
     assert entries["ontology-validation"].label_pattern == "^[a-z]+$"
 
 
-def test_ood_detection_switches_off_each_factor_step_by_its_key() -> None:
-    off = OODDetectionConfig.model_validate(
-        {"detectors": _DETECTORS, "factor-predictors": False, "factor-deviation": False}
-    )
-    assert {"factor-predictors", "factor-deviation"} & _types(OODDetectionWorkflow.chain(off)) == set()
-    one = OODDetectionConfig.model_validate({"detectors": _DETECTORS, "factor-predictors": False})
-    assert "factor-deviation" in _types(OODDetectionWorkflow.chain(one))
-    assert "factor-predictors" not in _types(OODDetectionWorkflow.chain(one))
+def test_shift_ood_switches_off_each_factor_step_by_its_key() -> None:
+    off = ShiftConfig.model_validate({"detectors": _DETECTORS, "factor-predictors": False, "factor-deviation": False})
+    assert {"factor-predictors", "factor-deviation"} & _types(ShiftWorkflow.chain(off)) == set()
+    one = ShiftConfig.model_validate({"detectors": _DETECTORS, "factor-predictors": False})
+    assert "factor-deviation" in _types(ShiftWorkflow.chain(one))
+    assert "factor-predictors" not in _types(ShiftWorkflow.chain(one))
 
 
-def test_ood_detection_takes_factor_deviations_settings_under_its_type() -> None:
-    config = OODDetectionConfig.model_validate({"detectors": _DETECTORS, "factor-deviation": {"max_items": 9}})
-    chain = cast("Any", OODDetectionWorkflow.chain(config))
+def test_shift_ood_takes_factor_deviations_settings_under_its_type() -> None:
+    config = ShiftConfig.model_validate({"detectors": _DETECTORS, "factor-deviation": {"max_items": 9}})
+    chain = cast("Any", ShiftWorkflow.chain(config))
     (step,) = (step for step in chain.steps if step.get("combine") == "factor-deviation")
     assert step["max_items"] == 9
     with pytest.raises(ValidationError, match="metadata_insights"):
-        OODDetectionConfig.model_validate({"detectors": _DETECTORS, "metadata_insights": False})
+        ShiftConfig.model_validate({"detectors": _DETECTORS, "metadata_insights": False})

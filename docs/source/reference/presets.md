@@ -16,7 +16,7 @@ every preset that takes it:
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space the preset's labels are read under: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children, read as an inline hierarchy. It is recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` requires it and judges labels against it, and `audit` judges each split's labels against it with `label-conformance`. `scope` refuses it as the config loads, so a scope run on a conformed source records no label space of its own; judge its labels with a `taxonomy` entry on the same source. |
-| `stats` | a stats policy name, or `null` | `null` | The name of a policy under the top-level `stats:` key, which the preset's image statistics are measured under. Declare one to measure named band groups or the image background; leave it unset to measure the whole image. `audit` and `quality` pass it to their `outliers` and `duplicates` steps, and outlier detection reads the policy's `outliers_from` views. `ood-detection` passes it to `factor-predictors` and `factor-deviation`, which read the statistics beside the metadata factors. |
+| `stats` | a stats policy name, or `null` | `null` | The name of a policy under the top-level `stats:` key, which the preset's image statistics are measured under. Declare one to measure named band groups or the image background; leave it unset to measure the whole image. `audit` and `quality` pass it to their `outliers` and `duplicates` steps, and outlier detection reads the policy's `outliers_from` views. `shift` passes it to `factor-predictors` and `factor-deviation`, which read the statistics beside the metadata factors. |
 | `metadata` | a metadata policy name, or `null` | `null` | The name of a policy under the top-level `metadata:` key, which the preset's metadata factors are read under. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave it unset for DataEval's defaults. The preset passes it to every step of its chain that reads metadata. |
 
 ## `audit`
@@ -516,123 +516,88 @@ tasks:
   - {name: split-train, workflow: splitting, sources: [train]}
 ```
 
-## `drift-monitoring`
+## `shift`
 
-Tests each incoming source for drift from a reference, whole, by chunk and by class.
+Tests each incoming source against a reference for drift and for out-of-distribution images,
+with the metadata behind them.
 
-- **Answers:** [Has new data drifted?](index.md#has-new-data-drifted)
+- **Answers:** [Has new data drifted?](index.md#has-new-data-drifted), [Which items are out of distribution?](index.md#which-items-are-out-of-distribution)
 - **Reads:** `reference`, then `tests`: the first source is the reference, and each later source is tested against it.
 - **Makes:** no Dataset; its findings are its result.
 
-**Chain**, from `detectors: [{name: mmd, type: drift-mmd, chunking: {chunk_count: 5}}]` and
-`classwise: {mmd: class}`, with the task's extractor or the detector's own:
+**Chain**, from the detectors `mmd` (`drift-mmd`, chunked), `knn` (`ood-kneighbors`) and `dc`
+(`ood-domain-classifier`), with `classwise: {mmd: class}` and the task's extractor or each detector's own:
 
 | Step | Kind | Type | Reads |
 | --- | --- | --- | --- |
 | `mmd` | evaluator | [`drift-mmd`](evaluators.md#drift-mmd) | `input`: `reference`, `tests` |
 | `mmd-check` | check | [`drift`](checks.md#drift) | `input`: `mmd` |
-| `mmd-by-class` | evaluator | [`drift-mmd`](evaluators.md#drift-mmd) | `input`: `reference`, `tests` |
-| `mmd-by-class-check` | check | [`drift`](checks.md#drift) | `input`: `mmd-by-class` |
-
-**Settings** ({py:class}`~dataeval_flow.workflows.drift_monitoring.DriftMonitoringConfig`):
-
-| Setting | Takes | Default | Description |
-| --- | --- | --- | --- |
-| `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
-| `detectors` | a list of drift evaluator entries | required | Drift evaluator entries (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`), each tested on every test source against the reference. An entry's `name` names its step. An entry may name its own `extractor:`. |
-| `classwise` | a mapping of detector name to `by:` | `{}` | Detectors to also run per key, unchunked, each with its `by:`: `{drift-mmd: class}`, `{uncertainty: predicted}` (see [Drift in a model's uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty)), or with settings; `min_items` is 2 unless written. |
-| `checks` | a block | the defaults below | When findings warn, keyed by check type |
-
-**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.drift_monitoring.DriftMonitoringChecks`):
-
-| Check | Default settings |
-| --- | --- |
-| [`drift`](checks.md#drift) | `warn_on_drift: true`, `chunk_percent: 10.0`, `consecutive_chunks: 2` |
-
-A task with a reference and two test sources runs every detector once for each test source. The entries of
-`detectors:` are drift evaluator entries, so each takes the fields its evaluator takes in the
-[Evaluator Catalog](evaluators.md). An entry's `name` defaults to its type, and it names the detector's step. The
-`drift` check is the step `<detector>-check`. The report groups each source's findings under the source's name, and
-the result is a `ChainResult` with one element per test source for each step. See
-[Monitor drift with steps](../how_to/monitor_drift.md).
-
-```yaml
-workflows:
-  - name: drift
-    type: drift-monitoring
-    detectors:
-      - {type: drift-univariate, method: ks, p_val: 0.01}
-      - {name: mmd-chunked, type: drift-mmd, chunking: {chunk_count: 10}}
-    checks:
-      drift: {chunk_percent: 20.0}
-
-tasks:
-  - {name: cameras, workflow: drift, sources: [train, test, operational], extractor: bovw_ext}
-```
-
-## `ood-detection`
-
-Flags each test source's images unlike the reference, by each detector and by their agreement, with the metadata behind
-them.
-
-- **Answers:** [Which items are out of distribution?](index.md#which-items-are-out-of-distribution)
-- **Reads:** `reference`, then `tests`: the first source is the reference, and each later source is scored against it.
-- **Makes:** no Dataset; its findings are its result.
-
-**Chain**, from the detectors `knn` (`ood-kneighbors`, with `distance_metric: euclidean`) and `dc`
-(`ood-domain-classifier`), with the task's extractor or each detector's own:
-
-| Step | Kind | Type | Reads |
-| --- | --- | --- | --- |
 | `knn` | evaluator | [`ood-kneighbors`](evaluators.md#ood-kneighbors) | `input`: `reference`, `tests` |
 | `knn-check` | check | [`ood`](checks.md#ood) | `input`: `knn` |
 | `dc` | evaluator | [`ood-domain-classifier`](evaluators.md#ood-domain-classifier) | `input`: `reference`, `tests` |
 | `dc-check` | check | [`ood`](checks.md#ood) | `input`: `dc` |
+| `mmd-by-class` | evaluator | [`drift-mmd`](evaluators.md#drift-mmd) | `input`: `reference`, `tests` |
+| `mmd-by-class-check` | check | [`drift`](checks.md#drift) | `input`: `mmd-by-class` |
 | `ood-union` | combine | [`ood-union`](combines.md#ood-union) | `input`: `knn`, `dc` |
 | `ood-agreement` | check | [`ood-agreement`](checks.md#ood-agreement) | `input`: `ood-union` |
 | `factor-predictors` | combine | [`factor-predictors`](combines.md#factor-predictors) | `ood`: `ood-union`; `reference`: `reference`; `input`: `tests` |
 | `factor-deviation` | combine | [`factor-deviation`](combines.md#factor-deviation) | `ood`: `ood-union`; `reference`: `reference`; `input`: `tests` |
 
-`ood-agreement` runs only with two or more detectors, so one detector gives no `ood-agreement` step.
+Each detector adds its evaluator and its check, in list order: `drift` for a drift detector, `ood` for an OOD one. The
+`classwise` steps follow, and then the OOD steps. `ood-union`, `factor-predictors` and `factor-deviation` run only where
+the list holds an OOD detector, and `ood-agreement` only with two or more, so a list of drift detectors alone adds none
+of them.
 
-**Settings** ({py:class}`~dataeval_flow.workflows.ood_detection.OODDetectionConfig`):
+**Settings** ({py:class}`~dataeval_flow.workflows.shift.ShiftConfig`):
 
 | Setting | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `stats` | a stats policy name, or `null` | `null` | The stats policy; see [Settings every preset shares](#settings-every-preset-shares) |
 | `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares) |
 | `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
-| `detectors` | a list of OOD evaluator entries | required | OOD evaluator entries (`ood-kneighbors`, `ood-domain-classifier`), each scoring every test source against the reference. An entry's `name` names its step. An entry may name its own `extractor:`. |
+| `detectors` | a list of drift and OOD evaluator entries | `[drift-univariate, ood-kneighbors]` | Drift (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`) and OOD (`ood-kneighbors`, `ood-domain-classifier`) evaluator entries, each testing every test source against the reference. An entry's `name` names its step. An entry may name its own `extractor:`. |
+| `classwise` | a mapping of drift detector name to `by:` | `{}` | Drift detectors to also run per key, unchunked, each with its `by:`: `{drift-mmd: class}`, `{uncertainty: predicted}` (see [Drift in a model's uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty)), or with settings; `min_items` is 2 unless written. An OOD detector here is refused. |
 | `factor-predictors` | `false`, or `null` | `null` | `false` leaves out the `factor-predictors` step; it takes no settings. |
 | `factor-deviation` | a block, or `false` | `max_items: 50` | [`factor-deviation`](combines.md#factor-deviation)'s `max_items`; `false` leaves it out. |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
-**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.ood_detection.OODDetectionChecks`):
+**Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.shift.ShiftChecks`):
 
 | Check | Default settings |
 | --- | --- |
+| [`drift`](checks.md#drift) | `warn_on_drift: true`, `chunk_percent: 10.0`, `consecutive_chunks: 2` |
 | [`ood`](checks.md#ood) | `warning: 10.0`, `info: 1.0` |
 | [`ood-agreement`](checks.md#ood-agreement) | `warning: 10.0`, `info: 1.0` |
 
-Out-of-distribution detection asks of each image whether it is anomalous relative to the reference, where drift asks
-whether a whole batch moved. Each detector scores every test source against the reference, and an `ood` check
-judges each detector's flagged share. The `ood-union` combine joins the detectors' flags, and `ood-agreement` judges how
-far they agree when there are two or more detectors. `factor-predictors` and `factor-deviation` read the flagged
-images' metadata. Use it during data ingestion, to flag anomalous samples before they reach a model, and in
-operation, to flag individual inputs outside the training distribution. See [Distribution Shift](../concepts/DistributionShift.md).
+With no `detectors:`, it runs `drift-univariate` (a KS test per embedding dimension, with Bonferroni correction) and
+`ood-kneighbors`, each with DataEval's settings. `drift-univariate` can miss correlated shifts across embedding
+dimensions: add `drift-mmd` or `drift-domain-classifier` to catch those.
+
+Drift asks whether a whole batch moved, and out-of-distribution detection asks of each image whether it is anomalous
+relative to the reference. A task with a reference and two test sources runs every detector once for each test source.
+The entries of `detectors:` are evaluator entries, so each takes the fields its evaluator takes in the
+[Evaluator Catalog](evaluators.md), and its name defaults to its type. A `drift` check judges each drift detector, and
+an `ood` check each OOD detector's flagged share. `ood-union` joins the OOD detectors' flags, `ood-agreement` judges how
+far they agree, and `factor-predictors` and `factor-deviation` read the flagged images' metadata. Use it to monitor
+operational data for drift, and during ingestion or operation to flag individual inputs outside the training
+distribution. The report groups each source's findings under the source's name, and the result is a `ChainResult` with
+one element per test source for each step. See [Distribution Shift](../concepts/DistributionShift.md) and
+[Monitor drift with steps](../how_to/monitor_drift.md).
 
 ```yaml
 workflows:
-  - name: ood
-    type: ood-detection
+  - name: shift
+    type: shift
     detectors:
+      - {type: drift-univariate, method: ks, p_val: 0.01}
+      - {name: mmd-chunked, type: drift-mmd, chunking: {chunk_count: 10}}
       - {name: knn, type: ood-kneighbors, distance_metric: euclidean}
-      - {name: dc, type: ood-domain-classifier}
     checks:
+      drift: {chunk_percent: 20.0}
       ood: {warning: 5.0}
 
 tasks:
-  - {name: ood-operational, workflow: ood, sources: [train, operational], extractor: bovw_ext}
+  - {name: cameras, workflow: shift, sources: [train, test, operational], extractor: bovw_ext}
 ```
 
 ## `prioritization`

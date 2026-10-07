@@ -193,17 +193,15 @@ _MINIMAL = {
     "scope": {"coverage": {"method": "naive"}},
     "prioritization": {},
     "splits": {"rebalance": "interclass"},
-    "drift-monitoring": {
-        "detectors": [{"name": "mmd", "type": "drift-mmd", "chunking": {"chunk_count": 5}}],
-        "classwise": {"mmd": "class"},
-    },
     "taxonomy": {"ontology": {"animal": {"cat": None}}},
     "triage": {},
-    "ood-detection": {
+    "shift": {
         "detectors": [
+            {"name": "mmd", "type": "drift-mmd", "chunking": {"chunk_count": 5}},
             {"name": "knn", "type": "ood-kneighbors", "distance_metric": "euclidean"},
             {"name": "dc", "type": "ood-domain-classifier"},
-        ]
+        ],
+        "classwise": {"mmd": "class"},
     },
 }
 _KINDS = ("evaluator", "combine", "check")

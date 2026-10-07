@@ -1,4 +1,4 @@
-"""The ood-detection preset gives what the legacy workflow gave, recorded in `golden/ood.json` before its deletion
+"""The shift preset gives what the legacy workflow gave, recorded in `golden/ood.json` before its deletion
 (ood-detection spec §10).
 
 Deliberate differences, each with its reason:
@@ -86,7 +86,7 @@ def _fresh_caches() -> Iterator[None]:
 def _run(name: str) -> ChainResult:
     """Case `name` through the preset, with the golden's seed."""
     case = CASES[name]
-    workflow = {"name": "ood", "type": "ood-detection", **case.preset}
+    workflow = {"name": "ood", "type": "shift", **case.preset}
     task = {"name": "t", "workflow": "ood", "sources": list(case.datasets()), "extractor": "flat"}
     config = PipelineConfig.model_validate({**dict(pipeline(name)), "workflows": [workflow], "tasks": [task]})
     # The factor steps read metadata where anything was flagged, and DataEval bins the toys' continuous factors.

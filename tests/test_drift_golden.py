@@ -1,4 +1,4 @@
-"""drift-monitoring agrees with what it produced before its port: each detector's verdict, distance, threshold and
+"""shift agrees with what it produced before its port: each detector's verdict, distance, threshold and
 chunks, each class's verdict, distance and p-value, and the findings' severities in order (spec §10.11).
 
 `tests/golden/drift.py` maps each case's legacy config onto its preset config, and each legacy detector onto the step
@@ -49,7 +49,7 @@ _ORDER = ("ok", "info", "warning")
 def _run(name: str) -> ChainResult:
     """Case `name` through the preset, or through its custom workflow, with the golden's seed."""
     case = CASES[name]
-    workflow = case.custom or {"name": "drift", "type": "drift-monitoring", **case.preset}
+    workflow = case.custom or {"name": "drift", "type": "shift", **case.preset}
     task = {"name": "t", "workflow": workflow["name"], "sources": list(case.datasets()), "extractor": "flat"}
     evaluators = case.preset["detectors"] if case.custom else []
     config = PipelineConfig.model_validate(

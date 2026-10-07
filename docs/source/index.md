@@ -60,8 +60,8 @@ reproducible orchestration layer with native MAITE interoperability.
 | Find gaps in dataset coverage before training | [`scope`](reference/presets.md#scope) | Embedding blind spots and what to acquire per class |
 | Find shortcuts and imbalance in labels and metadata | [`bias`](reference/presets.md#bias) | Class imbalance, metadata factors tied to the class, and under-represented class-factor combinations |
 | Build stratified or grouped train/val/test splits | [`splits`](reference/presets.md#splits) | Train, val and test splits, stratified or grouped, or k folds, with each part's stratification judged |
-| Monitor operational data for population drift | [`drift-monitoring`](reference/presets.md#drift-monitoring) | Per-batch drift flags and p-values |
-| Flag anomalous individual samples | [`ood-detection`](reference/presets.md#ood-detection) | Per-sample out-of-distribution scores |
+| Monitor operational data for population drift | [`shift`](reference/presets.md#shift) | Per-batch drift flags and p-values |
+| Flag anomalous individual samples | [`shift`](reference/presets.md#shift) | Per-sample out-of-distribution scores |
 | Rank abundant/unlabeled data for labeling | [`prioritization`](reference/presets.md#prioritization) | Ranked sample ordering |
 | Find metadata the run could not read | [`triage`](reference/presets.md#triage) | Unreadable and unpinned metadata factors, with suggested corrections |
 | Tune workflow parameters across a grid | Any workflow, with a task matrix | One table comparing every run's findings |

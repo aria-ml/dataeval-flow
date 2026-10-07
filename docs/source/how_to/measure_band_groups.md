@@ -50,7 +50,7 @@ workflows:
 ```
 
 Reference a policy by name from any workflow that computes image statistics — `quality`, `audit` and
-`ood-detection` all take a `stats:` name; `scope` and `prioritization` read no statistics and refuse
+`shift` all take a `stats:` name; `scope` and `prioritization` read no statistics and refuse
 one. Two workflows naming the same policy measure the same things, so their results are comparable.
 
 ### measure is a complete statement

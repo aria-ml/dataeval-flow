@@ -19,7 +19,7 @@ These workflows read metadata factors under the policy their `metadata:` names:
 | `audit` | its `factor-triage`, `factor-summary`, `balance`, `diversity`, `factor-gaps` and `factor-leakage` steps: unreadable factors, per-factor summaries, shortcut risk, diversity, factor gaps and group leakage, with every split encoded like train |
 | `bias` | its `label-health`, `factor-summary`, `balance`, `diversity`, `parity` and `factor-gaps` steps: class counts, per-factor summaries, shortcut risk, diversity, factor-class association, and the factor gap analysis with factor-to-class mutual information |
 
-`quality`, `splits` and `ood-detection` take a policy's name, `metadata:`, too; `scope` reads no
+`quality`, `splits` and `shift` take a policy's name, `metadata:`, too; `scope` reads no
 factors and refuses one. A custom workflow's or preset's result
 records the encodings its steps read in `metadata_binning`: one record, or `per_split` keyed by Dataset address where
 the steps read several Datasets or one Dataset two ways. A step that reads labels alone, as `label-health` does, adds

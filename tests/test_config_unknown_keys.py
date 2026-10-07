@@ -28,8 +28,6 @@ from dataeval_flow.workflows.bias._config import (
     FactorGapsSettings,
     FactorParitySettings,
 )
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringChecks
-from dataeval_flow.workflows.ood_detection import OODDetectionChecks
 from dataeval_flow.workflows.quality import QualityConfig
 from dataeval_flow.workflows.quality._config import QualityChecks
 from dataeval_flow.workflows.scope._config import (
@@ -41,6 +39,7 @@ from dataeval_flow.workflows.scope._config import (
     ScopeConfig,
     UncoveredItemsSettings,
 )
+from dataeval_flow.workflows.shift import ShiftChecks
 from dataeval_flow.workflows.triage._config import TriageConfig
 from tests.chain_toys import chain_pipeline
 
@@ -108,8 +107,7 @@ _NESTED = [
     pytest.param(CoverageSettings, {}, id="coverage-settings"),
     pytest.param(CropParams, {}, id="coverage-crops"),
     pytest.param(FactorGapsSettings, {}, id="bias-gap-settings"),
-    pytest.param(DriftMonitoringChecks, {}, id="drift-thresholds"),
-    pytest.param(OODDetectionChecks, {}, id="ood-thresholds"),
+    pytest.param(ShiftChecks, {}, id="shift-thresholds"),
 ]
 
 

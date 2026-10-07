@@ -631,7 +631,7 @@ correction. It runs `dataeval.shift.DriftUnivariate`.
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 
 - **Judged by:** [`drift`](checks.md#drift)
-- **Used in:** [`drift-monitoring`](presets.md#drift-monitoring)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -662,7 +662,7 @@ The discrepancy is tested against a permutation estimate of its no-drift distrib
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 
 - **Judged by:** [`drift`](checks.md#drift)
-- **Used in:** [`drift-monitoring`](presets.md#drift-monitoring)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -693,7 +693,7 @@ The data's distances to their nearest reference neighbors are compared with the 
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 
 - **Judged by:** [`drift`](checks.md#drift)
-- **Used in:** [`drift-monitoring`](presets.md#drift-monitoring)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -708,7 +708,7 @@ tasks:
 Per-dimension Wasserstein distance against a validation baseline (DataEval DriftWasserstein).
 
 Each dimension's Wasserstein distance from the reference to the data is set against its distance to the validation set.
-It runs `dataeval.shift.DriftWasserstein`. `drift-monitoring` takes no validation source and refuses it, so chain it
+It runs `dataeval.shift.DriftWasserstein`. `shift` takes no validation source and refuses it, so chain it
 as [Drift in a model's uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty) does.
 
 - **Reads:** `input`: three Datasets, the reference, an in-distribution validation set (the task's middle source, which
@@ -754,7 +754,7 @@ better than `threshold` (AUROC). It runs `dataeval.shift.DriftDomainClassifier`.
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 
 - **Judged by:** [`drift`](checks.md#drift)
-- **Used in:** [`drift-monitoring`](presets.md#drift-monitoring)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -794,7 +794,7 @@ relates the share of its Output flagged to that percentile of train.
 - **Judged by:** [`eval-coverage`](checks.md#eval-coverage), [`ood`](checks.md#ood)
 - **Combined by:** [`factor-deviation`](combines.md#factor-deviation),
   [`factor-predictors`](combines.md#factor-predictors), [`ood-union`](combines.md#ood-union)
-- **Used in:** [`audit`](presets.md#audit), [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`audit`](presets.md#audit), [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:
@@ -830,7 +830,7 @@ Output flagged; it relates the share to a percentile of train only for `ood-knei
 - **Judged by:** [`eval-coverage`](checks.md#eval-coverage), [`ood`](checks.md#ood)
 - **Combined by:** [`factor-deviation`](combines.md#factor-deviation),
   [`factor-predictors`](combines.md#factor-predictors), [`ood-union`](combines.md#ood-union)
-- **Used in:** [`ood-detection`](presets.md#ood-detection)
+- **Used in:** [`shift`](presets.md#shift)
 
 ```yaml
 evaluators:

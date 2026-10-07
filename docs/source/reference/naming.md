@@ -3,7 +3,7 @@
 Every name a user reads or writes follows one rule per kind of name. The rules below are for plugin authors and for
 anyone porting new functionality. `tests/test_naming_conventions.py` holds the built-in steps to them, and a failure
 there names the rule. Plugins are asked to follow the same rules. The registry enforces none of them, though the
-`drift-monitoring` and `ood-detection` presets refuse their reserved detector names at load.
+`shift` preset refuses its reserved detector names at load.
 
 Each rule gives the guard test that enforces it on built-ins. A rule marked "convention, no guard test" is followed by
 every built-in step but checked by no test.
@@ -125,7 +125,7 @@ A preset's settings follow these rules. Each rule names its guard tests, or is m
 - **The main step's settings sit at the top level.** A preset built around one main step keeps that step's settings at
   the top, though its chain runs more steps: `splits` takes its `split` or `kfold` step's `test_frac`,
   `val_frac` and `folds`, and `triage` takes its `factor-triage` step's `verify` and `default_bins`. The
-  `detectors:` lists of `drift-monitoring` and `ood-detection` sit there too. Convention, no guard test.
+  `detectors:` list of `shift` sits there too. Convention, no guard test.
 - **Other steps sit under their type.** Every other step's settings sit under a key named for its type. A block may take
   a subset of what that type's own entry would hold, leaving out what the preset fixes or does not offer, but never a
   setting the step does not take. `scope`'s `coverage:` block holds `coverage`'s settings, and `quality`'s
@@ -138,7 +138,7 @@ A preset's settings follow these rules. Each rule names its guard tests, or is m
   never a setting the check does not take. `quality`'s `checks:` has an `image-outliers` key holding
   `warning`. Guard test: `test_a_presets_checks_are_keyed_by_check_type_in_each_checks_own_words`.
 - **Preset-wide settings stay flat.** `metadata`, `stats` and `ontology` apply to the whole chain. So do choices that
-  no single step takes verbatim: `splits`'s `rebalance` and `drift-monitoring`'s `classwise`. Convention, no
+  no single step takes verbatim: `splits`'s `rebalance` and `shift`'s `classwise`. Convention, no
   guard test.
 
 The [preset catalog](presets.md) lists each preset's settings and `checks:` defaults.
@@ -158,11 +158,9 @@ banners, so they follow one rule. Guard test for the first two rules:
   `prioritization`'s `select` step is named `selected`. The test skips transforms, so
   this rule is a convention with no guard test.
 - **A detector entry keeps its name.** A step over a user-named detector entry takes the entry's name, and the steps
-  made per entry add a suffix: `<entry>-check`, `<entry>-by-class` and `<entry>-by-class-check`. Two presets refuse
-  reserved detector names when the config loads:
-  - `drift-monitoring` refuses a name ending in `-check`, `-by-class` or `-unchunked`.
-  - `ood-detection` refuses `ood-union`, `ood-agreement`, `factor-predictors` and `factor-deviation`, and any name
-    ending in `-check`. It has no `-by-class` steps.
+  made per entry add a suffix: `<entry>-check`, `<entry>-by-class` and `<entry>-by-class-check`. The `shift` preset
+  refuses reserved detector names when the config loads: `ood-union`, `ood-agreement`, `factor-predictors` and
+  `factor-deviation`, and any name ending in `-check`, `-by-class` or `-unchunked`.
 
   The naming test skips detector steps, so the step-name pattern itself has no guard test.
 

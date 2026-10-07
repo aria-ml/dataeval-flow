@@ -11,11 +11,10 @@ __all__ = ["WORKFLOWS", "get_workflow", "list_workflows"]
 _BUILTINS = {
     "audit": "dataeval_flow.workflows.audit._workflow:AuditWorkflow",
     "bias": "dataeval_flow.workflows.bias._workflow:BiasWorkflow",
-    "drift-monitoring": "dataeval_flow.workflows.drift_monitoring._workflow:DriftMonitoringWorkflow",
-    "ood-detection": "dataeval_flow.workflows.ood_detection._workflow:OODDetectionWorkflow",
     "prioritization": "dataeval_flow.workflows.prioritization._workflow:PrioritizationWorkflow",
     "quality": "dataeval_flow.workflows.quality._workflow:QualityWorkflow",
     "scope": "dataeval_flow.workflows.scope._workflow:ScopeWorkflow",
+    "shift": "dataeval_flow.workflows.shift._workflow:ShiftWorkflow",
     "splits": "dataeval_flow.workflows.splits._workflow:SplitsWorkflow",
     "taxonomy": "dataeval_flow.workflows.taxonomy._workflow:TaxonomyWorkflow",
     "triage": "dataeval_flow.workflows.triage._workflow:TriageWorkflow",

@@ -65,10 +65,9 @@ _TITLES = {
     "quality": "Quality",
     "scope": "Scope",
     "splits": "Splits",
-    "drift-monitoring": "Drift Monitoring",
     "taxonomy": "Taxonomy",
     "triage": "Triage",
-    "ood-detection": "OOD Detection",
+    "shift": "Shift",
 }
 
 

@@ -109,9 +109,9 @@ def test_real_cleaning_params():
 
 
 def test_real_drift_params():
-    from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
+    from dataeval_flow.workflows.shift import ShiftConfig
 
-    descriptors = introspect_model(DriftMonitoringConfig)
+    descriptors = introspect_model(ShiftConfig)
     by_name = {d.name: d for d in descriptors}
 
     assert by_name["detectors"].kind == FieldKind.LIST

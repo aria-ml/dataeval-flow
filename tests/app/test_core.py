@@ -47,7 +47,7 @@ class TestVariantRegistry:
         choices = get_variant_choices("workflows")
         assert choices is not None
         assert "quality" in choices
-        assert "drift-monitoring" in choices
+        assert "shift" in choices
 
     def test_get_variant_choices_non_discriminated(self):
         assert get_variant_choices("sources") is None

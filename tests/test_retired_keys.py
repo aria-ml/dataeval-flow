@@ -34,7 +34,7 @@ def test_data_analysis_is_an_unknown_workflow() -> None:
 
 
 def test_a_detector_without_a_type_names_the_types_with_no_legacy_hint() -> None:
-    config_type = get_workflow("drift-monitoring").config_type
+    config_type = get_workflow("shift").config_type
     with pytest.raises(ValidationError, match="Each detector needs a `type`") as raised:
         config_type.model_validate({"detectors": [{"method": "mmd"}]})
     assert "Legacy" not in str(raised.value)

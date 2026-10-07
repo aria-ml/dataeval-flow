@@ -178,7 +178,7 @@ pair, and it leaves one record saying so.
 ## Workflow types as presets
 
 Every workflow type is a **preset**: its settings expand to a chain of steps. The built-in ones are `audit`,
-`quality`, `prioritization`, `triage`, `drift-monitoring`, `ood-detection`, `splits`,
+`quality`, `prioritization`, `triage`, `shift`, `splits`,
 `taxonomy`, `scope` and `bias`, and a plugin's workflow type is a preset too. Data-cleaning's evaluators find
 outliers and duplicates, its checks judge them against `checks`, and its `clean` step removes what they flagged. The
 [Preset Catalog](../reference/presets.md#quality) lists the chain.

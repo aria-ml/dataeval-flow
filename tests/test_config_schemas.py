@@ -806,13 +806,13 @@ class TestWorkflowConfig:
             QualityConfig(name="empty")  # type: ignore[call-arg]
 
     def test_drift_workflow_config_basic(self):
-        """DriftMonitoringConfig stores name, type, and flat params."""
+        """ShiftConfig stores name, type, and flat params."""
         from dataeval_flow.evaluators.shift import DriftKNeighborsConfig
-        from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
+        from dataeval_flow.workflows.shift import ShiftConfig
 
-        wc = DriftMonitoringConfig(name="knn_drift", detectors=[DriftKNeighborsConfig(k=10)])
+        wc = ShiftConfig(name="knn_drift", detectors=[DriftKNeighborsConfig(k=10)])
         assert wc.name == "knn_drift"
-        assert wc.type == "drift-monitoring"
+        assert wc.type == "shift"
         assert len(wc.detectors) == 1
 
     def test_workflow_config_in_pipeline_config(self, tmp_path: Path):

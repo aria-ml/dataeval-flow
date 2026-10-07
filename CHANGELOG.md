@@ -241,6 +241,11 @@
 
 ### Changed
 
+- `drift-monitoring` and `ood-detection` are one `shift` preset: one `detectors:` list takes drift and OOD detectors,
+  each judged by its family's check; `classwise` takes drift detectors; the OOD union, agreement and factor steps run
+  where there are OOD detectors. With no `detectors:`, it runs `drift-univariate` (KS, Bonferroni) and
+  `ood-kneighbors`. `ShiftConfig`, `ShiftChecks` and `ShiftWorkflow` replace the two presets' classes, and the old
+  ids fail as unknown workflows
 - Presets are named for the DataEval module whose question they answer, or else for their question: `data-bias` →
   `bias`, `data-cleaning` → `quality`, `data-coverage` → `scope`, `data-prioritization` → `prioritization`,
   `data-splitting` → `splits`, `metadata-triage` → `triage` (metadata and annotations only), `label-space` →

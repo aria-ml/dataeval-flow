@@ -1,4 +1,4 @@
-"""The `ood-detection` preset: the chain its settings expand to, what load refuses, and what it gives per test
+"""The `shift` preset: the chain its settings expand to, what load refuses, and what it gives per test
 source (ood-detection spec §3, §4, §9)."""
 
 from collections.abc import Iterator
@@ -12,7 +12,7 @@ from dataeval_flow._cache import DatasetCache
 from dataeval_flow.config import TaskConfig
 from dataeval_flow.evaluators.shift import OODKNeighborsConfig
 from dataeval_flow.steps import ChainResult
-from dataeval_flow.workflows.ood_detection import OODDetectionConfig, OODDetectionWorkflow
+from dataeval_flow.workflows.shift import ShiftConfig, ShiftWorkflow
 from tests.chain_toys import chain_pipeline
 from tests.drift_toys import ClassImages
 from tests.evaluator_toys import FLAT
@@ -32,12 +32,12 @@ def _fresh_caches() -> Iterator[None]:
     DatasetCache.clear_instances()
 
 
-def _config(**settings: Any) -> OODDetectionConfig:
-    return OODDetectionConfig.model_validate({"name": "ood", **settings})
+def _config(**settings: Any) -> ShiftConfig:
+    return ShiftConfig.model_validate({"name": "ood", **settings})
 
 
 def _steps(**settings: Any) -> list[dict[str, Any]]:
-    return [dict(step) for step in OODDetectionWorkflow.chain(_config(**settings)).steps]
+    return [dict(step) for step in ShiftWorkflow.chain(_config(**settings)).steps]
 
 
 def test_two_detectors_expand_to_their_checks_the_agreement_and_the_factor_steps() -> None:
@@ -94,30 +94,19 @@ def test_settings_reach_their_steps() -> None:
 
 def test_the_agreement_thresholds_are_keyed_by_check_type() -> None:
     config = _config(detectors=[_KNN, _DC], checks={"ood-agreement": {"warning": 50.0}})
-    check = next(step for step in OODDetectionWorkflow.chain(config).steps if dict(step)["name"] == "ood-agreement")
+    check = next(step for step in ShiftWorkflow.chain(config).steps if dict(step)["name"] == "ood-agreement")
     assert dict(check)["warning"] == 50.0
     assert config.checks.ood_agreement.warning == 50.0
-    assert config.checks.model_dump() == {"ood": _LIMITS, "ood-agreement": {**_LIMITS, "warning": 50.0}}
+    dumped = config.checks.model_dump()
+    assert (dumped["ood"], dumped["ood-agreement"]) == (_LIMITS, {**_LIMITS, "warning": 50.0})
 
 
 def test_a_detector_s_extractor_goes_on_its_step_not_its_evaluator_entry() -> None:
-    chain = OODDetectionWorkflow.chain(_config(detectors=[{**_KNN, "name": "unc", "extractor": "yolo"}]))
+    chain = ShiftWorkflow.chain(_config(detectors=[{**_KNN, "name": "unc", "extractor": "yolo"}]))
     (entry,) = chain.evaluators
     assert type(entry) is OODKNeighborsConfig
     assert entry.name == "unc"
     assert dict(chain.steps[0])["extractor"] == "yolo"
-
-
-@pytest.mark.parametrize(
-    ("detector", "wanted"),
-    [
-        ({"k": 5}, "Each detector needs a `type`, one of ood-kneighbors, ood-domain-classifier"),
-        ({"type": "drift-mmd"}, "`detectors:` takes ood-kneighbors, ood-domain-classifier entries, not `drift-mmd`"),
-    ],
-)
-def test_a_detector_that_is_not_an_ood_entry_is_refused(detector: dict[str, Any], wanted: str) -> None:
-    with pytest.raises(ValidationError, match=wanted):
-        _config(detectors=[detector])
 
 
 def test_two_unnamed_detectors_of_one_type_are_refused() -> None:
@@ -150,7 +139,7 @@ def test_a_detector_reading_uncertainty_by_cosine_distance_is_refused_at_load(tm
     model_files(tmp_path)
     preset = {
         "name": "ood",
-        "type": "ood-detection",
+        "type": "shift",
         "detectors": [{"name": "u", "type": "ood-kneighbors", "extractor": "unc"}],
     }
     data = {"reference": ClassImages({0: 4}), "cam1": ClassImages({0: 4}, seed=1)}
@@ -160,7 +149,7 @@ def test_a_detector_reading_uncertainty_by_cosine_distance_is_refused_at_load(tm
 
 
 def _run(datasets: dict[str, Any], **settings: Any) -> ChainResult:
-    preset = {"name": "ood", "type": "ood-detection", "detectors": [_KNN], **settings}
+    preset = {"name": "ood", "type": "shift", "detectors": [_KNN], **settings}
     config = chain_pipeline(workflows=[preset], datasets=datasets, extractor=True)
     result = run_task(config, TaskConfig(name="t", workflow="ood", sources=list(datasets), extractor="flat"))
     assert isinstance(result, ChainResult)
@@ -172,7 +161,7 @@ def test_each_test_source_gets_its_own_findings() -> None:
     with pytest.warns(UserWarning, match="binned automatically"):
         result = _run({"reference": FactorImages(40), "first": shifted, "second": FactorImages(40, seed=2)})
     assert result.success, result.errors
-    assert result.type == "ood-detection"
+    assert result.type == "shift"
     assert sorted(str(finding.step) for finding in result.findings) == [
         "ood-kneighbors-check[first]",
         "ood-kneighbors-check[second]",
@@ -197,7 +186,7 @@ def test_a_detector_on_uncertainty_agrees_with_one_on_embeddings(tmp_path, monke
     model_files(tmp_path)
     preset = {
         "name": "ood",
-        "type": "ood-detection",
+        "type": "shift",
         "factor-predictors": False,
         "factor-deviation": False,
         "detectors": [{**_KNN, "name": "flat-knn"}, {**_KNN, "name": "unc-knn", "extractor": "unc"}],

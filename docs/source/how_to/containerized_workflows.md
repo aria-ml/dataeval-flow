@@ -277,7 +277,7 @@ workflows:
     stratify: true
 ```
 ````
-````{tab-item} drift-monitoring
+````{tab-item} shift (drift)
 Detect distribution drift between a reference and each test dataset.
 See the {doc}`Drift Monitoring tutorial <../notebooks/drift_monitoring>` for a full walkthrough, and
 {doc}`Monitor drift with steps <monitor_drift>` for merging test sources and testing by class.
@@ -285,7 +285,7 @@ See the {doc}`Drift Monitoring tutorial <../notebooks/drift_monitoring>` for a f
 ```yaml
 workflows:
   - name: ks_drift
-    type: drift-monitoring
+    type: shift
     detectors:
       - type: drift-univariate     # drift-univariate | drift-mmd | drift-domain-classifier | drift-kneighbors
         method: ks                 # ks | cvm | mwu | anderson | bws
@@ -294,14 +294,14 @@ workflows:
     classwise: {drift-univariate: class}  # also run this detector once per class
 ```
 ````
-````{tab-item} ood-detection
+````{tab-item} shift (OOD)
 Identify out-of-distribution images, by each detector and by their agreement.
 See the {doc}`OOD Detection tutorial <../notebooks/ood_detection>` for a full walkthrough.
 
 ```yaml
 workflows:
   - name: ood_knn
-    type: ood-detection
+    type: shift
     detectors:
       - type: ood-kneighbors       # ood-kneighbors | ood-domain-classifier
         k: 5
@@ -678,7 +678,7 @@ offline in any browser, and prints or saves to PDF as it shows.
 `encoding.json` is the metadata encoding descriptor the run was computed under, ready
 to review and commit — see
 {doc}`Configure metadata binning <configure_metadata_binning>`. It is written only where
-a task records an encoding, as `audit`, `bias` and `ood-detection` do, so
+a task records an encoding, as `audit`, `bias` and `shift` do, so
 the `quality` run above writes none. It is also omitted when a run's tasks encoded
 their factors differently, since no single descriptor describes it.
 `manifests/` holds each `content-digest` step's manifest, one hash per item, under

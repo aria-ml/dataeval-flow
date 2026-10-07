@@ -1,4 +1,4 @@
-"""The drift-monitoring config: drift evaluator entries as detectors, `classwise` by name, thresholds by check type."""
+"""The shift config: drift evaluator entries as detectors, `classwise` by name, thresholds by check type."""
 
 from typing import Any
 
@@ -12,13 +12,13 @@ from dataeval_flow.evaluators.shift import (
     DriftUnivariateConfig,
 )
 from dataeval_flow.steps.checks import DriftThresholds
-from dataeval_flow.workflows.drift_monitoring import DriftMonitoringConfig
+from dataeval_flow.workflows.shift import ShiftConfig
 
 pytestmark = pytest.mark.required
 
 
-def _config(**settings: Any) -> DriftMonitoringConfig:
-    return DriftMonitoringConfig.model_validate({"name": "drift", **settings})
+def _config(**settings: Any) -> ShiftConfig:
+    return ShiftConfig.model_validate({"name": "drift", **settings})
 
 
 @pytest.mark.parametrize(
@@ -52,18 +52,18 @@ def test_a_detector_refuses_another_evaluator_s_settings() -> None:
 
 def test_a_config_object_is_taken_as_it_is() -> None:
     mmd = DriftMMDConfig(n_permutations=10)
-    assert DriftMonitoringConfig(detectors=[mmd]).detectors[0].model_dump(exclude={"extractor"}) == mmd.model_dump()
+    assert ShiftConfig(detectors=[mmd]).detectors[0].model_dump(exclude={"extractor"}) == mmd.model_dump()
 
 
 def test_a_detector_keeps_its_extractor_and_the_schema_offers_it() -> None:
     kept = _config(detectors=[{"type": "drift-mmd", "extractor": "e"}]).detectors[0]
     assert kept.model_dump()["extractor"] == "e"
-    assert "extractor" in str(DriftMonitoringConfig.model_json_schema()["properties"]["detectors"])
+    assert "extractor" in str(ShiftConfig.model_json_schema()["properties"]["detectors"])
 
 
 def test_defaults() -> None:
     config = _config(detectors=[{"type": "drift-mmd"}])
-    assert config.type == "drift-monitoring"
+    assert config.type == "shift"
     assert config.classwise == {}
     assert config.checks.drift == DriftThresholds()
 
@@ -76,7 +76,7 @@ def test_a_dump_keeps_each_detector_s_own_settings_and_validates_back() -> None:
     dumped = config.model_dump()
     assert dumped["detectors"][0]["chunking"]["chunk_count"] == 5
     assert dumped["detectors"][1]["n_permutations"] is None
-    assert DriftMonitoringConfig.model_validate(dumped) == config
+    assert ShiftConfig.model_validate(dumped) == config
 
 
 def test_checks_hold_the_drift_check_s_fields() -> None:
@@ -91,13 +91,12 @@ def test_checks_hold_the_drift_check_s_fields() -> None:
         ({"detectors": []}, "at least 1 item"),
         ({"detectors": [{"type": "drift-mmd"}, {"type": "drift-mmd"}]}, "two detectors named `drift-mmd`"),
         ({"detectors": [{"name": "x-check", "type": "drift-mmd"}]}, "-check"),
-        ({"detectors": [{"name": "x-by-class", "type": "drift-mmd"}]}, "`x-by-class` ends in"),
-        ({"detectors": [{"name": "x-unchunked", "type": "drift-mmd"}]}, "`x-unchunked` ends in"),
+        ({"detectors": [{"name": "x-by-class", "type": "drift-mmd"}]}, "`x-by-class` is a name"),
+        ({"detectors": [{"name": "x-unchunked", "type": "drift-mmd"}]}, "`x-unchunked` is a name"),
         ({"detectors": [{"type": ["drift-mmd"]}]}, "needs a `type`, one of drift-univariate"),
         ({"detectors": [{"type": "drift-wasserstein"}]}, "validation set"),
         ({"detectors": [{"type": "outliers"}]}, "drift-univariate"),
         ({"detectors": [{"type": "drift-mmd"}], "classwise": {"ks": "class"}}, "`ks`"),
-        ({"detectors": [{"type": "drift-mmd"}], "classwise": ["drift-mmd"]}, "maps each detector to its `by:`"),
         ({"detectors": [{"type": "drift-mmd"}], "update_strategy": {"type": "last_seen", "n": 5}}, "update_strategy"),
         ({"detectors": [{"type": "drift-mmd"}], "checks": {"any_drift_is_warning": True}}, "any_drift"),
     ],
