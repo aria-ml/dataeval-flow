@@ -9,7 +9,7 @@ from dataeval_flow import run
 from dataeval_flow.evaluators.shift import OODKNeighborsConfig
 from dataeval_flow.steps import CheckContext
 from dataeval_flow.steps.checks import EvalCoverageCheck, EvalCoverageConfig
-from dataeval_flow.steps.checks._ood import ood_severity
+from dataeval_flow.steps.checks._ood import eval_coverage_baseline, ood_severity
 from tests.evaluator_toys import FLAT, ToyImages
 
 _EUCLID: dict[str, Any] = {"distance_metric": "euclidean"}  # flatten's cosine ignores a brightness shift
@@ -40,8 +40,8 @@ def _judge(
 
 
 def test_a_split_drawn_like_train_reads_ok() -> None:
-    assert EvalCoverageConfig(input="o").info == 2.0
-    assert EvalCoverageConfig(input="o").warning == 10.0
+    assert EvalCoverageConfig(input="o").info == 1.0
+    assert EvalCoverageConfig(input="o").warning == 9.0
     assert ood_severity(1.0, EvalCoverageConfig(input="o")) == "ok"
     sources = {"train": ToyImages(count=200, seed=0), "test": ToyImages(count=200, seed=1)}
     finding = _judge(sources, OODKNeighborsConfig(threshold_perc=99, **_EUCLID))
@@ -69,3 +69,18 @@ def test_another_ood_output_is_not_given_a_percentile_it_never_had() -> None:
     assert "farther" not in finding.brief
     assert finding.blocks == []
     assert "flagged out-of-distribution from `train`" in (finding.description or "")
+
+
+def test_the_baseline_is_what_k_neighbors_flags_of_a_train_like_split() -> None:
+    assert eval_coverage_baseline("ood-kneighbors", None) == 5.0  # DataEval's 95
+    assert eval_coverage_baseline("ood-kneighbors", 99.0) == 1.0
+    assert eval_coverage_baseline("ood-domain-classifier", 99.0) == 0.0
+
+
+def test_the_bands_sit_above_the_baseline() -> None:
+    config = EvalCoverageConfig(input="o")
+    assert (config.info, config.warning) == (1.0, 9.0)
+    baseline = eval_coverage_baseline("ood-kneighbors", None)
+    assert ood_severity(6.0 - baseline, config) == "ok"
+    assert ood_severity(6.5 - baseline, config) == "info"
+    assert ood_severity(14.5 - baseline, config) == "warning"

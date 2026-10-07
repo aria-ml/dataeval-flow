@@ -1296,8 +1296,8 @@
               "type": "null"
             }
           ],
-          "default": 10.0,
-          "description": "The percent of assessed test images flagged past which the finding warns; `null` never warns.",
+          "default": 9.0,
+          "description": "Percentage points flagged past the split's baseline after which the finding warns; `null` never warns. The baseline is what a split drawn like train has flagged by construction: 100 - `threshold_perc` under `ood-kneighbors`, 0 under any other detector.",
           "title": "Warning"
         },
         "info": {
@@ -1311,8 +1311,8 @@
               "type": "null"
             }
           ],
-          "default": 2.0,
-          "description": "The percent flagged past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so `2.0` suits `threshold_perc: 99`.",
+          "default": 1.0,
+          "description": "Percentage points past the baseline after which the finding is `info`, at or below which it is `ok`; `null` is never `info`.",
           "title": "Info"
         },
         "input": {
@@ -6322,8 +6322,8 @@
               "type": "null"
             }
           ],
-          "default": 10.0,
-          "description": "The percent of assessed test images flagged past which the finding warns; `null` never warns.",
+          "default": 9.0,
+          "description": "Percentage points flagged past the split's baseline after which the finding warns; `null` never warns. The baseline is what a split drawn like train has flagged by construction: 100 - `threshold_perc` under `ood-kneighbors`, 0 under any other detector.",
           "title": "Warning"
         },
         "info": {
@@ -6337,8 +6337,8 @@
               "type": "null"
             }
           ],
-          "default": 2.0,
-          "description": "The percent flagged past which the finding is `info`, at or below which it is `ok`; `null` is never `info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so `2.0` suits `threshold_perc: 99`.",
+          "default": 1.0,
+          "description": "Percentage points past the baseline after which the finding is `info`, at or below which it is `ok`; `null` is never `info`.",
           "title": "Info"
         }
       },
@@ -8296,12 +8296,19 @@
           "title": "Distance Metric"
         },
         "threshold_perc": {
-          "default": 99.0,
-          "description": "An item is flagged when it lies farther from train than this percent of train lies from itself.",
-          "exclusiveMaximum": 100.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Threshold Perc",
-          "type": "number"
+          "anyOf": [
+            {
+              "exclusiveMaximum": 100.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An item is flagged when it lies farther from train than this percent of train lies from itself; unset is DataEval's default, 95.",
+          "title": "Threshold Perc"
         }
       },
       "title": "OODKNeighborsSettings",

@@ -9,6 +9,7 @@ __all__ = [
     "OODConfig",
     "OODThresholds",
     "assessed_images",
+    "eval_coverage_baseline",
     "ood_severity",
 ]
 
@@ -61,6 +62,14 @@ def ood_severity(percent: float, thresholds: OODThresholds) -> Severity:
     if thresholds.info is not None and percent > thresholds.info:
         return "info"
     return "ok"
+
+
+def eval_coverage_baseline(step_type: str | None, threshold_perc: float | None) -> float:
+    """The percent of a split drawn like train that its detector flags by construction: 100 - `threshold_perc` for
+    `ood-kneighbors` (DataEval's 95 when unset), and 0 for any other detector."""
+    if step_type != "ood-kneighbors":
+        return 0.0
+    return 100.0 - (95.0 if threshold_perc is None else float(threshold_perc))
 
 
 def assessed_images(output: OODOutput) -> int:
@@ -161,14 +170,23 @@ class EvalCoverageConfig(CheckConfig, OODThresholds):
     """An `eval-coverage` step's input, and the share of an evaluation split that may lie beyond train."""
 
     input: str = Field(description="An `ood-kneighbors` Output fitted on train and run on one evaluation split.")
-    info: float | None = Field(
-        default=2.0,
+    warning: float | None = Field(
+        default=9.0,
         ge=0.0,
         le=100.0,
         description=(
-            "The percent flagged past which the finding is `info`, at or below which it is `ok`; `null` is never "
-            "`info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so "
-            "`2.0` suits `threshold_perc: 99`."
+            "Percentage points flagged past the split's baseline after which the finding warns; `null` never warns. "
+            "The baseline is what a split drawn like train has flagged by construction: 100 - `threshold_perc` "
+            "under `ood-kneighbors`, 0 under any other detector."
+        ),
+    )
+    info: float | None = Field(
+        default=1.0,
+        ge=0.0,
+        le=100.0,
+        description=(
+            "Percentage points past the baseline after which the finding is `info`, at or below which it is `ok`; "
+            "`null` is never `info`."
         ),
     )
 
@@ -182,15 +200,17 @@ class EvalCoverageCheck(Check[EvalCoverageConfig]):
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODOutput,)),)
 
     def run(self, config: EvalCoverageConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
-        """The share flagged, against the percentile the evaluator flagged at."""
+        """The share flagged, judged by how far it passes what a split drawn like train has flagged by construction."""
         node = inputs["input"]
         output = node.value
         on = getattr(node, "computed_on", ())
         reference, split = (on[0].address, on[-1].address) if on else ("train", "the evaluation split")
         flagged, assessed = int(np.sum(output.is_ood)), assessed_images(output)
         percent = 100.0 * flagged / assessed if assessed else 0.0
-        severity = ood_severity(percent, config)
-        if getattr(node, "step_type", None) != "ood-kneighbors":  # only k-neighbors flags at a percentile of train
+        step_type = getattr(node, "step_type", None)
+        baseline = eval_coverage_baseline(step_type, getattr(node.config, "threshold_perc", None))
+        severity = ood_severity(max(percent - baseline, 0.0), config)
+        if step_type != "ood-kneighbors":  # only k-neighbors flags at a percentile of train
             return [
                 Finding(
                     severity=severity,
@@ -200,8 +220,7 @@ class EvalCoverageCheck(Check[EvalCoverageConfig]):
                     f"`{reference}`.",
                 )
             ]
-        perc = getattr(node.config, "threshold_perc", None)
-        perc = 95.0 if perc is None else float(perc)  # DataEval's default, which OODOutput doesn't record
+        perc = 100.0 - baseline
         return [
             Finding(
                 severity=severity,
@@ -213,7 +232,8 @@ class EvalCoverageCheck(Check[EvalCoverageConfig]):
                 ),
                 blocks=[
                     Paragraph(
-                        text=f"A split drawn like `{reference}` has about {100 - perc:g}% flagged by construction."
+                        text=f"A split drawn like `{reference}` has about {baseline:g}% flagged by construction; "
+                        f"this one is {percent - baseline:+.1f} points from that."
                     )
                 ],
             )

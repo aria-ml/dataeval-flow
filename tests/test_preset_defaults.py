@@ -32,7 +32,7 @@ _FIXED = {
     ("distribution-shift", "info"),  # audit derives it as the check does
 }
 # Defaults Task 4 consolidates; empty once it lands.
-_PENDING = {("ood-kneighbors", "threshold_perc")}
+_PENDING: set[tuple[str, str]] = set()
 _CHAIN_WIDE = {"ontology", "metadata", "stats"}
 _IDENTITY = {"name", "type", "input", "by", "optional", "pairs", "extractor"}
 _STEP_KINDS = ("check", "combine", "transform")

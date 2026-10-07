@@ -78,11 +78,14 @@ class OODKNeighborsSettings(BaseModel):
     distance_metric: Literal["cosine", "euclidean"] | None = Field(
         default=None, description="The embedding distance; unset is DataEval's default."
     )
-    threshold_perc: float = Field(
-        default=99.0,
+    threshold_perc: float | None = Field(
+        default=None,
         gt=0.0,
         lt=100.0,
-        description="An item is flagged when it lies farther from train than this percent of train lies from itself.",
+        description=(
+            "An item is flagged when it lies farther from train than this percent of train lies from itself; "
+            "unset is DataEval's default, 95."
+        ),
     )
 
 
@@ -147,14 +150,23 @@ class LeakageSettings(BaseModel):
 class EvalCoverageSettings(OODThresholds):
     """The `eval-coverage` check's settings: the share of an evaluation split that may lie beyond train."""
 
-    info: float | None = Field(
-        default=2.0,
+    warning: float | None = Field(
+        default=9.0,
         ge=0.0,
         le=100.0,
         description=(
-            "The percent flagged past which the finding is `info`, at or below which it is `ok`; `null` is never "
-            "`info`. A split drawn like train has about 100 - `threshold_perc` percent flagged by construction, so "
-            "`2.0` suits `threshold_perc: 99`."
+            "Percentage points flagged past the split's baseline after which the finding warns; `null` never warns. "
+            "The baseline is what a split drawn like train has flagged by construction: 100 - `threshold_perc` "
+            "under `ood-kneighbors`, 0 under any other detector."
+        ),
+    )
+    info: float | None = Field(
+        default=1.0,
+        ge=0.0,
+        le=100.0,
+        description=(
+            "Percentage points past the baseline after which the finding is `info`, at or below which it is `ok`; "
+            "`null` is never `info`."
         ),
     )
 

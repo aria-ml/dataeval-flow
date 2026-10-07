@@ -241,6 +241,10 @@
 
 ### Changed
 
+- `eval-coverage` judges how far a split's flagged share is past what a split drawn like train has flagged by
+  construction (100 - `threshold_perc` under `ood-kneighbors`): `info` and `warning` are now points past that
+  baseline, 1.0 and 9.0, which keep today's bands at `threshold_perc: 99`; `audit`'s `ood-kneighbors` takes
+  DataEval's `threshold_perc` of 95
 - One default per setting, DataEval's, in every preset: `data-coverage` and `audit` no longer default
   `coverage.num_observations` to 50 (DataEval's 20 now applies), and preset blocks no longer restate DataEval's other
   defaults
