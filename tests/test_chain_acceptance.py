@@ -78,7 +78,7 @@ workflows:
       - {name: crops, transform: wrap, input: clean, wrapper: DetectionCrops}
       - {name: coverage, evaluator: coverage, input: crops}
       - {name: balance, evaluator: balance, input: clean}
-      - {name: split, transform: split, input: clean, test_frac: 0.25}
+      - {name: split, transform: split, input: clean, test_frac: 0.25, val_frac: 0, stratify: false}
       - {name: train_balance, evaluator: balance, input: split.train}
 tasks:
   - {name: dataset, workflow: dataset, sources: [a, b], extractor: flat}

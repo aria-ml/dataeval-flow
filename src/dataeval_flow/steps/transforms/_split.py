@@ -16,8 +16,18 @@ from dataeval_flow.steps.transforms._view import root_indices
 
 class _SplitSettings(TransformConfig, MetadataConfigMixin):
     input: str = Field(description="The Dataset to split.")
-    test_frac: float = Field(default=0.0, ge=0.0, lt=1.0, description="The share held out as `test`.")
-    stratify: bool = Field(default=False, description="Whether each part keeps the input's class proportions.")
+    test_frac: float = Field(
+        default=0.2,
+        ge=0.0,
+        lt=1.0,
+        description="The share held out as `test`; 0.2 unless set. DataEval's own default, 0, holds nothing out.",
+    )
+    stratify: bool = Field(
+        default=True,
+        description=(
+            "Whether each part keeps the input's class proportions; true unless set. DataEval's own default is false."
+        ),
+    )
     split_on: list[str] | None = Field(
         default=None, description="Metadata factors whose values never straddle parts, such as a scene or site."
     )
@@ -26,7 +36,12 @@ class _SplitSettings(TransformConfig, MetadataConfigMixin):
 class SplitConfig(_SplitSettings):
     """A `split` step's settings: one train, val and test."""
 
-    val_frac: float = Field(default=0.0, ge=0.0, lt=1.0, description="The share held out as `val`.")
+    val_frac: float = Field(
+        default=0.1,
+        ge=0.0,
+        lt=1.0,
+        description="The share held out as `val`; 0.1 unless set. DataEval's own default, 0, holds out none.",
+    )
 
     @model_validator(mode="after")
     def _fractions_hold_out_and_leave_a_train(self) -> "SplitConfig":

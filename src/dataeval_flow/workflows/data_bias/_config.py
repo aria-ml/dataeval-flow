@@ -38,7 +38,9 @@ class DiversitySettings(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    method: Literal["simpson", "shannon"] = Field(default="simpson", description="The diversity index.")
+    method: Literal["simpson", "shannon"] | None = Field(
+        default=None, description="The diversity index; unset is DataEval's default, `simpson`."
+    )
 
 
 class ClassImbalanceSettings(BaseModel):

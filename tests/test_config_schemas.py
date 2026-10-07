@@ -60,7 +60,7 @@ class TestDataCleaningConfig:
         params = DataCleaningConfig(**VALID_REQUIRED_PARAMS)  # type: ignore[arg-type]
         assert params.outliers.cluster_threshold is None
         assert params.duplicates.flags is None
-        assert params.duplicates.merge_near_duplicates is True
+        assert params.duplicates.merge_near_duplicates is None
 
     def test_custom_values(self):
         """Parameters accept custom values."""

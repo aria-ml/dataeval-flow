@@ -9,12 +9,13 @@ from dataeval_flow.evaluators.quality import LabelHealthConfig
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
+from dataeval_flow.steps.transforms._split import SplitConfig
 from dataeval_flow.workflows._base import Workflow
 from dataeval_flow.workflows._preset import Preset, PresetChain
 from dataeval_flow.workflows.data_splitting._config import DataSplittingConfig
 
 # Legacy's val share with one fold, where the entry sets none.
-_VAL_FRAC = 0.1
+_VAL_FRAC: float = SplitConfig.model_fields["val_frac"].default
 _PARTS = ("train", "val", "test")
 
 

@@ -21,35 +21,48 @@ from dataeval_flow.workflows._base import WorkflowConfig
 
 
 class CoverageSettings(BaseModel):
-    """The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`
-    is written partly."""
+    """The `coverage` step's settings; each unset one is DataEval's default."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    method: Literal["naive", "adaptive"] = Field(
-        default="adaptive",
+    method: Literal["naive", "adaptive"] | None = Field(
+        default=None,
         description=(
             "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or "
             "`naive`, a fixed analytic radius, judged by an `uncovered-items` step. DataEval's naive radius overflows "
-            "past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`."
+            "past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`. Unset is "
+            "DataEval's default, `adaptive`."
         ),
     )
-    percent: float = Field(
-        default=0.01, gt=0.0, lt=1.0, description="Fraction of items flagged as uncovered, for `adaptive` only."
+    percent: float | None = Field(
+        default=None,
+        gt=0.0,
+        lt=1.0,
+        description="Fraction of items flagged as uncovered, for `adaptive` only. Unset is DataEval's default, 0.01.",
     )
-    num_observations: int = Field(
-        default=50, gt=0, description="Neighbors an item needs within the radius to count as covered."
+    num_observations: int | None = Field(
+        default=None,
+        gt=0,
+        description="Neighbors an item needs within the radius to count as covered. Unset is DataEval's default, 20.",
     )
-    min_class_samples: int = Field(
-        default=20, gt=0, description="Items a class needs before its dispersion and isotropy are judged."
+    min_class_samples: int | None = Field(
+        default=None,
+        gt=0,
+        description=(
+            "Items a class needs before its dispersion and isotropy are judged. Unset is DataEval's default, 20."
+        ),
     )
     isotropy_min_samples: int | None = Field(
         default=None,
         gt=0,
         description="Items a class needs before its isotropy is measured; unset uses DataEval's default.",
     )
-    near_duplicate_factor: float = Field(
-        default=0.5, gt=0.0, description="The fraction of the radius within which two items are near-duplicates."
+    near_duplicate_factor: float | None = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "The fraction of the radius within which two items are near-duplicates. Unset is DataEval's default, 0.5."
+        ),
     )
 
 

@@ -3869,39 +3869,67 @@
     },
     "CoverageSettings": {
       "additionalProperties": false,
-      "description": "The `coverage` step's settings, with legacy data-coverage's defaults; each keeps its default when `coverage:`\nis written partly.",
+      "description": "The `coverage` step's settings; each unset one is DataEval's default.",
       "properties": {
         "method": {
-          "default": "adaptive",
-          "description": "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or `naive`, a fixed analytic radius, judged by an `uncovered-items` step. DataEval's naive radius overflows past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`.",
-          "enum": [
-            "naive",
-            "adaptive"
+          "anyOf": [
+            {
+              "enum": [
+                "naive",
+                "adaptive"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Method",
-          "type": "string"
+          "default": null,
+          "description": "How the coverage radius is set: `adaptive`, a cutoff on the `percent` most sparsely neighbored items, or `naive`, a fixed analytic radius, judged by an `uncovered-items` step. DataEval's naive radius overflows past about 340 embedding dimensions; the step is then skipped with `failed: OverflowError`. Unset is DataEval's default, `adaptive`.",
+          "title": "Method"
         },
         "percent": {
-          "default": 0.01,
-          "description": "Fraction of items flagged as uncovered, for `adaptive` only.",
-          "exclusiveMaximum": 1.0,
-          "exclusiveMinimum": 0.0,
-          "title": "Percent",
-          "type": "number"
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fraction of items flagged as uncovered, for `adaptive` only. Unset is DataEval's default, 0.01.",
+          "title": "Percent"
         },
         "num_observations": {
-          "default": 50,
-          "description": "Neighbors an item needs within the radius to count as covered.",
-          "exclusiveMinimum": 0,
-          "title": "Num Observations",
-          "type": "integer"
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Neighbors an item needs within the radius to count as covered. Unset is DataEval's default, 20.",
+          "title": "Num Observations"
         },
         "min_class_samples": {
-          "default": 20,
-          "description": "Items a class needs before its dispersion and isotropy are judged.",
-          "exclusiveMinimum": 0,
-          "title": "Min Class Samples",
-          "type": "integer"
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Items a class needs before its dispersion and isotropy are judged. Unset is DataEval's default, 20.",
+          "title": "Min Class Samples"
         },
         "isotropy_min_samples": {
           "anyOf": [
@@ -3918,11 +3946,18 @@
           "title": "Isotropy Min Samples"
         },
         "near_duplicate_factor": {
-          "default": 0.5,
-          "description": "The fraction of the radius within which two items are near-duplicates.",
-          "exclusiveMinimum": 0.0,
-          "title": "Near Duplicate Factor",
-          "type": "number"
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The fraction of the radius within which two items are near-duplicates. Unset is DataEval's default, 0.5.",
+          "title": "Near Duplicate Factor"
         }
       },
       "title": "CoverageSettings",
@@ -4973,14 +5008,21 @@
       "description": "The `diversity` step's settings.",
       "properties": {
         "method": {
-          "default": "simpson",
-          "description": "The diversity index.",
-          "enum": [
-            "simpson",
-            "shannon"
+          "anyOf": [
+            {
+              "enum": [
+                "simpson",
+                "shannon"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Method",
-          "type": "string"
+          "default": null,
+          "description": "The diversity index; unset is DataEval's default, `simpson`.",
+          "title": "Method"
         }
       },
       "title": "DiversitySettings",
@@ -6205,10 +6247,17 @@
           "title": "Flags"
         },
         "merge_near_duplicates": {
-          "default": true,
-          "description": "Merge overlapping near-duplicate groups found by different methods.",
-          "title": "Merge Near Duplicates",
-          "type": "boolean"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Merge overlapping near-duplicate groups found by different methods; unset is DataEval's default, true.",
+          "title": "Merge Near Duplicates"
         },
         "cluster_sensitivity": {
           "anyOf": [
@@ -10294,21 +10343,14 @@
           "title": "Max Cluster Size"
         },
         "order": {
-          "anyOf": [
-            {
-              "enum": [
-                "easy_first",
-                "hard_first"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "default": "hard_first",
+          "description": "Sort direction: `easy_first` puts prototypical items first, `hard_first` challenging ones. Flow defaults to `hard_first`, the usual choice for deciding what to label or review next; DataEval's default is `easy_first`.",
+          "enum": [
+            "easy_first",
+            "hard_first"
           ],
-          "default": null,
-          "description": "Sort direction: `easy_first` puts prototypical items first, `hard_first` challenging ones. Unset uses DataEval's default (`easy_first`).",
-          "title": "Order"
+          "title": "Order",
+          "type": "string"
         },
         "policy": {
           "anyOf": [
@@ -10351,17 +10393,24 @@
       "description": "The `prioritization` step's settings: how each pool is ranked against the reference.",
       "properties": {
         "method": {
-          "default": "knn",
-          "description": "Ranking method: knn, kmeans_distance, kmeans_complexity, hdbscan_distance, hdbscan_complexity.",
-          "enum": [
-            "knn",
-            "kmeans_distance",
-            "kmeans_complexity",
-            "hdbscan_distance",
-            "hdbscan_complexity"
+          "anyOf": [
+            {
+              "enum": [
+                "knn",
+                "kmeans_distance",
+                "kmeans_complexity",
+                "hdbscan_distance",
+                "hdbscan_complexity"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Method",
-          "type": "string"
+          "default": null,
+          "description": "Ranking method: knn, kmeans_distance, kmeans_complexity, hdbscan_distance, hdbscan_complexity. Unset is DataEval's default, knn.",
+          "title": "Method"
         },
         "k": {
           "anyOf": [
@@ -10399,10 +10448,13 @@
             {
               "const": "auto",
               "type": "string"
+            },
+            {
+              "type": "null"
             }
           ],
-          "default": "auto",
-          "description": "Number of K-means initializations (kmeans methods only).",
+          "default": null,
+          "description": "Number of K-means initializations (kmeans methods only). Unset is DataEval's default, auto.",
           "title": "N Init"
         },
         "max_cluster_size": {
@@ -10430,22 +10482,36 @@
           "type": "string"
         },
         "policy": {
-          "default": "difficulty",
-          "description": "Selection policy: difficulty (direct ordering), stratified (binned), class_balanced.",
-          "enum": [
-            "difficulty",
-            "stratified",
-            "class_balanced"
+          "anyOf": [
+            {
+              "enum": [
+                "difficulty",
+                "stratified",
+                "class_balanced"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Policy",
-          "type": "string"
+          "default": null,
+          "description": "Selection policy: difficulty (direct ordering), stratified (binned), class_balanced. Unset is DataEval's default, difficulty.",
+          "title": "Policy"
         },
         "num_bins": {
-          "default": 50,
-          "description": "Number of bins for stratified policy.",
-          "exclusiveMinimum": 0,
-          "title": "Num Bins",
-          "type": "integer"
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of bins for stratified policy. Unset is DataEval's default, 50.",
+          "title": "Num Bins"
         }
       },
       "title": "PrioritizationSettings",
@@ -11785,16 +11851,16 @@
           "type": "string"
         },
         "test_frac": {
-          "default": 0.0,
-          "description": "The share held out as `test`.",
+          "default": 0.2,
+          "description": "The share held out as `test`; 0.2 unless set. DataEval's own default, 0, holds nothing out.",
           "exclusiveMaximum": 1.0,
           "minimum": 0.0,
           "title": "Test Frac",
           "type": "number"
         },
         "stratify": {
-          "default": false,
-          "description": "Whether each part keeps the input's class proportions.",
+          "default": true,
+          "description": "Whether each part keeps the input's class proportions; true unless set. DataEval's own default is false.",
           "title": "Stratify",
           "type": "boolean"
         },
@@ -12049,16 +12115,16 @@
           "type": "string"
         },
         "test_frac": {
-          "default": 0.0,
-          "description": "The share held out as `test`.",
+          "default": 0.2,
+          "description": "The share held out as `test`; 0.2 unless set. DataEval's own default, 0, holds nothing out.",
           "exclusiveMaximum": 1.0,
           "minimum": 0.0,
           "title": "Test Frac",
           "type": "number"
         },
         "stratify": {
-          "default": false,
-          "description": "Whether each part keeps the input's class proportions.",
+          "default": true,
+          "description": "Whether each part keeps the input's class proportions; true unless set. DataEval's own default is false.",
           "title": "Stratify",
           "type": "boolean"
         },
@@ -12079,8 +12145,8 @@
           "title": "Split On"
         },
         "val_frac": {
-          "default": 0.0,
-          "description": "The share held out as `val`.",
+          "default": 0.1,
+          "description": "The share held out as `val`; 0.1 unless set. DataEval's own default, 0, holds out none.",
           "exclusiveMaximum": 1.0,
           "minimum": 0.0,
           "title": "Val Frac",

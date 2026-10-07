@@ -159,6 +159,9 @@ def pipeline(name: str, *, legacy: bool) -> PipelineConfig:
         tasks = [task]
     else:
         coverage, bias = _split(case.preset)
+        # Legacy data-coverage defaulted `coverage.num_observations` to 50; the preset now takes DataEval's 20 (preset
+        # naming spec R9), so the cases recorded under 50 name it.
+        coverage["coverage"] = {"num_observations": 50, **coverage.get("coverage", {})}
         entries = [{"name": "w", "type": "data-coverage", **coverage}, {"name": "b", "type": "data-bias", **bias}]
         tasks = [task, {"name": "b", "workflow": "b", "sources": ["src"]}]
     return chain_pipeline(workflows=entries, tasks=tasks, datasets={"src": case.dataset()}, extractor=case.extractor)

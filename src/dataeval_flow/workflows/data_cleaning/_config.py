@@ -160,8 +160,11 @@ class DuplicatesSettings(BaseModel):
     flags: Sequence[Literal["hash_basic", "hash_d4"]] | None = Field(
         default=None, description="Hash groups to compare; unset is DataEval's default, `hash_basic`."
     )
-    merge_near_duplicates: bool = Field(
-        default=True, description="Merge overlapping near-duplicate groups found by different methods."
+    merge_near_duplicates: bool | None = Field(
+        default=None,
+        description=(
+            "Merge overlapping near-duplicate groups found by different methods; unset is DataEval's default, true."
+        ),
     )
     cluster_sensitivity: float | None = Field(
         default=None, description="Cluster-based near-duplicate threshold; needs an extractor. Unset skips it."

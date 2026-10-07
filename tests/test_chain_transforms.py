@@ -85,7 +85,11 @@ def test_split_makes_train_val_and_test_that_partition_the_input() -> None:
 
 
 def test_split_with_only_a_test_frac_holds_out_the_test_and_leaves_val_empty() -> None:
-    result = run_chain_task(_task([{"name": "s", "transform": "split", "input": "a", "test_frac": 0.25}]))
+    result = run_chain_task(
+        _task(
+            [{"name": "s", "transform": "split", "input": "a", "test_frac": 0.25, "val_frac": 0.0, "stratify": False}]
+        )
+    )
     assert isinstance(result, ChainResult)
     assert result.steps["s"].status == "ok", result.steps["s"].errors
     parts = result.steps["s"].output
@@ -97,14 +101,14 @@ def test_split_with_only_a_test_frac_holds_out_the_test_and_leaves_val_empty() -
 
 def test_a_split_that_holds_nothing_out_fails_the_load() -> None:
     with pytest.raises(ValidationError, match="`split` holds nothing out: set `test_frac`, `val_frac` or both."):
-        _task([{"name": "s", "transform": "split", "input": "a"}])
+        _task([{"name": "s", "transform": "split", "input": "a", "test_frac": 0.0, "val_frac": 0.0}])
 
 
 def test_naming_a_split_left_empty_fails_the_load() -> None:
     with pytest.raises(ValidationError, match="reads `s.val`, which step 's' leaves empty"):
         _task(
             [
-                {"name": "s", "transform": "split", "input": "a", "test_frac": 0.2},
+                {"name": "s", "transform": "split", "input": "a", "test_frac": 0.2, "val_frac": 0.0},
                 {"name": "d", "evaluator": "dupes", "input": "s.val"},
             ]
         )

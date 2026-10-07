@@ -153,7 +153,16 @@ class ToySplitPreset(Preset, Workflow[ToySplitPresetConfig, ChainResult]):
     def chain(cls, config: Any) -> PresetChain:  # noqa: ARG003
         """A `split` holding out a quarter as test."""
         return PresetChain(
-            steps=[{"name": "parts", "transform": "split", "input": "data", "test_frac": 0.25}],
+            steps=[
+                {
+                    "name": "parts",
+                    "transform": "split",
+                    "input": "data",
+                    "test_frac": 0.25,
+                    "val_frac": 0.0,
+                    "stratify": False,
+                }
+            ],
             outputs={"train": "parts.train", "val": "parts.val", "test": "parts.test"},
         )
 
@@ -179,7 +188,14 @@ class ToyFoldPreset(Preset, Workflow[ToyFoldPresetConfig, ChainResult]):
         """Two folds, and the whole's label health."""
         return PresetChain(
             steps=[
-                {"name": "parts", "transform": "kfold", "input": "data", "folds": 2},
+                {
+                    "name": "parts",
+                    "transform": "kfold",
+                    "input": "data",
+                    "folds": 2,
+                    "test_frac": 0.0,
+                    "stratify": False,
+                },
                 {"name": "labels", "evaluator": "labels", "input": "data"},
             ],
             evaluators=[LabelHealthConfig(name="labels")],
@@ -225,6 +241,8 @@ class ToyReferencePreset(Preset, Workflow[ToyReferencePresetConfig, ChainResult]
                     "input": "evals",
                     "test_frac": 0.4,
                     "metadata": config.metadata,
+                    "val_frac": 0.0,
+                    "stratify": False,
                 },
                 {"name": "parts-summary", "evaluator": "summary", "input": "parts.train"},
             ],

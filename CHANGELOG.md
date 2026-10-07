@@ -241,6 +241,11 @@
 
 ### Changed
 
+- One default per setting, DataEval's, in every preset: `data-coverage` and `audit` no longer default
+  `coverage.num_observations` to 50 (DataEval's 20 now applies), and preset blocks no longer restate DataEval's other
+  defaults
+- Flow's own defaults where it departs from DataEval: `prioritization` sorts `hard_first` (DataEval: `easy_first`);
+  `split` and `kfold` hold out `test_frac: 0.2` and `split` `val_frac: 0.1`, stratified (DataEval holds nothing out)
 - One settings model per step type, shared by every preset that offers it: `ClassImbalanceSettings` (in place of
   `DataBiasClassImbalanceSettings` and `AuditClassImbalanceSettings`), `RepresentationSettings` (in place of
   `DataCoverageRepresentationSettings` and `LabelSpaceRepresentationSettings`), `CoverageSettings` and

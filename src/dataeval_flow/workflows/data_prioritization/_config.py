@@ -20,9 +20,12 @@ class PrioritizationSettings(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    method: MethodType = Field(
-        default="knn",
-        description="Ranking method: knn, kmeans_distance, kmeans_complexity, hdbscan_distance, hdbscan_complexity.",
+    method: MethodType | None = Field(
+        default=None,
+        description=(
+            "Ranking method: knn, kmeans_distance, kmeans_complexity, hdbscan_distance, hdbscan_complexity. "
+            "Unset is DataEval's default, knn."
+        ),
     )
     k: int | None = Field(
         default=None,
@@ -34,9 +37,9 @@ class PrioritizationSettings(BaseModel):
         gt=0,
         description="Number of clusters for clustering methods. None = sqrt(n_samples).",
     )
-    n_init: int | Literal["auto"] = Field(
-        default="auto",
-        description="Number of K-means initializations (kmeans methods only).",
+    n_init: int | Literal["auto"] | None = Field(
+        default=None,
+        description="Number of K-means initializations (kmeans methods only). Unset is DataEval's default, auto.",
     )
     max_cluster_size: int | None = Field(
         default=None,
@@ -50,14 +53,17 @@ class PrioritizationSettings(BaseModel):
             "own default is DataEval's easy_first."
         ),
     )
-    policy: PolicyType = Field(
-        default="difficulty",
-        description="Selection policy: difficulty (direct ordering), stratified (binned), class_balanced.",
+    policy: PolicyType | None = Field(
+        default=None,
+        description=(
+            "Selection policy: difficulty (direct ordering), stratified (binned), class_balanced. "
+            "Unset is DataEval's default, difficulty."
+        ),
     )
-    num_bins: int = Field(
-        default=50,
+    num_bins: int | None = Field(
+        default=None,
         gt=0,
-        description="Number of bins for stratified policy.",
+        description="Number of bins for stratified policy. Unset is DataEval's default, 50.",
     )
 
 
