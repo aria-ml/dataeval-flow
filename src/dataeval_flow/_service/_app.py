@@ -11,13 +11,14 @@ from typing import Any
 
 import dataeval
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from dataeval_flow import __version__
 from dataeval_flow._orchestrator import select_tasks
 from dataeval_flow._runner import _requirement
+from dataeval_flow._service._evidence import PAGE_SIZE, Evidence, UnknownItemError
 from dataeval_flow._service._manager import RunManager
 from dataeval_flow._service._store import RunStore, UnknownRunError
 from dataeval_flow.config import PipelineConfig, ResultConfig
@@ -78,6 +79,7 @@ def create_app(  # noqa: C901 - one nested route per endpoint
     """The service: runs under ``output_root/runs``, read-only inputs under ``data_root``, a cache shared by runs."""
     store = RunStore(output_root / "runs")
     manager = RunManager(store, data_root, cache_root or output_root / "cache")
+    evidence = Evidence(store, data_root)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -99,6 +101,10 @@ def create_app(  # noqa: C901 - one nested route per endpoint
     @app.exception_handler(UnknownRunError)
     async def unknown(_request: Request, _error: UnknownRunError) -> PlainTextResponse:
         return PlainTextResponse("Unknown run", status_code=404)
+
+    @app.exception_handler(UnknownItemError)
+    async def unknown_item(_request: Request, error: UnknownItemError) -> JSONResponse:
+        return JSONResponse({"detail": str(error)}, status_code=404)
 
     def probe(reasons: list[str]) -> JSONResponse:
         if reasons:
@@ -191,6 +197,41 @@ def create_app(  # noqa: C901 - one nested route per endpoint
         if name not in _files(directory):
             raise HTTPException(404, "Unknown artifact")
         return FileResponse(directory / name)
+
+    @app.get("/v1/runs/{run_id}/items/{source}", tags=["evidence"])
+    def items(
+        run_id: str,
+        source: str,
+        offset: int = Query(0, ge=0),
+        limit: int = Query(24, ge=1, le=PAGE_SIZE),
+    ) -> dict[str, Any]:
+        """A page of a source's items in the order the run read them, each checked against the run's manifest."""
+        return evidence.items(run_id, source, offset, limit)
+
+    @app.get("/v1/runs/{run_id}/items/{source}/{index}", tags=["evidence"])
+    def item(run_id: str, source: str, index: int) -> dict[str, Any]:
+        """One item the run read, with its boxes or label and metadata while it matches the run's manifest; else its
+        status (`input_changed`, `input_unavailable` or `evidence_unavailable`) and why."""
+        return evidence.item(run_id, source, index)
+
+    @app.get(
+        "/v1/runs/{run_id}/items/{source}/{index}/image",
+        tags=["evidence"],
+        response_class=Response,
+        responses={200: {"content": {"image/png": {}}}, 409: {"description": "The item is not verified"}},
+    )
+    def image(
+        run_id: str,
+        source: str,
+        index: int,
+        target: int | None = Query(None, ge=0, description="A box to crop, by its index in the item's annotation"),
+        max_side: int | None = Query(None, ge=16, le=8192, description="Shrink to fit this many pixels across"),
+    ) -> Response:
+        """The item's image as a PNG, or one box cropped from it; 409 unless the item matches the run's manifest."""
+        picture = evidence.image(run_id, source, index, target, max_side)
+        if picture is None:
+            return JSONResponse(evidence.item(run_id, source, index), status_code=409)
+        return Response(picture, media_type="image/png")
 
     return app
 
