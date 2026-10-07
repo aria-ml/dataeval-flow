@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from dataeval_flow import PipelineConfig
 
 
-@pytest.mark.test_case("14-1")
 class TestReporting:
     def test_report_returns_nonempty_string(self, synthetic_pipeline_config: tuple[PipelineConfig, Path]) -> None:
         cfg, data_dir = synthetic_pipeline_config

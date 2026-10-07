@@ -9,7 +9,6 @@ import pytest
 
 
 @pytest.mark.required
-@pytest.mark.test_case("1-1")
 class TestPipInstall:
     def test_import_dataeval_flow(self) -> None:
         import dataeval_flow
@@ -44,7 +43,6 @@ class TestPipInstall:
 
 
 @pytest.mark.optional
-@pytest.mark.test_case("1-2")
 class TestOptionalExtras:
     @pytest.mark.parametrize(
         ("module", "label"),

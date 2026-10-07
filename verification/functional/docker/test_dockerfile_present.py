@@ -12,7 +12,6 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 DOCKER_DIR = REPO_ROOT / "docker"
 
 
-@pytest.mark.test_case("17-1")
 class TestDockerfiles:
     @pytest.mark.parametrize("name", ["Dockerfile.cpu", "Dockerfile.cu126"])
     def test_dockerfile_exists(self, name: str) -> None:

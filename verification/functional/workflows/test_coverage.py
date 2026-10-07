@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from dataeval_flow import PipelineConfig
 
 
-@pytest.mark.test_case("20-1")
 class TestDataCoverageWorkflow:
     def test_coverage_workflow_runs(
         self,

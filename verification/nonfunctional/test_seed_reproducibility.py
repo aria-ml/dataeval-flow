@@ -47,7 +47,6 @@ def _seeded_cleaning_pipeline(
     return cfg.model_copy(update={"seed": seed}), data_dir
 
 
-@pytest.mark.test_case("21-1")
 class TestSeedConfiguration:
     def test_seed_defaults_to_none(self) -> None:
         """An unseeded pipeline leaves randomness alone."""

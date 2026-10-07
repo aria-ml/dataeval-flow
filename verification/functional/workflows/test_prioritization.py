@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from dataeval_flow import PipelineConfig
 
 
-@pytest.mark.test_case("12-1")
 class TestDataPrioritizationWorkflow:
     def test_prioritization_workflow_runs(
         self,

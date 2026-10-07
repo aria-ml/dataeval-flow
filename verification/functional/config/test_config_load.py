@@ -24,7 +24,6 @@ MINIMAL_CONFIG = {
 }
 
 
-@pytest.mark.test_case("2-1")
 class TestConfigLoading:
     def test_load_yaml_single_file(self, tmp_path: Path) -> None:
         cfg_path = tmp_path / "params.yaml"

@@ -9,7 +9,6 @@ import pytest
 pytestmark = pytest.mark.required
 
 
-@pytest.mark.test_case("10-1")
 class TestTypeSafety:
     def test_py_typed_marker_present(self) -> None:
         import dataeval_flow

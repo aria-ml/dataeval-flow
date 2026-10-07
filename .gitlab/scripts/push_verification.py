@@ -11,14 +11,16 @@ via the GitLab API. Target project and directory come from
 
 Only files this project generates are ever written:
 
-    output/metarepo/vcrm.md            -> <path>/vcrm.md
-    output/metarepo/test-cases/*.md    -> <path>/test-cases/*.md
+    output/metarepo/vcrm.md              -> <path>/vcrm.md
+    output/metarepo/requirements/*.md    -> <path>/requirements/*.md
+    output/metarepo/test-cases/*.md      -> <path>/test-cases/*.md
 
-The meta repo also holds hand-maintained content under the same directory (the
-``FR-*.md`` / ``NFR-*.md`` requirement docs the VCRM links to). Nothing is ever
-deleted by default: files that exist remotely but are no longer generated are
-reported as stale and left alone. ``--prune`` opts into deleting stale
-``test-cases/test-case-*.md`` files only, and never touches anything else.
+Requirements, test cases, and the VCRM are all generated from the registry.
+Nothing is ever deleted by default: files that exist remotely but are no longer
+generated are reported as stale and left alone. ``--prune`` (or
+``PRUNE_STALE=1``) opts into deleting stale ``requirements/FR-*.md``,
+``requirements/NFR-*.md`` and ``test-cases/test-case-*.md`` files only, and
+never touches anything else, such as ``archive/`` or ``proposed/``.
 
 Requires:
   - DATAEVAL_BUILD_PAT environment variable (GitLab personal access token)
@@ -43,10 +45,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REGISTRY_PATH = PROJECT_ROOT / "verification" / "registry.yaml"
 OUTPUT_DIR = PROJECT_ROOT / "output" / "metarepo"
 
-# Generated test cases are named test-case-<major>-<minor>.md. Only files
-# matching this pattern are eligible for --prune; anything else under the
-# managed directory is assumed hand-maintained.
-TEST_CASE_RE = re.compile(r"^test-case-[\w.-]+\.md$")
+# Generated files are requirements/FR-*.md, requirements/NFR-*.md, and
+# test-cases/test-case-<n>-<k>.md. Only files matching these patterns, directly
+# inside those two directories, are eligible for --prune.
+MANAGED_RE = {
+    "requirements": re.compile(r"^N?FR-[\w.-]+\.md$"),
+    "test-cases": re.compile(r"^test-case-[\w.-]+\.md$"),
+}
 
 
 def load_metarepo_config() -> tuple[int, str]:
@@ -96,10 +101,11 @@ def collect_generated(base: str) -> dict[str, Path]:
     """Map meta repo file path -> local source file for everything CI generates."""
     generated: dict[str, Path] = {}
 
-    tc_dir = OUTPUT_DIR / "test-cases"
-    if tc_dir.exists():
-        for f in sorted(tc_dir.glob("*.md")):
-            generated[f"{base}/test-cases/{f.name}"] = f
+    for sub in MANAGED_RE:
+        src = OUTPUT_DIR / sub
+        if src.exists():
+            for f in sorted(src.glob("*.md")):
+                generated[f"{base}/{sub}/{f.name}"] = f
 
     vcrm = OUTPUT_DIR / "vcrm.md"
     if vcrm.exists():
@@ -108,10 +114,20 @@ def collect_generated(base: str) -> dict[str, Path]:
     return generated
 
 
+def find_stale(existing: set[str], generated: set[str], base: str) -> list[str]:
+    """Remote files of the managed kinds that the registry no longer generates."""
+    stale = []
+    for path in sorted(existing - generated):
+        parts = Path(path).relative_to(base).parts
+        if len(parts) == 2 and (rx := MANAGED_RE.get(parts[0])) is not None and rx.match(parts[1]):
+            stale.append(path)
+    return stale
+
+
 def main() -> None:
     """Generate the commit plan and, unless ``--dry-run``, push it to the meta repo."""
     dry_run = "--dry-run" in sys.argv
-    prune = "--prune" in sys.argv
+    prune = "--prune" in sys.argv or os.environ.get("PRUNE_STALE") == "1"
 
     project_id, base = load_metarepo_config()
     generated = collect_generated(base)
@@ -132,12 +148,10 @@ def main() -> None:
         for remote, local in generated.items()
     ]
 
-    # Anything present remotely that CI does not generate. Hand-written
-    # requirement docs live here, so this is reported, not deleted.
-    untracked = sorted(existing - set(generated))
-    tc_prefix = f"{base}/test-cases/"
-    stale_test_cases = [p for p in untracked if p.startswith(tc_prefix) and TEST_CASE_RE.match(Path(p).name)]
-    preserved = [p for p in untracked if p not in stale_test_cases]
+    # Anything present remotely that CI does not generate. Files of the managed
+    # kinds are stale; everything else is left alone.
+    stale = find_stale(existing, set(generated), base)
+    preserved = sorted(existing - set(generated) - set(stale))
 
     version = os.environ.get("CI_COMMIT_TAG") or os.environ.get("DATAEVAL_FLOW_VERSION") or "dev"
     message = f"Update verification artifacts for dataeval-flow {version}"
@@ -148,17 +162,17 @@ def main() -> None:
         print(f"  {a['action']}: {a['file_path']}")
 
     if preserved:
-        print(f"\nLeaving {len(preserved)} hand-maintained file(s) untouched:")
+        print(f"\nLeaving {len(preserved)} other file(s) untouched:")
         for p in preserved:
             print(f"  keep: {p}")
 
-    if stale_test_cases:
+    if stale:
         verb = "Deleting" if prune else "Stale (use --prune to delete)"
-        print(f"\n{verb}: {len(stale_test_cases)} test case file(s) no longer in registry.yaml:")
-        for p in stale_test_cases:
+        print(f"\n{verb}: {len(stale)} requirement or test case file(s) no longer in registry.yaml:")
+        for p in stale:
             print(f"  {'delete' if prune else 'stale'}: {p}")
         if prune:
-            actions += [{"action": "delete", "file_path": p} for p in stale_test_cases]
+            actions += [{"action": "delete", "file_path": p} for p in stale]
 
     if dry_run:
         print("\n--dry-run: skipping commit")

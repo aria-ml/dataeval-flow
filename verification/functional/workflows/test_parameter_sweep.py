@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from dataeval_flow import PipelineConfig
 
 
-@pytest.mark.test_case("13-1")
 class TestParameterSweepWorkflow:
     def test_parameter_sweep_runs(
         self,

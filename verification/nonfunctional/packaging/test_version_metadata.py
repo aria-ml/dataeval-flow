@@ -12,7 +12,6 @@ pytestmark = pytest.mark.required
 DIST = "dataeval-flow"
 
 
-@pytest.mark.test_case("1-7")
 class TestVersionMetadata:
     def test_version_is_valid_pep440(self) -> None:
         from packaging.version import Version

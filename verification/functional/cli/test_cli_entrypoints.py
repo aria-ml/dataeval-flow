@@ -12,7 +12,6 @@ import pytest
 pytestmark = pytest.mark.required
 
 
-@pytest.mark.test_case("16-1")
 class TestCLIEntrypoints:
     def test_console_script_on_path(self) -> None:
         assert shutil.which("dataeval-flow") is not None

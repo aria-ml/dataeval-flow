@@ -11,7 +11,6 @@ from verification.fixtures import make_synthetic_dataset
 pytestmark = pytest.mark.required
 
 
-@pytest.mark.test_case("5-1")
 class TestPreprocessingView:
     def test_preprocessor_config_accepts_transforms(self) -> None:
         cfg = PreprocessorConfig(

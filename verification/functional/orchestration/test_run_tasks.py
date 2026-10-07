@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from dataeval_flow import PipelineConfig
 
 
-@pytest.mark.test_case("6-1")
 class TestOrchestration:
     def test_list_workflows_returns_seven(self) -> None:
         wfs = list_workflows()

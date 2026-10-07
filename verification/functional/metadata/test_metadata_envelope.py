@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from dataeval_flow import PipelineConfig
 
 
-@pytest.mark.test_case("18-1")
 class TestResultMetadataEnvelope:
     def test_version_field_set(
         self, synthetic_pipeline_config: tuple[PipelineConfig, Path]

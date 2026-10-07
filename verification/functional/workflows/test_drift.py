@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from dataeval_flow import PipelineConfig
 
 
-@pytest.mark.test_case("8-1")
 class TestDriftMonitoringWorkflow:
     def test_drift_workflow_runs(
         self,

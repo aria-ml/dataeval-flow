@@ -11,7 +11,6 @@ from packaging.specifiers import SpecifierSet
 pytestmark = pytest.mark.required
 
 
-@pytest.mark.test_case("1-1")
 class TestPythonVersions:
     def test_running_on_supported_version(self) -> None:
         requires_python = md.metadata("dataeval-flow")["Requires-Python"]

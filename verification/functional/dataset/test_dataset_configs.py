@@ -19,7 +19,6 @@ from verification.fixtures import write_image_folder
 pytestmark = pytest.mark.required
 
 
-@pytest.mark.test_case("3-1")
 class TestDatasetConfigs:
     def test_image_folder_config_roundtrip(self) -> None:
         cfg = ImageFolderDatasetConfig(name="imgs", path="images")
@@ -44,7 +43,6 @@ class TestDatasetConfigs:
         assert cfg.name == "proto"
 
 
-@pytest.mark.test_case("3-1")
 class TestLoadDataset:
     def test_load_dataset_image_folder(self, tmp_path: Path) -> None:
         from dataeval.protocols import AnnotatedDataset

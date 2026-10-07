@@ -19,7 +19,6 @@ if TYPE_CHECKING:
     from dataeval_flow import PipelineConfig
 
 
-@pytest.mark.test_case("9-1")
 class TestOODWorkflow:
     def test_ood_workflow_runs(
         self,

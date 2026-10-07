@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from dataeval_flow import PipelineConfig
 
 
-@pytest.mark.test_case("10-1")
 class TestDataAnalysisWorkflow:
     def test_analysis_workflow_runs(
         self,

@@ -81,7 +81,6 @@ def _run(data_root: Path, test_frac: float) -> dict[str, Any]:
     return _strip_volatile_metadata(result.to_dict())
 
 
-@pytest.mark.test_case("11-1")
 class TestConfigReproducibility:
     def test_same_config_produces_identical_output(self, tmp_path: Path) -> None:
         out_a = _run(tmp_path / "a", test_frac=0.25)

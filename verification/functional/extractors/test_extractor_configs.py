@@ -15,7 +15,6 @@ from dataeval_flow import (
 pytestmark = pytest.mark.required
 
 
-@pytest.mark.test_case("4-1")
 class TestExtractorConfigs:
     def test_flatten_extractor_config_constructs(self) -> None:
         cfg = FlattenExtractorConfig(name="flat")

@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from dataeval_flow import PipelineConfig
 
 
-@pytest.mark.test_case("7-1")
 class TestDataCleaningWorkflow:
     def test_cleaning_workflow_runs(
         self,

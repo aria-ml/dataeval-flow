@@ -1,11 +1,25 @@
 #!/usr/bin/env python3
-"""Generate meta repo artifacts from verification test results."""
+"""Generate meta repo artifacts from the verification registry and test results.
+
+Reads the registry (``registry.yaml``), the pytest report
+(``output/verification_report.json``), and, when available, CI job results
+(``output/ci_jobs.json``) to produce under ``output/metarepo/``:
+
+  - requirements/<id>-<slug>.md   one per requirement, rendered from the registry
+  - test-cases/test-case-<id>.md  one per test case, with each step's result
+  - vcrm.md                       requirement to test case matrix with verification row
+
+A test case is a list of steps. Each step names the pytest tests (``alias::test``
+or a full node id), CI jobs (``CI: <job>``), or planned tests (``NEW: <what>``)
+that give its evidence. A step passes when every automated piece passes. A step
+with a planned test, or with CI evidence that is not available, is pending.
+"""
 
 from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -14,192 +28,202 @@ VERIFICATION_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = VERIFICATION_DIR.parent
 REGISTRY_PATH = VERIFICATION_DIR / "registry.yaml"
 REPORT_PATH = PROJECT_ROOT / "output" / "verification_report.json"
+CI_JOBS_PATH = PROJECT_ROOT / "output" / "ci_jobs.json"
 OUTPUT_DIR = PROJECT_ROOT / "output" / "metarepo"
+
+DR_15 = "https://jatic.pages.jatic.net/internal-docs/standards/product/documentation/program-doc-requirements/#dr-15-product-requirements-definitions"
+
+# Step and test case outcomes.
+PASS, FAIL, SKIP, PENDING = "passed", "failed", "skipped", "pending"
 
 
 def load_registry() -> dict:
-    """Load the verification registry YAML."""
-    with open(REGISTRY_PATH) as f:
-        return yaml.safe_load(f)
+    """Load the verification registry."""
+    return yaml.safe_load(REGISTRY_PATH.read_text())
 
 
-def load_report() -> dict | None:
-    """Load the verification JSON report if present, else return None."""
-    if REPORT_PATH.exists():
-        with open(REPORT_PATH) as f:
-            return json.load(f)
-    return None
+def load_json(path: Path) -> dict | None:
+    """Load a JSON file if it exists."""
+    return json.loads(path.read_text()) if path.exists() else None
 
 
-def _human_readable_step(nodeid: str) -> str:
-    """Convert a pytest nodeid's test name into a human-readable step description."""
-    test_name = nodeid.rsplit("::", 1)[-1]
-    # Strip pytest parametrize suffix, e.g. "test_foo[bar-baz]" -> "test_foo"
-    if "[" in test_name:
-        test_name = test_name.split("[", 1)[0]
-    return re.sub(r"^test_", "", test_name).replace("_", " ").capitalize()
+def slug(text: str) -> str:
+    """File-name slug for a requirement name."""
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 
 
-def _result_char(status: str) -> str:
-    if status == "passed":
-        return "P"
-    if status == "skipped":
-        return "S"
-    return "F"
+def requirement_filename(req: dict) -> str:
+    """Requirement file name: ``FR-<n>-<slug>.md`` or ``NFR-<n>-<slug>.md`` (DR-1.5-H-2)."""
+    return f"{req['id']}-{slug(req['name'])}.md"
 
 
-def _verification_cell(status: str) -> str:
-    """Render a test case's overall status for the VCRM verification row.
-
-    A skipped test case is reported as "Skipped", never "Fail". Collapsing the
-    two reads as non-compliance against a requirement that was simply not
-    exercised in that job, which is the most damaging error a governance
-    artifact can make: it accuses the product of failing something it was never
-    asked to demonstrate.
-    """
-    if status == "passed":
-        return "Pass"
-    if status == "skipped":
-        return "Skipped"
-    return "Fail"
+# ---------------------------------------------------------------------------
+# Evidence resolution
+# ---------------------------------------------------------------------------
 
 
-def generate_test_case_md(tc_id: str, tc_meta: dict, report: dict | None) -> str:
-    """Render a single test-case markdown document from registry + optional report."""
-    tc_key = f"test-case-{tc_id}"
-    today = datetime.now(tz=timezone.utc).strftime("%m/%d/%Y")
-    tc_report = None
-    if report and tc_key in report.get("test_cases", {}):
-        tc_report = report["test_cases"][tc_key]
+def expand(ref: str, aliases: dict[str, str]) -> str:
+    """Expand ``alias::test`` to a full pytest node id."""
+    head, sep, rest = ref.partition("::")
+    return f"{aliases[head]}::{rest}" if sep and head in aliases else ref
 
-    lines: list[str] = []
-    lines.append(f"# {tc_meta['name']}")
-    lines.append("")
-    lines.append("## Description")
-    lines.append("")
-    lines.append(f"- Test Type: {tc_meta['test_type']}")
-    lines.append(f"- Business Case: {tc_meta['business_case'].strip()}")
-    lines.append("")
-    lines.append("**Initial Conditions:**")
-    lines.append("")
-    for i, cond in enumerate(tc_meta["initial_conditions"], 1):
-        lines.append(f"{i}. {cond}")
-    lines.append("")
-    lines.append("## Test Steps")
-    lines.append("")
 
-    if tc_report:
-        tests = tc_report["tests"]
-        for i, test in enumerate(tests, 1):
-            lines.append(f"{i}. {_human_readable_step(test['test'])}")
-        lines.append(f"{len(tests) + 1}. Confirm the Expected Results by validating all steps pass")
-    else:
-        for i, er in enumerate(tc_meta["expected_results"], 1):
-            lines.append(f"{i}. Verify: {er}")
-        lines.append(
-            f"{len(tc_meta['expected_results']) + 1}. Confirm the Expected Results by validating all steps pass",
-        )
-    lines.append("")
-    lines.append("**Expected Results**")
-    lines.append("")
-    for i, result in enumerate(tc_meta["expected_results"], 1):
-        lines.append(f"{i}. {result}")
-    lines.append("")
-    lines.append("## Test Results")
-    lines.append("")
-    lines.append("| Test Step |  Result | Notes |")
-    lines.append("|:----------|:-------:|:------|")
+def evidence_status(ref: str, nodes: dict[str, str] | None, ci_jobs: dict[str, str] | None) -> str:
+    """Outcome of one piece of evidence."""
+    if ref.startswith("NEW:"):
+        return PENDING
+    if ref.startswith("CI:"):
+        job = ref[3:].strip()
+        if not ci_jobs or job not in ci_jobs:
+            return PENDING
+        return {"success": PASS, "failed": FAIL, "skipped": SKIP}.get(ci_jobs[job], PENDING)
+    if nodes is None or ref not in nodes:
+        return PENDING
+    return {"passed": PASS, "skipped": SKIP}.get(nodes[ref], FAIL)
 
-    if tc_report:
-        tests = tc_report["tests"]
-        for i, test in enumerate(tests, 1):
-            r = _result_char(test["status"])
-            lines.append(f"|{i:<10}|    {r}    |  [^{i}] |")
-        overall = tc_report["status"]
-        confirm = _result_char(overall)
-        n = len(tests) + 1
-        lines.append(f"|{n:<10}|    {confirm}    |  [^{n}] |")
-        lines.append("")
-        for i, test in enumerate(tests, 1):
-            lines.append(f"[^{i}]: `{test['test']}` — {test['status']}")
-        lines.append(f"[^{n}]: Overall verification — {overall}")
-    else:
-        lines.append("|1         |   P/F   |  [^1] |")
-        lines.append("")
-        lines.append("[^1]: Awaiting automated test results")
 
-    lines.append("")
-    lines.append(f"**Last Updated Date:** {today}")
+def combine(statuses: list[str]) -> str:
+    """Overall outcome: any failure fails; any pending is pending; all skipped is skipped."""
+    if FAIL in statuses:
+        return FAIL
+    if PENDING in statuses:
+        return PENDING
+    if statuses and all(s == SKIP for s in statuses):
+        return SKIP
+    return PASS
+
+
+def step_statuses(
+    tc: dict, aliases: dict[str, str], nodes: dict | None, ci_jobs: dict | None
+) -> list[tuple[str, list[tuple[str, str]]]]:
+    """For each step: (outcome, [(evidence, outcome), ...])."""
+    out = []
+    for step in tc["steps"]:
+        ev = [(expand(r, aliases), evidence_status(expand(r, aliases), nodes, ci_jobs)) for r in step["tests"]]
+        out.append((combine([s for _, s in ev]), ev))
+    return out
+
+
+def tc_outcome(tc: dict, aliases: dict, nodes: dict | None, ci_jobs: dict | None) -> str:
+    """Outcome of a whole test case."""
+    return combine([s for s, _ in step_statuses(tc, aliases, nodes, ci_jobs)])
+
+
+# ---------------------------------------------------------------------------
+# Markdown
+# ---------------------------------------------------------------------------
+
+_MARK = {PASS: "P", FAIL: "F", SKIP: "S", PENDING: "—"}
+_LABEL = {PASS: "passed", FAIL: "failed", SKIP: "skipped", PENDING: "pending"}
+
+
+def requirement_md(req: dict) -> str:
+    """Render one requirement in the DR-1.5-R-1 shape."""
+    kind = "Non-Functional" if req["id"].startswith("N") else "Functional"
+    out = [
+        f"# {req['id']}: {req['name']}",
+        "",
+        f"## {kind} Requirements",
+        "",
+        f"- Requirement ID: {req['id']}",
+        f"  - Name: {req['name']}",
+        f"  - Description: {req['description']}",
+        "  - Acceptance Criteria",
+    ]
+    out += [f"    - {c}" for c in req["criteria"]]
+    if req.get("notes"):
+        out += ["  - Reference Measurements (informative; not acceptance criteria)"]
+        out += [f"    - {n}" for n in req["notes"]]
+    return "\n".join(out) + "\n"
+
+
+def test_case_md(tc: dict, aliases: dict, nodes: dict | None, ci_jobs: dict | None, today: str) -> str:
+    """Render one test case in the DR-1.6-H-4 template."""
+    steps = step_statuses(tc, aliases, nodes, ci_jobs)
+    n = len(steps)
+    overall = combine([s for s, _ in steps])
+    lines = [
+        f"# {tc['name']}",
+        "",
+        "## Description",
+        "",
+        f"- Test Type: {tc['type']}",
+        f"- Business Case: {tc['business']}",
+        "",
+        "**Initial Conditions:**",
+        "",
+    ]
+    lines += [f"{i}. {c}" for i, c in enumerate(tc["conditions"], 1)]
+    lines += ["", "## Test Steps", ""] + [f"{i}. {s['do']}" for i, s in enumerate(tc["steps"], 1)]
+    lines += [f"{n + 1}. Confirm the Expected Results by validating all steps pass.", "", "**Expected Results**", ""]
+    lines += [f"{i}. {s['expect']}" for i, s in enumerate(tc["steps"], 1)]
+    lines += ["", "## Test Results", "", "| Test Step |  Result | Notes |", "|:----------|:-------:|:------|"]
+    for i, (status, _) in enumerate(steps, 1):
+        lines.append(f"|{i:<10}|    {_MARK[status]}    |  [^{i}] |")
+    lines += [f"|{n + 1:<10}|    {_MARK[overall]}    |  [^{n + 1}] |", ""]
+    for i, (_, ev) in enumerate(steps, 1):
+        parts = []
+        for ref, status in ev:
+            if ref.startswith("NEW:"):
+                parts.append(f"{ref[4:].strip()}: not yet automated")
+            elif ref.startswith("CI:"):
+                parts.append(
+                    f"CI job `{ref[3:].strip()}`: {'result not available' if status == PENDING else _LABEL[status]}"
+                )
+            else:
+                parts.append(f"`{ref}`: {'not run' if status == PENDING else _LABEL[status]}")
+        lines.append(f"[^{i}]: " + "; ".join(parts))
+    lines += [f"[^{n + 1}]: Overall verification: {_LABEL[overall]}", "", f"**Last Updated Date:** {today}"]
     return "\n".join(lines) + "\n"
 
 
-def _tc_sort_key(tc_id: str) -> list[int]:
+def tc_sort_key(tc_id: str) -> list[int]:
+    """Sort test case ids like ``1-1`` and ``21-1`` numerically."""
     return [int(p) for p in tc_id.split("-")]
 
 
-def generate_vcrm(registry: dict, report: dict | None) -> str:
-    """Render the VCRM markdown table from registry + optional report."""
-    requirements = registry["requirements"]
-    test_cases = registry["test_cases"]
-    today = datetime.now(tz=timezone.utc).strftime("%m/%d/%Y")
-    all_tc_ids = sorted(test_cases.keys(), key=_tc_sort_key)
-
-    tc_headers = [f"[TC-{tc_id.replace('-', '.')}][{tc_id}]" for tc_id in all_tc_ids]
-    header = "| Requirement ID | Requirement Origin | Coverage | " + " | ".join(tc_headers) + " |"
-
-    sep_parts = [":--------------", ":-------------------", ":--------:"] + [":-------------:"] * len(all_tc_ids)
-    separator = "| " + " | ".join(sep_parts) + " |"
-
-    rows: list[str] = []
-    for req_id, req_data in requirements.items():
-        req_tcs = set(req_data.get("test_cases", []))
-        coverage = "Yes" if req_tcs else "No"
-        ref_key = req_id.lower().replace("-", "")
-        req_cell = f"[{req_id}][{ref_key}]"
-        origin = req_data.get("origin", "")
-        origin_ref = origin.lower().replace("-", "").replace(".", "")
-        origin_cell = f"[{origin}][{origin_ref}]" if origin else ""
-        tc_cells = ["X" if tc_id in req_tcs else " " for tc_id in all_tc_ids]
-        row_parts = [req_cell, origin_cell, coverage] + tc_cells
-        rows.append("| " + " | ".join(row_parts) + " |")
-
-    verification_cells: list[str] = []
-    for tc_id in all_tc_ids:
-        tc_key = f"test-case-{tc_id}"
-        if report and tc_key in report.get("test_cases", {}):
-            status = report["test_cases"][tc_key]["status"]
-            verification_cells.append(_verification_cell(status))
-        else:
-            verification_cells.append("Pending")
-    verification_row = "| **Verification** | | | " + " | ".join(verification_cells) + " |"
-
-    tc_links = [f"[{tc_id}]:test-cases/test-case-{tc_id}.md" for tc_id in all_tc_ids]
-    req_links = []
-    for req_id, req_data in requirements.items():
-        ref_key = req_id.lower().replace("-", "")
-        filename = req_data.get("file", "#")
-        req_links.append(f"[{ref_key}]:requirements/{filename}")
-    origin_links: dict[str, str] = {}
-    for req_data in requirements.values():
-        origin = req_data.get("origin", "")
-        origin_link = req_data.get("origin_link", "#")
-        if origin:
-            origin_ref = origin.lower().replace("-", "").replace(".", "")
-            origin_links[origin_ref] = f"[{origin_ref}]:{origin_link}"
-
+def vcrm_md(registry: dict, nodes: dict | None, ci_jobs: dict | None, today: str) -> str:
+    """Render the VCRM."""
+    aliases = registry.get("aliases", {})
+    tcs = sorted(registry["test_cases"], key=lambda t: tc_sort_key(t["id"]))
+    ids = [t["id"] for t in tcs]
+    header = (
+        "| Requirement ID | Requirement Origin | Coverage | "
+        + " | ".join(f"[TC-{i.replace('-', '.')}][{i}]" for i in ids)
+        + " |"
+    )
+    sep = (
+        "| "
+        + " | ".join([":--------------", ":-------------------", ":--------:"] + [":-------------:"] * len(ids))
+        + " |"
+    )
+    rows, origin_links, req_links = [], {}, []
+    for req in registry["requirements"]:
+        mine = {t["id"] for t in tcs if t["req"] == req["id"]}
+        ref = req["id"].lower().replace("-", "")
+        origin = req.get("origin", "DR-1.5")
+        oref = origin.lower().replace("-", "").replace(".", "")
+        origin_links[oref] = f"[{oref}]:{req.get('origin_link', DR_15)}"
+        req_links.append(f"[{ref}]:requirements/{requirement_filename(req)}")
+        cells = ["X" if i in mine else " " for i in ids]
+        rows.append(
+            "| " + " | ".join([f"[{req['id']}][{ref}]", f"[{origin}][{oref}]", "Yes" if mine else "No", *cells]) + " |"
+        )
+    label = {PASS: "Pass", FAIL: "Fail", SKIP: "Skipped", PENDING: "Pending"}
+    verification = [label[tc_outcome(t, aliases, nodes, ci_jobs)] for t in tcs]
     parts = [
-        "# DataEval Flow Verification Cross-Reference Matrix (VCRM)",
+        f"# {registry['product']} Verification Cross-Reference Matrix (VCRM)",
         "",
         header,
-        separator,
+        sep,
         *rows,
-        verification_row,
+        "| **Verification** | | | " + " | ".join(verification) + " |",
         "",
         f"**Last Updated:** {today}",
         "",
         "<!-- Links for Test Cases -->",
         "",
-        *tc_links,
+        *[f"[{i}]:test-cases/test-case-{i}.md" for i in ids],
         "",
         "<!-- Links for Requirement IDs -->",
         "",
@@ -212,34 +236,54 @@ def generate_vcrm(registry: dict, report: dict | None) -> str:
     return "\n".join(parts) + "\n"
 
 
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+
+def check_registry(registry: dict) -> None:
+    """Fail loudly on a registry that cannot render a consistent matrix."""
+    req_ids = {r["id"] for r in registry["requirements"]}
+    tc_ids = [t["id"] for t in registry["test_cases"]]
+    if len(set(tc_ids)) != len(tc_ids):
+        raise SystemExit("registry error: duplicate test case id")
+    for t in registry["test_cases"]:
+        if t["req"] not in req_ids:
+            raise SystemExit(f"registry error: test case {t['id']} names unknown requirement {t['req']}")
+        if not t["steps"]:
+            raise SystemExit(f"registry error: test case {t['id']} has no steps")
+    uncovered = req_ids - {t["req"] for t in registry["test_cases"]}
+    if uncovered:
+        raise SystemExit(f"registry error: requirements without a test case: {sorted(uncovered)}")
+
+
 def main() -> None:
-    """Generate test-case markdown stubs and VCRM under output/metarepo/."""
+    """Write requirements, test cases, and the VCRM to ``output/metarepo``."""
     registry = load_registry()
-    report = load_report()
+    check_registry(registry)
+    aliases = registry.get("aliases", {})
+    report = load_json(REPORT_PATH)
+    nodes = report.get("nodes") if report else None
+    ci_jobs = load_json(CI_JOBS_PATH)
+    today = datetime.now(tz=UTC).strftime("%m/%d/%Y")
 
-    if report:
-        s = report["summary"]
-        print(
-            f"Loaded verification report: {s['total_test_cases']} test cases "
-            f"({s['passed']} passed, {s['failed']} failed, {s['skipped']} skipped)",
-        )
-    else:
-        print("No verification report found — generating templates only")
+    if nodes is None:
+        print("No verification report with node results found: every pytest step will show as pending")
+    for sub in ("requirements", "test-cases"):
+        (OUTPUT_DIR / sub).mkdir(parents=True, exist_ok=True)
+        for old in (OUTPUT_DIR / sub).glob("*.md"):
+            old.unlink()
+    for req in registry["requirements"]:
+        (OUTPUT_DIR / "requirements" / requirement_filename(req)).write_text(requirement_md(req))
+    for tc in registry["test_cases"]:
+        out = OUTPUT_DIR / "test-cases" / f"test-case-{tc['id']}.md"
+        out.write_text(test_case_md(tc, aliases, nodes, ci_jobs, today))
+    (OUTPUT_DIR / "vcrm.md").write_text(vcrm_md(registry, nodes, ci_jobs, today))
 
-    tc_dir = OUTPUT_DIR / "test-cases"
-    tc_dir.mkdir(parents=True, exist_ok=True)
-
-    for tc_id, tc_meta in registry["test_cases"].items():
-        content = generate_test_case_md(tc_id, tc_meta, report)
-        out_path = tc_dir / f"test-case-{tc_id}.md"
-        out_path.write_text(content)
-        print(f"  Generated {out_path.name}")
-
-    vcrm_content = generate_vcrm(registry, report)
-    vcrm_path = OUTPUT_DIR / "vcrm.md"
-    vcrm_path.write_text(vcrm_content)
-    print("  Generated vcrm.md")
-    print(f"\nAll artifacts written to {OUTPUT_DIR}")
+    results = [tc_outcome(t, aliases, nodes, ci_jobs) for t in registry["test_cases"]]
+    counts = {k: results.count(k) for k in (PASS, FAIL, SKIP, PENDING)}
+    print(f"{len(registry['requirements'])} requirements, {len(results)} test cases: {counts}")
+    print(f"Artifacts written to {OUTPUT_DIR}")
 
 
 if __name__ == "__main__":

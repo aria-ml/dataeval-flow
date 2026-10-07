@@ -10,7 +10,6 @@ import pytest
 pytestmark = pytest.mark.required
 
 
-@pytest.mark.test_case("15-1")
 class TestCache:
     def test_cache_module_importable(self) -> None:
         from dataeval_flow import cache

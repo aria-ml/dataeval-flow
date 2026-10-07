@@ -9,7 +9,6 @@ import pytest
 pytestmark = pytest.mark.required
 
 
-@pytest.mark.test_case("16-1")
 class TestLogging:
     def test_logging_module_exports_setup(self) -> None:
         from dataeval_flow import _logging

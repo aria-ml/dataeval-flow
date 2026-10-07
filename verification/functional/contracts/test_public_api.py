@@ -7,7 +7,6 @@ import pytest
 pytestmark = pytest.mark.required
 
 
-@pytest.mark.test_case("1-1")
 class TestPublicAPI:
     def test_top_level_all_exports(self) -> None:
         import dataeval_flow
