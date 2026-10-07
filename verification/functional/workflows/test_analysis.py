@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from dataeval_flow import run_tasks
+from dataeval_flow import DataCleaningWorkflowConfig, TaskConfig, run_tasks
 from dataeval_flow.config import DataAnalysisTaskConfig, DataAnalysisWorkflowConfig
 
 pytestmark = pytest.mark.required
@@ -55,3 +55,36 @@ class TestDataAnalysisWorkflow:
         assert split_result.image_quality is not None
         assert split_result.label_health is not None
         assert split_result.redundancy is not None
+
+    def test_failing_sub_analysis_is_recorded_in_errors(
+        self,
+        image_folder_pipeline_builder: Callable[..., tuple[PipelineConfig, Path]],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A sub-analysis that raises fails the analysis task, names the cause, and spares the next task."""
+        from dataeval_flow.workflows.analysis import workflow as analysis_workflow
+
+        def broken_bias(*_args: object, **_kwargs: object) -> object:
+            raise RuntimeError("bias analysis exploded")
+
+        monkeypatch.setattr(analysis_workflow, "_assess_bias", broken_bias)
+        cfg, data_dir = image_folder_pipeline_builder(
+            workflows=[
+                DataAnalysisWorkflowConfig(
+                    name="analyze_main", type="data-analysis", outlier_method="zscore", outlier_flags=["pixel"]
+                ),
+                DataCleaningWorkflowConfig(
+                    name="clean_main", type="data-cleaning", outlier_method="zscore", outlier_flags=["pixel"]
+                ),
+            ],
+            tasks=[
+                DataAnalysisTaskConfig(name="analyze_task", workflow="analyze_main", sources="main", extractor="flat"),
+                TaskConfig(name="clean_task", workflow="clean_main", sources="main", extractor="flat"),
+            ],
+        )
+
+        analysis, cleaning = run_tasks(cfg, data_dir=data_dir)
+
+        assert not analysis.success
+        assert any("bias analysis exploded" in error for error in analysis.errors)
+        assert cleaning.success

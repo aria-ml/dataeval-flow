@@ -370,11 +370,12 @@ test_cases:
   - do: Call `export_params_schema()`.
     expect: A JSON schema of `PipelineConfig` is returned.
     tests:
-    - 'NEW: export_params_schema returns the PipelineConfig schema'
+    - cfg::test_export_params_schema_describes_pipeline_config
   - do: Load a config with relative dataset paths and a data root.
     expect: The paths resolve against the data root.
     tests:
-    - 'NEW: relative dataset paths resolve against the data root'
+    - cfg::test_relative_dataset_paths_resolve_against_data_root
+    - cfg::test_dataset_paths_must_stay_relative_to_the_data_root
 - id: 3-1
   req: FR-3
   name: Dataset Loading
@@ -391,11 +392,12 @@ test_cases:
   - do: Load the COCO and YOLO datasets.
     expect: Images and annotations load with the expected length.
     tests:
-    - 'NEW: load_dataset for COCO and YOLO layouts'
-  - do: Load a dataset through a `DatasetProtocolConfig` factory target.
-    expect: The factory is called and its dataset is returned.
+    - dsetload::test_load_dataset_coco
+    - dsetload::test_load_dataset_yolo
+  - do: Build a dataset with a user factory and pass it through a `DatasetProtocolConfig`.
+    expect: The factory is called and its dataset is returned unchanged.
     tests:
-    - 'NEW: load_dataset through a DatasetProtocolConfig factory'
+    - dsetload::test_protocol_config_factory_dataset_is_returned
   - do: Round-trip each dataset config (image folder, Hugging Face, COCO, YOLO, protocol) through serialization.
     expect: Each config reproduces itself.
     tests:
@@ -427,7 +429,7 @@ test_cases:
   - do: Run a Flatten extractor built from its config over a small dataset.
     expect: One embedding row per sample is returned.
     tests:
-    - 'NEW: extractor built from config produces embeddings'
+    - ext::test_flatten_extractor_from_config_embeds_every_sample
 - id: 5-1
   req: FR-5
   name: Preprocessing and Views
@@ -454,7 +456,7 @@ test_cases:
   - do: Run the same config and seed twice.
     expect: Both runs give the same result.
     tests:
-    - 'NEW: pipeline deterministic for config and seed'
+    - pre::test_seeded_shuffle_view_pipeline_is_deterministic
 - id: 6-1
   req: FR-6
   name: Workflow Orchestration
@@ -481,7 +483,7 @@ test_cases:
   - do: Run a config where one task fails.
     expect: The failure is recorded in that result and the remaining tasks still run.
     tests:
-    - 'NEW: failing task recorded, remaining tasks still run'
+    - orch::test_failing_task_is_recorded_and_remaining_tasks_run
 - id: 7-1
   req: FR-7
   name: Cleaning and Analysis Workflows
@@ -495,15 +497,15 @@ test_cases:
     expect: The result has `duplicates` and `outliers` findings and a non-empty report.
     tests:
     - clean::test_cleaning_workflow_runs
-    - 'NEW: planted duplicate and outlier are found'
+    - clean::test_planted_duplicate_and_outlier_are_found
   - do: Run the `data-analysis` workflow with bias and quality analyses.
     expect: The result exposes each analysis result and a non-empty report.
     tests:
     - analysis::test_analysis_workflow_runs
   - do: Run `data-analysis` with one sub-analysis made to fail.
-    expect: The failure appears in `result.errors` and the other analyses finish.
+    expect: The failure appears in `result.errors`, the task is marked unsuccessful, and the remaining tasks still run.
     tests:
-    - 'NEW: data-analysis records a failing sub-analysis and continues'
+    - analysis::test_failing_sub_analysis_is_recorded_in_errors
 - id: 8-1
   req: FR-8
   name: Coverage Workflow
@@ -528,11 +530,11 @@ test_cases:
   - do: Run `data-coverage` with an unreadable ontology.
     expect: A skip reason is recorded and the run succeeds.
     tests:
-    - 'NEW: unreadable ontology recorded as a skip reason'
+    - cov::test_unreadable_ontology_is_recorded_as_a_skip_reason
   - do: Set a coverage threshold that the data fails.
     expect: A finding with `warning` severity is raised.
     tests:
-    - 'NEW: threshold breach raises a warning finding'
+    - cov::test_threshold_breach_raises_a_warning_finding
 - id: 9-1
   req: FR-9
   name: Drift and OOD Workflows
@@ -549,7 +551,7 @@ test_cases:
   - do: Run `drift-monitoring` with a target drawn from the reference.
     expect: No drift is reported.
     tests:
-    - 'NEW: drift-monitoring does not flag same-distribution target'
+    - drift::test_same_distribution_target_is_not_flagged_as_drift
   - do: Run `ood-detection` with the same sources.
     expect: '`instance_score` and `is_ood` are returned, each the length of the target.'
     tests:
@@ -557,7 +559,7 @@ test_cases:
   - do: Check the `is_ood` mask for the clearly different target.
     expect: The different samples are flagged.
     tests:
-    - 'NEW: ood-detection flags the different target'
+    - ood::test_clearly_different_target_is_flagged_out_of_distribution
 - id: 10-1
   req: FR-10
   name: Splitting and Prioritization
@@ -571,10 +573,10 @@ test_cases:
     expect: One index list is returned per named split.
     tests:
     - split::test_splitting_workflow_runs
-  - do: Run `data-splitting` twice with the same seed and once with a different seed.
-    expect: The same seed gives identical splits and a different seed gives different splits.
+  - do: Run `data-splitting` twice with the same seed and once with a different test fraction.
+    expect: The same seed gives identical splits and a different test fraction gives different splits.
     tests:
-    - 'NEW: splits identical for the same seed and different for another'
+    - split::test_same_seed_gives_identical_splits_and_other_settings_give_different_ones
   - do: Run `data-prioritization` with a scoring policy.
     expect: A ranked index list as long as the source is returned, with a non-empty report.
     tests:
@@ -582,7 +584,7 @@ test_cases:
   - do: Run `data-prioritization` with an unsupported policy.
     expect: A `ValidationError` is raised.
     tests:
-    - 'NEW: unsupported prioritization policy raises ValidationError'
+    - prio::test_unsupported_policy_raises_validation_error
 - id: 11-1
   req: FR-11
   name: Parameter Sweep
@@ -596,11 +598,12 @@ test_cases:
     expect: One inner result per combination is returned, aggregated into one `WorkflowResult`.
     tests:
     - sweep::test_parameter_sweep_runs
-    - 'NEW: one inner result per parameter combination'
+    - sweep::test_sweep_returns_one_inner_result_per_combination
   - do: Run the sweep with one combination made to fail.
-    expect: The error is reported for that combination and the other combinations finish.
+    expect: The error is reported in the task's `errors`, the sweep task is marked unsuccessful, and the remaining tasks
+      still run.
     tests:
-    - 'NEW: sweep continues past a failing combination'
+    - sweep::test_failing_combination_is_reported_and_later_tasks_still_run
 - id: 12-1
   req: FR-12
   name: Reporting and Export
@@ -614,13 +617,13 @@ test_cases:
     expect: A non-empty multi-line report is returned, and the summary is shorter.
     tests:
     - rep::test_report_returns_nonempty_string
-    - 'NEW: report(detailed=False) is shorter'
+    - rep::test_summary_report_is_shorter_than_detailed
   - do: Export to JSON and YAML files and to memory.
     expect: Files are written and the path returned; with `None` the serialized string is returned.
     tests:
     - rep::test_export_json_writes_file
     - rep::test_export_yaml_writes_file
-    - 'NEW: export(None) returns the serialized string'
+    - rep::test_export_without_a_path_returns_the_serialized_string
   - do: Call `to_dict()`.
     expect: The dict contains `metadata`, `health`, and `data`.
     tests:
@@ -628,7 +631,7 @@ test_cases:
   - do: Read `health`, `warning_count`, and `findings`.
     expect: Each is available and consistent with the report.
     tests:
-    - 'NEW: health, warning_count, and findings available for gating'
+    - rep::test_health_warning_count_and_findings_support_gating
 - id: 13-1
   req: FR-13
   name: Result Metadata Envelope
@@ -653,11 +656,12 @@ test_cases:
     expect: The config is a non-empty dict holding the seed, and `dataset_id` names the sources.
     tests:
     - env::test_resolved_config_is_dict_and_nonempty
-    - 'NEW: dataset_id names the resolved sources'
+    - env::test_dataset_id_names_the_sources_and_resolved_config_holds_the_seed
+    - env::test_multi_source_dataset_id_lists_every_source
   - do: Read the `health` block.
     expect: '`status`, `warnings`, and `findings` are present.'
     tests:
-    - 'NEW: envelope health block'
+    - env::test_envelope_carries_a_health_block
 - id: 14-1
   req: FR-14
   name: Caching
@@ -746,7 +750,7 @@ test_cases:
   - do: Run a CUDA image without `--gpus all`.
     expect: It exits with code 1 and a message that names the flag and the `cpu` variant.
     tests:
-    - 'NEW: CUDA image exits 1 without GPU access'
+    - cudaimg::test_exits_with_one_and_names_the_gpu_flag_and_cpu_variant_without_gpu_access
 - id: 17-1
   req: FR-17
   name: MAITE Entry Points
@@ -794,7 +798,7 @@ test_cases:
   - do: Run a workflow with CUDA hidden.
     expect: The workflow runs on CPU without error.
     tests:
-    - 'NEW: automatic CPU fallback when CUDA is absent'
+    - cuda::test_workflow_runs_on_cpu_when_cuda_is_hidden
 - id: 22-1
   req: NFR-2
   name: Package Distribution

@@ -228,3 +228,34 @@ def image_folder_pipeline_builder(
         return cfg, tmp_path
 
     return _build
+
+
+@pytest.fixture
+def mixed_outcome_pipeline(
+    image_folder_pipeline_builder: Callable[..., tuple[PipelineConfig, Path]],
+) -> tuple[PipelineConfig, Path]:
+    """A two-task pipeline whose first task fails and whose second succeeds.
+
+    ``bad_task`` asks for cluster-based outlier detection with no extractor, which the
+    cleaning workflow rejects at run time; ``ok_task`` is an ordinary cleaning run.
+    """
+    from dataeval_flow import DataCleaningWorkflowConfig, TaskConfig
+
+    return image_folder_pipeline_builder(
+        workflows=[
+            DataCleaningWorkflowConfig(
+                name="bad",
+                type="data-cleaning",
+                outlier_method="zscore",
+                outlier_flags=["pixel"],
+                outlier_cluster_threshold=3.0,
+            ),
+            DataCleaningWorkflowConfig(
+                name="ok", type="data-cleaning", outlier_method="zscore", outlier_flags=["pixel"]
+            ),
+        ],
+        tasks=[
+            TaskConfig(name="bad_task", workflow="bad", sources="main"),
+            TaskConfig(name="ok_task", workflow="ok", sources="main", extractor="flat"),
+        ],
+    )

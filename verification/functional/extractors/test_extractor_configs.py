@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from dataeval_flow import (
@@ -11,6 +12,8 @@ from dataeval_flow import (
     TorchExtractorConfig,
     UncertaintyExtractorConfig,
 )
+from dataeval_flow.embeddings import build_embeddings
+from verification.fixtures import make_synthetic_dataset
 
 pytestmark = pytest.mark.required
 
@@ -47,3 +50,9 @@ class TestExtractorConfigs:
             "UncertaintyExtractorConfig",
         ):
             assert name in dataeval_flow.__all__
+
+    def test_flatten_extractor_from_config_embeds_every_sample(self) -> None:
+        dataset = make_synthetic_dataset(n=10, shape=(3, 8, 8))
+        embeddings = build_embeddings(dataset, FlattenExtractorConfig(name="flat"), batch_size=4)  # type: ignore[arg-type]
+        array = np.asarray(embeddings.compute())
+        assert array.shape == (10, 3 * 8 * 8)

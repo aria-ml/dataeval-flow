@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from pydantic import ValidationError
 
 from dataeval_flow import run_tasks
 from dataeval_flow.config.schemas import (
@@ -60,3 +61,14 @@ class TestDataPrioritizationWorkflow:
         (pool_result,) = prioritizations
         assert pool_result["source_name"] == "pool"
         assert len(pool_result["prioritized_indices"]) == pool_result["cleaned_size"]
+
+    def test_unsupported_policy_raises_validation_error(self) -> None:
+        with pytest.raises(ValidationError, match="policy"):
+            DataPrioritizationWorkflowConfig(
+                name="prio_bad",
+                type="data-prioritization",
+                method="knn",
+                k=3,
+                order="hard_first",
+                policy="does-not-exist",  # type: ignore[arg-type]
+            )

@@ -45,3 +45,14 @@ class TestOrchestration:
         assert len(results) == 1
         assert isinstance(results[0], WorkflowResult)
         assert results[0].metadata.tool == "dataeval-flow"
+
+    def test_failing_task_is_recorded_and_remaining_tasks_run(
+        self, mixed_outcome_pipeline: tuple[PipelineConfig, Path]
+    ) -> None:
+        cfg, data_dir = mixed_outcome_pipeline
+        failed, ok = run_tasks(cfg, data_dir=data_dir)
+
+        assert not failed.success
+        assert any("extractor" in e for e in failed.errors)
+        assert ok.success
+        assert ok.data.report.findings

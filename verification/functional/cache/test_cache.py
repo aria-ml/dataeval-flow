@@ -58,3 +58,22 @@ class TestCache:
 
         c = DatasetCache(tmp_path, "ds_verify")
         assert c.load_embeddings("sel:never", "nonexistent-config", "none") is None
+
+    def test_cache_entries_are_isolated_per_source(self, tmp_path: Path) -> None:
+        """The same content cached for two sources does not leak between them."""
+        from dataeval_flow.cache import DatasetCache
+
+        key = ("sel:all", '{"name": "flat", "model": "flatten"}', "none")
+        first = np.arange(6, dtype=np.float32).reshape(2, 3)
+        second = first + 100
+
+        a = DatasetCache(tmp_path, "source_a")
+        b = DatasetCache(tmp_path, "source_b")
+        a.save_embeddings(*key, first)
+
+        assert b.load_embeddings(*key) is None
+        b.save_embeddings(*key, second)
+
+        np.testing.assert_array_equal(DatasetCache(tmp_path, "source_a").load_embeddings(*key), first)
+        np.testing.assert_array_equal(DatasetCache(tmp_path, "source_b").load_embeddings(*key), second)
+        assert a.dataset_dir != b.dataset_dir
