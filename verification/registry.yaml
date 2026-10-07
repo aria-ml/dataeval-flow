@@ -79,8 +79,8 @@ requirements:
   description: DataEval Flow shall load datasets from common structured formats and from user-defined factories,
     and return a MAITE-compatible dataset.
   criteria:
-  - Image-folder, Hugging Face, COCO, and YOLO datasets load from their configs, and a `DatasetProtocolConfig` instantiates
-    a user factory from a dotted-path target.
+  - Image-folder, Hugging Face, COCO, and YOLO datasets load from their configs, and a `DatasetProtocolConfig` wraps
+    a dataset object that a user factory built.
   - '`load_dataset()` returns an object that satisfies `dataeval.protocols.AnnotatedDataset`.'
 - id: FR-4
   name: Feature Extractor Configuration
@@ -117,7 +117,8 @@ requirements:
   - '`data-cleaning` returns `duplicates` and `outliers` findings for a source.'
   - '`data-analysis` runs a configurable set of bias, quality, and distribution analyses over one or more sources
     and exposes each analysis result.'
-  - When a sub-analysis fails, the failure is recorded in `result.errors` and the other analyses still run.
+  - If an analysis raises, the `data-analysis` task fails with the error recorded in `result.errors`, and later
+    tasks still run.
 - id: FR-8
   name: Data Coverage
   description: DataEval Flow shall assess how fully a dataset covers its intended scope, by label space and by embedding
@@ -139,14 +140,17 @@ requirements:
     verdict and per-feature findings.'
   - '`ood-detection` fits a detector on the reference and returns an `instance_score` and a boolean `is_ood` mask,
     each the length of the target.'
-  - A target that differs clearly from the reference is flagged by both workflows.
+  - A target that differs clearly from the reference is flagged by both workflows when the detector's distance metric
+    can separate the two. For example, `ood-detection` with the default cosine distance cannot tell dark noise from
+    bright noise, so such data needs the `euclidean` metric.
 - id: FR-10
   name: Data Splitting & Prioritization
   description: DataEval Flow shall partition a source into named splits and rank its samples with the `data-splitting`
     and `data-prioritization` workflows.
   criteria:
-  - '`data-splitting` returns one named index list per split, and the `seed` determines the assignment: the same
-    seed gives identical splits and a different seed gives different splits.'
+  - '`data-splitting` returns one named index list per split. Splitting has no random component, so the same configuration
+    gives identical splits; changing the test fraction, validation fraction, fold count, or stratification changes
+    them.'
   - '`data-prioritization` returns a ranked index list as long as the source, using the configured scoring policy.'
   - An unsupported policy raises a `pydantic.ValidationError`.
 - id: FR-11
@@ -155,7 +159,8 @@ requirements:
     results with the `parameter-sweep` workflow.
   criteria:
   - The workflow takes a parameter grid and returns one inner result per combination, aggregated into one `WorkflowResult`.
-  - An error in one combination is reported and the sweep continues.
+  - An error in one combination fails the `parameter-sweep` task and is recorded in its result; later tasks still
+    run.
 - id: FR-12
   name: Reporting & Export
   description: DataEval Flow shall give every `WorkflowResult` a readable report, a machine-readable export, and
@@ -250,7 +255,9 @@ requirements:
   - '`PipelineConfig.seed` is applied to every stochastic component through DataEval''s seed configuration, once
     per task, so a task''s result does not depend on which tasks ran before it; `deterministic` can force PyTorch
     deterministic algorithms.'
-  - The same configuration and seed give identical output, and a different configuration gives different output.
+  - The same configuration and seed give identical results, apart from the ordering of tied entries in the bias
+    summary's `top_values` for factors whose values are all unique (for example `id`). A different configuration
+    gives different results.
   - The seed is recorded in the result envelope; an unseeded run records none.
   - Module loggers are standard `logging.Logger` objects named `dataeval_flow.*`, importing the package attaches
     no root handler, and the headless CLI installs a stream handler.
@@ -510,7 +517,8 @@ test_cases:
     tests:
     - analysis::test_analysis_workflow_runs
   - do: Run `data-analysis` with one sub-analysis made to fail.
-    expect: The failure appears in `result.errors`, the task is marked unsuccessful, and the remaining tasks still run.
+    expect: The failure appears in `result.errors`, the task is marked unsuccessful, and the remaining tasks still
+      run.
     tests:
     - analysis::test_failing_sub_analysis_is_recorded_in_errors
 - id: 8-1
@@ -607,8 +615,8 @@ test_cases:
     - sweep::test_parameter_sweep_runs
     - sweep::test_sweep_returns_one_inner_result_per_combination
   - do: Run the sweep with one combination made to fail.
-    expect: The error is reported in the task's `errors`, the sweep task is marked unsuccessful, and the remaining tasks
-      still run.
+    expect: The error is reported in the task's `errors`, the sweep task is marked unsuccessful, and the remaining
+      tasks still run.
     tests:
     - sweep::test_failing_combination_is_reported_and_later_tasks_still_run
 - id: 12-1
@@ -923,8 +931,8 @@ test_cases:
     - maxp::test_config_field_reaches_dataeval_for_every_task_and_is_recorded
     - maxp::test_flag_and_variable_reach_dataeval_for_every_task_and_are_recorded
     - maxp::test_flag_overrides_the_config_field
-  - do: Run `data-analysis` on 224x224 images (200 in the automated check, 4,000 in the reference measurements) at 1
-      process and at 4 processes.
+  - do: Run `data-analysis` on 224x224 images (200 in the automated check, 4,000 in the reference measurements)
+      at 1 process and at 4 processes.
     expect: Both times are recorded. The development-machine baseline was 0.45 times the single-process time at
       4 processes; the result is reported, not gated, because the benefit varies by platform.
     tests:
