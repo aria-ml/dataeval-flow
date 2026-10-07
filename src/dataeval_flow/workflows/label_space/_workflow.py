@@ -26,7 +26,7 @@ class LabelSpaceWorkflow(Preset, Workflow[LabelSpaceConfig, ChainResult]):
       empty branches and the unmet minimum shares;
     - ``label-reconciliation`` and ``label-conformance``: which class names
       resolve to one concept;
-    - ``label-alignment`` and ``mergeability``: whether the classes carry over, with the Relabel
+    - ``label-alignment`` and ``label-mergeability``: whether the classes carry over, with the Relabel
       stanza;
     - ``ontology-validation`` and ``ontology-structure``: the ontology's own structure.
 
@@ -74,7 +74,7 @@ class LabelSpaceWorkflow(Preset, Workflow[LabelSpaceConfig, ChainResult]):
                 **limits.label_conformance.model_dump(),
             },
             {"name": "label-alignment", "evaluator": "label-alignment", "input": "data"},
-            {"name": "mergeability", "check": "mergeability", "input": "label-alignment"},
+            {"name": "label-mergeability", "check": "label-mergeability", "input": "label-alignment"},
             {"name": "ontology-validation", "evaluator": "ontology-validation", "input": "data"},
             {"name": "ontology-structure", "check": "ontology-structure", "input": "ontology-validation"},
         ]

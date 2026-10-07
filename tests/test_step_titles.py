@@ -89,7 +89,7 @@ def test_every_built_in_step_declares_its_title() -> None:
 def test_a_check_keeps_the_title_of_its_finding() -> None:
     titles = {cls.name: cls.title for cls in CHECKS.list(plugins=False)}
     assert titles["image-duplicates"] == "Image Duplicates"
-    assert titles["classwise-outliers"] == "Classwise Outliers"
+    assert titles["class-outliers"] == "Class Outliers"
 
 
 def test_a_plugin_class_without_a_title_takes_its_id() -> None:
@@ -105,7 +105,7 @@ def test_the_catalog_carries_each_title() -> None:
     assert catalog[("evaluator", "label-health")] == "Label Health"
     assert catalog[("transform", "kfold")] == "K-Fold"
     assert catalog[("combine", "outliers-by-class")] == "Outliers by Class"
-    assert catalog[("check", "classwise-outliers")] == "Classwise Outliers"
+    assert catalog[("check", "class-outliers")] == "Class Outliers"
     assert catalog[("workflow", "data-cleaning")] == "Data Cleaning"
 
 

@@ -1,8 +1,8 @@
 """The drift check: judges a drift detector's verdict, whole or chunk by chunk (spec §10.11)."""
 
 __all__ = [
-    "DistributionShiftCheck",
-    "DistributionShiftConfig",
+    "EmbeddingDivergenceCheck",
+    "EmbeddingDivergenceConfig",
     "DriftCheck",
     "DriftConfig",
     "DriftThresholds",
@@ -106,8 +106,8 @@ class DriftCheck(Check[DriftConfig]):
         ]
 
 
-class DistributionShiftConfig(CheckConfig):
-    """A `distribution-shift` step's input, and the bands of divergence that warn and inform."""
+class EmbeddingDivergenceConfig(CheckConfig):
+    """A `embedding-divergence` step's input, and the bands of divergence that warn and inform."""
 
     input: str = Field(description="A `divergence` Output.")
     warning: float | None = Field(
@@ -138,15 +138,15 @@ class DistributionShiftConfig(CheckConfig):
         return self
 
 
-class DistributionShiftCheck(Check[DistributionShiftConfig]):
-    """``distribution-shift``: whether two sources' embeddings sit too far apart, judging one `divergence` Output."""
+class EmbeddingDivergenceCheck(Check[EmbeddingDivergenceConfig]):
+    """``embedding-divergence``: whether two sources' embeddings sit too far apart, judging one `divergence` Output."""
 
-    name: ClassVar[str] = "distribution-shift"
+    name: ClassVar[str] = "embedding-divergence"
     description: ClassVar[str] = "Warns when two sources' embeddings sit too far apart."
-    title: ClassVar[str] = "Distribution Shift"
+    title: ClassVar[str] = "Embedding Divergence"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(DivergenceOutput,)),)
 
-    def run(self, config: DistributionShiftConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(self, config: EmbeddingDivergenceConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """The divergence, banded high, moderate or low."""
         data = inputs["input"].value.data()
         value, method = float(data["divergence"]), data["method"]

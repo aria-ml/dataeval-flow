@@ -39,7 +39,7 @@ detection Dataset it refuses outliers not computed per box (`per_target: true`),
 
 The config refuses an `outliers` computed on another Dataset when it loads, as `remove` does.
 
-- **Judged by:** [`classwise-outliers`](checks.md#classwise-outliers)
+- **Judged by:** [`class-outliers`](checks.md#class-outliers)
 - **Used in:** [`data-cleaning`](presets.md#data-cleaning)
 
 ```yaml
@@ -52,7 +52,7 @@ workflows:
     steps:
       - {name: outliers, evaluator: outliers, input: data}
       - {name: by-class, combine: outliers-by-class, input: data, outliers: outliers}
-      - {name: classwise-outliers, check: classwise-outliers, input: by-class, warning: 5.0}
+      - {name: class-outliers, check: class-outliers, input: by-class, warning: 5.0}
 ```
 
 ## Does the data cover what the model must handle?

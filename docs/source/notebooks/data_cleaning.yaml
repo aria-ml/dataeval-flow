@@ -56,7 +56,7 @@ workflows:
       image-duplicates: {exact: 0.0, near: 5.0}
       image-outliers: {warning: 5.0}
       target-outliers: {warning: 10.0}
-      classwise-outliers: {warning: 12.0}
+      class-outliers: {warning: 12.0}
 
   # data-cleaning as a step: `cleaning.clean` is the dataset without what it flagged
   - name: clean_export

@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin
 from dataeval_flow.steps._result import ChainResult
-from dataeval_flow.steps.checks._stratification import StratificationThresholds
+from dataeval_flow.steps.checks._stratification import ClassStratificationThresholds
 from dataeval_flow.workflows._base import WorkflowConfig
 
 
@@ -18,8 +18,10 @@ class DataSplittingChecks(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
-    stratification: StratificationThresholds = Field(
-        default_factory=StratificationThresholds, description="The `stratification` check's thresholds, on each fold."
+    class_stratification: ClassStratificationThresholds = Field(
+        default_factory=ClassStratificationThresholds,
+        alias="class-stratification",
+        description="The `class-stratification` check's thresholds, on each fold.",
     )
 
 

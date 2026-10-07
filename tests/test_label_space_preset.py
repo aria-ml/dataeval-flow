@@ -11,7 +11,7 @@ from tests.chain_toys import ToyDetections, chain_pipeline
 from tests.evaluator_toys import ToyImages
 
 _ONTOLOGY = {"x": {"a": None, "b": None, "c": None}}
-_TITLES = ["Leaf Coverage", "Label Conformance", "Mergeability", "Ontology Structure"]
+_TITLES = ["Leaf Coverage", "Label Conformance", "Label Mergeability", "Ontology Structure"]
 
 
 def _run(entry: dict, datasets: dict | None = None, **task: object) -> ChainResult:
@@ -35,7 +35,7 @@ def test_its_chain_is_four_evaluators_each_judged() -> None:
         "label-reconciliation",
         "label-conformance",
         "label-alignment",
-        "mergeability",
+        "label-mergeability",
         "ontology-validation",
         "ontology-structure",
     ]

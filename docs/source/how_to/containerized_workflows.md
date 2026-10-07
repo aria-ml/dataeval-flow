@@ -367,7 +367,7 @@ workflows:
     type: metadata-triage
     metadata: standard             # the policy under triage
     checks:
-      metadata-issues: {max_examples: 20}
+      factor-issues: {max_examples: 20}
     verify: true                   # re-read the metadata under the suggestions
 ```
 ````

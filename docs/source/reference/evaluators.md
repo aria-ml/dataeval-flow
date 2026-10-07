@@ -159,7 +159,7 @@ and the items that carry none.
 | `metadata` | (DataEval Flow) a policy under `metadata:`, which the metadata is built under | DataEval's defaults |
 
 - **Judged by:** [`class-imbalance`](checks.md#class-imbalance), [`class-sufficiency`](checks.md#class-sufficiency),
-  [`stratification`](checks.md#stratification), [`target-outliers`](checks.md#target-outliers),
+  [`class-stratification`](checks.md#class-stratification), [`target-outliers`](checks.md#target-outliers),
   [`untrained-classes`](checks.md#untrained-classes)
 - **Used in:** [`audit`](presets.md#audit), [`data-bias`](presets.md#data-bias),
   [`data-cleaning`](presets.md#data-cleaning), [`data-splitting`](presets.md#data-splitting)
@@ -273,7 +273,7 @@ A `conform` step applies the remap, gated by how much loss it declares it will a
 | `ontology` | (DataEval Flow) a name under `ontologies:`, a path, or an inline hierarchy; the alignment's target | required |
 | `threshold` | `threshold`: the lowest confidence a fuzzy match keeps | DataEval's default (`0.0`) |
 
-- **Judged by:** [`mergeability`](checks.md#mergeability)
+- **Judged by:** [`label-mergeability`](checks.md#label-mergeability)
 - **Used in:** [`label-space`](presets.md#label-space)
 
 ```yaml
@@ -576,7 +576,7 @@ It runs `dataeval.core.divergence_mst` or `divergence_fnn`.
 | --- | --- | --- |
 | `method` | (DataEval Flow) `mst` or `fnn` | `mst` |
 
-- **Judged by:** [`distribution-shift`](checks.md#distribution-shift)
+- **Judged by:** [`embedding-divergence`](checks.md#embedding-divergence)
 - **Used in:** [`audit`](presets.md#audit)
 
 ```yaml
@@ -918,7 +918,7 @@ without a second walk.
 | `default_bins` | (DataEval Flow) the bin count a suggestion falls back to where the run left no cut to read | `10` |
 | `min_missing_fraction` | (DataEval Flow) the share of rows recording no value above which a factor is degenerate | `0.2` |
 
-- **Judged by:** [`metadata-issues`](checks.md#metadata-issues)
+- **Judged by:** [`factor-issues`](checks.md#factor-issues)
 - **Used in:** [`audit`](presets.md#audit), [`metadata-triage`](presets.md#metadata-triage)
 
 ```yaml

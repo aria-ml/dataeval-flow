@@ -1,9 +1,9 @@
 """The ``metadata-triage`` preset."""
 
-__all__ = ["MetadataIssuesSettings", "MetadataTriageChecks", "MetadataTriageConfig", "MetadataTriageWorkflow"]
+__all__ = ["FactorIssuesSettings", "MetadataTriageChecks", "MetadataTriageConfig", "MetadataTriageWorkflow"]
 
 from dataeval_flow.workflows.metadata_triage._config import (
-    MetadataIssuesSettings,
+    FactorIssuesSettings,
     MetadataTriageChecks,
     MetadataTriageConfig,
 )

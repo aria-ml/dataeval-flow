@@ -148,7 +148,7 @@ banner and configuration:
   duplicates          ok
   image-outliers      ok
   target-outliers     ok
-  classwise-outliers  ok
+  class-outliers  ok
   image-duplicates    ok
   clean               ok
 ```

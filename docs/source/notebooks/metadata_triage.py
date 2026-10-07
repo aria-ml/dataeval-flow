@@ -101,7 +101,7 @@ from dataeval_flow.workflows.metadata_triage import MetadataTriageConfig
 
 triage_workflow = MetadataTriageConfig(
     name="triage",
-    checks={"metadata-issues": {"max_examples": 6}},  # distinct values shown per column in the report
+    checks={"factor-issues": {"max_examples": 6}},  # distinct values shown per column in the report
 )
 
 task = TaskConfig(
@@ -140,7 +140,7 @@ print(result.report())
 
 # %% [markdown]
 # The preset's `factor-triage` step holds the issues, the suggested policy and the verification, and its
-# `metadata-issues` step makes the findings the report shows.
+# `factor-issues` step makes the findings the report shows.
 
 # %%
 triage = result.steps["factor-triage"].output.data()

@@ -111,7 +111,7 @@ a `warning`, counted in the report's health line. It does not change what is det
       image-duplicates: {exact: 0.0, near: 5.0}  # % of images in exact- and near-duplicate groups
       image-outliers: {warning: 5.0}             # % of images flagged
       target-outliers: {warning: 10.0}           # % of labels/annotations flagged
-      classwise-outliers: {warning: 12.0}        # % flagged within any single class
+      class-outliers: {warning: 12.0}        # % flagged within any single class
 ```
 
 Rough guidance: tighten toward 1–2% for curated benchmarks and safety-critical datasets; loosen toward 10–15% for

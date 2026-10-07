@@ -42,7 +42,7 @@ def test_data_cleaning_short_text_is_its_summary_health_and_steps(cleaned) -> No
   SUMMARY
 ================================================================================
   Image Outliers ....................................... 1 images (4.2%)  [!!]
-  Classwise Outliers ............ worst: b (8.3%), 1/1 classes over 3.0%  [!!]
+  Class Outliers ................ worst: b (8.3%), 1/1 classes over 3.0%  [!!]
   Image Duplicates ....................... 2 exact (8.3%), 0 near (0.0%)  [!!]
 
   Health: 3 warning(s) [!!] — review flagged findings
@@ -50,17 +50,17 @@ def test_data_cleaning_short_text_is_its_summary_health_and_steps(cleaned) -> No
 ================================================================================
   STEPS
 ================================================================================
-  Step                Status  Note
-  ------------------  ------  -----------
-  outliers            ok
-  label-health        ok
-  outliers-by-class   ok
-  duplicates          ok
-  image-outliers      ok
-  target-outliers     ok      no findings
-  classwise-outliers  ok
-  image-duplicates    ok
-  clean               ok
+  Step               Status  Note
+  -----------------  ------  -----------
+  outliers           ok
+  label-health       ok
+  outliers-by-class  ok
+  duplicates         ok
+  image-outliers     ok
+  target-outliers    ok      no findings
+  class-outliers     ok
+  image-duplicates   ok
+  clean              ok
 
 ================================================================================
   METADATA FACTORS

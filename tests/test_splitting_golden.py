@@ -4,7 +4,7 @@ balance and diversity rows, its class-imbalance verdict, and the largest stratif
 
 Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), each with its reason:
 
-- **Titles and briefs are the checks' own:** "Class Imbalance", "Stratification".
+- **Titles and briefs are the checks' own:** "Class Imbalance", "Class Stratification".
 - **The split sizes are the split step's section, not findings.**
 - **The whole set's balance, diversity and class imbalance are data-bias's:** each case runs a data-bias entry on the
   same source, at legacy's class-imbalance limit, and they are compared there. Balance and diversity are sections,
@@ -127,7 +127,7 @@ def test_data_splitting_gives_the_splits_it_gave_before_its_port(name: str) -> N
 def test_the_largest_stratification_deviation_and_its_verdict_agree(name: str) -> None:
     result = run_tasks(pipeline(name, legacy=False))["t"]
     assert isinstance(result, ChainResult)
-    judged = [finding for finding in result.findings if finding.title == "Stratification"]
+    judged = [finding for finding in result.findings if finding.title == "Class Stratification"]
     worst = max(judged, key=lambda finding: (_deviation(finding.brief), _RANK[finding.severity]))
     golden = _GOLDEN[name]["stratification"]
     assert (_deviation(worst.brief), worst.severity) == (_deviation(golden["brief"]), golden["severity"])

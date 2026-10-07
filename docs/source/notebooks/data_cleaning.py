@@ -114,7 +114,7 @@ from dataeval_flow.config import (
 )
 from dataeval_flow.config.extractors import BoVWExtractorConfig
 from dataeval_flow.workflows.data_cleaning import (
-    ClasswiseOutliersSettings,
+    ClassOutliersSettings,
     DataCleaningChecks,
     DataCleaningConfig,
     DuplicatesSettings,
@@ -149,7 +149,7 @@ workflow = DataCleaningConfig(
         target_outliers=TargetOutliersSettings(
             warning=10.0  # Relaxed from 3% default for annotation variance in object detection
         ),
-        classwise_outliers=ClasswiseOutliersSettings(
+        class_outliers=ClassOutliersSettings(
             warning=12.0  # Relaxed from 3% default for diverse class appearances
         ),
     ),
@@ -239,7 +239,7 @@ for finding in result.findings:
 # | `image-duplicates.near` | 5% | Lower to 1–2% for curated benchmarks; raise to 10–15% for web-scraped data |
 # | `image-outliers.warning` | 3% | Lower to 1% for safety-critical data; raise to 5–10% for visually diverse collections |
 # | `target-outliers.warning` | 3% | Lower to 1% for annotation reviews; raise to 5–10% for dense object detection |
-# | `classwise-outliers.warning` | 3% | Lower to 1% for label-quality reviews; raise to 5–10% for diverse classes |
+# | `class-outliers.warning` | 3% | Lower to 1% for label-quality reviews; raise to 5–10% for diverse classes |
 #
 # Class imbalance is judged by the `data-bias` preset, not this one.
 #

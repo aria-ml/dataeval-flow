@@ -63,8 +63,8 @@ A check's findings are titled with the check's title, so `image-outliers` makes 
 
 Two checks title their findings differently, on purpose:
 
-- **`metadata-issues`** makes one finding per kind of issue it finds, plus Suggested policy, Verified and Recommended
-  policy. Its titles carry the structure of the metadata report. Its key is still `metadata-issues`.
+- **`factor-issues`** makes one finding per kind of issue it finds, plus Suggested policy, Verified and Recommended
+  policy. Its titles carry the structure of the metadata report. Its key is still `factor-issues`.
 - **`drift` and `ood`** title each finding with the detector's subject: the `subject:` setting, or, where none is
   set, the evaluator's title followed by its entry's name where that differs from its type, as in Drift (MMD) · mmd.
   A chain with several detectors can then tell their findings apart.
@@ -72,10 +72,8 @@ Two checks title their findings differently, on purpose:
 `ood-agreement` makes two findings that share its title, OOD Agreement. Its description tells them apart: the share
 every detector flagged, and the images one detector alone flagged.
 
-Three names are kept on purpose:
+Two names are kept on purpose:
 
-- `metadata-issues`, the check on `factor-triage`'s output, keeps its name, though its evaluator takes the `factor-`
-  prefix.
 - `kfold`, the one transform that is not a verb. Folding it into `split` would make a port's list-ness depend on
   config, which is engine code.
 - `eval-coverage`, whose short "eval" matches the `evals` ports of `class-sufficiency` and `untrained-classes`.
@@ -100,7 +98,7 @@ single bound is called `warning`, `info` comes with `warning`, and no setting is
 are conventions with no guard test; `steps/checks/_limits.py`'s `exceeds` implements the boundary rule.
 
 - **One quantity.** A check that bounds one quantity calls its bound `warning`, and its second bound `info` where it
-  offers one. `info` comes with `warning`. `image-outliers` has `warning`, and `distribution-shift` has `warning`
+  offers one. `info` comes with `warning`. `image-outliers` has `warning`, and `embedding-divergence` has `warning`
   and `info`.
 - **Several quantities.** A check that bounds several quantities names each bound for its quantity, and each bound
   warns: `image-duplicates` has `exact` and `near`, and `class-sufficiency` has `train` and `eval`.

@@ -37,18 +37,18 @@ PER_EVALUATION_SPLIT = frozenset(
         "class-imbalance-evals",
         "image-outliers-evals",
         "image-duplicates-evals",
-        "metadata-issues-evals",
+        "factor-issues-evals",
         "label-conformance-evals",
         "eval-coverage",
-        "distribution-shift",
-        "stratification",
+        "embedding-divergence",
+        "class-stratification",
     }
 )
 """The check steps the chain runs once per evaluation split, so the only ones an `accepted` key `step[split]` can
 name; every other check step runs once."""
 
 _GROUPS = (
-    ReportGroup("Is the data clean?", ("image-outliers", "image-duplicates", "metadata-issues")),
+    ReportGroup("Is the data clean?", ("image-outliers", "image-duplicates", "factor-issues")),
     ReportGroup(
         "Are the labels sound?", ("class-imbalance", "class-sufficiency", "untrained-classes", "label-conformance")
     ),
@@ -59,7 +59,8 @@ _GROUPS = (
     ),
     ReportGroup("Could the model learn a shortcut?", ("shortcut-risk",)),
     ReportGroup(
-        "Are the splits fit to evaluate on?", ("leakage", "eval-coverage", "stratification", "distribution-shift")
+        "Are the splits fit to evaluate on?",
+        ("leakage", "eval-coverage", "class-stratification", "embedding-divergence"),
     ),
 )
 
@@ -71,7 +72,7 @@ _NEXT_STEPS = NextSteps(
     by_check={
         "image-outliers": "Run data-cleaning to list and remove them.",
         "image-duplicates": "Run data-cleaning to list and remove them.",
-        "metadata-issues": "Run metadata-triage for a policy that repairs them.",
+        "factor-issues": "Run metadata-triage for a policy that repairs them.",
         "class-imbalance": _MORE_LABELS,
         "class-sufficiency": _MORE_LABELS,
         "untrained-classes": "Add the named classes to train, or remove them from the evaluation splits.",
@@ -83,8 +84,8 @@ _NEXT_STEPS = NextSteps(
         "shortcut-risk": "Balance the named factors across classes, or confirm they are causal.",
         "leakage": "Re-split with `split`'s `split_on` on the leaking factor, or remove the cross-split duplicates.",
         "eval-coverage": _RESPLIT,
-        "distribution-shift": _RESPLIT,
-        "stratification": _RESPLIT,
+        "embedding-divergence": _RESPLIT,
+        "class-stratification": _RESPLIT,
     },
     by_reason={
         NO_EVALUATION_SPLIT: "Give an evaluation split, or make one with data-splitting.",
@@ -114,13 +115,13 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
     settings expand to:
 
     - on each split, ``label-health``, ``outliers``, ``duplicates``, ``factor-triage`` and ``content-digest``, with
-      ``class-imbalance``, ``image-outliers``, ``image-duplicates`` and ``metadata-issues``; and, where ``ontology``
+      ``class-imbalance``, ``image-outliers``, ``image-duplicates`` and ``factor-issues``; and, where ``ontology``
       is set, ``label-reconciliation`` with ``label-conformance``;
     - train with each evaluation split: ``ood-kneighbors`` with ``eval-coverage`` and ``divergence`` with
-      ``distribution-shift`` (optional, asking for train's whole-image embeddings first), and ``duplicates-cross``;
+      ``embedding-divergence`` (optional, asking for train's whole-image embeddings first), and ``duplicates-cross``;
       each pair of evaluation splits: ``duplicates-pairs``; with ``factor-leakage``, the same two for
       ``factor-leakage``; and ``leakage`` over them all;
-    - ``class-sufficiency``, ``untrained-classes`` and ``stratification``, train's labels against each split's;
+    - ``class-sufficiency``, ``untrained-classes`` and ``class-stratification``, train's labels against each split's;
     - on train only: ``crops``, then ``coverage`` and ``completeness`` (optional) with ``class-coverage``,
       ``uncovered-items`` under ``naive`` coverage, and ``dimensional-completeness``; ``factor-summary``, ``balance``
       and ``diversity`` (optional) with ``shortcut-risk``; and ``factor-gaps`` (optional) with
@@ -203,7 +204,7 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
             *_each_split("evaluator", "duplicates"),
             *_each_split("check", "image-duplicates", "duplicates", **c.image_duplicates.model_dump()),
             *_each_split("evaluator", "factor-triage"),
-            *_each_split("check", "metadata-issues", "factor-triage", **c.metadata_issues.model_dump()),
+            *_each_split("check", "factor-issues", "factor-triage", **c.factor_issues.model_dump()),
             *_each_split("evaluator", "content-digest"),
         ]
         if config.ontology is not None:
@@ -222,10 +223,10 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
             },
             {"name": "divergence", "evaluator": "divergence", "input": ["train", "evals"], "optional": True},
             {
-                "name": "distribution-shift",
-                "check": "distribution-shift",
+                "name": "embedding-divergence",
+                "check": "embedding-divergence",
                 "input": "divergence",
-                **c.distribution_shift.model_dump(),
+                **c.embedding_divergence.model_dump(),
             },
             {"name": "duplicates-cross", "evaluator": "duplicates", "input": ["train", "evals"]},
             {"name": "duplicates-pairs", "evaluator": "duplicates", "input": "evals", "pairs": True},
@@ -264,11 +265,11 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
                 **c.untrained_classes.model_dump(),
             },
             {
-                "name": "stratification",
-                "check": "stratification",
+                "name": "class-stratification",
+                "check": "class-stratification",
                 "input": "label-health-train",
                 "parts": "label-health-evals",
-                **c.stratification.model_dump(),
+                **c.class_stratification.model_dump(),
             },
             # train only (spec §4.3); detection data is cropped before coverage (spec §4.5)
             *embedding_steps(config, "train"),

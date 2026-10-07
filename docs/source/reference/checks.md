@@ -10,7 +10,7 @@ that make Datasets.
 Each entry's **Used in** names the presets that run the check; where it names none, chain the check in a [workflow of
 your own](../how_to/write_a_custom_workflow.md). See the [Preset Catalog](presets.md) for each preset's chain.
 [`audit`](presets.md#audit) runs up to sixteen of these checks to audit a set of splits before training, among them
-`class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage` and `distribution-shift`; its
+`class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage` and `embedding-divergence`; its
 chain table lists them all. [Check a set of
 splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) runs `audit` as a step after `data-splitting`
 and gives every one of these checks to the splits; chain the checks yourself only to audit one fold or a subset. Each
@@ -24,14 +24,14 @@ example assumes the pipeline defines
 | --- | --- | --- |
 | `image-outliers` | `input`: an `outliers` Output | Image Outliers |
 | `target-outliers` | `input`: an `outliers` Output run with `per_target: true`; `labels`: a `label-health` Output | Target Outliers |
-| `classwise-outliers` | `input`: a `outliers-by-class` Output | Classwise Outliers |
+| `class-outliers` | `input`: a `outliers-by-class` Output | Classwise Outliers |
 | `image-duplicates` | `input`: a `duplicates` Output | Image Duplicates |
 | `class-imbalance` | `input`: a `label-health` Output | Class Imbalance |
 | `class-sufficiency` | `input`: a `label-health` Output over train; `evals`: the evaluation splits' | Class Sufficiency |
 | `untrained-classes` | `input`: a `label-health` Output over train; `evals`: the evaluation splits' | Untrained Classes |
 | `leaf-coverage` | `input`: a `representation` Output against a declared ontology | Leaf Coverage |
 | `label-conformance` | `input`: a `label-reconciliation` Output | Label Conformance |
-| `mergeability` | `input`: a `label-alignment` Output | Mergeability |
+| `label-mergeability` | `input`: a `label-alignment` Output | Mergeability |
 | `ontology-structure` | `input`: an `ontology-validation` Output | Ontology Structure |
 | `class-coverage` | `input`: a `coverage` Output | Class Coverage |
 | `uncovered-items` | `input`: a `coverage` Output | Uncovered Items |
@@ -40,14 +40,14 @@ example assumes the pipeline defines
 | `class-shortfall` | `input`: a `representation` Output with no ontology | Class Shortfall |
 | `shortcut-risk` | `input`: a `balance` Output | Shortcut Risk |
 | `factor-parity` | `input`: a `parity` Output | Factor Parity |
-| `stratification` | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
+| `class-stratification` | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Stratification |
 | `leakage` | `duplicates`: `duplicates` Outputs over two splits; `factors`: `factor-leakage` Outputs | Leakage |
-| `distribution-shift` | `input`: a `divergence` Output | Distribution Shift |
+| `embedding-divergence` | `input`: a `divergence` Output | Distribution Shift |
 | `eval-coverage` | `input`: an OOD evaluator's Output | Eval Coverage |
 | `drift` | `input`: a drift evaluator's Output | one finding: the verdict, or the chunks' verdicts |
 | `ood` | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `ood-agreement` | `input`: an `ood-union` Output | OOD Agreement: the share every detector flagged, and the images one alone flagged |
-| `metadata-issues` | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
+| `factor-issues` | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
 
 ## How thresholds work
 
@@ -148,7 +148,7 @@ workflows:
       - {name: target-outliers, check: target-outliers, input: outliers, labels: labels, warning: 5.0}
 ```
 
-### `classwise-outliers`
+### `class-outliers`
 
 Warns when outliers pass `warning` percent across classes; names the worst class.
 
@@ -157,7 +157,7 @@ It judges the worst class's share, how many classes pass the limit, and whether 
 - **Reads:** `input`, an `outliers-by-class` Output.
 - **Makes:** one finding, titled Classwise Outliers, whose evidence is the per-class table.
 
-**Settings** ({py:class}`~dataeval_flow.steps.checks.ClasswiseOutliersConfig`):
+**Settings** ({py:class}`~dataeval_flow.steps.checks.ClassOutliersConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -177,7 +177,7 @@ workflows:
     steps:
       - {name: outliers, evaluator: outliers, input: data}
       - {name: by-class, combine: outliers-by-class, input: data, outliers: outliers}
-      - {name: classwise-outliers, check: classwise-outliers, input: by-class, warning: 5.0}
+      - {name: class-outliers, check: class-outliers, input: by-class, warning: 5.0}
 ```
 
 ### `image-duplicates`
@@ -403,7 +403,7 @@ workflows:
       - {name: label-conformance, check: label-conformance, input: reconcile, warning: 2}
 ```
 
-### `mergeability`
+### `label-mergeability`
 
 Whether a Dataset's classes carry over to an ontology's vocabulary, with the stanza.
 
@@ -414,7 +414,7 @@ concepts share always warns: the stanza cannot be used until the ontology is fix
 - **Reads:** `input`, a `label-alignment` Output.
 - **Makes:** one finding, titled Mergeability.
 
-**Settings** ({py:class}`~dataeval_flow.steps.checks.MergeabilityConfig`):
+**Settings** ({py:class}`~dataeval_flow.steps.checks.LabelMergeabilityConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -438,7 +438,7 @@ workflows:
     inputs: [data]
     steps:
       - {name: align, evaluator: align, input: data}
-      - {name: mergeability, check: mergeability, input: align}
+      - {name: mergeability, check: label-mergeability, input: align}
 ```
 
 ### `ontology-structure`
@@ -720,7 +720,7 @@ workflows:
 
 ## Are the splits fit to evaluate on?
 
-### `stratification`
+### `class-stratification`
 
 Judges how far each part's class shares stray from the whole's.
 
@@ -732,7 +732,7 @@ passes train as `input` and the evaluation splits as `parts`, so each evaluation
   `label-health` Outputs, each judged; `shown`, more `label-health` Outputs shown but not judged.
 - **Makes:** one finding, titled Stratification, with the table of counts across the parts as its evidence.
 
-**Settings** ({py:class}`~dataeval_flow.steps.checks.StratificationConfig`):
+**Settings** ({py:class}`~dataeval_flow.steps.checks.ClassStratificationConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -757,7 +757,7 @@ workflows:
       - {name: split, transform: split, input: data, val_frac: 0.1, test_frac: 0.2}
       - {name: health-train, evaluator: label-health, input: split.train}
       - {name: health-val, evaluator: label-health, input: split.val}
-      - {name: stratification, check: stratification, input: whole, parts: [health-train, health-val], warning: 5.0}
+      - {name: stratification, check: class-stratification, input: whole, parts: [health-train, health-val], warning: 5.0}
 ```
 
 ### `leakage`
@@ -798,7 +798,7 @@ workflows:
       - {name: leakage, check: leakage, duplicates: dupes, exact: 2}
 ```
 
-### `distribution-shift`
+### `embedding-divergence`
 
 Warns when two sources' embeddings sit too far apart.
 
@@ -808,7 +808,7 @@ divergence. A `null` limit judges nothing at its level, and with both `null` the
 - **Reads:** `input`, a `divergence` Output.
 - **Makes:** one finding, titled Distribution Shift.
 
-**Settings** ({py:class}`~dataeval_flow.steps.checks.DistributionShiftConfig`):
+**Settings** ({py:class}`~dataeval_flow.steps.checks.EmbeddingDivergenceConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -828,7 +828,7 @@ workflows:
     inputs: [train, val]
     steps:
       - {name: divergence, evaluator: divergence, input: [train, val]}
-      - {name: distribution-shift, check: distribution-shift, input: divergence, warning: 0.4}
+      - {name: embedding-divergence, check: embedding-divergence, input: divergence, warning: 0.4}
 ```
 
 ### `eval-coverage`
@@ -987,7 +987,7 @@ workflows:
 
 ## Is the metadata readable?
 
-### `metadata-issues`
+### `factor-issues`
 
 Warns where metadata triage found a factor the run could not read as configured.
 
@@ -1006,7 +1006,7 @@ It has no thresholds.
 - **Reads:** `input`, a `factor-triage` Output.
 - **Makes:** one finding per kind of issue, then Suggested policy, Verified and Recommended policy.
 
-**Settings** ({py:class}`~dataeval_flow.steps.checks.MetadataIssuesConfig`):
+**Settings** ({py:class}`~dataeval_flow.steps.checks.FactorIssuesConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -1025,5 +1025,5 @@ workflows:
     inputs: [data]
     steps:
       - {name: triage, evaluator: triage, input: data}
-      - {name: metadata-issues, check: metadata-issues, input: triage, max_examples: 10}
+      - {name: factor-issues, check: factor-issues, input: triage, max_examples: 10}
 ```

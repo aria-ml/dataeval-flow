@@ -1,6 +1,6 @@
 """The metadata triage check: metadata-triage's findings, as a step (spec §10.10)."""
 
-__all__ = ["MetadataIssuesCheck", "MetadataIssuesConfig"]
+__all__ = ["FactorIssuesCheck", "FactorIssuesConfig"]
 
 from collections.abc import Mapping
 from typing import Any, ClassVar
@@ -14,8 +14,8 @@ from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.workflows._base import Finding
 
 
-class MetadataIssuesConfig(CheckConfig):
-    """A `metadata-issues` step's input, and how many of each factor's values its findings show."""
+class FactorIssuesConfig(CheckConfig):
+    """A `factor-issues` step's input, and how many of each factor's values its findings show."""
 
     input: str = Field(description="A `factor-triage` Output.")
     max_examples: int = Field(
@@ -28,16 +28,16 @@ class MetadataIssuesConfig(CheckConfig):
     )
 
 
-class MetadataIssuesCheck(Check[MetadataIssuesConfig]):
-    """``metadata-issues``: one finding per kind of issue factor-triage found, a warning where any of them is
+class FactorIssuesCheck(Check[FactorIssuesConfig]):
+    """``factor-issues``: one finding per kind of issue factor-triage found, a warning where any of them is
     blocking; then the suggested policy, and what verification recovered or that it failed. It has no thresholds: an
     issue is blocking where the run did less than its configuration asked."""
 
-    name: ClassVar[str] = "metadata-issues"
+    name: ClassVar[str] = "factor-issues"
     description: ClassVar[str] = "Warns where metadata triage found a factor the run could not read as configured."
-    title: ClassVar[str] = "Metadata Issues"
+    title: ClassVar[str] = "Factor Issues"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(FactorTriageOutput,)),)
 
-    def run(self, config: MetadataIssuesConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(self, config: FactorIssuesConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """metadata-triage's findings, from the `factor-triage` Output's data."""
         return build_findings(inputs["input"].value.data(), config.max_examples)

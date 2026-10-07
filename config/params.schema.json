@@ -173,9 +173,9 @@
           "$ref": "#/$defs/ImageDuplicatesSettings",
           "description": "The `image-duplicates` check's settings."
         },
-        "metadata-issues": {
-          "$ref": "#/$defs/MetadataIssuesSettings",
-          "description": "The `metadata-issues` check's settings."
+        "factor-issues": {
+          "$ref": "#/$defs/FactorIssuesSettings",
+          "description": "The `factor-issues` check's settings."
         },
         "class-imbalance": {
           "$ref": "#/$defs/ClassImbalanceSettings",
@@ -219,13 +219,13 @@
           "$ref": "#/$defs/EvalCoverageSettings",
           "description": "The `eval-coverage` check's settings."
         },
-        "stratification": {
-          "$ref": "#/$defs/StratificationThresholds",
-          "description": "The `stratification` check's settings."
+        "class-stratification": {
+          "$ref": "#/$defs/ClassStratificationThresholds",
+          "description": "The `class-stratification` check's settings."
         },
-        "distribution-shift": {
-          "$ref": "#/$defs/DistributionShiftSettings",
-          "description": "The `distribution-shift` check's settings."
+        "embedding-divergence": {
+          "$ref": "#/$defs/EmbeddingDivergenceSettings",
+          "description": "The `embedding-divergence` check's settings."
         }
       },
       "title": "AuditChecks",
@@ -770,6 +770,79 @@
       "title": "CheckStep_class-imbalance",
       "type": "object"
     },
+    "CheckStep_class-outliers": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "An `outliers-by-class` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too. `null` judges nothing.",
+          "title": "Warning"
+        },
+        "check": {
+          "const": "class-outliers",
+          "description": "`class-outliers`: Warns when outliers pass `warning` percent across classes; names the worst class.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_class-outliers",
+      "type": "object"
+    },
     "CheckStep_class-shortfall": {
       "additionalProperties": false,
       "properties": {
@@ -826,6 +899,129 @@
         "name"
       ],
       "title": "CheckStep_class-shortfall",
+      "type": "object"
+    },
+    "CheckStep_class-stratification": {
+      "additionalProperties": false,
+      "properties": {
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 2.0,
+          "description": "The largest deviation, in percentage points, above which the finding is `info`; at or below it, `ok`. `null` has no `info` band: deviations up to `warning` are `ok`. data-splitting's 2.",
+          "title": "Info"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10.0,
+          "description": "The largest deviation above which the finding warns; `null` never warns. With both `null`, the finding is `info` and judges nothing. data-splitting's 10.",
+          "title": "Warning"
+        },
+        "input": {
+          "description": "A `label-health` Output over the whole Dataset the parts were split from.",
+          "title": "Input",
+          "type": "string"
+        },
+        "parts": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "The parts' `label-health` Outputs, each judged against `input`.",
+          "title": "Parts"
+        },
+        "shown": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`label-health` Outputs shown in the table beside the parts but not judged, such as a rebalanced train.",
+          "title": "Shown"
+        },
+        "check": {
+          "const": "class-stratification",
+          "description": "`class-stratification`: Judges how far each part's class shares stray from the whole's.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "parts",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_class-stratification",
       "type": "object"
     },
     "CheckStep_class-sufficiency": {
@@ -927,79 +1123,6 @@
       "title": "CheckStep_class-sufficiency",
       "type": "object"
     },
-    "CheckStep_classwise-outliers": {
-      "additionalProperties": false,
-      "properties": {
-        "input": {
-          "description": "An `outliers-by-class` Output.",
-          "title": "Input",
-          "type": "string"
-        },
-        "warning": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 3.0,
-          "description": "Most items or boxes, as a percentage of all, the outliers may take up before the finding warns; each class is counted against it too. `null` judges nothing.",
-          "title": "Warning"
-        },
-        "check": {
-          "const": "classwise-outliers",
-          "description": "`classwise-outliers`: Warns when outliers pass `warning` percent across classes; names the worst class.",
-          "title": "Check",
-          "type": "string"
-        },
-        "name": {
-          "description": "The step's name, which is the address of its output.",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
-          "title": "Name",
-          "type": "string"
-        },
-        "optional": {
-          "default": false,
-          "description": "Whether a failure is recorded as a skip that does not fail the task.",
-          "title": "Optional",
-          "type": "boolean"
-        },
-        "pairs": {
-          "default": false,
-          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
-          "title": "Pairs",
-          "type": "boolean"
-        },
-        "by": {
-          "anyOf": [
-            {
-              "enum": [
-                "class",
-                "predicted"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
-          "title": "By"
-        }
-      },
-      "required": [
-        "input",
-        "check",
-        "name"
-      ],
-      "title": "CheckStep_classwise-outliers",
-      "type": "object"
-    },
     "CheckStep_dimensional-completeness": {
       "additionalProperties": false,
       "properties": {
@@ -1086,94 +1209,6 @@
         "name"
       ],
       "title": "CheckStep_dimensional-completeness",
-      "type": "object"
-    },
-    "CheckStep_distribution-shift": {
-      "additionalProperties": false,
-      "properties": {
-        "input": {
-          "description": "A `divergence` Output.",
-          "title": "Input",
-          "type": "string"
-        },
-        "warning": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.5,
-          "description": "The divergence above which the finding warns; `null` never warns.",
-          "title": "Warning"
-        },
-        "info": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times `warning`; `null` has no `info` band. Must not exceed `warning`.",
-          "title": "Info"
-        },
-        "check": {
-          "const": "distribution-shift",
-          "description": "`distribution-shift`: Warns when two sources' embeddings sit too far apart.",
-          "title": "Check",
-          "type": "string"
-        },
-        "name": {
-          "description": "The step's name, which is the address of its output.",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
-          "title": "Name",
-          "type": "string"
-        },
-        "optional": {
-          "default": false,
-          "description": "Whether a failure is recorded as a skip that does not fail the task.",
-          "title": "Optional",
-          "type": "boolean"
-        },
-        "pairs": {
-          "default": false,
-          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
-          "title": "Pairs",
-          "type": "boolean"
-        },
-        "by": {
-          "anyOf": [
-            {
-              "enum": [
-                "class",
-                "predicted"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
-          "title": "By"
-        }
-      },
-      "required": [
-        "input",
-        "check",
-        "name"
-      ],
-      "title": "CheckStep_distribution-shift",
       "type": "object"
     },
     "CheckStep_drift": {
@@ -1280,6 +1315,94 @@
         "name"
       ],
       "title": "CheckStep_drift",
+      "type": "object"
+    },
+    "CheckStep_embedding-divergence": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `divergence` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "The divergence above which the finding warns; `null` never warns.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times `warning`; `null` has no `info` band. Must not exceed `warning`.",
+          "title": "Info"
+        },
+        "check": {
+          "const": "embedding-divergence",
+          "description": "`embedding-divergence`: Warns when two sources' embeddings sit too far apart.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_embedding-divergence",
       "type": "object"
     },
     "CheckStep_eval-coverage": {
@@ -1440,6 +1563,71 @@
         "name"
       ],
       "title": "CheckStep_factor-coverage-gaps",
+      "type": "object"
+    },
+    "CheckStep_factor-issues": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `factor-triage` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "max_examples": {
+          "default": 20,
+          "description": "Distinct values shown per kind per factor in a finding. Display only \u2014 a suggested correction always enumerates every value, because one covering a truncated set would read as complete and not be.",
+          "minimum": 1,
+          "title": "Max Examples",
+          "type": "integer"
+        },
+        "check": {
+          "const": "factor-issues",
+          "description": "`factor-issues`: Warns where metadata triage found a factor the run could not read as configured.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_factor-issues",
       "type": "object"
     },
     "CheckStep_factor-parity": {
@@ -1756,6 +1944,64 @@
       "title": "CheckStep_label-conformance",
       "type": "object"
     },
+    "CheckStep_label-mergeability": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `label-alignment` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "check": {
+          "const": "label-mergeability",
+          "description": "`label-mergeability`: Whether a Dataset's classes carry over to an ontology's vocabulary, with the stanza.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_label-mergeability",
+      "type": "object"
+    },
     "CheckStep_leaf-coverage": {
       "additionalProperties": false,
       "properties": {
@@ -1970,129 +2216,6 @@
         "name"
       ],
       "title": "CheckStep_leakage",
-      "type": "object"
-    },
-    "CheckStep_mergeability": {
-      "additionalProperties": false,
-      "properties": {
-        "input": {
-          "description": "A `label-alignment` Output.",
-          "title": "Input",
-          "type": "string"
-        },
-        "check": {
-          "const": "mergeability",
-          "description": "`mergeability`: Whether a Dataset's classes carry over to an ontology's vocabulary, with the stanza.",
-          "title": "Check",
-          "type": "string"
-        },
-        "name": {
-          "description": "The step's name, which is the address of its output.",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
-          "title": "Name",
-          "type": "string"
-        },
-        "optional": {
-          "default": false,
-          "description": "Whether a failure is recorded as a skip that does not fail the task.",
-          "title": "Optional",
-          "type": "boolean"
-        },
-        "pairs": {
-          "default": false,
-          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
-          "title": "Pairs",
-          "type": "boolean"
-        },
-        "by": {
-          "anyOf": [
-            {
-              "enum": [
-                "class",
-                "predicted"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
-          "title": "By"
-        }
-      },
-      "required": [
-        "input",
-        "check",
-        "name"
-      ],
-      "title": "CheckStep_mergeability",
-      "type": "object"
-    },
-    "CheckStep_metadata-issues": {
-      "additionalProperties": false,
-      "properties": {
-        "input": {
-          "description": "A `factor-triage` Output.",
-          "title": "Input",
-          "type": "string"
-        },
-        "max_examples": {
-          "default": 20,
-          "description": "Distinct values shown per kind per factor in a finding. Display only \u2014 a suggested correction always enumerates every value, because one covering a truncated set would read as complete and not be.",
-          "minimum": 1,
-          "title": "Max Examples",
-          "type": "integer"
-        },
-        "check": {
-          "const": "metadata-issues",
-          "description": "`metadata-issues`: Warns where metadata triage found a factor the run could not read as configured.",
-          "title": "Check",
-          "type": "string"
-        },
-        "name": {
-          "description": "The step's name, which is the address of its output.",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
-          "title": "Name",
-          "type": "string"
-        },
-        "optional": {
-          "default": false,
-          "description": "Whether a failure is recorded as a skip that does not fail the task.",
-          "title": "Optional",
-          "type": "boolean"
-        },
-        "pairs": {
-          "default": false,
-          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
-          "title": "Pairs",
-          "type": "boolean"
-        },
-        "by": {
-          "anyOf": [
-            {
-              "enum": [
-                "class",
-                "predicted"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
-          "title": "By"
-        }
-      },
-      "required": [
-        "input",
-        "check",
-        "name"
-      ],
-      "title": "CheckStep_metadata-issues",
       "type": "object"
     },
     "CheckStep_ontology-structure": {
@@ -2413,129 +2536,6 @@
         "name"
       ],
       "title": "CheckStep_shortcut-risk",
-      "type": "object"
-    },
-    "CheckStep_stratification": {
-      "additionalProperties": false,
-      "properties": {
-        "info": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 2.0,
-          "description": "The largest deviation, in percentage points, above which the finding is `info`; at or below it, `ok`. `null` has no `info` band: deviations up to `warning` are `ok`. data-splitting's 2.",
-          "title": "Info"
-        },
-        "warning": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 10.0,
-          "description": "The largest deviation above which the finding warns; `null` never warns. With both `null`, the finding is `info` and judges nothing. data-splitting's 10.",
-          "title": "Warning"
-        },
-        "input": {
-          "description": "A `label-health` Output over the whole Dataset the parts were split from.",
-          "title": "Input",
-          "type": "string"
-        },
-        "parts": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          ],
-          "description": "The parts' `label-health` Outputs, each judged against `input`.",
-          "title": "Parts"
-        },
-        "shown": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "`label-health` Outputs shown in the table beside the parts but not judged, such as a rebalanced train.",
-          "title": "Shown"
-        },
-        "check": {
-          "const": "stratification",
-          "description": "`stratification`: Judges how far each part's class shares stray from the whole's.",
-          "title": "Check",
-          "type": "string"
-        },
-        "name": {
-          "description": "The step's name, which is the address of its output.",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
-          "title": "Name",
-          "type": "string"
-        },
-        "optional": {
-          "default": false,
-          "description": "Whether a failure is recorded as a skip that does not fail the task.",
-          "title": "Optional",
-          "type": "boolean"
-        },
-        "pairs": {
-          "default": false,
-          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
-          "title": "Pairs",
-          "type": "boolean"
-        },
-        "by": {
-          "anyOf": [
-            {
-              "enum": [
-                "class",
-                "predicted"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
-          "title": "By"
-        }
-      },
-      "required": [
-        "input",
-        "parts",
-        "check",
-        "name"
-      ],
-      "title": "CheckStep_stratification",
       "type": "object"
     },
     "CheckStep_target-outliers": {
@@ -3190,6 +3190,67 @@
       "title": "ClassKeys",
       "type": "object"
     },
+    "ClassOutliersSettings": {
+      "additionalProperties": false,
+      "description": "The `class-outliers` check's settings in data-cleaning.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Most items, as a percentage of those in any one class, that may be outliers before the finding warns; `null` judges nothing. A class over it may point to labelling errors or a loose class definition.",
+          "title": "Warning"
+        }
+      },
+      "title": "ClassOutliersSettings",
+      "type": "object"
+    },
+    "ClassStratificationThresholds": {
+      "additionalProperties": false,
+      "description": "When a stratification finding is `info` or warns: the largest deviation of a class's share, in percentage\npoints.",
+      "properties": {
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 2.0,
+          "description": "The largest deviation, in percentage points, above which the finding is `info`; at or below it, `ok`. `null` has no `info` band: deviations up to `warning` are `ok`. data-splitting's 2.",
+          "title": "Info"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10.0,
+          "description": "The largest deviation above which the finding warns; `null` never warns. With both `null`, the finding is `info` and judges nothing. data-splitting's 10.",
+          "title": "Warning"
+        }
+      },
+      "title": "ClassStratificationThresholds",
+      "type": "object"
+    },
     "ClassSufficiencySettings": {
       "additionalProperties": false,
       "description": "The `class-sufficiency` check's settings: the fewest labels a class needs to learn and to evaluate.",
@@ -3224,29 +3285,6 @@
         }
       },
       "title": "ClassSufficiencySettings",
-      "type": "object"
-    },
-    "ClasswiseOutliersSettings": {
-      "additionalProperties": false,
-      "description": "The `classwise-outliers` check's settings in data-cleaning.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 3.0,
-          "description": "Most items, as a percentage of those in any one class, that may be outliers before the finding warns; `null` judges nothing. A class over it may point to labelling errors or a loose class definition.",
-          "title": "Warning"
-        }
-      },
-      "title": "ClasswiseOutliersSettings",
       "type": "object"
     },
     "CocoDatasetConfig": {
@@ -4078,28 +4116,34 @@
                 "$ref": "#/$defs/CheckStep_class-imbalance"
               },
               {
+                "$ref": "#/$defs/CheckStep_class-outliers"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_class-shortfall"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_class-stratification"
               },
               {
                 "$ref": "#/$defs/CheckStep_class-sufficiency"
               },
               {
-                "$ref": "#/$defs/CheckStep_classwise-outliers"
-              },
-              {
                 "$ref": "#/$defs/CheckStep_dimensional-completeness"
               },
               {
-                "$ref": "#/$defs/CheckStep_distribution-shift"
+                "$ref": "#/$defs/CheckStep_drift"
               },
               {
-                "$ref": "#/$defs/CheckStep_drift"
+                "$ref": "#/$defs/CheckStep_embedding-divergence"
               },
               {
                 "$ref": "#/$defs/CheckStep_eval-coverage"
               },
               {
                 "$ref": "#/$defs/CheckStep_factor-coverage-gaps"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_factor-issues"
               },
               {
                 "$ref": "#/$defs/CheckStep_factor-parity"
@@ -4114,16 +4158,13 @@
                 "$ref": "#/$defs/CheckStep_label-conformance"
               },
               {
+                "$ref": "#/$defs/CheckStep_label-mergeability"
+              },
+              {
                 "$ref": "#/$defs/CheckStep_leaf-coverage"
               },
               {
                 "$ref": "#/$defs/CheckStep_leakage"
-              },
-              {
-                "$ref": "#/$defs/CheckStep_mergeability"
-              },
-              {
-                "$ref": "#/$defs/CheckStep_metadata-issues"
               },
               {
                 "$ref": "#/$defs/CheckStep_ontology-structure"
@@ -4136,9 +4177,6 @@
               },
               {
                 "$ref": "#/$defs/CheckStep_shortcut-risk"
-              },
-              {
-                "$ref": "#/$defs/CheckStep_stratification"
               },
               {
                 "$ref": "#/$defs/CheckStep_target-outliers"
@@ -4278,9 +4316,9 @@
           "$ref": "#/$defs/TargetOutliersSettings",
           "description": "The `target-outliers` check's settings."
         },
-        "classwise-outliers": {
-          "$ref": "#/$defs/ClasswiseOutliersSettings",
-          "description": "The `classwise-outliers` check's settings."
+        "class-outliers": {
+          "$ref": "#/$defs/ClassOutliersSettings",
+          "description": "The `class-outliers` check's settings."
         },
         "image-duplicates": {
           "$ref": "#/$defs/ImageDuplicatesSettings",
@@ -4495,9 +4533,9 @@
       "additionalProperties": false,
       "description": "When data-splitting's findings warn: each check's fields, keyed by check type.",
       "properties": {
-        "stratification": {
-          "$ref": "#/$defs/StratificationThresholds",
-          "description": "The `stratification` check's thresholds, on each fold."
+        "class-stratification": {
+          "$ref": "#/$defs/ClassStratificationThresholds",
+          "description": "The `class-stratification` check's thresholds, on each fold."
         }
       },
       "title": "DataSplittingChecks",
@@ -4833,47 +4871,9 @@
       "title": "DimensionalCompletenessSettings",
       "type": "object"
     },
-    "DistributionShiftSettings": {
-      "additionalProperties": false,
-      "description": "The `distribution-shift` check's settings. An unset `info` is derived here, as the check derives it, because\nthe chain hands the check every setting, and a written `null` would mean no `info` band.",
-      "properties": {
-        "warning": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.5,
-          "description": "The divergence above which the finding warns; `null` never warns.",
-          "title": "Warning"
-        },
-        "info": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times `warning`; `null` has no `info` band. Must not exceed `warning`.",
-          "title": "Info"
-        }
-      },
-      "title": "DistributionShiftSettings",
-      "type": "object"
-    },
     "DivergenceConfig": {
       "additionalProperties": false,
-      "description": "Config for ``divergence``: how far apart two sources' embeddings sit.\n\nWraps ``dataeval.core.divergence_mst`` or ``divergence_fnn`` over the task extractor's embeddings of two sources,\nthe first then the second: 0 where they overlap, 1 where they are wholly apart. It is a distance, not a test: the\n``distribution-shift`` check judges it. Needs an extractor on the task.\n\nExample YAML::\n\n    evaluators:\n      - name: shift\n        type: divergence\n        method: mst",
+      "description": "Config for ``divergence``: how far apart two sources' embeddings sit.\n\nWraps ``dataeval.core.divergence_mst`` or ``divergence_fnn`` over the task extractor's embeddings of two sources,\nthe first then the second: 0 where they overlap, 1 where they are wholly apart. It is a distance, not a test: the\n``embedding-divergence`` check judges it. Needs an extractor on the task.\n\nExample YAML::\n\n    evaluators:\n      - name: shift\n        type: divergence\n        method: mst",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -6307,6 +6307,44 @@
       "title": "DuplicatesSettings",
       "type": "object"
     },
+    "EmbeddingDivergenceSettings": {
+      "additionalProperties": false,
+      "description": "The `embedding-divergence` check's settings. An unset `info` is derived here, as the check derives it, because\nthe chain hands the check every setting, and a written `null` would mean no `info` band.",
+      "properties": {
+        "warning": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.5,
+          "description": "The divergence above which the finding warns; `null` never warns.",
+          "title": "Warning"
+        },
+        "info": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The divergence above which the finding is `info`, at or below which it is `ok`. Unset, it is 0.4 times `warning`; `null` has no `info` band. Must not exceed `warning`.",
+          "title": "Info"
+        }
+      },
+      "title": "EmbeddingDivergenceSettings",
+      "type": "object"
+    },
     "EvalCoverageSettings": {
       "additionalProperties": false,
       "description": "The `eval-coverage` check's settings: the share of an evaluation split that may lie beyond train.",
@@ -6538,6 +6576,21 @@
       "title": "FactorGapsSettings",
       "type": "object"
     },
+    "FactorIssuesSettings": {
+      "additionalProperties": false,
+      "description": "The `factor-issues` check's settings in metadata-triage.",
+      "properties": {
+        "max_examples": {
+          "default": 20,
+          "description": "Distinct values shown per kind per factor in the report. Display only: a suggested correction always enumerates every value, because one covering a truncated set would read as complete and not be.",
+          "minimum": 1,
+          "title": "Max Examples",
+          "type": "integer"
+        }
+      },
+      "title": "FactorIssuesSettings",
+      "type": "object"
+    },
     "FactorLeakageConfig": {
       "additionalProperties": false,
       "description": "Config for ``factor-leakage``: the raw values of named metadata factors that two sources hold.\n\nReads each named factor from both sources' metadata as the dataset recorded it, whatever the metadata policy's\n``exclude`` says, because group factors such as scene, sequence or site IDs are the high-cardinality columns a\npolicy usually excludes. A level-prefixed name (``unit_scene``) matches its bare form. Reads no extractor. The\n``leakage`` check judges the values both sources share.\n\nExample YAML::\n\n    evaluators:\n      - name: groups\n        type: factor-leakage\n        factors: [scene, site]",
@@ -6669,7 +6722,7 @@
     },
     "FactorTriageConfig": {
       "additionalProperties": false,
-      "description": "Config for ``factor-triage``: what a Dataset's metadata failed to read, and a policy that repairs it.\n\nReads the Dataset's metadata under its policy and finds each factor the run could not read as configured. It\nsuggests a correction or a bin count where one repairs it, and, with ``verify``, reads the metadata back under the\nsuggestions. The ``metadata-issues`` check reads its output; ``metadata-triage`` runs both.\n\nExample YAML::\n\n    evaluators:\n      - name: triage\n        type: factor-triage\n        metadata: standard",
+      "description": "Config for ``factor-triage``: what a Dataset's metadata failed to read, and a policy that repairs it.\n\nReads the Dataset's metadata under its policy and finds each factor the run could not read as configured. It\nsuggests a correction or a bin count where one repairs it, and, with ``verify``, reads the metadata back under the\nsuggestions. The ``factor-issues`` check reads its output; ``metadata-triage`` runs both.\n\nExample YAML::\n\n    evaluators:\n      - name: triage\n        type: factor-triage\n        metadata: standard",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -7480,21 +7533,6 @@
       "title": "MatrixRange",
       "type": "object"
     },
-    "MetadataIssuesSettings": {
-      "additionalProperties": false,
-      "description": "The `metadata-issues` check's settings in metadata-triage.",
-      "properties": {
-        "max_examples": {
-          "default": 20,
-          "description": "Distinct values shown per kind per factor in the report. Display only: a suggested correction always enumerates every value, because one covering a truncated set would read as complete and not be.",
-          "minimum": 1,
-          "title": "Max Examples",
-          "type": "integer"
-        }
-      },
-      "title": "MetadataIssuesSettings",
-      "type": "object"
-    },
     "MetadataPolicyConfig": {
       "additionalProperties": false,
       "description": "A named metadata policy, referenced by the workflows that share it.\n\nA bin edge is a claim about the world \u2014 *below 0 \u00b0C is freezing* \u2014 so where the cuts\nfell, and who chose them, is part of what a result means.  That makes the encoding a\ndecision worth writing down once and pointing several workflows at, rather than a\nsetting each of them spells out again: two workflows over one dataset that cut it\ndifferently produce numbers that merge into one result file and cannot be compared.\n\nDefined once under ``metadata:`` and referenced by name, like ``datasets``, ``views``,\n``sources`` and ``extractors``.\n\nYAML example::\n\n    metadata:\n      - name: standard\n        encoding: policy/factor_bins.json\n        strict: true\n        exclude: [id, filename]\n\n    workflows:\n      - name: bias_check\n        type: data-bias\n        metadata: standard",
@@ -7702,9 +7740,9 @@
       "additionalProperties": false,
       "description": "metadata-triage's check settings, keyed by check type.",
       "properties": {
-        "metadata-issues": {
-          "$ref": "#/$defs/MetadataIssuesSettings",
-          "description": "The `metadata-issues` check's settings."
+        "factor-issues": {
+          "$ref": "#/$defs/FactorIssuesSettings",
+          "description": "The `factor-issues` check's settings."
         }
       },
       "title": "MetadataTriageChecks",
@@ -7712,7 +7750,7 @@
     },
     "MetadataTriageConfig": {
       "additionalProperties": false,
-      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``factor-triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``metadata-issues`` check, which takes ``max_examples``\nunder ``checks``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        checks:\n          metadata-issues:\n            max_examples: 20",
+      "description": "The settings of one ``metadata-triage`` entry: what counts as a finding, what it shows, and whether it verifies.\n\nDeliberately thin.  There is no ``suggest`` toggle \u2014 suggesting is what the workflow is\nfor \u2014 and no category filter, because severity is what a reader filters on and a\ncategory nobody wants is a section they skip.\n\nNo extractor, no embeddings and no statistics unless the policy declares\n``intrinsic_factors``: this needs the metadata walk and nothing else, which makes it the\ncheapest workflow in the suite and the natural first task in a pipeline.\n\nIts settings expand to two steps: the ``factor-triage`` evaluator, which takes ``metadata``, ``verify``,\n``default_bins`` and ``min_missing_fraction``, and the ``factor-issues`` check, which takes ``max_examples``\nunder ``checks``.\n\nExample YAML::\n\n    workflows:\n      - name: triage\n        type: metadata-triage\n        metadata: standard\n        checks:\n          factor-issues:\n            max_examples: 20",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -7758,7 +7796,7 @@
         },
         "checks": {
           "$ref": "#/$defs/MetadataTriageChecks",
-          "description": "The `metadata-issues` check's settings, keyed by check type."
+          "description": "The `factor-issues` check's settings, keyed by check type."
         },
         "verify": {
           "default": true,
@@ -11363,44 +11401,6 @@
         "measure"
       ],
       "title": "StatsPolicyConfig",
-      "type": "object"
-    },
-    "StratificationThresholds": {
-      "additionalProperties": false,
-      "description": "When a stratification finding is `info` or warns: the largest deviation of a class's share, in percentage\npoints.",
-      "properties": {
-        "info": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 2.0,
-          "description": "The largest deviation, in percentage points, above which the finding is `info`; at or below it, `ok`. `null` has no `info` band: deviations up to `warning` are `ok`. data-splitting's 2.",
-          "title": "Info"
-        },
-        "warning": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 10.0,
-          "description": "The largest deviation above which the finding warns; `null` never warns. With both `null`, the finding is `info` and judges nothing. data-splitting's 10.",
-          "title": "Warning"
-        }
-      },
-      "title": "StratificationThresholds",
       "type": "object"
     },
     "TargetOutliersSettings": {

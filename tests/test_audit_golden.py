@@ -4,8 +4,8 @@ cross-split duplicate groups, divergence from train, and train's factors (audit 
 Deliberate differences from data-analysis (audit spec §12.3), each with its reason. The agreement test sees only the
 values below, so the rest are listed to say they are not compared:
 
-- **Chi-square label parity is replaced by `stratification`, and label overlap is folded into `untrained-classes` and
-  `class-sufficiency`:** the golden records neither.
+- **Chi-square label parity is replaced by `class-stratification`, and label overlap is folded into
+  `untrained-classes` and `class-sufficiency`:** the golden records neither.
 - **The Bias finding is split into `shortcut-risk` on train plus diversity evidence.** Low diversity no longer warns,
   and legacy's warning on every `balance: true` run, which counted Balance's `class_label` row, is gone.
 - **Label Balance's warning on unlabelled images is gone,** and `class-imbalance` does not warn on a declared class with
@@ -25,7 +25,7 @@ values below, so the rest are listed to say they are not compared:
   compared in every case that has factors, `detection` included (`ToyDetections` has a `site` factor).
 - **Outliers count items, not targets:** audit pins `per_target: false`, as data-analysis counted each flagged
   image once.
-- **Duplicate and outlier findings are per split, with data-cleaning's wording; `metadata-issues`, the verdict, the
+- **Duplicate and outlier findings are per split, with data-cleaning's wording; `factor-issues`, the verdict, the
   record, grouping by question, next steps and the coverage, completeness, gaps, sufficiency, untrained-classes,
   leakage-by-group, evaluation-coverage and digest checks are new.**
 """

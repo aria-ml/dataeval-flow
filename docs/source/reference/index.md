@@ -22,8 +22,8 @@ metadata issues.
   [`label-health`](evaluators.md#label-health), [`factor-triage`](evaluators.md#factor-triage)
 - **Combines:** [`outliers-by-class`](combines.md#outliers-by-class)
 - **Checks:** [`image-outliers`](checks.md#image-outliers), [`target-outliers`](checks.md#target-outliers),
-  [`classwise-outliers`](checks.md#classwise-outliers), [`image-duplicates`](checks.md#image-duplicates),
-  [`metadata-issues`](checks.md#metadata-issues)
+  [`class-outliers`](checks.md#class-outliers), [`image-duplicates`](checks.md#image-duplicates),
+  [`factor-issues`](checks.md#factor-issues)
 - **Transforms:** [`remove`](transforms.md#remove)
 
 ## Are the labels sound?
@@ -49,7 +49,7 @@ Dataset onto the ontology.
   [`label-reconciliation`](evaluators.md#label-reconciliation), [`label-alignment`](evaluators.md#label-alignment),
   [`ontology-validation`](evaluators.md#ontology-validation)
 - **Checks:** [`leaf-coverage`](checks.md#leaf-coverage), [`label-conformance`](checks.md#label-conformance),
-  [`mergeability`](checks.md#mergeability), [`ontology-structure`](checks.md#ontology-structure)
+  [`label-mergeability`](checks.md#label-mergeability), [`ontology-structure`](checks.md#ontology-structure)
 - **In a workflow of your own:** [`conform`](transforms.md#conform); see the
   [workflow of your own](../how_to/write_a_custom_workflow.md)
 
@@ -94,8 +94,8 @@ an evaluation split holds a class train lacks.
   [`duplicates`](evaluators.md#duplicates), [`factor-leakage`](evaluators.md#factor-leakage),
   [`divergence`](evaluators.md#divergence), [`ood-kneighbors`](evaluators.md#ood-kneighbors)
 - **Checks:** [`uncovered-items`](checks.md#uncovered-items),
-  [`stratification`](checks.md#stratification), [`leakage`](checks.md#leakage),
-  [`distribution-shift`](checks.md#distribution-shift), [`eval-coverage`](checks.md#eval-coverage),
+  [`class-stratification`](checks.md#class-stratification), [`leakage`](checks.md#leakage),
+  [`embedding-divergence`](checks.md#embedding-divergence), [`eval-coverage`](checks.md#eval-coverage),
   [`class-sufficiency`](checks.md#class-sufficiency), [`untrained-classes`](checks.md#untrained-classes)
 - **Transforms:** [`split`](transforms.md#split), [`kfold`](transforms.md#kfold), [`view`](transforms.md#view)
 
@@ -139,9 +139,9 @@ keeps the top.
 Reports the metadata factors a run could not read as configured, and a policy that repairs them.
 
 - **Preset:** [`metadata-triage`](presets.md#metadata-triage); [`audit`](presets.md#audit) runs `factor-triage` and
-  `metadata-issues` on each split
+  `factor-issues` on each split
 - **Evaluators:** [`factor-triage`](evaluators.md#factor-triage)
-- **Checks:** [`metadata-issues`](checks.md#metadata-issues)
+- **Checks:** [`factor-issues`](checks.md#factor-issues)
 
 ## What exactly was evaluated?
 

@@ -14,14 +14,14 @@ def test_data_cleaning_keys_its_checks_by_type_with_todays_defaults() -> None:
     assert checks == {
         "image-outliers": {"warning": 3.0},
         "target-outliers": {"warning": 3.0},
-        "classwise-outliers": {"warning": 3.0},
+        "class-outliers": {"warning": 3.0},
         "image-duplicates": {"exact": 0.0, "near": 5.0},
     }
 
 
 def test_metadata_triage_takes_max_examples_under_its_check() -> None:
-    config = MetadataTriageConfig.model_validate({"checks": {"metadata-issues": {"max_examples": 5}}})
-    assert config.checks.metadata_issues.max_examples == 5
+    config = MetadataTriageConfig.model_validate({"checks": {"factor-issues": {"max_examples": 5}}})
+    assert config.checks.factor_issues.max_examples == 5
     with pytest.raises(ValidationError, match="max_examples"):
         MetadataTriageConfig.model_validate({"max_examples": 5})
 

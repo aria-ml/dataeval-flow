@@ -12,7 +12,7 @@ from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
 
 __all__ = [
-    "ClasswiseOutliersSettings",
+    "ClassOutliersSettings",
     "DataCleaningChecks",
     "DataCleaningConfig",
     "DuplicatesSettings",
@@ -57,8 +57,8 @@ class TargetOutliersSettings(BaseModel):
     )
 
 
-class ClasswiseOutliersSettings(BaseModel):
-    """The `classwise-outliers` check's settings in data-cleaning."""
+class ClassOutliersSettings(BaseModel):
+    """The `class-outliers` check's settings in data-cleaning."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -114,10 +114,10 @@ class DataCleaningChecks(BaseModel):
         alias="target-outliers",
         description="The `target-outliers` check's settings.",
     )
-    classwise_outliers: ClasswiseOutliersSettings = Field(
-        default_factory=ClasswiseOutliersSettings,
-        alias="classwise-outliers",
-        description="The `classwise-outliers` check's settings.",
+    class_outliers: ClassOutliersSettings = Field(
+        default_factory=ClassOutliersSettings,
+        alias="class-outliers",
+        description="The `class-outliers` check's settings.",
     )
     image_duplicates: ImageDuplicatesSettings = Field(
         default_factory=ImageDuplicatesSettings,

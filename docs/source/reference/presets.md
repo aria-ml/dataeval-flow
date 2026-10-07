@@ -43,8 +43,8 @@ The verdict is one of three levels, worst first:
 A blocking check that could not run is a caveat, not a block. An acceptance keyed by check type covers that check on
 every split; one keyed by a check step covers all that step's runs, and `step[split]` one run. Copy a step key from the
 verdict's `warnings[].step`. Only a step that runs once per evaluation split takes `[split]`: `class-imbalance-evals`,
-`image-outliers-evals`, `image-duplicates-evals`, `metadata-issues-evals`, `label-conformance-evals`, `eval-coverage`,
-`distribution-shift` and `stratification`. Each acceptance holds on this run and later ones; the accepted finding keeps
+`image-outliers-evals`, `image-duplicates-evals`, `factor-issues-evals`, `label-conformance-evals`, `eval-coverage`,
+`embedding-divergence` and `class-stratification`. Each acceptance holds on this run and later ones; the accepted finding keeps
 its severity and its evidence, and health still counts it.
 
 A `blocking` entry that names no check the chain runs, or an `accepted` key that names neither a check nor a check step
@@ -89,8 +89,8 @@ splits. `crops` crops detection data and passes other Datasets through:
 | `image-duplicates-evals` | check | [`image-duplicates`](checks.md#image-duplicates) | `input`: `duplicates-evals` |
 | `factor-triage-train` | evaluator | [`factor-triage`](evaluators.md#factor-triage) | `input`: `train` |
 | `factor-triage-evals` | evaluator | [`factor-triage`](evaluators.md#factor-triage) | `input`: `evals` |
-| `metadata-issues-train` | check | [`metadata-issues`](checks.md#metadata-issues) | `input`: `factor-triage-train` |
-| `metadata-issues-evals` | check | [`metadata-issues`](checks.md#metadata-issues) | `input`: `factor-triage-evals` |
+| `factor-issues-train` | check | [`factor-issues`](checks.md#factor-issues) | `input`: `factor-triage-train` |
+| `factor-issues-evals` | check | [`factor-issues`](checks.md#factor-issues) | `input`: `factor-triage-evals` |
 | `content-digest-train` | evaluator | [`content-digest`](evaluators.md#content-digest) | `input`: `train` |
 | `content-digest-evals` | evaluator | [`content-digest`](evaluators.md#content-digest) | `input`: `evals` |
 | `label-reconciliation-train` | evaluator | [`label-reconciliation`](evaluators.md#label-reconciliation) | `input`: `train` |
@@ -100,7 +100,7 @@ splits. `crops` crops detection data and passes other Datasets through:
 | `ood-kneighbors` | evaluator | [`ood-kneighbors`](evaluators.md#ood-kneighbors) | `input`: `train`, `evals` |
 | `eval-coverage` | check | [`eval-coverage`](checks.md#eval-coverage) | `input`: `ood-kneighbors` |
 | `divergence` | evaluator | [`divergence`](evaluators.md#divergence) | `input`: `train`, `evals` |
-| `distribution-shift` | check | [`distribution-shift`](checks.md#distribution-shift) | `input`: `divergence` |
+| `embedding-divergence` | check | [`embedding-divergence`](checks.md#embedding-divergence) | `input`: `divergence` |
 | `duplicates-cross` | evaluator | [`duplicates`](evaluators.md#duplicates) | `input`: `train`, `evals` |
 | `duplicates-pairs` | evaluator | [`duplicates`](evaluators.md#duplicates) | `input`: `evals`, each pair |
 | `factor-leakage-cross` | evaluator | [`factor-leakage`](evaluators.md#factor-leakage) | `input`: `train`, `evals` |
@@ -108,7 +108,7 @@ splits. `crops` crops detection data and passes other Datasets through:
 | `leakage` | check | [`leakage`](checks.md#leakage) | `duplicates`: `duplicates-cross`, `duplicates-pairs`; `factors`: `factor-leakage-cross`, `factor-leakage-pairs` |
 | `class-sufficiency` | check | [`class-sufficiency`](checks.md#class-sufficiency) | `input`: `label-health-train`; `evals`: `label-health-evals` |
 | `untrained-classes` | check | [`untrained-classes`](checks.md#untrained-classes) | `input`: `label-health-train`; `evals`: `label-health-evals` |
-| `stratification` | check | [`stratification`](checks.md#stratification) | `input`: `label-health-train`; `parts`: `label-health-evals` |
+| `class-stratification` | check | [`class-stratification`](checks.md#class-stratification) | `input`: `label-health-train`; `parts`: `label-health-evals` |
 | `crops` | transform | [`wrap`](transforms.md#wrap) | `input`: `train` |
 | `coverage` | evaluator | [`coverage`](evaluators.md#coverage) | `input`: `crops` |
 | `class-coverage` | check | [`class-coverage`](checks.md#class-coverage) | `input`: `coverage` |
@@ -147,7 +147,7 @@ splits. `crops` crops detection data and passes other Datasets through:
 | --- | --- |
 | [`image-outliers`](checks.md#image-outliers) | `warning: 3.0` |
 | [`image-duplicates`](checks.md#image-duplicates) | `exact: 0.0`, `near: 5.0` |
-| [`metadata-issues`](checks.md#metadata-issues) | `max_examples: 20` |
+| [`factor-issues`](checks.md#factor-issues) | `max_examples: 20` |
 | [`class-imbalance`](checks.md#class-imbalance) | `warning: 5.0`, `info: null`, `empty: false` |
 | [`class-sufficiency`](checks.md#class-sufficiency) | `train: 20`, `eval: 30` |
 | [`untrained-classes`](checks.md#untrained-classes) | `declared: false` |
@@ -159,8 +159,8 @@ splits. `crops` crops detection data and passes other Datasets through:
 | [`shortcut-risk`](checks.md#shortcut-risk) | `warning: 0.1` |
 | [`leakage`](checks.md#leakage) | `exact: 0`, `near: 0`, `groups: 0` |
 | [`eval-coverage`](checks.md#eval-coverage) | `warning: 10.0`, `info: 2.0` |
-| [`stratification`](checks.md#stratification) | `info: 2.0`, `warning: 10.0` |
-| [`distribution-shift`](checks.md#distribution-shift) | `warning: 0.5`, and `info` 0.4 times `warning` |
+| [`class-stratification`](checks.md#class-stratification) | `info: 2.0`, `warning: 10.0` |
+| [`embedding-divergence`](checks.md#embedding-divergence) | `warning: 0.5`, and `info` 0.4 times `warning` |
 
 A check over each split applies its settings to every split. The settings of a check the chain does not run, such as
 `checks.uncovered-items` under adaptive coverage, are unused. `coverage`, `completeness`, `divergence` and
@@ -215,7 +215,7 @@ Outlier and duplicate detection for image datasets, and the dataset without them
 | `duplicates` | evaluator | [`duplicates`](evaluators.md#duplicates) | `input`: `data` |
 | `image-outliers` | check | [`image-outliers`](checks.md#image-outliers) | `input`: `outliers` |
 | `target-outliers` | check | [`target-outliers`](checks.md#target-outliers) | `input`: `outliers`; `labels`: `label-health` |
-| `classwise-outliers` | check | [`classwise-outliers`](checks.md#classwise-outliers) | `input`: `outliers-by-class` |
+| `class-outliers` | check | [`class-outliers`](checks.md#class-outliers) | `input`: `outliers-by-class` |
 | `image-duplicates` | check | [`image-duplicates`](checks.md#image-duplicates) | `input`: `duplicates` |
 | `clean` | transform | [`remove`](transforms.md#remove) | `input`: `data`; `plans`: `duplicates`, `outliers` |
 
@@ -236,7 +236,7 @@ Outlier and duplicate detection for image datasets, and the dataset without them
 | --- | --- |
 | [`image-outliers`](checks.md#image-outliers) | `warning: 3.0` |
 | [`target-outliers`](checks.md#target-outliers) | `warning: 3.0` |
-| [`classwise-outliers`](checks.md#classwise-outliers) | `warning: 3.0` |
+| [`class-outliers`](checks.md#class-outliers) | `warning: 3.0` |
 | [`image-duplicates`](checks.md#image-duplicates) | `exact: 0.0`, `near: 5.0` |
 
 The other settings go to the evaluators: the `outliers` block to `outliers`, the `duplicates` block to `duplicates`,
@@ -286,7 +286,7 @@ Judges a Dataset's labels against a declared ontology: leaf coverage, conformanc
 | `label-reconciliation` | evaluator | [`label-reconciliation`](evaluators.md#label-reconciliation) | `input`: `data` |
 | `label-conformance` | check | [`label-conformance`](checks.md#label-conformance) | `input`: `label-reconciliation` |
 | `label-alignment` | evaluator | [`label-alignment`](evaluators.md#label-alignment) | `input`: `data` |
-| `mergeability` | check | [`mergeability`](checks.md#mergeability) | `input`: `label-alignment` |
+| `label-mergeability` | check | [`label-mergeability`](checks.md#label-mergeability) | `input`: `label-alignment` |
 | `ontology-validation` | evaluator | [`ontology-validation`](evaluators.md#ontology-validation) | `input`: `data` |
 | `ontology-structure` | check | [`ontology-structure`](checks.md#ontology-structure) | `input`: `ontology-validation` |
 
@@ -306,7 +306,7 @@ Judges a Dataset's labels against a declared ontology: leaf coverage, conformanc
 | [`leaf-coverage`](checks.md#leaf-coverage) | `coverage: 0.9`, `empty_branches: 0` |
 | [`label-conformance`](checks.md#label-conformance) | `warning: 0` |
 
-The `mergeability` and `ontology-structure` checks take no `checks:` entry. The ontology is the sanctioned label space,
+The `label-mergeability` and `ontology-structure` checks take no `checks:` entry. The ontology is the sanctioned label space,
 so the preset can name a class that was never collected, which counting the dataset's own labels cannot. It is the only
 preset that judges labels against an ontology: `data-coverage` refuses `ontology:`, so run a `label-space` entry on the
 same source beside it. The ontology is declared inline, loaded from an RDF file, or named from the shared `ontologies:`
@@ -473,7 +473,7 @@ more, `train` and `val` are lists keyed by fold.
 | `label-health-val` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `split.val` |
 | `label-health-test` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `split.test` |
 | `label-health-rebalanced` | evaluator | [`label-health`](evaluators.md#label-health) | `input`: `rebalanced` |
-| `stratification` | check | [`stratification`](checks.md#stratification) | `input`: `label-health`; `parts`: `label-health-train`, `label-health-val`, `label-health-test`; `shown`: `label-health-rebalanced` |
+| `class-stratification` | check | [`class-stratification`](checks.md#class-stratification) | `input`: `label-health`; `parts`: `label-health-train`, `label-health-val`, `label-health-test`; `shown`: `label-health-rebalanced` |
 
 **Settings** ({py:class}`~dataeval_flow.workflows.data_splitting.DataSplittingConfig`):
 
@@ -493,7 +493,7 @@ more, `train` and `val` are lists keyed by fold.
 
 | Check | Default settings |
 | --- | --- |
-| [`stratification`](checks.md#stratification) | `info: 2.0`, `warning: 10.0` |
+| [`class-stratification`](checks.md#class-stratification) | `info: 2.0`, `warning: 10.0` |
 
 The chain reads the whole set's labels, splits it (`folds: 1`) or cuts it into k folds (`folds` of 2 or more) with a
 shared test part, optionally rebalances each train, and judges each part's labels and its stratification against the
@@ -719,7 +719,7 @@ Reports unreadable and unpinned metadata factors, with suggested corrections.
 | Step | Kind | Type | Reads |
 | --- | --- | --- | --- |
 | `factor-triage` | evaluator | [`factor-triage`](evaluators.md#factor-triage) | `input`: `data` |
-| `metadata-issues` | check | [`metadata-issues`](checks.md#metadata-issues) | `input`: `factor-triage` |
+| `factor-issues` | check | [`factor-issues`](checks.md#factor-issues) | `input`: `factor-triage` |
 
 **Settings** ({py:class}`~dataeval_flow.workflows.metadata_triage.MetadataTriageConfig`):
 
@@ -727,7 +727,7 @@ Reports unreadable and unpinned metadata factors, with suggested corrections.
 | --- | --- | --- | --- |
 | `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares) |
 | `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
-| `checks` | a block | the defaults below | The `metadata-issues` check's settings, keyed by check type. |
+| `checks` | a block | the defaults below | The `factor-issues` check's settings, keyed by check type. |
 | `verify` | `true` or `false` | `true` | Re-read the metadata under the complete suggestions and report what they recover. Costs no second dataset walk: `repair` returns a copy sharing the store. |
 | `default_bins` | a count | `10` | Bin count a suggestion falls back to where the run left no fit to read. Where there is one, the populated bins of the derived cut are carried forward instead, which pins the cut the run used rather than substituting a different one. |
 | `min_missing_fraction` | a fraction | `0.2` | Share of rows recording no value above which a factor is called degenerate. |
@@ -736,11 +736,11 @@ Reports unreadable and unpinned metadata factors, with suggested corrections.
 
 | Check | Default settings |
 | --- | --- |
-| [`metadata-issues`](checks.md#metadata-issues) | `max_examples: 20` |
+| [`factor-issues`](checks.md#factor-issues) | `max_examples: 20` |
 
 The settings expand to two steps on the task's one source, `data`. `metadata:`, `verify`, `default_bins` and
-`min_missing_fraction` are `factor-triage`'s settings, and `max_examples` is `metadata-issues`', set under
-`checks.metadata-issues`. Its findings are `metadata-issues`': one per kind of issue, then the suggested policy and
+`min_missing_fraction` are `factor-triage`'s settings, and `max_examples` is `factor-issues`', set under
+`checks.factor-issues`. Its findings are `factor-issues`': one per kind of issue, then the suggested policy and
 what verification recovered. The chain makes no Dataset, so it declares no output. Its result's `metadata_binning`
 records the encoding `factor-triage` read, which `dataeval-flow encoding` writes out.
 
@@ -750,7 +750,7 @@ workflows:
     type: metadata-triage
     verify: true
     checks:
-      metadata-issues: {max_examples: 10}
+      factor-issues: {max_examples: 10}
 
 tasks:
   - {name: triage-train, workflow: triage, sources: [train]}

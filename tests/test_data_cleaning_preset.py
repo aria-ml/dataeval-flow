@@ -48,7 +48,7 @@ _STEPS = [
     "duplicates",
     "image-outliers",
     "target-outliers",
-    "classwise-outliers",
+    "class-outliers",
     "image-duplicates",
     "clean",
 ]
@@ -83,7 +83,7 @@ def test_a_data_cleaning_task_returns_a_chain_result_of_its_steps() -> None:
     assert list(result.steps) == _STEPS
     assert _verdicts(result) == [
         ("warning", "Image Outliers", "1 images (8.3%)", "image-outliers"),
-        ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "classwise-outliers"),
+        ("warning", "Class Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "class-outliers"),
         ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "image-duplicates"),
     ]
 
@@ -136,12 +136,12 @@ def test_the_report_keeps_every_threshold_the_user_nulled() -> None:
         "image-duplicates": {"near": None},
         "image-outliers": {"warning": None},
         "target-outliers": {"warning": None},
-        "classwise-outliers": {"warning": None},
+        "class-outliers": {"warning": None},
     }
     shown = _configuration(_task(ToyImages(count=12), checks=nulls))
     assert "checks:" in shown
     assert sorted(line for line in shown if "None" in line) == [
-        "classwise-outliers: {warning: None}",
+        "class-outliers: {warning: None}",
         "image-duplicates: {exact: 0.0, near: None}",
         "image-outliers: {warning: None}",
         "target-outliers: {warning: None}",
@@ -199,8 +199,8 @@ def test_a_data_cleaning_step_cleans_each_split_of_a_list() -> None:
     assert _verdicts(result) == [
         ("warning", "Image Outliers", "1 images (8.3%)", "cleaning/image-outliers[s1]"),
         ("warning", "Image Outliers", "1 images (4.2%)", "cleaning/image-outliers[s2]"),
-        ("warning", "Classwise Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "cleaning/classwise-outliers[s1]"),
-        ("warning", "Classwise Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "cleaning/classwise-outliers[s2]"),
+        ("warning", "Class Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "cleaning/class-outliers[s1]"),
+        ("warning", "Class Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "cleaning/class-outliers[s2]"),
         ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "cleaning/image-duplicates[s1]"),
         ("warning", "Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "cleaning/image-duplicates[s2]"),
     ]
@@ -256,7 +256,7 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
             "image-duplicates": {"exact": 1.0, "near": 9.0},
             "image-outliers": {"warning": 6.0},
             "target-outliers": {"warning": 7.0},
-            "classwise-outliers": {"warning": 8.0},
+            "class-outliers": {"warning": 8.0},
         },
     )
     chain = DataCleaningWorkflow.chain(config)
@@ -288,7 +288,7 @@ def test_the_settings_become_the_chain_s_evaluators_and_thresholds() -> None:
     assert (
         steps["image-outliers"]["warning"],
         steps["target-outliers"]["warning"],
-        steps["classwise-outliers"]["warning"],
+        steps["class-outliers"]["warning"],
         steps["image-duplicates"]["exact"],
         steps["image-duplicates"]["near"],
     ) == (6.0, 7.0, 8.0, 1.0, 9.0)

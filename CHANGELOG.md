@@ -241,6 +241,10 @@
 
 ### Changed
 
+- Five checks renamed to show their subject or the evaluator they judge: `classwise-outliers` → `class-outliers`,
+  `stratification` → `class-stratification`, `metadata-issues` → `factor-issues`, `mergeability` →
+  `label-mergeability`, `distribution-shift` → `embedding-divergence`, with their classes, titles, preset chain step
+  names and `checks:` keys; the old names fail as unknown checks
 - `eval-coverage` judges how far a split's flagged share is past what a split drawn like train has flagged by
   construction (100 - `threshold_perc` under `ood-kneighbors`): `info` and `warning` are now points past that
   baseline, 1.0 and 9.0, which keep today's bands at `threshold_perc: 99`; `audit`'s `ood-kneighbors` takes

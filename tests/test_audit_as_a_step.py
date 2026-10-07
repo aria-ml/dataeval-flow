@@ -321,7 +321,7 @@ def test_split_collect_audit_with_an_extractor_assesses_the_embedding_checks() -
     result = _run(_split_pipeline(extractor=True))
     assert result.verdict is not None
     unassessed = {item.check for item in result.verdict.not_assessed if "extractor" in item.reason}
-    assert not unassessed & {"eval-coverage", "distribution-shift", "class-coverage"}
+    assert not unassessed & {"eval-coverage", "embedding-divergence", "class-coverage"}
 
 
 def test_the_verdict_names_spliced_steps_and_an_inner_acceptance_covers_one() -> None:

@@ -198,7 +198,7 @@ workflows:
       - {name: dupes, evaluator: dupes, input: data}
       - {name: image-outliers, check: image-outliers, input: outliers}
       - {name: target-outliers, check: target-outliers, input: outliers, labels: labels}
-      - {name: classwise, check: classwise-outliers, input: by-class}
+      - {name: classwise, check: class-outliers, input: by-class}
       - {name: duplicates, check: image-duplicates, input: dupes}
       - {name: imbalance, check: class-imbalance, input: labels}
 
@@ -266,7 +266,7 @@ tasks:
     assert result.success, result.errors
     assert [(f.severity, f.title, f.step) for f in result.findings] == [
         ("ok", "Image Outliers", "cleaning/image-outliers"),
-        ("ok", "Classwise Outliers", "cleaning/classwise-outliers"),
+        ("ok", "Class Outliers", "cleaning/class-outliers"),
         ("warning", "Image Duplicates", "cleaning/image-duplicates"),
     ]
     assert result.health == {"status": "warning", "warnings": 1, "findings": 3, "failed_steps": []}

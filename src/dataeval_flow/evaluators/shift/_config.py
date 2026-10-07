@@ -450,7 +450,7 @@ class DivergenceConfig(EvaluatorConfig[DivergenceResult]):
 
     Wraps ``dataeval.core.divergence_mst`` or ``divergence_fnn`` over the task extractor's embeddings of two sources,
     the first then the second: 0 where they overlap, 1 where they are wholly apart. It is a distance, not a test: the
-    ``distribution-shift`` check judges it. Needs an extractor on the task.
+    ``embedding-divergence`` check judges it. Needs an extractor on the task.
 
     Example YAML::
 

@@ -24,11 +24,11 @@ class DataSplittingWorkflow(Preset, Workflow[DataSplittingConfig, ChainResult]):
 
     The settings expand to:
 
-    - ``label-health`` on the whole set, which ``stratification`` compares each part to;
+    - ``label-health`` on the whole set, which ``class-stratification`` compares each part to;
     - ``split`` (``split``, or ``kfold`` with ``folds`` of 2 or more), and ``rebalanced`` (a ``view`` holding
       ``ClassBalance``) on each train where ``rebalance`` is set;
     - ``label-health-<part>`` on each part the settings fill, ``label-health-rebalanced`` where rebalancing, and
-      ``stratification``, judging the parts before rebalancing.
+      ``class-stratification``, judging the parts before rebalancing.
 
     Under ``kfold`` every step on a train or val runs once per fold. Run as a step of a custom workflow,
     ``<step>.train`` (the rebalanced train where set), ``<step>.val`` and ``<step>.test`` read the parts; under
@@ -70,12 +70,12 @@ class DataSplittingWorkflow(Preset, Workflow[DataSplittingConfig, ChainResult]):
             shown = {"shown": "label-health-rebalanced"}
         steps.append(
             {
-                "name": "stratification",
-                "check": "stratification",
+                "name": "class-stratification",
+                "check": "class-stratification",
                 "input": "label-health",
                 "parts": [f"label-health-{part}" for part in parts],
                 **shown,
-                **limits.stratification.model_dump(),
+                **limits.class_stratification.model_dump(),
             }
         )
         return PresetChain(steps=steps, evaluators=evaluators, outputs=handed)

@@ -20,7 +20,7 @@ class MetadataTriageWorkflow(Preset, Workflow[MetadataTriageConfig, ChainResult]
 
     - ``factor-triage`` (the evaluator): each factor the run could not read as configured, a policy stanza
       that repairs them, and, with ``verify``, what the repair recovers;
-    - ``metadata-issues`` (the check): one finding per kind of issue, a warning where any is blocking, then
+    - ``factor-issues`` (the check): one finding per kind of issue, a warning where any is blocking, then
       the suggested policy, and what verification recovered or that it failed.
 
     It makes no Dataset, so it declares no outputs. Run as a step of a custom workflow, its findings are the chain's.
@@ -44,10 +44,10 @@ class MetadataTriageWorkflow(Preset, Workflow[MetadataTriageConfig, ChainResult]
         steps = [
             {"name": "factor-triage", "evaluator": "factor-triage", "input": "data"},
             {
-                "name": "metadata-issues",
-                "check": "metadata-issues",
+                "name": "factor-issues",
+                "check": "factor-issues",
                 "input": "factor-triage",
-                **config.checks.metadata_issues.model_dump(),
+                **config.checks.factor_issues.model_dump(),
             },
         ]
         return PresetChain(steps=steps, evaluators=[triage])

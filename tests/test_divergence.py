@@ -1,4 +1,4 @@
-"""The `divergence` evaluator and the `distribution-shift` check (audit spec §10.1, §10.2)."""
+"""The `divergence` evaluator and the `embedding-divergence` check (audit spec §10.1, §10.2)."""
 
 from types import SimpleNamespace
 from typing import Any
@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from dataeval_flow import run
 from dataeval_flow.evaluators.shift import DivergenceConfig, DivergenceOutput
 from dataeval_flow.steps import CheckContext
-from dataeval_flow.steps.checks import DistributionShiftCheck, DistributionShiftConfig
+from dataeval_flow.steps.checks import EmbeddingDivergenceCheck, EmbeddingDivergenceConfig
 from tests.evaluator_toys import FLAT, ToyImages, shifted_sources
 
 
@@ -37,8 +37,8 @@ def test_an_empty_source_fails_with_a_reason() -> None:
 def _judge(value: float, **limits: float | None) -> Any:
     output = DivergenceOutput({"divergence": value, "errors": 3, "method": "mst"}, None)
     node = SimpleNamespace(value=output, computed_on=(), address="shift")
-    (finding,) = DistributionShiftCheck().run(
-        DistributionShiftConfig(input="shift", **limits), {"input": node}, CheckContext("t", "s")
+    (finding,) = EmbeddingDivergenceCheck().run(
+        EmbeddingDivergenceConfig(input="shift", **limits), {"input": node}, CheckContext("t", "s")
     )
     return finding
 
@@ -49,18 +49,18 @@ def _judge(value: float, **limits: float | None) -> Any:
 def test_the_finding_bands_divergence_as_legacy_did(value: float, severity: str, level: str) -> None:
     finding = _judge(value)
     assert finding.severity == severity
-    assert finding.title == "Distribution Shift"
+    assert finding.title == "Embedding Divergence"
     assert finding.brief == f"{level.lower()} divergence: {value:.4f} (mst)"
     assert finding.description == f"{level} divergence: {value:.4f} (mst)."
 
 
 def test_the_info_band_follows_warning_unless_set() -> None:
-    assert DistributionShiftConfig(input="s").info == 0.2
-    assert DistributionShiftConfig(input="s", warning=0.2).info == 0.08
-    assert DistributionShiftConfig(input="s", info=None).info is None
-    assert "info" not in DistributionShiftConfig(input="s").model_fields_set
+    assert EmbeddingDivergenceConfig(input="s").info == 0.2
+    assert EmbeddingDivergenceConfig(input="s", warning=0.2).info == 0.08
+    assert EmbeddingDivergenceConfig(input="s", info=None).info is None
+    assert "info" not in EmbeddingDivergenceConfig(input="s").model_fields_set
     with pytest.raises(ValidationError, match="must not exceed"):
-        DistributionShiftConfig(input="s", info=0.9)
+        EmbeddingDivergenceConfig(input="s", info=0.9)
 
 
 def test_with_no_limits_it_judges_nothing() -> None:

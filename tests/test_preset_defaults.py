@@ -29,7 +29,7 @@ _FIXED = {
     ("ood", "subject"),
     ("select", "fraction"),  # prioritization keeps every item unless told otherwise
     ("view", "operations"),  # splitting's `rebalance`
-    ("distribution-shift", "info"),  # audit derives it as the check does
+    ("embedding-divergence", "info"),  # audit derives it as the check does
 }
 # Defaults Task 4 consolidates; empty once it lands.
 _PENDING: set[tuple[str, str]] = set()

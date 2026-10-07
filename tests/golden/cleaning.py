@@ -22,7 +22,7 @@ _LENIENT = {
     "image-duplicates": {"exact": 50.0, "near": 50.0},
     "image-outliers": {"warning": 50.0},
     "target-outliers": {"warning": 50.0},
-    "classwise-outliers": {"warning": 50.0},
+    "class-outliers": {"warning": 50.0},
 }
 
 

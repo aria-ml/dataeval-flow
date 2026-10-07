@@ -5,7 +5,7 @@ __all__ = [
     "AuditChecks",
     "AuditConfig",
     "ClassSufficiencySettings",
-    "DistributionShiftSettings",
+    "EmbeddingDivergenceSettings",
     "DivergenceSettings",
     "EvalCoverageSettings",
     "FactorLeakageSettings",
@@ -23,7 +23,7 @@ from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps.checks._ood import OODThresholds
-from dataeval_flow.steps.checks._stratification import StratificationThresholds
+from dataeval_flow.steps.checks._stratification import ClassStratificationThresholds
 from dataeval_flow.workflows._base import WorkflowConfig
 from dataeval_flow.workflows.data_bias import (
     ClassImbalanceSettings,
@@ -40,7 +40,7 @@ from dataeval_flow.workflows.data_coverage._config import (
     UncoveredItemsSettings,
 )
 from dataeval_flow.workflows.label_space import LabelConformanceSettings
-from dataeval_flow.workflows.metadata_triage import MetadataIssuesSettings
+from dataeval_flow.workflows.metadata_triage import FactorIssuesSettings
 
 
 class FactorLeakageSettings(BaseModel):
@@ -171,8 +171,8 @@ class EvalCoverageSettings(OODThresholds):
     )
 
 
-class DistributionShiftSettings(BaseModel):
-    """The `distribution-shift` check's settings. An unset `info` is derived here, as the check derives it, because
+class EmbeddingDivergenceSettings(BaseModel):
+    """The `embedding-divergence` check's settings. An unset `info` is derived here, as the check derives it, because
     the chain hands the check every setting, and a written `null` would mean no `info` band."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
@@ -219,10 +219,10 @@ class AuditChecks(BaseModel):
         alias="image-duplicates",
         description="The `image-duplicates` check's settings.",
     )
-    metadata_issues: MetadataIssuesSettings = Field(
-        default_factory=MetadataIssuesSettings,
-        alias="metadata-issues",
-        description="The `metadata-issues` check's settings.",
+    factor_issues: FactorIssuesSettings = Field(
+        default_factory=FactorIssuesSettings,
+        alias="factor-issues",
+        description="The `factor-issues` check's settings.",
     )
     class_imbalance: ClassImbalanceSettings = Field(
         default_factory=ClassImbalanceSettings,
@@ -275,13 +275,15 @@ class AuditChecks(BaseModel):
         alias="eval-coverage",
         description="The `eval-coverage` check's settings.",
     )
-    stratification: StratificationThresholds = Field(
-        default_factory=StratificationThresholds, description="The `stratification` check's settings."
+    class_stratification: ClassStratificationThresholds = Field(
+        default_factory=ClassStratificationThresholds,
+        alias="class-stratification",
+        description="The `class-stratification` check's settings.",
     )
-    distribution_shift: DistributionShiftSettings = Field(
-        default_factory=DistributionShiftSettings,
-        alias="distribution-shift",
-        description="The `distribution-shift` check's settings.",
+    embedding_divergence: EmbeddingDivergenceSettings = Field(
+        default_factory=EmbeddingDivergenceSettings,
+        alias="embedding-divergence",
+        description="The `embedding-divergence` check's settings.",
     )
 
 

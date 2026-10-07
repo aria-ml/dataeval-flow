@@ -17,7 +17,7 @@ def test_data_cleanings_steps() -> None:
         "duplicates",
         "image-outliers",
         "target-outliers",
-        "classwise-outliers",
+        "class-outliers",
         "image-duplicates",
         "clean",
     ]

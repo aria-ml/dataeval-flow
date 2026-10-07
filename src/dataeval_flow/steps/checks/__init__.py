@@ -9,16 +9,16 @@ __all__ = [
     "ClassShortfallConfig",
     "ClassSufficiencyCheck",
     "ClassSufficiencyConfig",
-    "ClasswiseOutliersCheck",
-    "ClasswiseOutliersConfig",
+    "ClassOutliersCheck",
+    "ClassOutliersConfig",
     "DimensionalCompletenessCheck",
     "DimensionalCompletenessConfig",
     "FactorCoverageGapsCheck",
     "FactorParityCheck",
     "FactorParityConfig",
     "FactorCoverageGapsConfig",
-    "DistributionShiftCheck",
-    "DistributionShiftConfig",
+    "EmbeddingDivergenceCheck",
+    "EmbeddingDivergenceConfig",
     "DriftCheck",
     "DriftConfig",
     "DriftThresholds",
@@ -32,10 +32,10 @@ __all__ = [
     "LeakageConfig",
     "LeafCoverageCheck",
     "LeafCoverageConfig",
-    "MergeabilityCheck",
-    "MergeabilityConfig",
-    "MetadataIssuesCheck",
-    "MetadataIssuesConfig",
+    "LabelMergeabilityCheck",
+    "LabelMergeabilityConfig",
+    "FactorIssuesCheck",
+    "FactorIssuesConfig",
     "OODAgreementCheck",
     "OODAgreementConfig",
     "OODCheck",
@@ -47,9 +47,9 @@ __all__ = [
     "ImageOutliersConfig",
     "ShortcutRiskCheck",
     "ShortcutRiskConfig",
-    "StratificationCheck",
-    "StratificationConfig",
-    "StratificationThresholds",
+    "ClassStratificationCheck",
+    "ClassStratificationConfig",
+    "ClassStratificationThresholds",
     "TargetOutliersCheck",
     "TargetOutliersConfig",
     "UncoveredItemsCheck",
@@ -58,7 +58,7 @@ __all__ = [
     "UntrainedClassesConfig",
 ]
 
-from dataeval_flow.steps.checks._alignment import MergeabilityCheck, MergeabilityConfig
+from dataeval_flow.steps.checks._alignment import LabelMergeabilityCheck, LabelMergeabilityConfig
 from dataeval_flow.steps.checks._bias import (
     FactorParityCheck,
     FactorParityConfig,
@@ -74,11 +74,11 @@ from dataeval_flow.steps.checks._coverage import (
     UncoveredItemsConfig,
 )
 from dataeval_flow.steps.checks._drift import (
-    DistributionShiftCheck,
-    DistributionShiftConfig,
     DriftCheck,
     DriftConfig,
     DriftThresholds,
+    EmbeddingDivergenceCheck,
+    EmbeddingDivergenceConfig,
 )
 from dataeval_flow.steps.checks._duplicates import ImageDuplicatesCheck, ImageDuplicatesConfig
 from dataeval_flow.steps.checks._gaps import FactorCoverageGapsCheck, FactorCoverageGapsConfig
@@ -111,16 +111,16 @@ from dataeval_flow.steps.checks._ood import (
     OODThresholds,
 )
 from dataeval_flow.steps.checks._outliers import (
-    ClasswiseOutliersCheck,
-    ClasswiseOutliersConfig,
+    ClassOutliersCheck,
+    ClassOutliersConfig,
     ImageOutliersCheck,
     ImageOutliersConfig,
     TargetOutliersCheck,
     TargetOutliersConfig,
 )
 from dataeval_flow.steps.checks._stratification import (
-    StratificationCheck,
-    StratificationConfig,
-    StratificationThresholds,
+    ClassStratificationCheck,
+    ClassStratificationConfig,
+    ClassStratificationThresholds,
 )
-from dataeval_flow.steps.checks._triage import MetadataIssuesCheck, MetadataIssuesConfig
+from dataeval_flow.steps.checks._triage import FactorIssuesCheck, FactorIssuesConfig

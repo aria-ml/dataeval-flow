@@ -13,7 +13,8 @@ TITLES: dict[str, str] = {
     "Label Space Coverage": "Leaf Coverage",
     "Metadata Coverage Gaps": "Factor Coverage Gaps",
     "Uncovered Rate": "Uncovered Items",
-    "Label Alignment": "Mergeability",
+    "Label Alignment": "Label Mergeability",
+    "Classwise Outliers": "Class Outliers",
     "Evaluation Coverage": "Eval Coverage",
     "OOD Factor Predictors": "Factor Predictors",
     "OOD Sample Metadata Deviations": "Factor Deviation",
@@ -74,7 +75,7 @@ STEPS: dict[str, dict[str, str]] = {
         "alignment": "label-alignment",
         "structure": "ontology-validation",
     },
-    "metadata-triage": {"triage": "factor-triage", "issues": "metadata-issues"},
+    "metadata-triage": {"triage": "factor-triage", "issues": "factor-issues"},
     "ood-detection": {"agreement": "ood-union", "agreement-check": "ood-agreement"},
 }
 

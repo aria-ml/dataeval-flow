@@ -1,7 +1,7 @@
 """Data cleaning workflow."""
 
 __all__ = [
-    "ClasswiseOutliersSettings",
+    "ClassOutliersSettings",
     "DataCleaningChecks",
     "DataCleaningConfig",
     "DataCleaningWorkflow",
@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 from dataeval_flow.workflows.data_cleaning._config import (
-    ClasswiseOutliersSettings,
+    ClassOutliersSettings,
     DataCleaningChecks,
     DataCleaningConfig,
     DuplicatesSettings,

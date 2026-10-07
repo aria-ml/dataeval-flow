@@ -61,8 +61,8 @@ def test_the_chain_names_every_step_for_its_type_and_role() -> None:
         "image-duplicates-evals",
         "factor-triage-train",
         "factor-triage-evals",
-        "metadata-issues-train",
-        "metadata-issues-evals",
+        "factor-issues-train",
+        "factor-issues-evals",
         "content-digest-train",
         "content-digest-evals",
         "label-reconciliation-train",
@@ -72,7 +72,7 @@ def test_the_chain_names_every_step_for_its_type_and_role() -> None:
         "ood-kneighbors",
         "eval-coverage",
         "divergence",
-        "distribution-shift",
+        "embedding-divergence",
         "duplicates-cross",
         "duplicates-pairs",
         "factor-leakage-cross",
@@ -80,7 +80,7 @@ def test_the_chain_names_every_step_for_its_type_and_role() -> None:
         "leakage",
         "class-sufficiency",
         "untrained-classes",
-        "stratification",
+        "class-stratification",
         "crops",
         "coverage",
         "class-coverage",
@@ -141,9 +141,9 @@ def test_the_chain_declares_the_five_questions_a_record_and_a_verdict() -> None:
             {"blocking": ["nope"]},
             (
                 "`blocking` names `nope`, which this audit's chain has no check for. Its checks: class-coverage, "
-                "class-imbalance, class-sufficiency, dimensional-completeness, distribution-shift, eval-coverage, "
-                "factor-coverage-gaps, image-duplicates, image-outliers, leakage, metadata-issues, shortcut-risk, "
-                "stratification, untrained-classes."
+                "class-imbalance, class-stratification, class-sufficiency, dimensional-completeness, "
+                "embedding-divergence, eval-coverage, factor-coverage-gaps, factor-issues, image-duplicates, "
+                "image-outliers, leakage, shortcut-risk, untrained-classes."
             ),
         ),
         (
@@ -154,8 +154,9 @@ def test_the_chain_declares_the_five_questions_a_record_and_a_verdict() -> None:
             {"accepted": {"leakage[test]": "x"}},
             (
                 "`accepted` names `leakage[test]`, but `leakage` runs once, not once per evaluation split; key it "
-                "`leakage` alone. The check steps that take `[split]`: class-imbalance-evals, distribution-shift, "
-                "eval-coverage, image-duplicates-evals, image-outliers-evals, metadata-issues-evals, stratification."
+                "`leakage` alone. The check steps that take `[split]`: class-imbalance-evals, class-stratification, "
+                "embedding-divergence, eval-coverage, factor-issues-evals, image-duplicates-evals, "
+                "image-outliers-evals."
             ),
         ),
         ({"accepted": {"class-imbalance": "  "}}, "at least 1 character"),
@@ -172,11 +173,11 @@ def test_blocking_and_accepted_name_only_checks_in_the_chain(entry: dict[str, An
 
 
 def test_distribution_shift_derives_its_info_band() -> None:
-    config = _config({"checks": {"distribution-shift": {"warning": 0.2}}})
-    (shift,) = [step for step in _steps(config) if step["name"] == "distribution-shift"]
+    config = _config({"checks": {"embedding-divergence": {"warning": 0.2}}})
+    (shift,) = [step for step in _steps(config) if step["name"] == "embedding-divergence"]
     assert (shift["warning"], shift["info"]) == (0.2, 0.08)
     with pytest.raises(ValidationError, match=re.escape("`info` (0.3) must not exceed `warning` (0.2).")) as caught:
-        _config({"checks": {"distribution-shift": {"warning": 0.2, "info": 0.3}}})
+        _config({"checks": {"embedding-divergence": {"warning": 0.2, "info": 0.3}}})
     assert caught.value.errors()[0]["loc"][0] == "checks"
     assert AuditConfig.model_validate(config.model_dump()) == config
     assert AuditConfig.model_validate(config.model_dump(by_alias=False)) == config
@@ -260,7 +261,7 @@ def test_the_record_prints_the_thresholds_of_each_check_in_the_chain_as_its_crit
     assert lines["image-outliers"] == "warning 3.0"
     assert lines["image-duplicates"] == "exact 0.0, near 5.0"
     assert lines["class-imbalance"] == "warning 5.0, info none, empty true"
-    assert lines["distribution-shift"] == "warning 0.5, info 0.2"
+    assert lines["embedding-divergence"] == "warning 0.5, info 0.2"
     assert lines["Blocking"] == "leakage, untrained-classes"
     assert lines["Accepted"] == "class-imbalance: Rare class by design."
     # with no ontology and adaptive coverage, the chain runs neither check, so their settings applied to nothing

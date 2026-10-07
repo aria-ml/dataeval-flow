@@ -1,4 +1,4 @@
-"""The metadata-triage preset: the `factor-triage` evaluator and the `metadata-issues` check, on the task's one source
+"""The metadata-triage preset: the `factor-triage` evaluator and the `factor-issues` check, on the task's one source
 (spec §10.10)."""
 
 import re
@@ -35,7 +35,7 @@ def test_the_settings_expand_to_triage_and_its_check() -> None:
         verify=False,
         default_bins=4,
         min_missing_fraction=0.5,
-        checks={"metadata-issues": {"max_examples": 3}},  # type: ignore[arg-type]
+        checks={"factor-issues": {"max_examples": 3}},  # type: ignore[arg-type]
     )
     chain = MetadataTriageWorkflow.chain(config)
     (triage,) = chain.evaluators
@@ -49,7 +49,7 @@ def test_the_settings_expand_to_triage_and_its_check() -> None:
     )
     assert list(chain.steps) == [
         {"name": "factor-triage", "evaluator": "factor-triage", "input": "data"},
-        {"name": "metadata-issues", "check": "metadata-issues", "input": "factor-triage", "max_examples": 3},
+        {"name": "factor-issues", "check": "factor-issues", "input": "factor-triage", "max_examples": 3},
     ]
 
 
@@ -57,7 +57,7 @@ def test_a_run_is_a_chain_result_of_its_two_steps() -> None:
     result = run(MetadataTriageConfig(), MixedWeightDataset())
     assert isinstance(result, ChainResult)
     assert result.type == "metadata-triage"
-    assert list(result.steps) == ["factor-triage", "metadata-issues"]
+    assert list(result.steps) == ["factor-triage", "factor-issues"]
     assert result.health["status"] == "warning"
     assert [f.title for f in result.findings] == [
         "Unreadable factors",
@@ -139,7 +139,7 @@ def test_as_a_step_over_a_list_it_triages_each_element() -> None:
     result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
-    assert list(result.steps["triage/metadata-issues"].elements or {}) == ["a", "b"]
+    assert list(result.steps["triage/factor-issues"].elements or {}) == ["a", "b"]
     assert result.metadata.metadata_binning is not None
     assert list(result.metadata.metadata_binning["per_split"]) == ["splits[a]", "splits[b]"]
     assert result.health["status"] == "warning"

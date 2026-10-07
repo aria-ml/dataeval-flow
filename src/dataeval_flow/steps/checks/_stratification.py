@@ -1,6 +1,12 @@
-"""The `stratification` check: how far each part's class shares stray from the whole's (data-splitting spec §6.1)."""
+"""The `class-stratification` check: how far each part's class shares stray from the whole's (data-splitting spec
+§6.1)."""
 
-__all__ = ["StratificationCheck", "StratificationConfig", "StratificationThresholds", "stratification_severity"]
+__all__ = [
+    "ClassStratificationCheck",
+    "ClassStratificationConfig",
+    "ClassStratificationThresholds",
+    "stratification_severity",
+]
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -23,7 +29,7 @@ _TOP = 10
 _BOTTOM = 5
 
 
-class StratificationThresholds(BaseModel):
+class ClassStratificationThresholds(BaseModel):
     """When a stratification finding is `info` or warns: the largest deviation of a class's share, in percentage
     points."""
 
@@ -49,7 +55,7 @@ class StratificationThresholds(BaseModel):
     )
 
 
-def stratification_severity(deviation: float, thresholds: StratificationThresholds) -> Severity:
+def stratification_severity(deviation: float, thresholds: ClassStratificationThresholds) -> Severity:
     """The severity `deviation` earns: `warning` above `warning`, `info` above `info`, else `ok`; with both `null`,
     `info`, which judges nothing. "Above" is `>`, legacy's comparison."""
     if thresholds.info is None and thresholds.warning is None:
@@ -61,8 +67,8 @@ def stratification_severity(deviation: float, thresholds: StratificationThreshol
     return "ok"
 
 
-class StratificationConfig(CheckConfig, StratificationThresholds):
-    """A `stratification` step's inputs and thresholds."""
+class ClassStratificationConfig(CheckConfig, ClassStratificationThresholds):
+    """A `class-stratification` step's inputs and thresholds."""
 
     input: str = Field(description="A `label-health` Output over the whole Dataset the parts were split from.")
     parts: str | list[str] = Field(description="The parts' `label-health` Outputs, each judged against `input`.")
@@ -102,21 +108,21 @@ def _nodes(value: Any) -> list[Any]:
     return list(value) if isinstance(value, list) else [value]
 
 
-class StratificationCheck(Check[StratificationConfig]):
-    """``stratification``: the largest gap between a class's share of a part's labels and its share of the whole's,
-    in percentage points, with the counts across the parts as its evidence. Makes no finding where the whole holds
-    no labels."""
+class ClassStratificationCheck(Check[ClassStratificationConfig]):
+    """``class-stratification``: the largest gap between a class's share of a part's labels and its share of the
+    whole's, in percentage points, with the counts across the parts as its evidence. Makes no finding where the whole
+    holds no labels."""
 
-    name: ClassVar[str] = "stratification"
+    name: ClassVar[str] = "class-stratification"
     description: ClassVar[str] = "Judges how far each part's class shares stray from the whole's."
-    title: ClassVar[str] = "Stratification"
+    title: ClassVar[str] = "Class Stratification"
     inputs: ClassVar[tuple[Port, ...]] = (
         Port("input", DataType.OUTPUT, classes=(LabelHealthOutput,)),
         Port("parts", DataType.OUTPUT, classes=(LabelHealthOutput,), count=SourceCount.ONE_OR_MORE),
         Port("shown", DataType.OUTPUT, classes=(LabelHealthOutput,)),
     )
 
-    def run(self, config: StratificationConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(self, config: ClassStratificationConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
         """The largest deviation, the worst class and part, and the table of counts."""
         whole = _Column.of(inputs["input"])
         if not whole.total:

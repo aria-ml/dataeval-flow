@@ -21,7 +21,7 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
 
     - ``outliers`` (the ``outliers`` evaluator, per box on detection data), ``label-health``,
       ``outliers-by-class`` and ``duplicates``;
-    - the checks ``image-outliers``, ``target-outliers``, ``classwise-outliers`` and ``image-duplicates``, each judged
+    - the checks ``image-outliers``, ``target-outliers``, ``class-outliers`` and ``image-duplicates``, each judged
       against its ``checks`` entry; ``label-health`` gives ``target-outliers`` its class counts, and class balance is
       ``data-bias``'s;
     - ``clean`` (``remove``): the dataset without each flagged image and box, and without each duplicate but the
@@ -82,10 +82,10 @@ class DataCleaningWorkflow(Preset, Workflow[DataCleaningConfig, ChainResult]):
                 **limits.target_outliers.model_dump(),
             },
             {
-                "name": "classwise-outliers",
-                "check": "classwise-outliers",
+                "name": "class-outliers",
+                "check": "class-outliers",
                 "input": "outliers-by-class",
-                **limits.classwise_outliers.model_dump(),
+                **limits.class_outliers.model_dump(),
             },
             {
                 "name": "image-duplicates",

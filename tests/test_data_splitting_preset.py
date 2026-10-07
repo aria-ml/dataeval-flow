@@ -39,7 +39,7 @@ def test_the_default_chain() -> None:
         "label-health-train",
         "label-health-val",
         "label-health-test",
-        "stratification",
+        "class-stratification",
     ]
 
 
@@ -47,7 +47,7 @@ def test_rebalancing_adds_a_view_its_labels_and_a_shown_column() -> None:
     chain = DataSplittingWorkflow.chain(DataSplittingConfig(rebalance="interclass"))
     steps = {dict(step)["name"]: dict(step) for step in chain.steps}
     assert steps["rebalanced"]["operations"] == [{"type": "ClassBalance", "params": {"method": "interclass"}}]
-    assert steps["stratification"]["shown"] == "label-health-rebalanced"
+    assert steps["class-stratification"]["shown"] == "label-health-rebalanced"
     assert chain.outputs == {"train": "rebalanced", "val": "split.val", "test": "split.test"}
 
 
@@ -78,8 +78,8 @@ def test_a_whole_dump_of_a_kfold_entry_reloads() -> None:
 
 
 def test_thresholds_are_keyed_by_check_type() -> None:
-    entry = DataSplittingConfig.model_validate({"checks": {"stratification": {"warning": 3.0}}})
-    assert entry.model_dump(mode="json")["checks"]["stratification"]["warning"] == 3.0
+    entry = DataSplittingConfig.model_validate({"checks": {"class-stratification": {"warning": 3.0}}})
+    assert entry.model_dump(mode="json")["checks"]["class-stratification"]["warning"] == 3.0
 
 
 def _task(dataset: Any, **settings: Any) -> ChainResult:
@@ -100,14 +100,14 @@ def test_a_task_splits_and_records_the_parts() -> None:
     assert result.success, result.errors
     indices = (result.steps["split"].details or {})["indices"]
     assert sorted(i for part in indices.values() for i in part) == list(range(60))
-    assert {finding.title for finding in result.findings} == {"Stratification"}
+    assert {finding.title for finding in result.findings} == {"Class Stratification"}
 
 
 def test_kfold_judges_stratification_per_fold() -> None:
     result = _task(ToyFactors(count=60), folds=3)
     assert result.success, result.errors
-    judged = [finding.step for finding in result.findings if finding.title == "Stratification"]
-    assert judged == ["stratification[0]", "stratification[1]", "stratification[2]"]
+    judged = [finding.step for finding in result.findings if finding.title == "Class Stratification"]
+    assert judged == ["class-stratification[0]", "class-stratification[1]", "class-stratification[2]"]
 
 
 class _NoFactors:
