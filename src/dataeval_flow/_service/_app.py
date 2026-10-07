@@ -43,16 +43,26 @@ class RunRequest(BaseModel):
     )
 
 
+def _refused(loc: list[str], message: str) -> HTTPException:
+    """A 422 shaped as FastAPI shapes a model's: where in the request it failed, and why."""
+    return HTTPException(422, [{"type": "value_error", "loc": loc, "msg": message}])
+
+
 def _checked(request: RunRequest) -> dict[str, Any]:
     """The tasks a request runs and the snapshot it runs from, or a 422 saying why it would fail before any ran."""
     pipeline = request.pipeline
     try:
         tasks = [task.name for task in select_tasks(pipeline, request.tasks)]
+    except ValueError as error:
+        where = ["body", "tasks"] if request.tasks is not None else ["body", "pipeline", "tasks"]
+        raise _refused(where, str(error)) from None
+    try:
         _requirement(pipeline, tasks, None)
     except ValueError as error:
-        raise HTTPException(422, str(error)) from None
+        raise _refused(["body", "pipeline", "result", "require"], str(error)) from None
     if "json" not in pipeline.result.formats:
-        raise HTTPException(422, "The service reads each run's results as JSON: keep `json` in `result: formats`.")
+        message = "The service reads each run's results as JSON: keep `json` in `result: formats`."
+        raise _refused(["body", "pipeline", "result", "formats"], message)
     return {"valid": True, "tasks": tasks, "pipeline": pipeline.model_dump(mode="json", by_alias=True)}
 
 
@@ -138,14 +148,22 @@ def create_app(  # noqa: C901 - one nested route per endpoint
 
     @app.get("/v1/capabilities", tags=["service"])
     def capabilities() -> dict[str, Any]:
-        """Versions, how many runs run at once, and every step a pipeline can chain."""
+        """Versions, how many runs run at once, the features and limits this service has, and every step a pipeline
+        can chain."""
         return {
             "api_version": API_VERSION,
             "flow_version": __version__,
             "dataeval_version": dataeval.__version__,
             "max_active_runs": 1,
+            "features": {"items": 1, "profiles": 1, "selections": 1, "schema": 1},
+            "limits": {"page_size": PAGE_SIZE},
             "steps": list_steps().model_dump(mode="json"),
         }
+
+    @app.get("/v1/schema", tags=["service"])
+    def schema() -> dict[str, Any]:
+        """The JSON Schema of a pipeline, every registered step included: what `pipeline` in a run request takes."""
+        return PipelineConfig.model_json_schema()
 
     @app.post("/v1/validate", tags=["runs"])
     def validate(request: RunRequest) -> dict[str, Any]:

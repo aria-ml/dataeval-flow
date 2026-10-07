@@ -1,10 +1,11 @@
 """Dataset configuration schemas — one class per format."""
 
+import posixpath
 from collections.abc import Mapping, Sequence
 from datetime import date
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from dataeval_flow.config._paths import validate_config_path
 
@@ -101,10 +102,27 @@ class _DatasetConfigBase(BaseModel):
         ),
     )
 
+    _sub_paths: ClassVar[tuple[str, ...]] = ()
+    """Fields naming a file or folder relative to `path`, which must stay under the data root as `path` must."""
+
     @field_validator("path")
     @classmethod
     def _path_must_be_relative(cls, v: str) -> str:
         return validate_config_path(v)
+
+    @model_validator(mode="after")
+    def _sub_paths_stay_under_the_data_root(self) -> Self:
+        for field in self._sub_paths:
+            value = getattr(self, field)
+            if value is None:
+                continue
+            try:
+                validate_config_path(posixpath.join(self.path, value))
+            except ValueError as error:
+                raise ValueError(
+                    f"`{field}` ({value!r}), joined to `path`, must stay under the data root: {error}"
+                ) from None
+        return self
 
     @field_validator("channel_groups")
     @classmethod
@@ -280,6 +298,7 @@ class CocoDatasetConfig(_DatasetConfigBase):
     """
 
     format: Literal["coco"] = Field(default="coco", description="Selects this dataset format: `coco`.")
+    _sub_paths: ClassVar[tuple[str, ...]] = ("annotations_file", "images_dir")
     annotations_file: str | None = Field(
         default=None,
         description=(
@@ -315,6 +334,7 @@ class YoloDatasetConfig(_DatasetConfigBase):
     """
 
     format: Literal["yolo"] = Field(default="yolo", description="Selects this dataset format: `yolo`.")
+    _sub_paths: ClassVar[tuple[str, ...]] = ("yaml_file", "ann_dir")
     split: str | None = Field(
         default=None,
         description=(

@@ -127,3 +127,30 @@ def test_serve_logs_through_flow_and_runs_uvicorn(tmp_path, monkeypatch):
     assert captured["port"] == 8123
     assert captured["log_config"] is None
     assert captured["app"].state.manager.cache_root == (tmp_path / "out" / "cache").resolve()
+
+
+def test_capabilities_name_the_investigation_features_and_the_pipeline_schema_is_served(data_root, tmp_path):
+    with TestClient(create_app(data_root, tmp_path / "out")) as client:
+        capabilities = client.get("/v1/capabilities").json()
+        assert capabilities["features"] == {"items": 1, "profiles": 1, "selections": 1, "schema": 1}
+        assert capabilities["limits"] == {"page_size": 100}
+        assert client.get("/v1/schema").json() == PipelineConfig.model_json_schema()
+
+
+def test_every_refusal_says_where_in_the_request_it_failed(data_root, tmp_path, pipeline):
+    with TestClient(create_app(data_root, tmp_path / "out")) as client:
+
+        def detail(body):
+            response = client.post("/v1/validate", json=body)
+            assert response.status_code == 422
+            return response.json()["detail"]
+
+        assert detail({"pipeline": pipeline, "tasks": ["missing"]})[0]["loc"] == ["body", "tasks"]
+        disabled = [{**task, "enabled": False} for task in pipeline["tasks"]]
+        assert detail({"pipeline": {**pipeline, "tasks": disabled}})[0]["loc"] == ["body", "pipeline", "tasks"]
+        formats = detail({"pipeline": {**pipeline, "result": {"formats": ["html"]}}})
+        assert formats[0]["loc"] == ["body", "pipeline", "result", "formats"]
+        require = detail({"pipeline": {**pipeline, "result": {"require": "ready"}}})
+        assert require[0]["loc"] == ["body", "pipeline", "result", "require"]
+        assert {"type", "loc", "msg"} <= set(require[0])
+        assert detail({"pipeline": pipeline, "unexpected": True})[0]["loc"] == ["body", "unexpected"]
