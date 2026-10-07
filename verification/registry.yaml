@@ -47,8 +47,12 @@ aliases:
   dsetload: verification/functional/dataset/test_dataset_configs.py::TestLoadDataset
   optx: verification/functional/install/test_pip_install.py::TestOptionalExtras
   clirun: verification/functional/cli/test_cli_headless.py::TestHeadlessCLI
+  cpuimg: verification/functional/docker/test_container_runtime.py::TestCpuImage
+  cudaimg: verification/functional/docker/test_container_runtime.py::TestCudaImage
+  sec: verification/functional/docker/test_container_runtime.py::TestPublishedImageSecurity
   cuda: verification/nonfunctional/compatibility/test_cuda_fallback.py::TestCudaFallback
   maxp: verification/nonfunctional/performance/test_max_processes.py::TestMaxProcesses
+  scale: verification/nonfunctional/performance/test_scale.py::TestScale
 requirements:
 - id: FR-1
   name: Installation & Optional Extras
@@ -721,7 +725,7 @@ test_cases:
   - do: Run a pipeline that produces a warning with `--fail-on-warning`.
     expect: The exit code is non-zero.
     tests:
-    - 'NEW: --fail-on-warning exits non-zero on warnings'
+    - clirun::test_fail_on_warning_exits_nonzero_on_warnings
 - id: 16-1
   req: FR-16
   name: Container Execution
@@ -740,16 +744,16 @@ test_cases:
   - do: Run the CPU image with the data and output directories mounted.
     expect: The pipeline runs as a non-root user and writes results to `/output`.
     tests:
-    - 'NEW: CPU image runs the pipeline against mounted directories'
+    - cpuimg::test_pipeline_runs_against_mounted_directories_as_non_root
     - 'CI: verifydocker'
   - do: Run the image with no data mounted, and with `--help`.
     expect: A usage banner is printed that covers arguments, variables, mounts, and secrets.
     tests:
-    - 'NEW: image prints usage with no data mounted and with --help'
+    - cpuimg::test_prints_usage_when_nothing_is_mounted_or_help_is_requested
   - do: Run the image with the cache unmounted.
     expect: The run succeeds using an in-memory cache.
     tests:
-    - 'NEW: image falls back to in-memory cache when /cache is unmounted'
+    - cpuimg::test_falls_back_to_in_memory_cache_when_cache_is_not_mounted
   - do: Run a CUDA image without `--gpus all`.
     expect: It exits with code 1 and a message that names the flag and the `cpu` variant.
     tests:
@@ -892,7 +896,7 @@ test_cases:
     expect: Records carry the UTC timestamp and level in the selected format.
     tests:
     - log::test_setup_logging_attaches_root_handler
-    - 'NEW: console records carry timestamp and level for each --log-format'
+    - log::test_console_records_carry_utc_timestamp_and_level_for_each_log_format
 - id: 25-1
   req: NFR-5
   name: Performance and Scale
@@ -906,24 +910,25 @@ test_cases:
   steps:
   - do: Run `data-cleaning` at two dataset sizes and record peak memory.
     expect: Peak memory grows roughly in proportion to the stored results (baseline 13 to 22 KB per image) and stays
-      well below the size of the raw dataset.
+      below the size of the raw pixels for 224x224 images, because datasets are read lazily.
     tests:
-    - 'NEW: bounded peak memory across dataset sizes'
+    - scale::test_peak_memory_follows_stored_results_not_dataset_size
   - do: Run a pipeline twice with a cache directory.
     expect: The second run reuses the cached artifacts and is faster (baseline about 15 times at 10,000 images).
     tests:
-    - 'NEW: warm-cache rerun is faster and skips recomputation'
+    - scale::test_warm_cache_rerun_reuses_artifacts_and_is_faster
   - do: Run a pipeline with `max_processes` set in the config, by flag, and by environment variable.
     expect: Each setting reaches DataEval's `set_max_processes` for every task and appears in `resolved_config`.
     tests:
     - maxp::test_config_field_reaches_dataeval_for_every_task_and_is_recorded
     - maxp::test_flag_and_variable_reach_dataeval_for_every_task_and_are_recorded
     - maxp::test_flag_overrides_the_config_field
-  - do: Run `data-analysis` on 4,000 images of 224x224 pixels at 1 process and at 4 processes.
+  - do: Run `data-analysis` on 224x224 images (200 in the automated check, 4,000 in the reference measurements) at 1
+      process and at 4 processes.
     expect: Both times are recorded. The development-machine baseline was 0.45 times the single-process time at
       4 processes; the result is reported, not gated, because the benefit varies by platform.
     tests:
-    - 'NEW: record data-analysis time at 1 and 4 processes on large images'
+    - scale::test_data_analysis_time_at_one_and_four_processes_is_recorded
   - do: Time `data-cleaning` and `data-analysis` on the dataset.
     expect: Each completes within its budget. Development-machine baselines are 6.1 s and 11.8 s, so the budgets
       are about 12 s and 24 s until they are re-measured on the runner.
@@ -968,11 +973,11 @@ test_cases:
   - do: Verify the image signature with `cosign` and the key at `docker/cosign.pub`.
     expect: The signature verifies.
     tests:
-    - 'NEW: cosign signature verification in the release pipeline'
+    - sec::test_signature_verifies_against_the_committed_public_key
   - do: List `/usr/share/dataeval-flow/security/` in the image.
     expect: The scan reports and `sbom.cdx.json` are present.
     tests:
-    - 'NEW: security reports and SBOM present inside the image'
+    - sec::test_scan_reports_and_sbom_are_inside_the_image
   - do: Review the `sbom` and `releasesbom` CI jobs.
     expect: The CycloneDX SBOM is attached to the registry as an attestation.
     tests:
