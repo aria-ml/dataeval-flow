@@ -1,6 +1,7 @@
-"""Small labelled images exercise the real loader without network downloads."""
+"""A small labelled COCO dataset on disk, the pipeline a client would submit for it, and a wait for a run's status."""
 
 import json
+import time
 from pathlib import Path
 
 import numpy as np
@@ -8,12 +9,13 @@ import pytest
 from PIL import Image
 
 
-def pipeline_for(dataset: str = "fixture") -> dict:
-    """A quality and a triage task over the whole fixture, as a client would submit them."""
+@pytest.fixture
+def pipeline() -> dict:
+    """A quality and a triage task over the whole fixture dataset."""
     return {
         "seed": 0,
-        "datasets": [{"name": dataset, "format": "coco", "path": dataset}],
-        "sources": [{"name": "data", "dataset": dataset}],
+        "datasets": [{"name": "fixture", "format": "coco", "path": "fixture"}],
+        "sources": [{"name": "data", "dataset": "fixture"}],
         "workflows": [
             {
                 "name": "quality",
@@ -30,8 +32,8 @@ def pipeline_for(dataset: str = "fixture") -> dict:
 
 
 @pytest.fixture
-def staged(tmp_path: Path):
-    """A 12-image COCO detection dataset under a data root: two exact duplicates, one rare class, telemetry."""
+def data_root(tmp_path: Path) -> Path:
+    """A data root holding a 12-image COCO detection dataset: two exact duplicates, a rare class, and telemetry."""
     root = tmp_path / "data"
     (root / "fixture" / "images").mkdir(parents=True)
     rng = np.random.default_rng(0)
@@ -59,4 +61,21 @@ def staged(tmp_path: Path):
     (root / "fixture" / "instances.json").write_text(
         json.dumps({"images": images, "annotations": annotations, "categories": categories})
     )
-    return root, pipeline_for()
+    return root
+
+
+@pytest.fixture
+def wait_for():
+    """Wait for a run to reach one of `statuses`, failing the test once `timeout` seconds pass."""
+
+    def wait(store, run_id: str, statuses: set[str], timeout: float = 15) -> dict:
+        end = time.monotonic() + timeout
+        record = store.get(run_id)
+        while record["status"] not in statuses:
+            if time.monotonic() > end:
+                pytest.fail(f"Run did not reach {statuses}: {record}")
+            time.sleep(0.03)
+            record = store.get(run_id)
+        return record
+
+    return wait

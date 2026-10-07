@@ -91,6 +91,9 @@ ENV DATAEVAL_OUTPUT=/output
 ENV DATAEVAL_CACHE=/cache
 ENV UV_EXTRAS_OVERRIDE=cu126
 ENV CONTAINER_MODE=gpu
+# `serve` must listen beyond the container's loopback to be reachable through a published port.
+ENV DATAEVAL_SERVICE_HOST=0.0.0.0
+EXPOSE 8001
 
 WORKDIR /dataeval
 

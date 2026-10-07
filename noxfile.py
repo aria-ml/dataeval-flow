@@ -39,7 +39,7 @@ def onnx_extra(device: str) -> str:
     return "onnx" if device == "cpu" else f"onnx-{device}"
 
 
-UV_EXTRAS = [UV_EXTRAS_OVERRIDE] + ["app"]
+UV_EXTRAS = [UV_EXTRAS_OVERRIDE] + ["app", "service"]
 UV_EXTRAS_WITH_ONNX = UV_EXTRAS + [onnx_extra(UV_EXTRAS_OVERRIDE)]
 UV_EXTRAS_WITH_ONNX_AND_OPENCV = UV_EXTRAS_WITH_ONNX + ["opencv"]
 
@@ -162,7 +162,7 @@ def lint(session: nox.Session) -> None:
     session.run("codespell")
 
 
-@nox_uv.session(uv_groups=["type"], uv_extras=["cpu", "onnx"])
+@nox_uv.session(uv_groups=["type"], uv_extras=["cpu", "onnx", "service"])
 def type(session: nox.Session) -> None:  # noqa: A001
     """Run static type checking (Pyright).
 
@@ -357,7 +357,7 @@ def _export_dependency_files(session: nox.Session) -> None:
 
     One `requirements.<variant>.txt` per CUDA variant, mirroring
     `docker/variants.yaml`'s extras -- device + matching onnx build + opencv +
-    app -- so each file matches what that variant's container actually ships.
+    app + service -- so each file matches what that variant's container actually ships.
     """
     for variant in DEVICE_VARIANTS:
         out = Path(f"requirements.{variant}.txt")
@@ -374,6 +374,8 @@ def _export_dependency_files(session: nox.Session) -> None:
             "opencv",
             "--extra",
             "app",
+            "--extra",
+            "service",
             "-o",
             str(out),
         )

@@ -7,7 +7,7 @@ raise ``ValueError``.
 import os
 from pathlib import Path
 
-__all__ = ["env_bool", "env_choice", "env_int", "env_list", "env_path"]
+__all__ = ["env_bool", "env_choice", "env_int", "env_list", "env_path", "env_str"]
 
 _TRUE = ("1", "true", "yes", "on")
 _FALSE = ("0", "false", "no", "off")
@@ -20,6 +20,11 @@ def _raw(name: str) -> str | None:
         return None
     stripped = value.strip()
     return stripped or None
+
+
+def env_str(name: str) -> str | None:
+    """Read *name* as text."""
+    return _raw(name)
 
 
 def env_path(name: str) -> Path | None:

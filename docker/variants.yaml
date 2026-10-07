@@ -31,20 +31,20 @@ variants:
   cpu:
     base_image: "ubuntu:24.04"
 
-    extras: ["cpu", "onnx", "opencv", "app"]
+    extras: ["cpu", "onnx", "opencv", "app", "service"]
     label_title: "DataEval-Flow (CPU)"
     label_description: "DataEval-Flow container - CPU variant"
 
   cu126:
     base_image: "ubuntu:24.04"
 
-    extras: ["cu126", "onnx-cu126", "opencv", "app"]
+    extras: ["cu126", "onnx-cu126", "opencv", "app", "service"]
     label_title: "DataEval-Flow (CUDA 12.6)"
     label_description: "DataEval-Flow container - CUDA 12.6 variant"
 
   cu130:
     base_image: "ubuntu:24.04"
 
-    extras: ["cu130", "onnx-cu130", "opencv", "app"]
+    extras: ["cu130", "onnx-cu130", "opencv", "app", "service"]
     label_title: "DataEval-Flow (CUDA 13.0)"
     label_description: "DataEval-Flow container - CUDA 13.0 variant"

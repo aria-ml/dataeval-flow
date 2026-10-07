@@ -157,6 +157,13 @@ requirements:
     file: FR-20-maite-entrypoints.md
     test_cases: ["22-1"]
 
+  FR-21:
+    name: Execution Service
+    origin: IR-2.3-H-2
+    origin_link: https://jatic.pages.jatic.net/internal-docs/standards/product/software/interoperability/#ir-23-monitoring-and-health-checks
+    file: FR-21-execution-service.md
+    test_cases: ["23-1"]
+
   NFR-1:
     name: Python Version Compatibility
     origin: DR-1.5
@@ -576,3 +583,18 @@ test_cases:
         Advertised maite.protocols.* components statically verify against their protocols.
         Known upstream gap - datamaite's dataset classes are annotated too loosely to satisfy
         the protocol, so this step is an expected failure until upstream tightens them.
+
+  "23-1":
+    name: Execution Service Health & Interface
+    test_type: Core Functionality
+    business_case: >-
+      Verify that `dataeval-flow serve` reports its health on a standard endpoint (IR-2.3-H-2),
+      offers separate liveness and readiness probes (IR-2.3-S-1), describes its REST API with
+      OpenAPI (IR-2.4-S-1, IR-2.4-H-2), and documents its configuration in its help (IR-2.4-H-1).
+    initial_conditions:
+      - dataeval-flow installed with the service extra
+    expected_results:
+      - "`python -m dataeval_flow serve --help` exits 0 and names its environment variables, health path and API description"
+      - /healthz, /livez and /readyz answer 200 while the service runs work
+      - /healthz, /livez and /readyz answer 503 once its run queue has stopped
+      - /openapi.json describes the probes and the /v1 API

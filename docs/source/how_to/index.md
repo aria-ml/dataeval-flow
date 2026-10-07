@@ -122,6 +122,7 @@ gate_training_on_an_audit
 export_a_dataset
 reuse_results_with_cache
 containerized_workflows
+run_flow_as_a_service
 ```
 
 :::{list-table}
@@ -147,5 +148,7 @@ containerized_workflows
   - Persist embeddings and statistics across runs, and know what invalidates them.
 - - {doc}`Run workflows in containers <containerized_workflows>`
   - Pull a pre-built image, write a config, and launch with bind-mounted data.
+- - {doc}`Run Flow as a service <run_flow_as_a_service>`
+  - Keep Flow running behind an HTTP API that queues pipelines, and follow each run's status, logs and results.
 
 :::

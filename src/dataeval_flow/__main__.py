@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn
 
 from dataeval_flow._blocks._text import DEFAULT_WIDTH, MIN_WIDTH
-from dataeval_flow._env import env_bool, env_choice, env_int, env_list, env_path
+from dataeval_flow._env import env_bool, env_choice, env_int, env_list, env_path, env_str
 from dataeval_flow.config._models import REQUIREMENTS
 
 if TYPE_CHECKING:
@@ -36,6 +36,53 @@ def _env_report_width() -> int | None:
     if width < MIN_WIDTH:
         raise ValueError(f"DATAEVAL_REPORT_WIDTH must be at least {MIN_WIDTH}, got {width}")
     return width
+
+
+_SERVE_EPILOG = """\
+Each run keeps its snapshot, logs and result files under OUTPUT/runs/<id>/.
+
+environment variables (command-line options take precedence):
+  DATAEVAL_DATA          data root, read-only to runs
+  DATAEVAL_OUTPUT        where runs and their results are kept
+  DATAEVAL_CACHE         computation cache the runs share
+  DATAEVAL_SERVICE_HOST  address to listen on
+  DATAEVAL_SERVICE_PORT  port to listen on
+  DATAEVAL_LOG_FORMAT    console format, structured or plain (--log-format, before `serve`)
+
+No other DATAEVAL_* variable reaches a run: its pipeline snapshot alone defines it.
+No secrets are read. The service has no authentication: expose it on a trusted network only.
+
+endpoints:
+  /healthz, /readyz      200 while the service takes and runs work, else 503 with reasons
+  /livez                 200 unless its run queue has stopped and it needs a restart
+  /openapi.json, /docs   the /v1 API: submit, follow, cancel and read runs
+"""
+
+
+def _serve(args: argparse.Namespace) -> int:
+    """``serve``: check its roots, then serve until interrupted."""
+    from dataeval_flow._logging import setup_logging
+
+    # Before the service's imports, which warn as torch loads: every console line then carries a time and a level.
+    setup_logging(verbosity=2, log_format=args.log_format)
+    logging.captureWarnings(True)
+    try:
+        from dataeval_flow._service._app import serve
+    except ImportError:
+        print("ERROR: The service requires the 'service' extra.", file=sys.stderr)
+        print("\nInstall with:\n  pip install dataeval-flow[service]", file=sys.stderr)
+        return 1
+    from dataeval_flow.config._loader import get_data_dir
+
+    data = get_data_dir(args.data)
+    if args.output is None:
+        print("ERROR: serve needs --output or $DATAEVAL_OUTPUT: where runs and their results are kept", file=sys.stderr)
+        return 1
+    if not data.is_dir():
+        print(f"ERROR: Data root not found: {data}", file=sys.stderr)
+        return 1
+    serve(data, args.output, args.cache, args.host, args.port, args.log_format)
+    return 0
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -293,6 +340,50 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to an existing config file or folder to load on startup",
     )
 
+    # --- serve (long-running HTTP service) ---
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Run a long-lived HTTP service that queues pipelines (requires the 'service' extra)",
+        description=(
+            "Serve an HTTP API that queues pipelines and runs each as the headless command would, one at a time, "
+            "in a process of its own. Requires: pip install dataeval-flow[service]"
+        ),
+        epilog=_SERVE_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    serve_parser.add_argument(
+        "-d",
+        "--data",
+        type=Path,
+        default=env_path("DATAEVAL_DATA"),
+        help="Data root that pipelines' dataset and model paths resolve against (default: $DATAEVAL_DATA or CWD)",
+    )
+    serve_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        default=env_path("DATAEVAL_OUTPUT"),
+        help="Where runs, their history and their result files are kept (default: $DATAEVAL_OUTPUT; required)",
+    )
+    serve_parser.add_argument(
+        "-k",
+        "--cache",
+        type=Path,
+        default=env_path("DATAEVAL_CACHE"),
+        help="Computation cache the runs share (default: $DATAEVAL_CACHE, else OUTPUT/cache)",
+    )
+    serve_parser.add_argument(
+        "--host",
+        default=env_str("DATAEVAL_SERVICE_HOST") or "127.0.0.1",
+        help="Address to listen on (default: $DATAEVAL_SERVICE_HOST, else 127.0.0.1)",
+    )
+    serve_parser.add_argument(
+        "--port",
+        type=int,
+        default=env_int("DATAEVAL_SERVICE_PORT") or 8001,
+        help="Port to listen on (default: $DATAEVAL_SERVICE_PORT, else 8001)",
+    )
+
     verify_parser = subparsers.add_parser(
         "verify",
         help="Check that a source still holds the items a run's manifest records.",
@@ -479,6 +570,9 @@ def main() -> NoReturn:  # noqa: C901 - one branch per subcommand
         # it went.
         setup_logging(verbosity=max(args.verbose, 2), log_format=args.log_format)
         sys.exit(write_encoding(args.result, args.output, args.task))
+
+    if args.command == "serve":
+        sys.exit(_serve(args))
 
     if args.command == "verify":
         from dataeval_flow._verify_cli import verify

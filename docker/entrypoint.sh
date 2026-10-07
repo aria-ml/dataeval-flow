@@ -76,6 +76,10 @@ ENVIRONMENT VARIABLES
                      Console format: structured or plain (default: structured).
                      'structured' prefixes each record with an ISO-8601 UTC
                      timestamp and level.
+  DATAEVAL_SERVICE_HOST
+                     Address 'serve' listens on (default in this image: 0.0.0.0).
+  DATAEVAL_SERVICE_PORT
+                     Port 'serve' listens on (default: 8001).
 
   All are optional. Command-line options below take precedence over them.
 
@@ -103,6 +107,10 @@ COMMAND-LINE OPTIONS
     encoding          Write the metadata encoding descriptor a result was
                       computed under, ready to review and commit. Takes a
                       result.json path, with -o PATH and --task NAME.
+    serve             Run a long-lived HTTP service that queues pipelines and
+                      runs each in turn. Keeps runs under $OUTPUT_DIR/runs.
+                      Health: /healthz, /livez, /readyz. API: /openapi.json.
+                      No authentication: publish it on a trusted network only.
 
 --------------------------------------------------------------------------------
 MOUNT SYNTAX
@@ -148,6 +156,12 @@ Windows PowerShell:
         --mount type=bind,source=C:\\data\\myproject,target=$DATA_DIR,readonly \`
         --mount type=bind,source=C:\\output,target=$OUTPUT_DIR \`
         $IMAGE_TAG
+
+As a long-running service (publish its port; --init reaps finished runs):
+    docker run --init -p 8001:8001${GPU_FLAG} \\
+        --mount type=bind,source=/home/user/myproject,target=$DATA_DIR,readonly \\
+        --mount type=bind,source=/home/user/service-output,target=$OUTPUT_DIR \\
+        $IMAGE_TAG python -m dataeval_flow serve
 
 --------------------------------------------------------------------------------
 OTHER OPTIONS

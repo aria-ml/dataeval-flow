@@ -4,6 +4,14 @@
 
 ### Added
 
+- `dataeval-flow serve`, behind the new `service` extra and in every image: a long-running HTTP service that queues
+  pipelines and runs each as the headless command would, one at a time, in a process of its own. `POST /v1/runs`
+  takes a pipeline and its tasks; each run keeps a snapshot with every default filled in, its console and file logs,
+  and its result files under `<output>/runs/<id>/`, and `/v1/runs/{id}/results` serves each task's result as soon as
+  it finishes. Runs can be cancelled; stopping the service interrupts the running run and keeps the queued ones; the
+  history survives restarts. `/healthz`, `/livez` and `/readyz` report its health (IR-2.3-H-2, IR-2.3-S-1), and
+  `/openapi.json` describes the API (IR-2.4-S-1). Every line a run prints is logged on the service's console, tagged
+  with the run. Images set `DATAEVAL_SERVICE_HOST=0.0.0.0` and expose port 8001
 - `run_tasks(..., on_result=...)`: a callable given each task's name and result as soon as the task finishes,
   before the next one starts
 - The step catalog's `judges` (on a check, the evaluator and combine types whose Outputs it judges) and `judged_by`
