@@ -724,7 +724,7 @@
         },
         "check": {
           "const": "class-coverage",
-          "description": "`class-coverage`: Warns when a class is clustered, one-dimensional or padded with near-duplicates.",
+          "description": "`class-coverage`: Judges `coverage`'s output: warns when a class is clustered, one-dimensional or padded with near-duplicates.",
           "title": "Check",
           "type": "string"
         },
@@ -816,7 +816,7 @@
         },
         "check": {
           "const": "class-imbalance",
-          "description": "`class-imbalance`: Warns when the largest class outnumbers the smallest by more than `warning`.",
+          "description": "`class-imbalance`: Judges `label-health`'s output: warns when the largest class outnumbers the smallest by more than `warning`.",
           "title": "Check",
           "type": "string"
         },
@@ -889,7 +889,7 @@
         },
         "check": {
           "const": "class-outliers",
-          "description": "`class-outliers`: Warns when outliers pass `warning` percent across classes; names the worst class.",
+          "description": "`class-outliers`: Judges `outliers-by-class`'s output: warns when outliers pass `warning` percent across classes; names the worst class.",
           "title": "Check",
           "type": "string"
         },
@@ -947,7 +947,7 @@
         },
         "check": {
           "const": "class-shortfall",
-          "description": "`class-shortfall`: Lists the classes short of an even spread, and warns on an unmet minimum share.",
+          "description": "`class-shortfall`: Judges `representation`'s output: lists the classes short of an even spread, and warns on an unmet minimum share.",
           "title": "Check",
           "type": "string"
         },
@@ -1069,7 +1069,7 @@
         },
         "check": {
           "const": "class-stratification",
-          "description": "`class-stratification`: Judges how far each part's class shares stray from the whole's.",
+          "description": "`class-stratification`: Judges `label-health`'s output: how far each part's class shares stray from the whole's.",
           "title": "Check",
           "type": "string"
         },
@@ -1169,7 +1169,7 @@
         },
         "check": {
           "const": "class-sufficiency",
-          "description": "`class-sufficiency`: Warns when a class has too few labels to learn or to evaluate.",
+          "description": "`class-sufficiency`: Judges `label-health`'s output: warns when a class has too few labels to learn or to evaluate.",
           "title": "Check",
           "type": "string"
         },
@@ -1257,7 +1257,7 @@
         },
         "check": {
           "const": "dimensional-completeness",
-          "description": "`dimensional-completeness`: Warns when the embeddings fill too little of their space's dimensions.",
+          "description": "`dimensional-completeness`: Judges `completeness`'s output: warns when the embeddings fill too little of their space's dimensions.",
           "title": "Check",
           "type": "string"
         },
@@ -1363,7 +1363,7 @@
         },
         "check": {
           "const": "drift",
-          "description": "`drift`: Warns when a drift detector finds drift, whole or chunk by chunk.",
+          "description": "`drift`: Judges a `drift-*` detector's output: warns when it finds drift, whole or chunk by chunk.",
           "title": "Check",
           "type": "string"
         },
@@ -1451,7 +1451,7 @@
         },
         "check": {
           "const": "embedding-divergence",
-          "description": "`embedding-divergence`: Warns when two sources' embeddings sit too far apart.",
+          "description": "`embedding-divergence`: Judges `divergence`'s output: warns when two sources' embeddings sit too far apart.",
           "title": "Check",
           "type": "string"
         },
@@ -1539,7 +1539,7 @@
         },
         "check": {
           "const": "eval-coverage",
-          "description": "`eval-coverage`: Warns when much of an evaluation split lies beyond what train covers.",
+          "description": "`eval-coverage`: Judges an `ood-*` detector's output: warns when much of an evaluation split lies beyond what train covers.",
           "title": "Check",
           "type": "string"
         },
@@ -1611,7 +1611,7 @@
         },
         "check": {
           "const": "factor-coverage-gaps",
-          "description": "`factor-coverage-gaps`: Warns when enough class-factor-value combinations are under-represented.",
+          "description": "`factor-coverage-gaps`: Judges `factor-gaps`'s output: warns when enough class-factor-value combinations are under-represented.",
           "title": "Check",
           "type": "string"
         },
@@ -1676,7 +1676,7 @@
         },
         "check": {
           "const": "factor-issues",
-          "description": "`factor-issues`: Warns where metadata triage found a factor the run could not read as configured.",
+          "description": "`factor-issues`: Judges `factor-triage`'s output: warns where a metadata factor could not be read as configured.",
           "title": "Check",
           "type": "string"
         },
@@ -1757,7 +1757,7 @@
         },
         "check": {
           "const": "factor-parity",
-          "description": "`factor-parity`: Warns when a metadata factor is significantly associated with the class.",
+          "description": "`factor-parity`: Judges `parity`'s output: warns when a metadata factor is significantly associated with the class.",
           "title": "Check",
           "type": "string"
         },
@@ -1845,7 +1845,7 @@
         },
         "check": {
           "const": "image-duplicates",
-          "description": "`image-duplicates`: Warns when more than `exact` or `near` percent of the images are duplicates.",
+          "description": "`image-duplicates`: Judges `duplicates`'s output: warns when more than `exact` or `near` percent of the images are duplicates.",
           "title": "Check",
           "type": "string"
         },
@@ -1918,7 +1918,7 @@
         },
         "check": {
           "const": "image-outliers",
-          "description": "`image-outliers`: Warns when more than `warning` percent of a Dataset's images are outliers.",
+          "description": "`image-outliers`: Judges `outliers`'s output: warns when more than `warning` percent of a Dataset's images are outliers.",
           "title": "Check",
           "type": "string"
         },
@@ -1990,7 +1990,7 @@
         },
         "check": {
           "const": "label-conformance",
-          "description": "`label-conformance`: Warns when class names resolve to no ontology concept, or to several.",
+          "description": "`label-conformance`: Judges `label-reconciliation`'s output: warns when class names resolve to no ontology concept, or to several.",
           "title": "Check",
           "type": "string"
         },
@@ -2048,7 +2048,7 @@
         },
         "check": {
           "const": "label-mergeability",
-          "description": "`label-mergeability`: Whether a Dataset's classes carry over to an ontology's vocabulary, with the stanza.",
+          "description": "`label-mergeability`: Judges `label-alignment`'s output: whether a Dataset's classes carry over to an ontology's vocabulary, with the stanza.",
           "title": "Check",
           "type": "string"
         },
@@ -2135,7 +2135,7 @@
         },
         "check": {
           "const": "leaf-coverage",
-          "description": "`leaf-coverage`: Warns when too few of an ontology's leaves have examples, or a branch is empty.",
+          "description": "`leaf-coverage`: Judges `representation`'s output: warns when too few of an ontology's leaves have examples, or a branch is empty.",
           "title": "Check",
           "type": "string"
         },
@@ -2264,7 +2264,7 @@
         },
         "check": {
           "const": "leakage",
-          "description": "`leakage`: Warns when items or group values sit in two splits at once.",
+          "description": "`leakage`: Judges the `duplicates` and `factor-leakage` outputs: warns when items or group values sit in two splits at once.",
           "title": "Check",
           "type": "string"
         },
@@ -2322,7 +2322,7 @@
         },
         "check": {
           "const": "ontology-structure",
-          "description": "`ontology-structure`: Reports an ontology's structure, and warns on a label several concepts share.",
+          "description": "`ontology-structure`: Judges `ontology-validation`'s output: reports an ontology's structure, and warns on a label several concepts share.",
           "title": "Check",
           "type": "string"
         },
@@ -2423,7 +2423,7 @@
         },
         "check": {
           "const": "ood",
-          "description": "`ood`: Judges the share of a test source's images an OOD detector flagged.",
+          "description": "`ood`: Judges an `ood-*` detector's output: the share of a test source's images it flagged.",
           "title": "Check",
           "type": "string"
         },
@@ -2511,7 +2511,7 @@
         },
         "check": {
           "const": "ood-agreement",
-          "description": "`ood-agreement`: Judges the share of a test source's images every OOD detector flagged, and counts those one alone flagged.",
+          "description": "`ood-agreement`: Judges `ood-union`'s output: the share of a test source's images every OOD detector flagged, and those one alone flagged.",
           "title": "Check",
           "type": "string"
         },
@@ -2584,7 +2584,7 @@
         },
         "check": {
           "const": "shortcut-risk",
-          "description": "`shortcut-risk`: Warns when a metadata factor tells much about the class.",
+          "description": "`shortcut-risk`: Judges `balance`'s output: warns when a metadata factor tells much about the class.",
           "title": "Check",
           "type": "string"
         },
@@ -2662,7 +2662,7 @@
         },
         "check": {
           "const": "target-outliers",
-          "description": "`target-outliers`: Warns when more than `warning` percent of the boxes are outliers.",
+          "description": "`target-outliers`: Judges the `outliers` and `label-health` outputs: warns when more than `warning` percent of the boxes are outliers.",
           "title": "Check",
           "type": "string"
         },
@@ -2736,7 +2736,7 @@
         },
         "check": {
           "const": "uncovered-items",
-          "description": "`uncovered-items`: Warns when more than `warning` percent of a Dataset's items are uncovered.",
+          "description": "`uncovered-items`: Judges `coverage`'s output: warns when more than `warning` percent of a Dataset's items are uncovered.",
           "title": "Check",
           "type": "string"
         },
@@ -2813,7 +2813,7 @@
         },
         "check": {
           "const": "untrained-classes",
-          "description": "`untrained-classes`: Warns when an evaluation split holds a class train lacks.",
+          "description": "`untrained-classes`: Judges `label-health`'s output: warns when an evaluation split holds a class train lacks.",
           "title": "Check",
           "type": "string"
         },

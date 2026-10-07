@@ -73,7 +73,9 @@ class DriftCheck(Check[DriftConfig]):
     """``drift``: warns on drift, or, chunked, when enough chunks drift or enough drift in a row."""
 
     name: ClassVar[str] = "drift"
-    description: ClassVar[str] = "Warns when a drift detector finds drift, whole or chunk by chunk."
+    description: ClassVar[str] = (
+        "Judges a `drift-*` detector's output: warns when it finds drift, whole or chunk by chunk."
+    )
     title: ClassVar[str] = "Drift"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(DriftOutput,)),)
 
@@ -142,7 +144,7 @@ class EmbeddingDivergenceCheck(Check[EmbeddingDivergenceConfig]):
     """``embedding-divergence``: whether two sources' embeddings sit too far apart, judging one `divergence` Output."""
 
     name: ClassVar[str] = "embedding-divergence"
-    description: ClassVar[str] = "Warns when two sources' embeddings sit too far apart."
+    description: ClassVar[str] = "Judges `divergence`'s output: warns when two sources' embeddings sit too far apart."
     title: ClassVar[str] = "Embedding Divergence"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(DivergenceOutput,)),)
 

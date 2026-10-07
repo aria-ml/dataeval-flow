@@ -95,7 +95,7 @@ class OODCheck(Check[OODConfig]):
     """``ood``: how many of a test source's images an OOD detector flagged, `info` and warning past its thresholds."""
 
     name: ClassVar[str] = "ood"
-    description: ClassVar[str] = "Judges the share of a test source's images an OOD detector flagged."
+    description: ClassVar[str] = "Judges an `ood-*` detector's output: the share of a test source's images it flagged."
     title: ClassVar[str] = "OOD"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODOutput,)),)
 
@@ -131,7 +131,8 @@ class OODAgreementCheck(Check[OODAgreementConfig]):
 
     name: ClassVar[str] = "ood-agreement"
     description: ClassVar[str] = (
-        "Judges the share of a test source's images every OOD detector flagged, and counts those one alone flagged."
+        "Judges `ood-union`'s output: the share of a test source's images every OOD detector "
+        "flagged, and those one alone flagged."
     )
     title: ClassVar[str] = "OOD Agreement"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODUnionOutput,)),)
@@ -195,7 +196,9 @@ class EvalCoverageCheck(Check[EvalCoverageConfig]):
     """``eval-coverage``: how much of an evaluation split lies farther from train than most of train does."""
 
     name: ClassVar[str] = "eval-coverage"
-    description: ClassVar[str] = "Warns when much of an evaluation split lies beyond what train covers."
+    description: ClassVar[str] = (
+        "Judges an `ood-*` detector's output: warns when much of an evaluation split lies beyond what train covers."
+    )
     title: ClassVar[str] = "Eval Coverage"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OODOutput,)),)
 

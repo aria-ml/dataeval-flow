@@ -114,7 +114,9 @@ class ClassStratificationCheck(Check[ClassStratificationConfig]):
     holds no labels."""
 
     name: ClassVar[str] = "class-stratification"
-    description: ClassVar[str] = "Judges how far each part's class shares stray from the whole's."
+    description: ClassVar[str] = (
+        "Judges `label-health`'s output: how far each part's class shares stray from the whole's."
+    )
     title: ClassVar[str] = "Class Stratification"
     inputs: ClassVar[tuple[Port, ...]] = (
         Port("input", DataType.OUTPUT, classes=(LabelHealthOutput,)),

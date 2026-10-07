@@ -4,6 +4,8 @@
 
 ### Added
 
+- The step catalog's `judges` (on a check, the evaluator and combine types whose Outputs it judges) and `judged_by`
+  (on an evaluator or combine, the checks that judge it); `dataeval-flow steps <type>` shows both
 - The `collect` transform: one or more Datasets gathered into one list, keyed by name, each element its input
   unchanged, for a step that runs once per element or a preset's list input such as `audit`'s `evals`
 - `audit` runs as a step of a custom workflow, on splits a chain made: the task's result carries its verdict, record
@@ -241,6 +243,7 @@
 
 ### Changed
 
+- Every check's description opens with what it judges, such as "Judges `balance`'s output: …"
 - `drift-monitoring` and `ood-detection` are one `shift` preset: one `detectors:` list takes drift and OOD detectors,
   each judged by its family's check; `classwise` takes drift detectors; the OOD union, agreement and factor steps run
   where there are OOD detectors. With no `detectors:`, it runs `drift-univariate` (KS, Bonferroni) and

@@ -215,3 +215,18 @@ def test_every_step_the_parity_table_names_is_a_built_in_transform() -> None:
     named = {step for steps in _REACHED.values() for step in steps.split(", ")}
     assert named == {"view", "merge", "split", "kfold", "wrap"}
     assert named <= transforms
+
+
+def test_a_check_lists_what_it_judges_and_each_producer_lists_its_checks() -> None:
+    from dataeval_flow.steps import list_steps
+
+    steps = {(entry.kind, entry.type): entry for entry in list_steps(plugins=False).steps}
+    assert steps["check", "shortcut-risk"].judges == ["balance"]
+    assert steps["check", "leakage"].judges == ["duplicates", "factor-leakage"]
+    assert steps["check", "class-outliers"].judges == ["outliers-by-class"]
+    assert {"drift-mmd", "drift-univariate"} <= set(steps["check", "drift"].judges)
+    assert "shortcut-risk" in steps["evaluator", "balance"].judged_by
+    assert {"class-imbalance", "class-sufficiency", "untrained-classes"} <= set(
+        steps["evaluator", "label-health"].judged_by
+    )
+    assert steps["transform", "split"].judges == steps["transform", "split"].judged_by == []

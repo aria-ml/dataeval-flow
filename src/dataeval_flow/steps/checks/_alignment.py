@@ -70,7 +70,10 @@ class LabelMergeabilityCheck(Check[LabelMergeabilityConfig]):
     warns."""
 
     name: ClassVar[str] = "label-mergeability"
-    description: ClassVar[str] = "Whether a Dataset's classes carry over to an ontology's vocabulary, with the stanza."
+    description: ClassVar[str] = (
+        "Judges `label-alignment`'s output: whether a Dataset's classes carry over to an "
+        "ontology's vocabulary, with the stanza."
+    )
     title: ClassVar[str] = "Label Mergeability"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(LabelAlignmentOutput,)),)
 

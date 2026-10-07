@@ -34,7 +34,9 @@ class FactorIssuesCheck(Check[FactorIssuesConfig]):
     issue is blocking where the run did less than its configuration asked."""
 
     name: ClassVar[str] = "factor-issues"
-    description: ClassVar[str] = "Warns where metadata triage found a factor the run could not read as configured."
+    description: ClassVar[str] = (
+        "Judges `factor-triage`'s output: warns where a metadata factor could not be read as configured."
+    )
     title: ClassVar[str] = "Factor Issues"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(FactorTriageOutput,)),)
 

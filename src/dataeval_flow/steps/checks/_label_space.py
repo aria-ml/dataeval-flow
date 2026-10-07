@@ -94,7 +94,10 @@ class LeafCoverageCheck(Check[LeafCoverageConfig]):
     asserted minimum share is not met."""
 
     name: ClassVar[str] = "leaf-coverage"
-    description: ClassVar[str] = "Warns when too few of an ontology's leaves have examples, or a branch is empty."
+    description: ClassVar[str] = (
+        "Judges `representation`'s output: warns when too few of an ontology's leaves have "
+        "examples, or a branch is empty."
+    )
     title: ClassVar[str] = "Leaf Coverage"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(RepresentationOutput,)),)
 
@@ -159,7 +162,9 @@ class LabelConformanceCheck(Check[LabelConformanceConfig]):
     """``label-conformance``: warns when class names resolve to no ontology concept, or to several."""
 
     name: ClassVar[str] = "label-conformance"
-    description: ClassVar[str] = "Warns when class names resolve to no ontology concept, or to several."
+    description: ClassVar[str] = (
+        "Judges `label-reconciliation`'s output: warns when class names resolve to no ontology concept, or to several."
+    )
     title: ClassVar[str] = "Label Conformance"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(LabelReconciliationOutput,)),)
 
@@ -225,7 +230,10 @@ class OntologyStructureCheck(Check[OntologyStructureConfig]):
     """``ontology-structure``: reports an ontology's structural facts, and warns on a label several concepts share."""
 
     name: ClassVar[str] = "ontology-structure"
-    description: ClassVar[str] = "Reports an ontology's structure, and warns on a label several concepts share."
+    description: ClassVar[str] = (
+        "Judges `ontology-validation`'s output: reports an ontology's structure, and warns on a "
+        "label several concepts share."
+    )
     title: ClassVar[str] = "Ontology Structure"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OntologyValidationOutput,)),)
 
@@ -284,7 +292,10 @@ class ClassShortfallCheck(Check[ClassShortfallConfig]):
     the classes the dataset declares (coverage spec §6.2)."""
 
     name: ClassVar[str] = "class-shortfall"
-    description: ClassVar[str] = "Lists the classes short of an even spread, and warns on an unmet minimum share."
+    description: ClassVar[str] = (
+        "Judges `representation`'s output: lists the classes short of an even spread, and warns on "
+        "an unmet minimum share."
+    )
     title: ClassVar[str] = "Class Shortfall"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(RepresentationOutput,)),)
 

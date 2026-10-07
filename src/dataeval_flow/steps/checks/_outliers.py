@@ -44,7 +44,9 @@ class ImageOutliersCheck(Check[ImageOutliersConfig]):
     """``image-outliers``: warns when more than ``warning`` percent of a Dataset's images are outliers."""
 
     name: ClassVar[str] = "image-outliers"
-    description: ClassVar[str] = "Warns when more than `warning` percent of a Dataset's images are outliers."
+    description: ClassVar[str] = (
+        "Judges `outliers`'s output: warns when more than `warning` percent of a Dataset's images are outliers."
+    )
     title: ClassVar[str] = "Image Outliers"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OutliersOutput,)),)
 
@@ -87,7 +89,10 @@ class TargetOutliersCheck(Check[TargetOutliersConfig]):
     """
 
     name: ClassVar[str] = "target-outliers"
-    description: ClassVar[str] = "Warns when more than `warning` percent of the boxes are outliers."
+    description: ClassVar[str] = (
+        "Judges the `outliers` and `label-health` outputs: warns when more than `warning` percent "
+        "of the boxes are outliers."
+    )
     title: ClassVar[str] = "Target Outliers"
     inputs: ClassVar[tuple[Port, ...]] = (
         Port("input", DataType.OUTPUT, classes=(OutliersOutput,)),
@@ -132,7 +137,10 @@ class ClassOutliersCheck(Check[ClassOutliersConfig]):
     the worst class and how many classes pass the limit."""
 
     name: ClassVar[str] = "class-outliers"
-    description: ClassVar[str] = "Warns when outliers pass `warning` percent across classes; names the worst class."
+    description: ClassVar[str] = (
+        "Judges `outliers-by-class`'s output: warns when outliers pass `warning` percent across "
+        "classes; names the worst class."
+    )
     title: ClassVar[str] = "Class Outliers"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OutliersByClassOutput,)),)
 

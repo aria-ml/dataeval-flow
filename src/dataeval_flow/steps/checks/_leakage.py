@@ -133,7 +133,10 @@ class LeakageCheck(Check[LeakageConfig]):
     """
 
     name: ClassVar[str] = "leakage"
-    description: ClassVar[str] = "Warns when items or group values sit in two splits at once."
+    description: ClassVar[str] = (
+        "Judges the `duplicates` and `factor-leakage` outputs: warns when items or group values "
+        "sit in two splits at once."
+    )
     title: ClassVar[str] = "Leakage"
     inputs: ClassVar[tuple[Port, ...]] = (
         Port("duplicates", DataType.OUTPUT, classes=(DuplicatesOutput,), is_list=True, count=SourceCount.ONE_OR_MORE),

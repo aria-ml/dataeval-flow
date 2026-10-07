@@ -32,7 +32,9 @@ class FactorCoverageGapsCheck(Check[FactorCoverageGapsConfig]):
     """``factor-coverage-gaps``: warns past `warning` gaps, informs with up to that many, and is ok with none."""
 
     name: ClassVar[str] = "factor-coverage-gaps"
-    description: ClassVar[str] = "Warns when enough class-factor-value combinations are under-represented."
+    description: ClassVar[str] = (
+        "Judges `factor-gaps`'s output: warns when enough class-factor-value combinations are under-represented."
+    )
     title: ClassVar[str] = "Factor Coverage Gaps"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(FactorGapsOutput,)),)
 

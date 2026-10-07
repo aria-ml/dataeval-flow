@@ -2,6 +2,7 @@
 rules are written out for plugin authors in reference/naming.md."""
 
 import re
+from fnmatch import fnmatch
 from typing import Any, get_args
 
 import pytest
@@ -275,3 +276,16 @@ def test_a_step_description_is_one_sentence(cls: type) -> None:
     assert description.endswith("."), error_msg
     assert "\n" not in description, error_msg
     assert ". " not in description, f"{cls.kind} `{cls.name}`'s description is more than one sentence"
+
+
+@pytest.mark.parametrize("cls", CHECKS.list(plugins=False), ids=_id)
+def test_a_check_s_description_names_what_it_judges(cls: type) -> None:
+    from dataeval_flow.steps import list_steps
+
+    (entry,) = [e for e in list_steps(plugins=False).steps if e.kind == "check" and e.type == cls.name]
+    head, colon, _ = cls.description.partition(":")
+    named = re.findall(r"`([^`]+)`", head)
+    assert cls.description.startswith("Judges "), f"`{cls.name}`: start with 'Judges <what>: '"
+    assert colon, f"`{cls.name}`: follow what it judges with a colon"
+    missing = [judged for judged in entry.judges if not any(fnmatch(judged, name) for name in named)]
+    assert not missing, f"`{cls.name}` judges {missing}, which its description does not name"

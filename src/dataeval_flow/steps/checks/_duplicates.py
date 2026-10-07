@@ -47,7 +47,9 @@ class ImageDuplicatesCheck(Check[ImageDuplicatesConfig]):
     """
 
     name: ClassVar[str] = "image-duplicates"
-    description: ClassVar[str] = "Warns when more than `exact` or `near` percent of the images are duplicates."
+    description: ClassVar[str] = (
+        "Judges `duplicates`'s output: warns when more than `exact` or `near` percent of the images are duplicates."
+    )
     title: ClassVar[str] = "Image Duplicates"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(DuplicatesOutput,)),)
 

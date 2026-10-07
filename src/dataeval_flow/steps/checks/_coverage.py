@@ -42,7 +42,9 @@ class UncoveredItemsCheck(Check[UncoveredItemsConfig]):
     """``uncovered-items``: warns when more than ``warning`` percent of a Dataset's items are uncovered."""
 
     name: ClassVar[str] = "uncovered-items"
-    description: ClassVar[str] = "Warns when more than `warning` percent of a Dataset's items are uncovered."
+    description: ClassVar[str] = (
+        "Judges `coverage`'s output: warns when more than `warning` percent of a Dataset's items are uncovered."
+    )
     title: ClassVar[str] = "Uncovered Items"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(CoverageOutput,)),)
 
@@ -89,7 +91,9 @@ class DimensionalCompletenessCheck(Check[DimensionalCompletenessConfig]):
     """``dimensional-completeness``: legacy data-coverage's Dimensional Completeness finding (coverage spec §6.2)."""
 
     name: ClassVar[str] = "dimensional-completeness"
-    description: ClassVar[str] = "Warns when the embeddings fill too little of their space's dimensions."
+    description: ClassVar[str] = (
+        "Judges `completeness`'s output: warns when the embeddings fill too little of their space's dimensions."
+    )
     title: ClassVar[str] = "Dimensional Completeness"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(CompletenessOutput,)),)
 
@@ -157,7 +161,9 @@ class ClassCoverageCheck(Check[ClassCoverageConfig]):
     `uncovered-items`'s (coverage spec §6.2)."""
 
     name: ClassVar[str] = "class-coverage"
-    description: ClassVar[str] = "Warns when a class is clustered, one-dimensional or padded with near-duplicates."
+    description: ClassVar[str] = (
+        "Judges `coverage`'s output: warns when a class is clustered, one-dimensional or padded with near-duplicates."
+    )
     title: ClassVar[str] = "Class Coverage"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(CoverageOutput,)),)
 
