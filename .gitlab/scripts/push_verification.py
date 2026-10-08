@@ -108,9 +108,28 @@ def collect_generated(base: str) -> dict[str, Path]:
     return generated
 
 
+def refuse_default_branch() -> None:
+    """Exit unless this run is allowed to write to the meta repo.
+
+    The meta repo keeps one copy of the requirements, test cases, and VCRM, so whichever
+    pipeline publishes last wins. The default branch runs ahead of the release, and its
+    results would overwrite the evidence recorded for the released version. Publish from a
+    release tag, or from a release branch.
+    """
+    branch = os.environ.get("CI_COMMIT_BRANCH", "")
+    default = os.environ.get("CI_DEFAULT_BRANCH", "main")
+    if branch and branch in {default, "main"} and not os.environ.get("CI_COMMIT_TAG"):
+        raise SystemExit(
+            f"error: refusing to publish verification artifacts from the default branch ({branch}). "
+            "Publish from a release tag or a release branch; --dry-run is allowed here."
+        )
+
+
 def main() -> None:
     """Generate the commit plan and, unless ``--dry-run``, push it to the meta repo."""
     dry_run = "--dry-run" in sys.argv
+    if not dry_run:
+        refuse_default_branch()
     prune = "--prune" in sys.argv
 
     project_id, base = load_metarepo_config()
