@@ -938,8 +938,8 @@ test_cases:
     tests:
     - scale::test_data_analysis_time_at_one_and_four_processes_is_recorded
   - do: Time `data-cleaning` and `data-analysis` on the dataset.
-    expect: Each completes within its budget. Development-machine baselines are 6.1 s and 11.8 s, so the budgets
-      are about 12 s and 24 s until they are re-measured on the runner.
+    expect: Each completes within its budget. The CI-runner baselines are 24.3 s and 50.4 s (6.1 s and 11.8 s
+      on the development machine), so the budgets are 50 s and 100 s.
     tests:
     - scale::test_reference_pipeline_completes_within_budget
 - id: 26-1

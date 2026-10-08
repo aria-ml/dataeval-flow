@@ -23,9 +23,10 @@ pytestmark = [pytest.mark.required, pytest.mark.performance]
 
 _WORKER = Path(__file__).with_name("_worker.py")
 
-# Time budgets in seconds for 10,000 32x32 images: twice the v0.2.4 development-machine baselines
-# (data-cleaning 6.1 s, data-analysis 11.8 s). To be re-measured on the CI runner.
-BUDGET_S = {"data-cleaning": 12.0, "data-analysis": 24.0}
+# Time budgets in seconds for 10,000 32x32 images: twice the v0.2.4 baselines measured on the CI runner
+# (data-cleaning 24.3 s, data-analysis 50.4 s; the development machine measured 6.1 s and 11.8 s).
+# Regression guards, not performance promises.
+BUDGET_S = {"data-cleaning": 50.0, "data-analysis": 100.0}
 
 # Reference peak-memory growth per 32x32 image for data-cleaning (13 KB) and data-analysis (22 KB). The gate
 # allows three times the larger figure.
