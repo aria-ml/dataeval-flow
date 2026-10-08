@@ -16,6 +16,7 @@ metarepo:
   project_id: 409
   path: DataEval-Flow
 product: DataEval Flow
+distribution: dataeval-flow
 aliases:
   pip: verification/functional/install/test_pip_install.py::TestPipInstall
   cli: verification/functional/cli/test_cli_entrypoints.py::TestCLIEntrypoints

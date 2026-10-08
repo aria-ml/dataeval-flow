@@ -137,3 +137,20 @@ class TestDefaultBranchGuard:
         monkeypatch.delenv("CI_COMMIT_BRANCH")
         monkeypatch.setenv("CI_COMMIT_TAG", "v1.1.5")
         push.refuse_default_branch()
+
+
+class TestResultsLog:
+    def test_log_reports_a_failed_step_and_uncited_tests(self):
+        registry = {
+            "product": "P",
+            "distribution": "no-such-distribution",
+            "aliases": ALIASES,
+            "requirements": [{"id": "FR-1", "name": "r"}],
+            "test_cases": [_tc("a::test_one", "a::test_two")],
+        }
+        report = {"run": {"command": "pytest x"}, "tests": {k: {"status": v} for k, v in NODES.items()}}
+        log = gen.test_results_log(registry, report, None)
+        assert "FAIL" in log
+        assert "pkg/test_a.py::TestA::test_two" in log
+        assert "FAILED" in log  # the requirement is FAILED
+        assert "pkg/test_a.py::TestA::test_skip" in log.split("TESTS NOT CITED")[1]

@@ -8,6 +8,7 @@ Reads the registry (``registry.yaml``), the pytest report
   - requirements/<id>-<slug>.md   one per requirement, rendered from the registry
   - test-cases/test-case-<id>.md  one per test case, with each step's result
   - vcrm.md                       requirement to test case matrix with verification row
+  - test-results.log              run log for the dated assessment folder (DR-1.1-H-4, DR-1.3-H-1)
 
 A test case is a list of steps. Each step names the pytest tests (``alias::test``
 or a full node id), CI jobs (``CI: <job>``), or planned tests (``NEW: <what>``)
@@ -18,8 +19,11 @@ with a planned test, or with CI evidence that is not available, is pending.
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 from datetime import datetime, timezone
+from importlib import metadata
 from pathlib import Path
 
 import yaml
@@ -237,6 +241,145 @@ def vcrm_md(registry: dict, nodes: dict | None, ci_jobs: dict | None, today: str
 
 
 # ---------------------------------------------------------------------------
+# Test results log
+# ---------------------------------------------------------------------------
+
+LOG_WIDTH = 100
+_LOG_STATUS = {"passed": "PASS", "failed": "FAIL", "error": "ERROR", "skipped": "SKIP", "pending": "PENDING"}
+
+
+def _git(*args: str) -> str | None:
+    try:
+        out = subprocess.run(["git", "-C", str(PROJECT_ROOT), *args], capture_output=True, text=True, check=True)  # noqa: S603, S607
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return out.stdout.strip()
+
+
+def _source_line() -> str:
+    """Describe the verified source: project URL, ref, commit, and whether it had local changes."""
+    url = os.environ.get("CI_PROJECT_URL")
+    if not url:
+        url = _git("remote", "get-url", "origin") or "unknown"
+        if url.startswith("git@"):
+            url = "https://" + url.removeprefix("git@").replace(":", "/", 1)
+        url = re.sub(r"//[^/@]+@", "//", url).removesuffix(".git")
+    ref = (
+        os.environ.get("CI_COMMIT_TAG")
+        or _git("describe", "--tags", "--exact-match", "HEAD")
+        or os.environ.get("CI_COMMIT_REF_NAME")
+        or _git("rev-parse", "--abbrev-ref", "HEAD")
+        or "unknown"
+    )
+    commit = (os.environ.get("CI_COMMIT_SHA") or _git("rev-parse", "HEAD") or "unknown")[:8]
+    dirty = " [uncommitted changes]" if _git("status", "--porcelain", "--untracked-files=no") else ""
+    return f"{url} @ {ref} ({commit}){dirty}"
+
+
+def _product_version(distribution: str) -> str:
+    try:
+        return metadata.version(distribution)
+    except metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def _label(status: str) -> str:
+    return _LOG_STATUS.get(status, status.upper())
+
+
+def _counts(statuses: list[str]) -> str:
+    found = {s: statuses.count(s) for s in _LOG_STATUS if statuses.count(s)}
+    return ", ".join(f"{n} {s}" for s, n in found.items()) or "none"
+
+
+def _detail_lines(cases: dict, outcome: dict, tests: dict) -> tuple[list[str], set[str]]:
+    """Per-step evidence for every test case, and the set of evidence references it cited."""
+    lines: list[str] = []
+    cited: set[str] = set()
+    for i in sorted(cases, key=tc_sort_key):
+        t, steps = cases[i]
+        lines.append(f"[test-case-{i}] {_label(outcome[i])}  {t['name']}")
+        for n, (status, evidence) in enumerate(steps, 1):
+            lines.append(f"  step {n}: {_label(status)}  {t['steps'][n - 1]['do']}")
+            for ref, st in evidence:
+                cited.add(ref)
+                lines.append(f"      {_label(st):<8}{ref}")
+                msg = tests.get(ref, {}).get("message")
+                if msg:
+                    lines.append(f"              -> {msg}")
+        lines.append("")
+    return lines, cited
+
+
+def _requirement_status(rid: str, cases: dict, outcome: dict) -> str:
+    mine = [outcome[i] for i, (t, _) in cases.items() if t["req"] == rid]
+    if not mine:
+        return "UNMAPPED"
+    if all(s == PASS for s in mine):
+        return "VERIFIED"
+    return "FAILED" if FAIL in mine else "PARTIAL"
+
+
+def test_results_log(registry: dict, report: dict, ci_jobs: dict | None) -> str:
+    """Render the run log: summary, test case results, requirement coverage, and per-step evidence."""
+    aliases = registry.get("aliases", {})
+    run = report.get("run", {})
+    tests = report.get("tests", {})
+    nodes = {k: v["status"] for k, v in tests.items()}
+    cases = {t["id"]: (t, step_statuses(t, aliases, nodes, ci_jobs)) for t in registry["test_cases"]}
+    outcome = {i: combine([s for s, _ in steps]) for i, (_, steps) in cases.items()}
+    reqs = registry["requirements"]
+
+    rstatus = {r["id"]: _requirement_status(r["id"], cases, outcome) for r in reqs}
+    verified = list(rstatus.values()).count("VERIFIED")
+    rule, thin = "=" * LOG_WIDTH, "-" * LOG_WIDTH
+    lines = [
+        rule,
+        f"{registry['product']} - Verification Test Results",
+        rule,
+        f"Product version    : {_product_version(registry.get('distribution', slug(registry['product'])))}",
+        f"Source             : {_source_line()}",
+        f"Runner             : {os.environ.get('CI_JOB_URL') or 'local run (not CI)'}",
+        f"Command            : {run.get('command', 'unknown')}",
+        f"Python             : {run.get('python', 'unknown')} ({run.get('platform', 'unknown')})",
+        f"Started (UTC)      : {run.get('started', 'unknown')}",
+        f"Finished (UTC)     : {run.get('finished', 'unknown')}",
+        f"pytest exit status : {run.get('exit_status', 'unknown')}",
+        "Standard           : DR-1.1-H-4, DR-1.3-H-1 (JATIC internal-docs v1.2.0)",
+        "",
+        thin,
+        "SUMMARY",
+        thin,
+        f"Test cases         : {len(cases)} total, {_counts(list(outcome.values()))}",
+        f"Tests              : {len(tests)} total, {_counts([t['status'] for t in tests.values()])}",
+        f"Requirements       : {len(reqs)} total, {verified} verified (every test case passed)",
+        "",
+        thin,
+        "TEST CASE RESULTS",
+        thin,
+        f"{'TEST CASE':<10}{'STATUS':<9}{'STEPS PASSED':<14}{'REQUIREMENT':<13}NAME",
+    ]
+    for i in sorted(cases, key=tc_sort_key):
+        t, steps = cases[i]
+        done = sum(s == PASS for s, _ in steps)
+        lines.append(f"{i:<10}{_label(outcome[i]):<9}{f'{done}/{len(steps)}':<14}{t['req']:<13}{t['name']}")
+    lines += ["", thin, "REQUIREMENT COVERAGE", thin, f"{'REQUIREMENT':<13}{'STATUS':<10}{'TEST CASES':<20}NAME"]
+    for r in reqs:
+        mine = sorted((i for i, (t, _) in cases.items() if t["req"] == r["id"]), key=tc_sort_key)
+        lines.append(f"{r['id']:<13}{rstatus[r['id']]:<10}{', '.join(mine) or '-':<20}{r['name']}")
+    detail, cited = _detail_lines(cases, outcome, tests)
+    lines += ["", thin, "TEST DETAIL", thin, *detail]
+    lines += [thin, "TESTS NOT CITED BY A TEST CASE", thin]
+    uncited = sorted(n for n in tests if n not in cited)
+    for n in uncited:
+        lines.append(f"  {_label(tests[n]['status']):<8}{n}")
+    if not uncited:
+        lines.append("  (none)")
+    lines += ["", rule, "END OF REPORT", rule]
+    return "\n".join(lines) + "\n"
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -263,7 +406,7 @@ def main() -> None:
     check_registry(registry)
     aliases = registry.get("aliases", {})
     report = load_json(REPORT_PATH)
-    nodes = report.get("nodes") if report else None
+    nodes = {k: v["status"] for k, v in report["tests"].items()} if report else None
     ci_jobs = load_json(CI_JOBS_PATH)
     today = datetime.now(tz=timezone.utc).strftime("%m/%d/%Y")
 
@@ -279,6 +422,8 @@ def main() -> None:
         out = OUTPUT_DIR / "test-cases" / f"test-case-{tc['id']}.md"
         out.write_text(test_case_md(tc, aliases, nodes, ci_jobs, today))
     (OUTPUT_DIR / "vcrm.md").write_text(vcrm_md(registry, nodes, ci_jobs, today))
+    if report:
+        (OUTPUT_DIR / "test-results.log").write_text(test_results_log(registry, report, ci_jobs))
 
     results = [tc_outcome(t, aliases, nodes, ci_jobs) for t in registry["test_cases"]]
     counts = {k: results.count(k) for k in (PASS, FAIL, SKIP, PENDING)}
