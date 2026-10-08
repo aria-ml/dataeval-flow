@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
@@ -265,7 +265,7 @@ def main() -> None:
     report = load_json(REPORT_PATH)
     nodes = report.get("nodes") if report else None
     ci_jobs = load_json(CI_JOBS_PATH)
-    today = datetime.now(tz=UTC).strftime("%m/%d/%Y")
+    today = datetime.now(tz=timezone.utc).strftime("%m/%d/%Y")
 
     if nodes is None:
         print("No verification report with node results found: every pytest step will show as pending")

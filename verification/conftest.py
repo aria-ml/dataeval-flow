@@ -27,6 +27,13 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "performance: timing, memory, and scale measurements (deselect with -m 'not performance')",
+    )
+
+
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     outcome = yield
