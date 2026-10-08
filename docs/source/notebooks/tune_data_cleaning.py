@@ -136,6 +136,7 @@ task = TaskConfig(
 )
 
 config = PipelineConfig(
+    max_processes=2,
     # Each run starts from this seed, so no run's clustering depends on the runs before it.
     seed=42,
     datasets=[

@@ -111,6 +111,7 @@ task = TaskConfig(
 )
 
 config = PipelineConfig(
+    max_processes=2,
     datasets=[DatasetProtocolConfig(name="seadrone", dataset=seadrone)],
     views=[
         ViewConfig(

@@ -141,6 +141,7 @@ from dataeval_flow.config import (
 from dataeval_flow.workflows.triage import TriageConfig
 
 triage_config = PipelineConfig(
+    max_processes=2,
     metadata=[MetadataPolicyConfig(name="skysealand_factors", intrinsic_factors=["visual", "pixel"])],
     datasets=[CocoDatasetConfig(name="skysealand_train", path=str(split_paths["train"]))],
     views=[

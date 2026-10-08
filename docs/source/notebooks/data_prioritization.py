@@ -372,6 +372,7 @@ task = TaskConfig(
 
 # %%
 config = PipelineConfig(
+    max_processes=2,
     datasets=[
         DatasetProtocolConfig(name="ref_ds", dataset=ref_dataset),
         DatasetProtocolConfig(name="test_ds", dataset=test_dataset),

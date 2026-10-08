@@ -164,6 +164,7 @@ task = TaskConfig(
 
 # Build the pipeline configuration: datasets, sources, extractors, views, workflows, and tasks
 config = PipelineConfig(
+    max_processes=2,
     seed=0,
     datasets=[
         CocoDatasetConfig(name="skysealand_base", path=str(data_path)),

@@ -133,6 +133,7 @@ bias_task = TaskConfig(name="bias_military_vehicles", workflow="mv_bias", source
 
 # Build the pipeline configuration
 config = PipelineConfig(
+    max_processes=2,
     datasets=[
         HuggingFaceDatasetConfig(name="mv_train", path=str(data_path), task="image_classification"),
     ],

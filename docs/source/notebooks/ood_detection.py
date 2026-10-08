@@ -286,6 +286,7 @@ task = TaskConfig(
 )
 
 config = PipelineConfig(
+    max_processes=2,
     datasets=[ref_config, incoming_config],
     sources=[
         SourceConfig(name="ref_src", dataset="reference"),

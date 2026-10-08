@@ -245,6 +245,7 @@ chunking = ChunkedDriftConfig(chunk_size=50, incomplete="append", threshold=("zs
 set_device("cpu")
 
 config = PipelineConfig(
+    max_processes=2,
     seed=0,
     datasets=[reference_dataset, operational_dataset],
     sources=[
@@ -355,6 +356,7 @@ control_task = TaskConfig(
 )
 
 control_config = PipelineConfig(
+    max_processes=2,
     seed=0,
     datasets=[reference_dataset],
     views=[

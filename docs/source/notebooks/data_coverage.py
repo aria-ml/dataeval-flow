@@ -212,6 +212,7 @@ task_metadata = TaskConfig(
 )
 
 config_metadata = PipelineConfig(
+    max_processes=2,
     metadata=[vehicle_factors],
     datasets=[
         DatasetProtocolConfig(name="vehicles_collected", format="maite", dataset=collected),
@@ -353,6 +354,7 @@ task_vocab = TaskConfig(
 )
 
 config_vocab = PipelineConfig(
+    max_processes=2,
     datasets=config_metadata.datasets,
     sources=config_metadata.sources,
     workflows=[vocab_workflow],
@@ -511,6 +513,7 @@ task_full = TaskConfig(
 )
 
 config_full = PipelineConfig(
+    max_processes=2,
     seed=0,
     metadata=config_metadata.metadata,
     datasets=config_metadata.datasets,
@@ -638,6 +641,7 @@ task_strict = TaskConfig(
 )
 
 config_strict = PipelineConfig(
+    max_processes=2,
     seed=0,
     metadata=config_full.metadata,
     datasets=config_full.datasets,

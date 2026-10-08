@@ -77,6 +77,7 @@ MILCO(root=data_root, image_set="operational", as_datamaite=True)
 set_device("cpu")  # the same numbers on a machine with a GPU
 
 config = PipelineConfig(
+    max_processes=2,
     seed=0,
     # `original_id` numbers each frame, so it names the frames rather than describing them.
     metadata=[MetadataPolicyConfig(name="milco", exclude=["original_id"])],

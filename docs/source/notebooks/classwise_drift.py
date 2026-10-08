@@ -338,6 +338,7 @@ overall_task = TaskConfig(
 set_device("cpu")  # the same numbers on a machine with a GPU
 
 overall_config = PipelineConfig(
+    max_processes=2,
     datasets=[ref_config, incoming_config],
     views=[ref_view],
     sources=[ref_source_config, inc_source_config],
@@ -389,6 +390,7 @@ classwise_task = TaskConfig(
 )
 
 classwise_config = PipelineConfig(
+    max_processes=2,
     datasets=[ref_config, incoming_config],
     views=[ref_view],
     sources=[ref_source_config, inc_source_config],
@@ -519,6 +521,7 @@ grouped_task = TaskConfig(
 )
 
 grouped_config = PipelineConfig(
+    max_processes=2,
     datasets=[ref_config, incoming_config],
     views=[ref_view],
     sources=[ref_source_config, inc_source_config],

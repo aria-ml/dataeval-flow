@@ -82,6 +82,7 @@ tasks = [
 ]
 
 config = PipelineConfig(
+    max_processes=2,
     datasets=datasets,
     views=views,
     sources=sources,

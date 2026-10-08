@@ -144,6 +144,7 @@ task = TaskConfig(
 )
 
 config = PipelineConfig(
+    max_processes=2,
     seed=0,
     metadata=[
         MetadataPolicyConfig(

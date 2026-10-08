@@ -16,6 +16,9 @@
 # Pin every stochastic component (clustering, splitting) so re-runs match.
 seed: 42
 
+# Use two DataEval worker processes, which shortens the embedding and statistics steps.
+max_processes: 2
+
 # -----------------------------------------------------------------------------
 # METADATA — which factors bias analysis reads, and how they are encoded
 # -----------------------------------------------------------------------------
