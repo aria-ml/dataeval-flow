@@ -7,6 +7,10 @@
 - `max_processes` config setting, `--max-processes` CLI option, and `DATAEVAL_MAX_PROCESSES` environment variable bound
   the worker processes and the value is recorded in each result's `resolved_config`
 
+### Changed
+
+- Requires `dataeval>=1.1.4`; the lock files and container images resolve DataEval 1.1.4
+
 ## v0.2.4
 
 ### Added
