@@ -955,12 +955,11 @@ release:sbom:
 #   - a web pipeline with PUBLISH_VERIFICATION set — republish on demand without
 #     rebuilding anything; every other job opts out via .skip_publish_verification
 #
-# That directory also holds hand-maintained requirement docs (the FR-*.md files
-# the VCRM links to). push_verification.py only creates/updates the files it
-# generates and never deletes, so the manual content already there is safe.
-# Set VERIFICATION_PUSH_ARGS on the trigger to change that:
+# The requirements, test cases, and VCRM are all generated from verification/registry.yaml.
+# push_verification.py only creates/updates them and never deletes unless asked. It also
+# refuses to run from the default branch. Set VERIFICATION_PUSH_ARGS on the trigger to change that:
 #   --dry-run   print the commit plan and exit without writing
-#   --prune     also delete stale test-case-*.md files dropped from registry.yaml
+#   --prune     also delete stale requirements and test cases dropped from registry.yaml
 #
 # Requires the group-level DATAEVAL_BUILD_PAT variable (same token as the docs
 # cache push) with api scope on the meta repo.
@@ -969,6 +968,11 @@ publish:verification:
   stage: release
   needs: []
   rules:
+    # The meta repo keeps one copy of the requirements, test cases, and VCRM, so whichever
+    # pipeline publishes last wins. Main runs ahead of the release and is kept out; publish
+    # from a release tag, or from a release branch via PUBLISH_VERIFICATION.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: never
     - if: $PUBLISH_VERIFICATION
     - if: $CI_COMMIT_TAG =~ /^v\d+/
   variables:
