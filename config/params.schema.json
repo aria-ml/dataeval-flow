@@ -9932,6 +9932,97 @@
       "title": "PrioritizationWorkflowConfig",
       "type": "object"
     },
+    "ProfileConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``profile``: how each measured statistic and each supplied metadata field is distributed.\n\nSummarizes every column the stats policy measures, for each image and, on detection data, each box, and every\nfactor of the source's metadata at its own level: counts of missing and non-finite values, the range, mean,\nmedian and standard deviation, and an equal-width histogram for a number; the most frequent values for anything\nelse. Every row's value is kept beside the result, so a selection over a bin reads the rows themselves. DataEval\nhas no such evaluator, so ``bins`` and ``categories`` are Flow's own defaults.\n\nExample YAML::\n\n    evaluators:\n      - name: profile\n        type: profile\n        flags: [pixel, visual]",
+      "properties": {
+        "metadata": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
+          "title": "Metadata"
+        },
+        "stats": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
+          "title": "Stats"
+        },
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "profile",
+          "default": "profile",
+          "description": "The evaluator type this entry configures: `profile`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "flags": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "dimension",
+                  "dimension_basic",
+                  "dimension_box",
+                  "dimension_offset",
+                  "dimension_position",
+                  "pixel",
+                  "pixel_basic",
+                  "pixel_distribution",
+                  "visual",
+                  "visual_basic"
+                ],
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Statistics families or sub-groups to measure where no `stats` policy is named. Unset measures what `outliers` measures by default, so the two share their cached statistics.",
+          "title": "Flags"
+        },
+        "bins": {
+          "default": 10,
+          "description": "Equal-width bins in each number's histogram.",
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Bins",
+          "type": "integer"
+        },
+        "categories": {
+          "default": 20,
+          "description": "The most frequent values named for each field; the rest are counted together as other.",
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Categories",
+          "type": "integer"
+        }
+      },
+      "title": "ProfileConfig",
+      "type": "object"
+    },
     "QualityChecks": {
       "additionalProperties": false,
       "description": "When quality's findings warn: each check's settings, keyed by check type.",
@@ -13168,6 +13259,9 @@
               },
               {
                 "$ref": "#/$defs/PrioritizationConfig"
+              },
+              {
+                "$ref": "#/$defs/ProfileConfig"
               },
               {
                 "$ref": "#/$defs/RepresentationConfig"

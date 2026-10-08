@@ -31,34 +31,46 @@ runs. Bind it to a trusted network only.
 
 ## Endpoints
 
-| Method and path                      | Success                        | Errors     | Does                                                       |
-| ------------------------------------ | ------------------------------ | ---------- | ---------------------------------------------------------- |
-| `GET /healthz`                       | `200`                          | `503`      | Whether the service takes and runs work                    |
-| `GET /readyz`                        | `200`                          | `503`      | The same, as a readiness probe                             |
-| `GET /livez`                         | `200`                          | `503`      | Whether the process can run work, as a liveness probe      |
-| `GET /openapi.json`                  | `200`                          |            | The API's OpenAPI description                              |
-| `GET /docs`                          | `200`                          |            | That description rendered; its page assets load from a CDN |
-| `GET /v1/capabilities`               | `200`                          |            | Versions, runs at once, and every step a pipeline can use  |
-| `POST /v1/validate`                  | `200` with the checked request | `422`      | Check a run request without queueing it                    |
-| `POST /v1/runs`                      | `202` with the run record      | `422`      | Check a run request and queue it                           |
-| `GET /v1/runs`                       | `200` with every run record    |            | Run history, newest first                                  |
-| `GET /v1/runs/{id}`                  | `200` with the run record      | `404`      | One run                                                    |
-| `POST /v1/runs/{id}/cancel`          | `202` with the run record      | `404, 409` | Cancel a queued run, or stop a running one                 |
-| `GET /v1/runs/{id}/results`          | `200` with the results         | `404, 409` | Each finished task's result                                |
-| `GET /v1/runs/{id}/logs`             | `200`, plain text              | `404`      | The last 64 KiB of what the run printed                    |
-| `GET /v1/runs/{id}/artifacts`        | `200` with a list of paths     | `404`      | Every file in the run's directory                          |
-| `GET /v1/runs/{id}/artifacts/{path}` | `200` with the file            | `404`      | One file, by a path the list gives                         |
+| Method and path                                  | Success                        | Errors          | Does                                                               |
+| ------------------------------------------------ | ------------------------------ | --------------- | ------------------------------------------------------------------ |
+| `GET /healthz`                                   | `200`                          | `503`           | Whether the service takes and runs work                            |
+| `GET /readyz`                                    | `200`                          | `503`           | The same, as a readiness probe                                     |
+| `GET /livez`                                     | `200`                          | `503`           | Whether the process can run work, as a liveness probe              |
+| `GET /openapi.json`                              | `200`                          |                 | The API's OpenAPI description                                      |
+| `GET /docs`                                      | `200`                          |                 | That description rendered; its page assets load from a CDN         |
+| `GET /v1/capabilities`                           | `200`                          |                 | Versions, features, limits, and every step a pipeline uses         |
+| `GET /v1/schema`                                 | `200`                          |                 | The JSON Schema of a pipeline, every registered step in it         |
+| `POST /v1/validate`                              | `200` with the checked request | `422`           | Check a run request without queueing it                            |
+| `POST /v1/runs`                                  | `202` with the run record      | `422`           | Check a run request and queue it                                   |
+| `GET /v1/runs`                                   | `200` with every run record    |                 | Run history, newest first                                          |
+| `GET /v1/runs/{id}`                              | `200` with the run record      | `404`           | One run                                                            |
+| `POST /v1/runs/{id}/cancel`                      | `202` with the run record      | `404, 409`      | Cancel a queued run, or stop a running one                         |
+| `GET /v1/runs/{id}/results`                      | `200` with the results         | `404, 409`      | Each finished task's result                                        |
+| `GET /v1/runs/{id}/logs`                         | `200`, plain text              | `404`           | The last 64 KiB of what the run printed                            |
+| `GET /v1/runs/{id}/artifacts`                    | `200` with a list of paths     | `404`           | Every file in the run's directory                                  |
+| `GET /v1/runs/{id}/artifacts/{path}`             | `200` with the file            | `404`           | One file, by a path the list gives                                 |
+| `GET /v1/runs/{id}/items/{source}`               | `200` with a page of items     | `404, 422`      | A source's items as the run read them; see [Items](#items)         |
+| `GET /v1/runs/{id}/items/{source}/{index}`       | `200` with the item            | `404`           | One item, checked against the run's manifest                       |
+| `GET /v1/runs/{id}/items/{source}/{index}/image` | `200`, PNG                     | `404, 409`      | The item's image, or one box cropped from it                       |
+| `POST /v1/runs/{id}/selections`                  | `200` with the summary         | `404, 409, 422` | Select rows of a profile or a table; see [Selections](#selections) |
+| `GET /v1/runs/{id}/selections/{sel}`             | `200` with a page of members   | `404, 409`      | A selection's summary and members                                  |
+| `GET /v1/runs/{id}/selections/{sel}/view`        | `200` with a source            | `404, 422`      | A selection's images as a source a later run reads                 |
 
 Request and response bodies are JSON, except the logs and the files. Times are Unix epoch seconds.
 
 ### Errors
 
-| Status | When                                                                                   |
-| ------ | -------------------------------------------------------------------------------------- |
-| `404`  | No run has the ID, or the run holds no file at the path                                |
-| `409`  | Cancelling a run that has finished; reading results before any task has written them   |
-| `422`  | The request is malformed, or the run would fail before any task ran; the body says why |
-| `503`  | From a probe only: the service cannot run work; the body names the reasons             |
+| Status | When                                                                                                                                                       |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `404`  | No run has the ID; the run holds no file at the path; its pipeline names no such source; the source held no such item; no selection has the ID             |
+| `409`  | Cancelling a run that has finished; reading results, or selecting from them, before the task has written them; the image of an item that is not `verified` |
+| `422`  | The request is malformed, the run would fail before any task ran, or the run cannot answer the selection; the body says why                                |
+| `503`  | From a probe only: the service cannot run work; the body names the reasons                                                                                 |
+
+A `422` body is `{"detail": [{"type", "loc", "msg"}, ...]}`: `loc` is where in the request the error is, such as
+`["body", "pipeline", "result", "formats"]`, as Pydantic gives it for a field the configuration refuses, or
+`["body", "predicate", "index"]` for a bin a selection names that the histogram doesn't have. Every `404` and `409`
+carries `{"detail": "<why>"}`.
 
 ## Run request
 
@@ -76,7 +88,17 @@ Both refuse with `422` a request that would fail before any task ran:
 - a `result: require` when none of the tasks to run gives a verdict (only presets such as `audit` do)
 - a `result: formats` without `json`: the service reads each run's results as JSON
 
-`POST /v1/validate` answers with `valid`, the resolved `tasks`, and the `pipeline` the run would read.
+`POST /v1/validate` answers with `valid`, the resolved `tasks`, and the `pipeline` the run would read. Validation reads
+no data: a pipeline that validates can still fail on a dataset that is missing or unreadable, which the run reports.
+
+## Capabilities
+
+`GET /v1/capabilities` returns `api_version`, `flow_version`, `dataeval_version`, `max_active_runs`, `features`,
+`limits` and `steps`. `features` names each optional part of the API with its version, so a client checks for a
+feature rather than a Flow version: `items`, `profiles`, `selections` and `schema`, each `1`. `limits.page_size` is the
+largest page the item and selection routes serve. `steps` is the step catalog `dataeval-flow steps` prints: every
+evaluator, transform, combine, check and workflow, with its ports and its settings' JSON Schema. `GET /v1/schema` is
+the JSON Schema of the whole pipeline, which `pipeline` in a run request follows.
 
 ## Run record
 
@@ -141,11 +163,124 @@ Under `--output`, the service keeps:
     ├── console.log       everything the run printed
     ├── result.log        the run's DEBUG log, with timestamps
     ├── results/          result.json, result.txt, result.html, and any manifests and encoding.json
+    │   ├── manifests/    each content-digest task's manifest: <task>/content-digest.json
+    │   └── profiles/     each profile task's rows: <task>/image.parquet, <task>/target.parquet
+    ├── selections/       each selection's definition: <selection id>.json
     └── datasets/         exports the pipeline declares
 ```
 
 Every file in a run's directory is listed by `GET /v1/runs/{id}/artifacts`. Keep the directory while its run is in
 the history.
+
+## Items
+
+The item routes serve the images, boxes, labels and metadata a run read, for as long as the data still matches what
+the run read. A run records what it read when it runs a `content-digest` task over the source: the manifest holds each
+item's SHA-256 over its image and labels, and over its metadata, with its position under the source's view and beneath
+it. The service keeps no copy of the data. To serve an item, it loads the source from the run's own snapshot, finds the
+item the run read by its position beneath the view, hashes it again, and compares. A run that reads a source to show
+it, before any assessment, is an ordinary run with a `content-digest` task:
+
+```json
+{
+  "pipeline": {
+    "datasets": [{"name": "harbor", "format": "coco", "path": "harbor"}],
+    "sources": [{"name": "harbor", "dataset": "harbor"}],
+    "evaluators": [
+      {"name": "digest", "type": "content-digest"},
+      {"name": "labels", "type": "label-health"},
+      {"name": "profile", "type": "profile"}
+    ],
+    "tasks": [
+      {"name": "digest", "evaluator": "digest", "sources": "harbor"},
+      {"name": "labels", "evaluator": "labels", "sources": "harbor"},
+      {"name": "profile", "evaluator": "profile", "sources": "harbor"}
+    ]
+  }
+}
+```
+
+`GET /v1/runs/{id}/items/{source}?offset=0&limit=24` returns `schema`, `source`, `status`, `total`, `offset`, `limit`
+and `items`, in the order the run read them. `status` is `recorded`, or `evidence_unavailable` with `total` `0` and a
+`reason`: the run recorded no manifest of the source, or the source's view draws at random with no `seed` while the
+pipeline sets none, so each task of the run drew its own items and a position in one task's result names another item
+in another's. Give the operation or the pipeline a `seed:`. `limit` is at most `limits.page_size`. Each item holds:
+
+| Field                         | Meaning                                                                                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `schema`                      | `1`                                                                                                                              |
+| `source`, `index`             | The item, as a finding's evidence names it: its source, and its position after the source's view                                 |
+| `root_index`                  | Its position in the dataset beneath the view                                                                                     |
+| `id`                          | Its metadata `id`, where it has one                                                                                              |
+| `status`                      | `verified`, `input_changed`, `input_unavailable` or `evidence_unavailable`                                                       |
+| `reason`                      | Why it is not `verified`                                                                                                         |
+| `width`, `height`, `channels` | The image's size, in pixels                                                                                                      |
+| `box_format`                  | `xyxy`: each box is `x0, y0, x1, y1` in pixels, as MAITE holds it                                                                |
+| `targets`                     | On detection data, each box: `target` (its index in the item, as `target_index` in a finding counts), `box`, `label` and `class` |
+| `label`                       | On classification data, `{"label", "class"}`, or `null` for an item with no label                                                |
+| `metadata`                    | The item's metadata as the dataset gives it, as JSON                                                                             |
+| `image_url`                   | The path of the item's image                                                                                                     |
+
+Only a `verified` item carries its image, boxes and metadata.
+
+| Status                 | Meaning                                                                                                                                |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `verified`             | The item's image, labels and metadata hash as the run recorded them                                                                    |
+| `input_changed`        | The item's image, labels or metadata differ, or the source no longer holds the item                                                    |
+| `input_unavailable`    | The source does not load, or the item does not read, such as an image file that was removed                                            |
+| `evidence_unavailable` | The run recorded no manifest of the source, such as a run made before manifests recorded it, or each task drew the source's items anew |
+
+`GET /v1/runs/{id}/items/{source}/{index}/image` returns the item's image as a PNG at its own size. `target` crops one
+box with a margin of a tenth of its size. `max_side` shrinks the image to fit that many pixels across. An item that is
+not `verified` answers `409` with the item's status, a box the item doesn't hold `404`, and an item that is no image
+`422`. A float image is scaled to 0–255 by the dataset's `value_range`, else by its own range.
+
+## Selections
+
+A selection is the exact set of rows a predicate holds over what a run wrote: a `profile` task's rows of one field, or
+the rows of a table a task wrote, such as `outliers`'. It never measures anything again and is never a sample: every
+row the run kept is considered.
+
+`POST /v1/runs/{id}/selections` takes:
+
+| Field       | Meaning                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------- |
+| `task`      | The task whose result is selected from                                                                  |
+| `step`      | A step of the task's chain, for a table a step wrote from a workflow input; unset for an evaluator task |
+| `field`     | The profile field, by name; unset for `rows`                                                            |
+| `scope`     | `image` or `target`; needed only where the field was profiled in both                                   |
+| `origin`    | `computed` or `supplied`; needed only where a statistic and a metadata field share the name             |
+| `predicate` | One of the predicates below                                                                             |
+
+| Predicate                                                       | Selects                                                                                                                 |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `{"kind": "bin", "index": 2}`                                   | The rows the field's histogram counts in that bin: `low <= x < high`, and `low <= x <= high` for the last bin           |
+| `{"kind": "range", "min", "max", "include_min", "include_max"}` | The finite values within the bounds; an unset bound is open. `include_min` defaults to `true`, `include_max` to `false` |
+| `{"kind": "category", "values": [...]}`                         | The rows holding any of the values; `1`, `"1"` and `true` are three values                                              |
+| `{"kind": "other"}`                                             | The rows holding a value the profile did not name                                                                       |
+| `{"kind": "missing"}`                                           | The rows with no value                                                                                                  |
+| `{"kind": "non_finite"}`                                        | The rows holding NaN or an infinity                                                                                     |
+| `{"kind": "rows", "metric": "brightness"}`                      | A table's rows, each a flag on an item or a box; only one metric's when `metric` is set                                 |
+
+A step's rows count items within the Dataset it read, so a `rows` selection through a step that reads what an earlier
+step derived, such as a `view` or a split, is refused: only a step that reads a workflow input counts items within the
+source. A selection over a source each task drew anew is refused too, as its items are under [Items](#items).
+
+The response is the summary: `schema`, `id`, `definition`, `source`, `scope`, and `total` rows, the distinct `images`
+they fall on, and the distinct `targets` (boxes). One image can carry several flags and several boxes, so the three
+counts differ. The same request gives the same `id`, after a restart too.
+
+`GET /v1/runs/{id}/selections/{sel}?offset=0&limit=24` returns the summary with `offset`, `limit` and `members`. Each
+member names its `source`, `index` and `target` (`null` for an image), which the item routes take, with its `value`
+for a profile field, or the table's row (`metric_name`, `metric_value`, `bound`, `direction` and so on). Members come
+in a fixed order, by item then box for a profile and in the table's order for rows, so the pages together hold each
+member once.
+
+`GET /v1/runs/{id}/selections/{sel}/view` returns a `views:` entry and a `sources:` entry. Merged into the run's
+pipeline, the new source reads the selection's images through the source's own view and then an `Indices` operation.
+A selection of boxes is refused unless `parents=true` asks for the images that hold them: keeping only those boxes, or
+removing them, is not supported. A source whose view shuffles without a seed is refused, since no later run would
+read it alike.
 
 ## Health probes
 
@@ -173,7 +308,11 @@ standard error is logged as a warning.
 
 ## Limits
 
-- Only one run executes at a time.
+- Only one run executes at a time. The item and selection routes read what runs wrote, so they answer while a run
+  executes.
+- The item routes load a source in the service's own process and keep the four most recently read loaded. A source
+  that takes long to load makes its first page slow.
+- A page holds at most 100 items or members.
 - `GET /v1/runs` returns the whole history in one response.
 - The service runs on Linux and macOS: it relies on POSIX process groups and file locks.
 - `/docs` needs internet access in the viewer's browser for its page assets; `/openapi.json` needs none.

@@ -11,6 +11,8 @@ from dataeval_flow.evaluators._core import CoreOutput
 from dataeval_flow.evaluators._result import EvaluatorResult
 
 if TYPE_CHECKING:
+    import polars as pl
+
     from dataeval_flow._digest import DatasetManifest
 
 __all__ = [
@@ -24,6 +26,8 @@ __all__ = [
     "LabelHealthOutput",
     "LabelHealthResult",
     "OutliersResult",
+    "ProfileOutput",
+    "ProfileResult",
     "VerificationEntry",
 ]
 
@@ -316,3 +320,43 @@ class FactorLeakageResult(EvaluatorResult[FactorLeakageOutput]):
                 body.append(Paragraph(text=text))
             blocks.append(Section(title=factor, brief=brief, blocks=body))
         return blocks
+
+
+class ProfileOutput(CoreOutput):
+    """``profile``'s output: how each statistic and metadata field of a Dataset is distributed.
+
+    ``data()`` holds ``schema``, the version of this layout; ``source``; ``binning``, how numbers were binned;
+    ``categories``, how many values each field names; ``scopes``, the rows of each scope (``image``, and ``target`` on
+    detection data); and ``fields``, one per field and scope, each with its ``name``, ``scope``, ``origin``
+    (``computed`` or ``supplied``), ``group``, ``family``, ``type`` (``numeric``, ``categorical`` or
+    ``unsupported``), its ``rows``, ``missing``, ``non_finite`` and ``finite`` counts, and then its summary.
+    """
+
+    def __init__(self, data: Mapping[str, Any], meta: Any, frames: "Mapping[str, pl.DataFrame] | None" = None) -> None:
+        super().__init__(data, meta)
+        self._frames = dict(frames or {})
+
+    def frames(self) -> "dict[str, pl.DataFrame]":
+        """Each scope's rows: ``item``, ``target`` (null on the image scope) and a column per field, a number as
+        ``Float64`` and anything else as its value's JSON text. In memory only, never in the JSON; the command writes
+        them under ``results/profiles/<task>/<scope>.parquet``."""
+        return self._frames
+
+
+class ProfileResult(EvaluatorResult[ProfileOutput]):
+    """The result of a ``profile`` run; ``output`` is a :class:`~dataeval_flow.evaluators.quality.ProfileOutput`.
+
+    ``isinstance`` narrows a :class:`~dataeval_flow.Result` to it, which types ``output`` and ``metadata`` with the
+    fields below; ``output`` is readable only where ``success`` is true. ``metadata`` also carries the envelope
+    fields of :class:`~dataeval_flow.ResultMetadata`.
+
+    Fields
+    ------
+    output
+        The profile: ``data()`` holds ``schema``, ``source``, ``binning``, ``categories``, ``scopes`` and ``fields``.
+    metadata.evaluator
+        The evaluator type, e.g. ``duplicates``.
+    metadata.dataeval
+        DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
+        parameters as written are in ``resolved_config``.
+    """

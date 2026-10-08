@@ -330,3 +330,24 @@ class TestAddressQuotingHint:
         )
         with pytest.raises(yaml.MarkedYAMLError, match=r"such as `k\.val\[0\]`, must be quoted"):
             merge_config_folder(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("config", "field"),
+    [
+        ("coco", "annotations_file"),
+        ("coco", "images_dir"),
+        ("yolo", "yaml_file"),
+        ("yolo", "ann_dir"),
+    ],
+)
+def test_a_dataset_s_sub_path_stays_under_the_data_root(config: str, field: str) -> None:
+    from pydantic import ValidationError
+
+    from dataeval_flow.config._schemas._dataset import CocoDatasetConfig, YoloDatasetConfig
+
+    model = {"coco": CocoDatasetConfig, "yolo": YoloDatasetConfig}[config]
+    assert getattr(model(name="d", path="sets/d", **{field: "../shared/x"}), field) == "../shared/x"
+    for escaping in ("../../../etc", "/etc"):
+        with pytest.raises(ValidationError, match=field):
+            model(name="d", path="sets/d", **{field: escaping})

@@ -2,6 +2,7 @@
 
 __all__ = ["ContentDigestEvaluator"]
 
+import dataclasses
 import time
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
@@ -31,7 +32,7 @@ class ContentDigestEvaluator(Evaluator[ContentDigestConfig, ContentDigestOutput]
         (source,) = inputs
         dataset = require(source.dataset, "its dataset", source.source)
         started, clock = datetime.now(UTC), time.monotonic()
-        manifest = dataset_manifest(dataset)
+        manifest = dataclasses.replace(dataset_manifest(dataset), source=source.source)
         meta = execution("dataeval_flow.dataset_digest", started, time.monotonic() - clock, {})
         digest = manifest.digest
         return ContentDigestOutput(

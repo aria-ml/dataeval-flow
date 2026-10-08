@@ -12,6 +12,7 @@ __all__ = [
     "FactorTriageConfig",
     "LabelHealthConfig",
     "OutliersConfig",
+    "ProfileConfig",
 ]
 
 import functools
@@ -34,6 +35,7 @@ from dataeval_flow.evaluators.quality._result import (
     FactorTriageResult,
     LabelHealthResult,
     OutliersResult,
+    ProfileResult,
 )
 
 if TYPE_CHECKING:
@@ -457,3 +459,55 @@ class FactorLeakageConfig(EvaluatorConfig[FactorLeakageResult], MetadataConfigMi
             "factor only some items declare counts as lacking unless the metadata policy sets `partial_factors`."
         ),
     )
+
+
+class ProfileConfig(EvaluatorConfig[ProfileResult], StatsConfigMixin, MetadataConfigMixin):
+    """Config for ``profile``: how each measured statistic and each supplied metadata field is distributed.
+
+    Summarizes every column the stats policy measures, for each image and, on detection data, each box, and every
+    factor of the source's metadata at its own level: counts of missing and non-finite values, the range, mean,
+    median and standard deviation, and an equal-width histogram for a number; the most frequent values for anything
+    else. Every row's value is kept beside the result, so a selection over a bin reads the rows themselves. DataEval
+    has no such evaluator, so ``bins`` and ``categories`` are Flow's own defaults.
+
+    Example YAML::
+
+        evaluators:
+          - name: profile
+            type: profile
+            flags: [pixel, visual]
+    """
+
+    type: str = Field(default="profile", description="The evaluator type this entry configures: `profile`.")
+    inputs: ClassVar[InputSpec] = InputSpec(
+        required=frozenset({InputKind.STATS, InputKind.METADATA}), sources=SourceCount.ONE
+    )
+    flags: Sequence[OutlierFamily] | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "Statistics families or sub-groups to measure where no `stats` policy is named. Unset measures what "
+            "`outliers` measures by default, so the two share their cached statistics."
+        ),
+    )
+    bins: int = Field(default=10, ge=1, le=1000, description="Equal-width bins in each number's histogram.")
+    categories: int = Field(
+        default=20,
+        ge=1,
+        le=1000,
+        description="The most frequent values named for each field; the rest are counted together as other.",
+    )
+
+    def stats_flags(self) -> "ImageStats":
+        """The statistics families to measure: the configured ones, else ``Outliers.Config().flags``."""
+        from dataeval.quality import Outliers
+
+        from dataeval_flow._stats import OUTLIER_FLAG_MAP
+
+        if self.flags is None:
+            return Outliers.Config().flags
+        return functools.reduce(operator.or_, (OUTLIER_FLAG_MAP[name] for name in self.flags))
+
+    def stats_request(self) -> dict[str, Any]:
+        """The families to measure where no policy is named; a named policy is profiled as it measures."""
+        return {"derive_flags": self.stats_flags()}

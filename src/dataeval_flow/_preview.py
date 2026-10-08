@@ -6,7 +6,7 @@ feature vector, has no previewer yet, and :func:`preview` raises :class:`NotAnIm
 cells name the item instead.
 """
 
-__all__ = ["NotAnImageError", "preview"]
+__all__ = ["NotAnImageError", "preview", "render"]
 
 import base64
 import io
@@ -83,6 +83,26 @@ def _to_uint8(array: NDArray[Any], value_range: tuple[float, float] | None) -> N
     return np.clip(np.nan_to_num(scaled), 0, 255).round().astype(np.uint8)
 
 
+def render(image: Any, target: Any, box: int | None, value_range: tuple[float, float] | None) -> Image.Image:
+    """The item's image, or *box* cropped from it with a margin, as a picture at its own size: greyscale for one
+    channel, RGB for three, the first three of four, since the fourth may be alpha or infrared, and the first of any
+    other count. *value_range* is what the dataset declares a float image's values span.
+
+    Raises
+    ------
+    NotAnImageError
+        When the item is no image: an array that isn't 2- or 3-D, or not an array of numbers.
+    LookupError, ValueError
+        When *box* isn't in the item's annotation, or has no area inside the image.
+    """
+    array = _array(image)
+    if box is not None:
+        array = _crop(array, target, box)
+    channels = array[:3] if array.shape[0] in (3, 4) else array[:1]
+    pixels = np.moveaxis(_to_uint8(channels, value_range), 0, -1)
+    return Image.fromarray(pixels[..., 0] if pixels.shape[-1] == 1 else np.ascontiguousarray(pixels))
+
+
 def preview(ref: ItemRef, image: Any, target: Any, value_range: tuple[float, float] | None) -> Asset:
     """The item's thumbnail: its image, or the box *ref* names cropped from it, as a WebP at most 192 px across.
 
@@ -97,12 +117,7 @@ def preview(ref: ItemRef, image: Any, target: Any, value_range: tuple[float, flo
     LookupError, ValueError
         When the box *ref* names isn't in the item's annotation, or has no area inside the image.
     """
-    array = _array(image)
-    if ref.target is not None:
-        array = _crop(array, target, ref.target)
-    channels = array[:3] if array.shape[0] in (3, 4) else array[:1]
-    pixels = np.moveaxis(_to_uint8(channels, value_range), 0, -1)
-    picture = Image.fromarray(pixels[..., 0] if pixels.shape[-1] == 1 else np.ascontiguousarray(pixels))
+    picture = render(image, target, ref.target, value_range)
     picture.thumbnail((SIZE, SIZE))
     buffer = io.BytesIO()
     picture.save(buffer, format="WEBP", quality=_QUALITY)

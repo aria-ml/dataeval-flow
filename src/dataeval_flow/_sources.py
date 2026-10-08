@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterator, Sequence
     from pathlib import Path
     from typing import Any
 
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
     from dataeval_flow._result import LabelSpaceRecord
     from dataeval_flow.config._models import PipelineConfig, SourceConfig
-    from dataeval_flow.config._schemas._view import ViewConfig
+    from dataeval_flow.config._schemas._view import ViewConfig, ViewOperation
     from dataeval_flow.workflows._context import ResolvedOntology
 
 # How deep a source may nest merges. A merge of merges is legitimate; a chain this long
@@ -415,18 +415,52 @@ def _refuse_unseeded(resolved: ResolvedSource) -> None:
     """Refuse a view operation that draws at random when given no ``seed`` (one whose ``seed`` defaults to none,
     and that has its ``jitter`` on if it takes one), except an unseeded ``Shuffle`` as the source's own last
     operation: every other draws different items on each load."""
+    views = [operand.view_config for operand in resolved.operands] if resolved.is_merged else []
+    views.append(resolved.view_config)
+    for last, view, operation, cause in _unseeded(views):
+        if last and operation.type == "Shuffle":
+            continue
+        raise ValueError(
+            f"Source '{resolved.name}' can't be loaded the same way twice: view '{view.name}' runs "
+            f"`{operation.type}` {cause}. Give it a `seed:`, so every load draws the items the run did."
+        )
+
+
+def drawn_per_task(config: "PipelineConfig", name: str) -> str | None:
+    """Why each task of a run over source `name` draws its own items, or ``None`` where every task draws alike.
+
+    A view operation that draws at random with no ``seed`` of its own takes the pipeline's ``seed``; with neither, each
+    task draws anew, so an item's position in one task's result names another item in another's.
+    """
+    from dataeval_flow._orchestrator import _resolve_by_name
+
+    if config.seed is not None:
+        return None
+    source: SourceConfig = _resolve_by_name(config.sources, name, "source")
+    views = [_view_of(leaf, config) for leaf in flatten_source(name, config.sources)]
+    if source.merge is not None:
+        views.append(_view_of(source, config))
+    for _, view, operation, cause in _unseeded(views):
+        return (
+            f"View '{view.name}' runs `{operation.type}` {cause}, and the pipeline sets no `seed`, so each task drew "
+            "its own items. Give the operation or the pipeline a `seed:`."
+        )
+    return None
+
+
+def _unseeded(
+    views: "Sequence[ViewConfig | None]",
+) -> "Iterator[tuple[bool, ViewConfig, ViewOperation, str]]":
+    """Each view operation that draws at random with no ``seed``: whether it is the last of the last view, the view,
+    the operation, and how it draws."""
     import inspect
 
     import dataeval.data as ddata
 
-    views = [operand.view_config for operand in resolved.operands] if resolved.is_merged else []
-    views.append(resolved.view_config)
     for position, view in enumerate(views):
         if view is None:
             continue
         for index, operation in enumerate(view.operations):
-            if position == len(views) - 1 and index == len(view.operations) - 1 and operation.type == "Shuffle":
-                continue
             kind = getattr(ddata, operation.type, None)
             parameters = inspect.signature(kind).parameters if kind is not None else {}
             seed = parameters.get("seed")
@@ -435,8 +469,5 @@ def _refuse_unseeded(resolved: ResolvedSource) -> None:
             jitter = parameters.get("jitter")
             if jitter is not None and not operation.params.get("jitter", jitter.default):
                 continue
-            cause = "with `jitter` and no `seed`" if jitter is not None else "with no `seed`"
-            raise ValueError(
-                f"Source '{resolved.name}' can't be loaded the same way twice: view '{view.name}' runs "
-                f"`{operation.type}` {cause}. Give it a `seed:`, so every load draws the items the run did."
-            )
+            last = position == len(views) - 1 and index == len(view.operations) - 1
+            yield last, view, operation, "with `jitter` and no `seed`" if jitter is not None else "with no `seed`"

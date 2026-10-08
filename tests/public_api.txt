@@ -107,6 +107,10 @@ dataeval_flow.evaluators.quality:LabelHealthResult
 dataeval_flow.evaluators.quality:OutliersConfig
 dataeval_flow.evaluators.quality:OutliersEvaluator
 dataeval_flow.evaluators.quality:OutliersResult
+dataeval_flow.evaluators.quality:ProfileConfig
+dataeval_flow.evaluators.quality:ProfileEvaluator
+dataeval_flow.evaluators.quality:ProfileOutput
+dataeval_flow.evaluators.quality:ProfileResult
 dataeval_flow.evaluators.quality:ThresholdSpec
 dataeval_flow.evaluators.quality:VerificationEntry
 dataeval_flow.evaluators.scope:CompletenessConfig

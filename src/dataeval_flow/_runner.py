@@ -290,6 +290,28 @@ def _write_manifests(results: Mapping[str, Result[Any, Any]], results_dir: Path)
     return written
 
 
+def _write_profile_rows(task: str, result: Result[Any, Any], results_dir: Path) -> None:
+    """Save a ``profile`` evaluator task's rows under ``results_dir/profiles/<task>/<scope>.parquet``, each replaced
+    whole, so a reader never sees one half-written."""
+    from dataeval_flow.config._schemas._export import one_directory_segment
+    from dataeval_flow.evaluators.quality._result import ProfileOutput
+
+    output = result.output if result.success else None
+    if not isinstance(output, ProfileOutput):
+        return
+    try:
+        one_directory_segment(task, what="task name")
+    except ValueError as error:
+        _logger.warning("  Skipped task '%s' profile rows: %s", task, error)
+        return
+    directory = results_dir / "profiles" / task
+    directory.mkdir(parents=True, exist_ok=True)
+    for scope, frame in output.frames().items():
+        temporary = directory / f".{scope}.parquet.tmp"
+        frame.write_parquet(temporary)
+        temporary.replace(directory / f"{scope}.parquet")
+
+
 def _safe_segments(task: str, step: str, key: Any) -> bool:
     """Whether `step` and `key` each name one directory; where not, warn and say no."""
     from dataeval_flow.config._schemas._export import one_directory_segment
@@ -433,11 +455,16 @@ def run(
     collected = _Collected()
     results_dir = output_dir / "results" if output_dir is not None else None
     written: list[str] = []
+    manifests: list[int] = []
 
     def finished(name: str, result: Result[Any, Any]) -> None:
-        """Report a task as it finishes, and rewrite the result files to hold it: a run killed later keeps it."""
+        """Report a task as it finishes, and rewrite the result files to hold it, beside its manifests: a run killed
+        later keeps them."""
         _collect_result(name, result, collected, verbosity=verbosity, report_width=width)
         if results_dir is not None:
+            if name in collected.reported:  # before the result names them, so a reader of the result finds them
+                manifests.append(_write_manifests({name: result}, results_dir))
+                _write_profile_rows(name, result, results_dir)
             # ponytail: rewrites every finished task's files after each task, O(tasks²) rendering; write per task
             # files instead if runs grow to many heavy tasks.
             written[:] = _write_results(collected, results_dir, config.result, width)
@@ -449,7 +476,7 @@ def run(
     )
 
     if results_dir is not None:
-        _write_run_files(collected, results_dir, config.result, written)
+        _write_run_files(collected, results_dir, config.result, written, sum(manifests))
 
     export_failures = _write_declared_exports(config, output_dir, resolved_data)
 
@@ -465,15 +492,17 @@ def run(
     return _gate_exit(warned, gate, short, requirement)
 
 
-def _write_run_files(collected: _Collected, results_dir: Path, settings: ResultConfig, written: Sequence[str]) -> None:
-    """Say which result files the run wrote, and write what is written once every task has run: the manifests and the
-    encoding descriptor."""
+def _write_run_files(
+    collected: _Collected, results_dir: Path, settings: ResultConfig, written: Sequence[str], manifests: int
+) -> None:
+    """Say which result files and how many manifests the run wrote, and write what is written once every task has run:
+    the encoding descriptor."""
     if written:
         _logger.info("  Wrote %s to %s", ", ".join(written), results_dir)
     if not collected.reported and (unwritten := [kind for kind in settings.formats if kind in _SUCCEEDED_ONLY]):
         _logger.warning("  No task succeeded, so no file was written for: %s.", ", ".join(unwritten))
-    if count := _write_manifests(collected.reported, results_dir):
-        _logger.info("  Wrote %d manifest(s) to %s", count, results_dir / "manifests")
+    if manifests:
+        _logger.info("  Wrote %d manifest(s) to %s", manifests, results_dir / "manifests")
     if collected.merged and not collected.disagreeing:
         _write_encoding_descriptor(collected.binning, results_dir)
 

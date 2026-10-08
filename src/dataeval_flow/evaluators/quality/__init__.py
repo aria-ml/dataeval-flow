@@ -23,6 +23,10 @@ __all__ = [
     "OutliersConfig",
     "OutliersEvaluator",
     "OutliersResult",
+    "ProfileConfig",
+    "ProfileEvaluator",
+    "ProfileOutput",
+    "ProfileResult",
     "ThresholdSpec",
     "VerificationEntry",
 ]
@@ -35,10 +39,12 @@ from dataeval_flow.evaluators.quality._config import (
     FactorTriageConfig,
     LabelHealthConfig,
     OutliersConfig,
+    ProfileConfig,
 )
 from dataeval_flow.evaluators.quality._digest import ContentDigestEvaluator
 from dataeval_flow.evaluators.quality._evaluator import DuplicatesEvaluator, LabelHealthEvaluator, OutliersEvaluator
 from dataeval_flow.evaluators.quality._leakage import FactorLeakageEvaluator
+from dataeval_flow.evaluators.quality._profile import ProfileEvaluator
 from dataeval_flow.evaluators.quality._result import (
     ContentDigestOutput,
     ContentDigestResult,
@@ -50,6 +56,8 @@ from dataeval_flow.evaluators.quality._result import (
     LabelHealthOutput,
     LabelHealthResult,
     OutliersResult,
+    ProfileOutput,
+    ProfileResult,
     VerificationEntry,
 )
 from dataeval_flow.evaluators.quality._triage import FactorTriageEvaluator
