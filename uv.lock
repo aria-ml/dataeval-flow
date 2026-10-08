@@ -1290,7 +1290,7 @@ wheels = [
 
 [[package]]
 name = "dataeval"
-version = "1.1.1"
+version = "1.1.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "lightgbm" },
@@ -1314,9 +1314,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "xxhash" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e3/7e/a3a91d35157191441229d730e7b7d5527ce852bf6bea92ae4336e82c5859/dataeval-1.1.1.tar.gz", hash = "sha256:2a402a84c34be6505b5be5c1f8658a7851f9a75e2898a384b8b1dc2bac3c39a2", size = 591879, upload-time = "2026-09-14T16:43:34.196Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e4/69/f0efa0d81ce22595e93e274923f342bb76882351d53206ac2a6df0c1aafd/dataeval-1.1.4.tar.gz", hash = "sha256:751394eda65ba205337a1d57cf90568ea762f88e09b0839792ac852ce9cd0d46", size = 592198, upload-time = "2026-10-01T21:11:20.012Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3a/09/79c0fc66244cdf374405a0bb331663928694579ba641c5b39b0a7e920d4c/dataeval-1.1.1-py3-none-any.whl", hash = "sha256:3eeb92d9c967a640be65b20b579a49d3a70bf71aa0813e83237f065103f626d7", size = 699345, upload-time = "2026-09-14T16:43:32.904Z" },
+    { url = "https://files.pythonhosted.org/packages/80/a0/8317f22f11cfa3284b48681c2f07de2aa7c952b72d1ee2d0277b085b0744/dataeval-1.1.4-py3-none-any.whl", hash = "sha256:00953f91564c317806adf83dda7967ed68807359da961e9e707b987ab1d6a44c", size = 699665, upload-time = "2026-10-01T21:11:18.32Z" },
 ]
 
 [package.optional-dependencies]
@@ -1472,8 +1472,8 @@ verify = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
-    { name = "dataeval", specifier = ">=1.1.1" },
-    { name = "dataeval", extras = ["ontology"], marker = "extra == 'ontology'", specifier = ">=1.1.1" },
+    { name = "dataeval", specifier = ">=1.1.4" },
+    { name = "dataeval", extras = ["ontology"], marker = "extra == 'ontology'", specifier = ">=1.1.4" },
     { name = "datamaite", extras = ["ic", "od"], specifier = "==0.4.1" },
     { name = "numpy", specifier = ">=1.24.2" },
     { name = "onnx", marker = "extra == 'onnx'", specifier = ">=1.15" },
