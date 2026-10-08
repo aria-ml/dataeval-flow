@@ -346,6 +346,7 @@ def run(
     report_width: int | None = None,
     report_images: bool = True,
     require: str | None = None,
+    max_processes: int | None = None,
 ) -> int:
     """Load config, execute the selected tasks, and write reports.
 
@@ -382,6 +383,9 @@ def run(
     require : str | None
         The worst verdict a task that gives one may have: ``ready-with-caveats``, ``ready-with-accepted-risks`` or
         ``ready``. ``None`` (the default) leaves it to the config's ``result: require``.
+    max_processes : int | None
+        Upper bound on DataEval worker processes, overriding the config's ``max_processes``.  ``None`` keeps the
+        config's value.
 
     Returns
     -------
@@ -409,6 +413,8 @@ def run(
 
     resolved_data = get_data_dir(data_dir)
     config = _resolve_config(config_arg, resolved_data)
+    if max_processes is not None:
+        config = config.model_copy(update={"max_processes": max_processes})
     config.result.max_images = config.result.max_images if report_images else 0
 
     requirement, judged = _requirement(config, tasks, require)

@@ -2146,3 +2146,50 @@ class TestResolveStatsPolicy:
 
         instance = ScopeConfig(name="c", type="scope")
         assert _resolve_stats_policy(instance, PipelineConfig(), {}) is None
+
+
+class TestMaxProcesses:
+    """``max_processes`` reaches DataEval's configuration and the result envelope."""
+
+    def test_applied_through_dataeval_config(self):
+        from dataeval.config import get_max_processes, set_max_processes
+
+        from dataeval_flow._orchestrator import _apply_max_processes
+        from dataeval_flow.config import PipelineConfig
+
+        before = get_max_processes()
+        try:
+            _apply_max_processes(PipelineConfig(max_processes=3))
+            assert get_max_processes() == 3
+        finally:
+            set_max_processes(before)
+
+    def test_unset_leaves_dataeval_default(self):
+        from dataeval.config import get_max_processes
+
+        from dataeval_flow._orchestrator import _apply_max_processes
+        from dataeval_flow.config import PipelineConfig
+
+        before = get_max_processes()
+        _apply_max_processes(PipelineConfig())
+        assert get_max_processes() == before
+
+    def test_must_be_positive(self):
+        from pydantic import ValidationError
+
+        from dataeval_flow.config import PipelineConfig
+
+        with pytest.raises(ValidationError):
+            PipelineConfig(max_processes=0)
+
+    def test_recorded_in_resolved_config(self):
+        from dataeval_flow._orchestrator import _build_resolved_config
+        from dataeval_flow.config import PipelineConfig
+
+        cfg = _build_resolved_config(
+            resolved_sources=[],
+            workflow_instance=None,
+            extractor_cfg=None,
+            pipeline_config=PipelineConfig(max_processes=3),
+        )
+        assert cfg["max_processes"] == 3

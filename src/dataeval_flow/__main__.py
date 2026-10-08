@@ -204,6 +204,16 @@ def _build_parser() -> argparse.ArgumentParser:
             "is not judged; a run where none does is refused."
         ),
     )
+    parser.add_argument(
+        "--max-processes",
+        type=int,
+        default=env_int("DATAEVAL_MAX_PROCESSES"),
+        metavar="N",
+        help=(
+            "Upper bound on DataEval worker processes (default: $DATAEVAL_MAX_PROCESSES, else the "
+            "config's max_processes, else DataEval's default of one process)."
+        ),
+    )
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -615,6 +625,7 @@ def main() -> NoReturn:  # noqa: C901 - one branch per subcommand
                 report_width=args.report_width,
                 report_images=args.report_images,
                 require=args.require,
+                max_processes=args.max_processes,
             )
         )
     except (FileNotFoundError, ValueError, ImportError) as e:

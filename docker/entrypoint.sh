@@ -72,6 +72,8 @@ ENVIRONMENT VARIABLES
   DATAEVAL_FAIL_ON_WARNING
                      Exit 3 on health warnings: true/false (default: the config's
                      result: fail_on, which fails on failed tasks only).
+  DATAEVAL_MAX_PROCESSES
+                     Upper bound on DataEval worker processes (default: one).
   DATAEVAL_LOG_FORMAT
                      Console format: structured or plain (default: structured).
                      'structured' prefixes each record with an ISO-8601 UTC
@@ -98,6 +100,8 @@ COMMAND-LINE OPTIONS
       --log-format F  Console format: structured (default) or plain.
       --fail-on-warning / --no-fail-on-warning
                       Exit non-zero when a task reports health warnings.
+      --max-processes N
+                      Upper bound on DataEval worker processes (default: one).
   -v, --verbose       Increase verbosity (-v report, -vv +INFO, -vvv +DEBUG).
   -h, --help          Show this help and exit.
 

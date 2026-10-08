@@ -431,6 +431,7 @@ class TestMain:
         args.report_width = 72
         args.report_images = False
         args.require = None
+        args.max_processes = None
         mock_parse.return_value = args
         mock_run_tasks.return_value = 0
 
@@ -448,6 +449,7 @@ class TestMain:
             report_width=72,
             report_images=False,
             require=None,
+            max_processes=None,
         )
 
     @patch("dataeval_flow._runner.run")

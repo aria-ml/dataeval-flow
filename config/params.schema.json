@@ -12838,6 +12838,20 @@
       "title": "Deterministic",
       "type": "boolean"
     },
+    "max_processes": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Upper bound on the worker processes DataEval may use. Applied through DataEval's `set_max_processes` before each task. None (the default) leaves DataEval's default, which runs in a single process; extra processes cost start-up time and pay off mainly on large images or heavy statistics.",
+      "title": "Max Processes"
+    },
     "datasets": {
       "anyOf": [
         {

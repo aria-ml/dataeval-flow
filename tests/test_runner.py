@@ -335,6 +335,17 @@ class TestFailOnWarning:
         assert (tmp_path / "out" / "results" / "result.html").exists()
 
 
+class TestMaxProcessesOverride:
+    def test_argument_overrides_the_config(self, tmp_path: Path):
+        import dataeval_flow._orchestrator as orch
+        from dataeval_flow._runner import run
+
+        config = _write_config(tmp_path)
+        with patch.object(orch, "_run_single_task", return_value=_fake_result(warnings=0)) as mock_task:
+            run(config, tmp_path / "out", data_dir=tmp_path, max_processes=2)
+        assert mock_task.call_args.args[1].max_processes == 2
+
+
 class TestNothingSucceeded:
     def test_a_run_where_every_task_fails_writes_no_results_and_exits_1(self, tmp_path: Path):
         """With no report to show, no result file is written, json, text or html, and the run fails."""

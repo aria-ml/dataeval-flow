@@ -365,6 +365,18 @@ class PipelineConfig(BaseModel):
         ),
     )
 
+    # Parallelism
+    max_processes: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Upper bound on the worker processes DataEval may use. Applied through DataEval's "
+            "`set_max_processes` before each task. None (the default) leaves DataEval's default, "
+            "which runs in a single process; extra processes cost start-up time and pay off mainly "
+            "on large images or heavy statistics."
+        ),
+    )
+
     # Named resource pools
     datasets: Sequence[DatasetConfig | DatasetProtocolConfig] | None = Field(
         default=None, description="Named dataset definitions (format + path), referenced by sources"
