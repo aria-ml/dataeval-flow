@@ -238,6 +238,7 @@
 
 ### Changed
 
+- Metadata from DataEval main (`faf9ff3e`) keeps missing values null and drops boolean-mixed factors as `mixed_types`
 - The `dataeval-flow` command writes each task's result files as soon as the task finishes, so a killed run keeps them
   - Each file is replaced whole, so a reader never sees a half-written one
 - Every check's description opens with what it judges, such as "Judges `balance`'s output: …"
