@@ -911,6 +911,20 @@ release:sbom:
 #
 # Requires the group-level DATAEVAL_BUILD_PAT variable (same token as the docs
 # cache push) with api scope on the meta repo.
+# The package is published by the GitHub workflow that starts when the tag is mirrored, so
+# this waits for it to appear on PyPI. A failure is recorded in the evidence rather than
+# blocking it.
+release:check-pypi:
+  extends: [.nox]
+  stage: release
+  needs: []
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
+  before_script: []
+  script:
+    - python3 .gitlab/scripts/check_pypi_release.py "$CI_COMMIT_TAG"
+
 publish:verification:
   extends: [.nox]
   stage: release
