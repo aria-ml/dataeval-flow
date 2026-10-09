@@ -150,10 +150,6 @@ def list_view_operations() -> list[str]:
     return sorted(names)
 
 
-# Deprecated alias retained for backward compatibility; use list_view_operations.
-list_selection_classes = list_view_operations
-
-
 @lru_cache(maxsize=64)
 def get_transform_params(name: str) -> list[ParamInfo]:
     """Get parameter info for a transform.
@@ -179,7 +175,3 @@ def get_view_operation_params(name: str) -> list[ParamInfo]:
     if cls is None:
         return []
     return _introspect_params(cls)
-
-
-# Deprecated alias retained for backward compatibility; use get_view_operation_params.
-get_selection_params = get_view_operation_params
