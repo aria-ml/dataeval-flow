@@ -134,16 +134,16 @@ Artifacts are written to the output directory regardless of verbosity.
 
 Optional sub-commands (default is the headless pipeline):
 
-| Command    | Purpose                                                              |
-| ---------- | -------------------------------------------------------------------- |
-| `app`      | Interactive TUI dashboard (requires the `app` extra)                 |
-| `config`   | Simple CLI config builder                                            |
+| Command      | Purpose                                                            |
+| ------------ | ------------------------------------------------------------------ |
+| `app`        | Interactive TUI dashboard (requires the `app` extra)               |
+| `config`     | Simple CLI config builder                                          |
 | `workflows`  | List the workflow types, or show one's parameter schema            |
 | `evaluators` | List the evaluator types, or show one's parameter schema           |
 | `steps`      | List every step a workflow can chain, or describe one              |
-| `encoding` | Write the metadata encoding descriptor a result was computed under   |
-| `verify`   | Check that a source still holds the items a run's manifest records   |
-| `serve`    | Long-running HTTP service that queues pipelines (`service` extra)    |
+| `encoding`   | Write the metadata encoding descriptor a result was computed under |
+| `verify`     | Check that a source still holds the items a run's manifest records |
+| `serve`      | Long-running HTTP service that queues pipelines (`service` extra)  |
 
 `encoding` takes the path to a `result.json` written by a run, plus an optional
 `-o`/`--output` for where to write the descriptor (default: print it) and
