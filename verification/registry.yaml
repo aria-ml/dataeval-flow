@@ -353,12 +353,12 @@ test_cases:
     expect: Each optional module imports when its extra is installed.
     tests:
     - optx::test_optional_module_importable_if_installed
-  - do: Review the `installpip`, `installpoetry`, and `installconda` CI jobs.
+  - do: Review the `install:pip`, `install:poetry`, and `install:conda` CI jobs.
     expect: All extras install without dependency conflicts.
     tests:
-    - 'CI: installpip'
-    - 'CI: installpoetry'
-    - 'CI: installconda'
+    - 'CI: install:pip'
+    - 'CI: install:poetry'
+    - 'CI: install:conda'
 - id: 2-1
   req: FR-2
   name: Configuration Loading
@@ -485,7 +485,7 @@ test_cases:
   - do: Call `list_workflows()`.
     expect: The eight registered workflows are returned by name.
     tests:
-    - orch::test_list_workflows_returns_seven
+    - orch::test_list_workflows_returns_eight
   - do: Call `get_workflow` with a known name and an unknown name.
     expect: A `WorkflowProtocol` object is returned for the known name, and `ValueError` for the unknown one.
     tests:
@@ -754,7 +754,6 @@ test_cases:
     expect: The pipeline runs as a non-root user and writes results to `/output`.
     tests:
     - cpuimg::test_pipeline_runs_against_mounted_directories_as_non_root
-    - 'CI: verifydocker'
   - do: Run the image with no data mounted, and with `--help`.
     expect: A usage banner is printed that covers arguments, variables, mounts, and secrets.
     tests:
@@ -805,12 +804,12 @@ test_cases:
     tests:
     - 'CI: test'
     - 'CI: verify'
-  - do: Review the `installpip`, `installpoetry`, and `installconda` CI jobs.
+  - do: Review the `install:pip`, `install:poetry`, and `install:conda` CI jobs.
     expect: Installs from pip, uv, poetry, and conda resolve without conflicts.
     tests:
-    - 'CI: installpip'
-    - 'CI: installpoetry'
-    - 'CI: installconda'
+    - 'CI: install:pip'
+    - 'CI: install:poetry'
+    - 'CI: install:conda'
   - do: Run a workflow with CUDA hidden.
     expect: The workflow runs on CPU without error.
     tests:
@@ -974,21 +973,23 @@ test_cases:
   conditions:
   - A published release image and its pipeline results
   steps:
-  - do: Review the `validatedocker` and `container_scanning` CI jobs.
+  - do: Review the `validate:docker` and `container_scanning` CI jobs.
     expect: The image is built and scanned before any registry write, and the job fails on HIGH or CRITICAL findings.
     tests:
-    - 'CI: validatedocker'
+    - 'CI: validate:docker'
     - 'CI: container_scanning'
   - do: Verify the image signature with `cosign` and the key at `docker/cosign.pub`.
     expect: The signature verifies.
     tests:
     - sec::test_signature_verifies_against_the_committed_public_key
+    - 'CI: verify:docker'
   - do: List `/usr/share/dataeval-flow/security/` in the image.
     expect: The scan reports and `sbom.cdx.json` are present.
     tests:
     - sec::test_scan_reports_and_sbom_are_inside_the_image
-  - do: Review the `sbom` and `releasesbom` CI jobs.
+  - do: Review the `sbom` and `release:sbom` CI jobs.
     expect: The CycloneDX SBOM is attached to the registry as an attestation.
     tests:
     - 'CI: sbom'
-    - 'CI: releasesbom'
+    - 'CI: release:sbom'
+    - 'CI: verify:docker'
