@@ -12,6 +12,7 @@ stages:
   - test
   - publish
   - release
+  - verification
 
 # Shared components [jatic/aria/ci] and GitLab Security Templates [DSOR-1 to DSOR-5]
 include:
@@ -249,11 +250,18 @@ variables:
       variables:
         DOCS_ARG: ""
 
+.rules_gate:
+  rules:
+    - *skip_publish_verification
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
+    - !reference [.aria_rules_main_mr, rules]
+
 # Run only when dependency-defining files change (or on main). Used to gate
 # the install-validation jobs so they don't run on docs/code-only MRs.
 .rules_main_mr_deps:
   rules:
     - *skip_publish_verification
+    - if: $CI_COMMIT_TAG =~ /^v\d+/
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
@@ -321,6 +329,18 @@ linkchecker:
 # validation runs only when a dependency-defining file changes, so their rules
 # are replaced here -- a job-level `rules:` replaces rather than merges, which
 # is what is wanted.
+# The jobs the verification registry cites as evidence also run on a release tag, so the
+# published results carry their outcome. Their components default to main and merge requests.
+lint:
+  rules: !reference [.rules_gate, rules]
+type-check:
+  rules: !reference [.rules_gate, rules]
+test:
+  rules: !reference [.rules_gate, rules]
+verify:
+  rules: !reference [.rules_gate, rules]
+deps:
+  rules: !reference [.rules_gate, rules]
 install:lock:
   rules: !reference [.rules_main_mr_deps, rules]
 install:pip:
@@ -927,8 +947,10 @@ release:check-pypi:
 
 publish:verification:
   extends: [.nox]
-  stage: release
-  needs: []
+  # Its own stage, after every other, so it waits for the jobs whose results the registry cites as
+  # evidence (`CI: <job>` steps) and records them, whatever they were.
+  stage: verification
+  dependencies: []
   rules:
     # The meta repo keeps one copy of the requirements, test cases, and VCRM, so whichever
     # pipeline publishes last wins. Main runs ahead of the release and is kept out; publish
@@ -937,12 +959,14 @@ publish:verification:
       when: never
     - if: $PUBLISH_VERIFICATION
     - if: $CI_COMMIT_TAG =~ /^v\d+/
+      when: always
   variables:
     VERIFICATION_PUSH_ARGS: ""
   before_script:
     - !reference [.nox, before_script]
     - uv pip install --system requests pyyaml
   script:
+    - python3 .gitlab/scripts/collect_ci_jobs.py
     - uvx --with nox-uv nox -s verify
     - python3 .gitlab/scripts/push_verification.py $VERIFICATION_PUSH_ARGS
   artifacts:

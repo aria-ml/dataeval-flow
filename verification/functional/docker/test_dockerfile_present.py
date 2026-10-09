@@ -121,9 +121,9 @@ class TestGeneratedFromOneTemplate:
 
     @pytest.mark.parametrize("name", NAMES)
     def test_each_variant_is_built_on_the_base_image_the_variants_file_names(self, name: str) -> None:
-        froms = [line.split() for line in _instructions(name) if line.upper().startswith("FROM ")]
-        stages = [parts[3].lower() for parts in froms]
-        external = [parts[1] for parts in froms if parts[1].lower() not in stages]
+        from_lines = [line.split() for line in _instructions(name) if line.upper().startswith("FROM ")]
+        stages = [parts[3].lower() for parts in from_lines]
+        external = [parts[1] for parts in from_lines if parts[1].lower() not in stages]
 
         assert stages == ["build", "test", "prod", "scanned"]
         assert external == [VARIANTS[name]["base_image"]] * 2

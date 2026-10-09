@@ -2850,12 +2850,11 @@ test_cases:
     - f16_ref::test_every_option_the_reference_lists_exists
     - f16_ref::test_every_variable_the_reference_lists_is_read_by_the_code
     - f16_ref::test_the_documented_defaults_match_the_dockerfile
-  - do: Review the `push:docker` and `validate:docker` CI jobs.
+  - do: Review the `push:docker` CI job.
     expect: Each variant's image builds, and its `test` stage (an install, CLI and wiring smoke test) passes inside the image
       before anything is published.
     tests:
     - 'CI: push:docker'
-    - 'CI: validate:docker'
 - id: 16-2
   req: FR-16
   name: Container Run
@@ -4316,8 +4315,8 @@ test_cases:
   conditions:
   - The pipeline definition in `.gitlab-ci.yml` and the pipeline results of a release
   steps:
-  - do: Read the order of the `push:docker` job, and review the `push:docker`, `validate:docker`, and `container_scanning`
-      CI jobs.
+  - do: Read the order of the `push:docker` job, and review the `push:docker` and `container_scanning` CI
+      jobs.
     expect: The image is scanned and the job fails on HIGH or CRITICAL findings before the image is pushed under its published
       tag, the JSON and table reports are kept, and the registry scan is a gate.
     tests:
