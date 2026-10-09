@@ -504,7 +504,7 @@ resolve:version:
     - eval "$(./docker/resolve-version.sh)"
     # The tag the image is published under. A release pipeline publishes the
     # version verbatim and never overwrites it; the only other pipeline that
-    # publishes is the default branch, which overwrites :latest in place.
+    # publishes is the default branch, which overwrites :main in place.
     # DATAEVAL_FLOW_VERSION is unaffected — it is baked into the wheel and the
     # OCI label, so a branch image still reports its true version.
     # The branch build is named after the branch it came from, so the tag and
@@ -640,7 +640,7 @@ push:docker:
 
     # Publish `scanned` -- `prod` plus the report layer. Rebuilt from the local
     # cache the previous build just populated, so this adds one layer, not one
-    # build. On the default branch this overwrites :latest-${VARIANT} in place;
+    # build. On the default branch this overwrites :main-${VARIANT} in place;
     # on a tag it writes :${VERSION}-${VARIANT}, never rewritten.
     - >-
       docker buildx build --target scanned

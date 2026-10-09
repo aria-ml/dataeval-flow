@@ -14,29 +14,25 @@ each one as the batch command, and has health-check endpoints (see
 
 ## Image tags
 
-Every image is published to `harbor.jatic.net/aria/dataeval-flow` in three variants —
-`cpu`, `cu126`, and `cu130` — under four kinds of tag:
+Every image is published to `harbor.jatic.net/aria/dataeval-flow` in three variants,
+`cpu`, `cu126` and `cu130`, under three kinds of tag:
 
-| Tag                         | Example     | Points at                                     |
-| --------------------------- | ----------- | --------------------------------------------- |
-| `<version>-<variant>`       | `0.2.3-cpu` | One exact build. Immutable — never reassigned |
-| `<major>.<minor>-<variant>` | `0.2-cpu`   | Newest patch on that release line             |
-| `<variant>`                 | `cpu`       | Newest release overall                        |
-| `edge-<variant>`            | `edge-cpu`  | Newest build from `main` — unreleased         |
+| Tag                   | Example      | Points at                                  |
+| --------------------- | ------------ | ------------------------------------------ |
+| `<version>-<variant>` | `0.3.0-cpu`  | One release build; never reassigned        |
+| `latest-<variant>`    | `latest-cpu` | The highest stable release                 |
+| `main-<variant>`      | `main-cpu`   | The newest build of `main`; not a release  |
 
 **Pin to `<version>-<variant>` for anything reproducible.** It is the only tag
 that never moves, and it is the tag the cosign signature and SBOM attestation are
 bound to.
 
-Series tags exist because release lines receive patches independently. Once
-`release/v0.2` carries fixes and v0.3 has shipped, `0.2-cpu` follows the v0.2
-line while `cpu` tracks v0.3, so a v0.2 patch never moves `cpu` backwards.
-Track `0.2-cpu` to stay on a release line and receive its fixes; track `cpu` to
-follow the newest release.
+`latest-<variant>` moves only to a higher stable version, so a patch cut on an
+older release line, such as v0.2.3 after v0.3.0, never moves it backwards. A
+release line's patches are published under their version tags only.
 
 Prereleases (`0.4.0-rc0-cpu`) are published under their exact version tag only.
-No floating tag ever points at one, so following `cpu` or `0.4-cpu` will not hand
-you a release candidate.
+`latest-<variant>` never points at one.
 
 See [BRANCHING.md](https://github.com/aria-ml/dataeval-flow/blob/main/BRANCHING.md)
 for how release lines are cut and maintained.

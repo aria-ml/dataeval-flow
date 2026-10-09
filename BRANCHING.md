@@ -170,10 +170,10 @@ the version number makes.
 
 ### What the containers do
 
-The tag pipeline publishes `0.2.3-<variant>` and nothing else. There are no
-series or "newest release" pointers to move, so cutting a v0.2 patch after v0.3
-has shipped cannot drag a shared tag backwards onto the older line; the only
-floating tag is `latest-<variant>`, and it follows `main` alone.
+The tag pipeline publishes `0.2.3-<variant>`, and moves `latest-<variant>` to it
+only when it is the highest stable release, so cutting a v0.2 patch after v0.3
+has shipped cannot drag `latest` backwards onto the older line. `main-<variant>`
+follows `main` alone.
 
 Release branches build their images but never publish them: `validate:docker`
 runs the build through its test stage and stops. See the
