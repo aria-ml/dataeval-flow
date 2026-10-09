@@ -45,7 +45,8 @@ def test_synthetic_dataset_satisfies_basic_protocol() -> None:
     assert len(ds) == 4
     img, target, datum_meta = ds[0]
     assert img.shape == (3, 8, 8)
-    assert isinstance(target, int)
+    assert target.shape == (2,)
+    assert target.sum() == 1
     assert "id" in datum_meta
     assert "index2label" in ds.metadata
     assert isinstance(ds.synthetic_metadata, SyntheticMetadata)

@@ -208,7 +208,7 @@ def test(session: nox.Session) -> None:
     session.run("mv", ".coverage", f"output/.coverage.{py}", external=True)
 
 
-@nox_uv.session(uv_groups=["verify"], uv_extras=UV_EXTRAS)
+@nox_uv.session(uv_groups=["verify"], uv_extras=UV_EXTRAS_WITH_ONNX_AND_OPENCV + ["ontology"])
 def verify(session: nox.Session) -> None:
     """Run the requirements verification suite (FR/NFR compliance).
 

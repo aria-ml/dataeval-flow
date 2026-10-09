@@ -51,8 +51,11 @@ class SyntheticDataset:
         payload: dict[str, Any] = {"id": self._id, "index2label": dict(self.index2label)}
         return cast(dict[str, Any], payload)
 
-    def __getitem__(self, idx: int) -> tuple[NDArray[np.uint8], int, dict[str, Any]]:
-        return self.images[idx], int(self.labels[idx]), {"id": idx}
+    def __getitem__(self, idx: int) -> tuple[NDArray[np.uint8], NDArray[np.float32], dict[str, Any]]:
+        # DataEval reads a classification target as a one-hot vector (a bare int is rejected).
+        target = np.zeros(len(self.index2label) or int(self.labels.max()) + 1, dtype=np.float32)
+        target[int(self.labels[idx])] = 1.0
+        return self.images[idx], target, {"id": idx}
 
     def __len__(self) -> int:
         return len(self.images)
@@ -127,8 +130,19 @@ def make_synthetic_embeddings(n: int = 64, dim: int = 32, seed: int = 0) -> NDAr
     return rng.standard_normal((n, dim)).astype(np.float32)
 
 
-def write_image_folder(root: Path, n_per_class: int = 4, n_classes: int = 2, seed: int = 0) -> Path:
-    """Write a tiny ImageFolder-style dataset to disk and return its root."""
+def write_image_folder(
+    root: Path,
+    n_per_class: int = 4,
+    n_classes: int = 2,
+    seed: int = 0,
+    size: int = 8,
+    low: int = 0,
+    high: int = 256,
+) -> Path:
+    """Write a tiny ImageFolder-style dataset to disk and return its root.
+
+    Pixels are uniform noise in ``[low, high)``; ``size`` is the square edge in pixels.
+    """
     from PIL import Image
 
     rng = np.random.default_rng(seed)
@@ -136,6 +150,57 @@ def write_image_folder(root: Path, n_per_class: int = 4, n_classes: int = 2, see
         class_dir = root / f"class_{c}"
         class_dir.mkdir(parents=True, exist_ok=True)
         for i in range(n_per_class):
-            arr = rng.integers(0, 256, size=(8, 8, 3), dtype=np.uint8)
-            Image.fromarray(arr).save(class_dir / f"img_{i}.png")
+            arr = rng.integers(low, high, size=(size, size, 3), dtype=np.uint8)
+            Image.fromarray(arr).save(class_dir / f"img_{i}.png", compress_level=1)
     return root
+
+
+def write_coco_dataset(root: Path, n: int = 3, size: int = 16, seed: int = 0) -> Path:
+    """Write a COCO object-detection dataset (``images/`` + ``annotations.json``), one box per image."""
+    import json
+
+    from PIL import Image
+
+    rng = np.random.default_rng(seed)
+    (root / "images").mkdir(parents=True, exist_ok=True)
+    images, annotations = [], []
+    for i in range(n):
+        Image.fromarray(rng.integers(0, 256, size=(size, size, 3), dtype=np.uint8)).save(root / "images" / f"{i}.png")
+        images.append({"id": i, "file_name": f"{i}.png", "width": size, "height": size})
+        annotations.append({"id": i, "image_id": i, "category_id": 1, "bbox": [1, 1, 8, 8], "area": 64, "iscrowd": 0})
+    categories = [{"id": 1, "name": "thing"}]
+    (root / "annotations.json").write_text(
+        json.dumps({"images": images, "annotations": annotations, "categories": categories})
+    )
+    return root
+
+
+def write_yolo_dataset(root: Path, n: int = 3, size: int = 16, seed: int = 0) -> Path:
+    """Write a YOLO object-detection dataset (``data.yaml`` + ``images/train`` + ``labels/train``)."""
+    from PIL import Image
+
+    rng = np.random.default_rng(seed)
+    (root / "images" / "train").mkdir(parents=True, exist_ok=True)
+    (root / "labels" / "train").mkdir(parents=True, exist_ok=True)
+    for i in range(n):
+        Image.fromarray(rng.integers(0, 256, size=(size, size, 3), dtype=np.uint8)).save(
+            root / "images" / "train" / f"{i}.png"
+        )
+        (root / "labels" / "train" / f"{i}.txt").write_text("0 0.5 0.5 0.4 0.4\n")
+    (root / "data.yaml").write_text("path: .\ntrain: images/train\nnames:\n  0: thing\n")
+    return root
+
+
+def plant_duplicate_and_outlier(root: Path) -> tuple[list[int], int]:
+    """Add one exact duplicate and one pixel outlier to a 2-class ImageFolder of ``img_0..img_9`` per class.
+
+    Returns ``(duplicate_pair, outlier_index)`` as dataset indices (files sort by name, so the copy
+    ``class_0/img_copy.png`` is index 10 and the all-white ``class_1/img_white.png`` is index 21).
+    """
+    import shutil
+
+    from PIL import Image
+
+    shutil.copy(root / "class_0" / "img_0.png", root / "class_0" / "img_copy.png")
+    Image.fromarray(np.full((8, 8, 3), 255, dtype=np.uint8)).save(root / "class_1" / "img_white.png")
+    return [0, 10], 21
