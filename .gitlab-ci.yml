@@ -284,8 +284,10 @@ markdownlint:
     exit $FAIL
 
 # Markdown link check [DR-3.3-H-4]
-# Allow failure: link checking is sensitive to transient network issues and
-# anti-scraping measures on some sites. Warnings should be reviewed but not block merges.
+# Gating. README's links to this project's Read the Docs pages are checked
+# against the page sources in docs/source, so an MR that adds a page and links
+# it passes before the page is published. 502-504 count as alive and a 429 is
+# retried: those are transient, not dead links.
 #
 # `markdown-link-check` takes FILES, not directories — passing `./docs/source`
 # silently checked nothing (and the resulting error was swallowed by
@@ -307,7 +309,6 @@ linkchecker:
     find docs/source -name '*.md' -not -path '*/.jupyter_cache/*' -print0 \
       | xargs -0 -r -n1 markdown-link-check --config docs/.markdown-link-check.json || FAIL=1
     exit $FAIL
-  allow_failure: true
 
 # -----------------------------------------------------------------------------
 # Install Validation [SR-3-H-2..5, SR-5-H-1, SR-5-H-2]

@@ -9,5 +9,13 @@
     {
       "pattern": "autoapi/"
     }
-  ]
+  ],
+  "replacementPatterns": [
+    {
+      "pattern": "^https://dataeval-flow\\.readthedocs\\.io/en/latest/(.*)\\.html",
+      "replacement": "{{BASEURL}}/docs/source/$1.md"
+    }
+  ],
+  "retryOn429": true,
+  "aliveStatusCodes": [200, 206, 502, 503, 504]
 }
