@@ -60,6 +60,13 @@ RUN touch README.md
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --extra cu126 --extra onnx-cu126 --extra opencv --extra app --extra service --no-install-project
 
+# Register the project in the venv so its entry points (maite.tasks and friends) are discoverable. The install is
+# editable and points at /app/src, which the production stage supplies; no copy of the source ends up in site-packages.
+ARG DATAEVAL_FLOW_VERSION
+COPY src/ ./src/
+RUN --mount=type=cache,target=/root/.cache/uv \
+    SETUPTOOLS_SCM_PRETEND_VERSION="${DATAEVAL_FLOW_VERSION}" uv pip install --no-deps --editable .
+
 # =============================================================================
 # Stage 2: Test — extend build with dev deps, run nox, validate code
 # =============================================================================
