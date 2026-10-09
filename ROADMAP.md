@@ -1,6 +1,6 @@
 # DataEval Flow Roadmap
 
-**Last updated:** 2026-10-07
+**Last updated:** 2026-10-08
 
 This roadmap reflects shipped capabilities and a six-month forward outlook (through
 January 2027). Future-work entries marked **TBD** are placeholders for the team to
@@ -104,20 +104,22 @@ loading for the object-detection formats.
 
 ### v0.3.0 — Release automation + container hardening
 
-**Target:** October 2026
+**Target:** October 2026, once DataEval v1.2.0 is released
 
+- [ ] Depend on a released `dataeval>=1.2.0` in place of DataEval `main`
 - [x] Poetry support dropped: `poetry.lock` and the `poetry install` lane removed; v0.2.2 is the
       last release to support it. uv, pip, and conda remain (supersedes SR-3-H-2..4)
-- [ ] Label-driven semver release automation (`release::*` MR labels)
-- [ ] CI scripts for `create_release.py`, `create_patch_release.py`, `validate_release_label.py`
+- [x] `scripts/release.py` cuts a release from `main` or a `release/vX.Y` branch: it promotes the hand-written
+      `## Unreleased` changelog section, commits and tags, and needs no GitLab API. It replaces the planned
+      `release::*` label automation and its CI scripts
 - [x] Release branch lifecycle (`release/vX.Y` long-lived branches): cut from a release tag,
-      patched by cherry-pick from `main`; series-scoped container tags (`0.2-cpu`) keep a patch
-      on an older line from moving the `:cpu` pointer. See BRANCHING.md (RS-5-S-1)
+      patched by cherry-pick from `main`; `latest-<variant>` moves only to the highest stable release,
+      so a patch on an older line never moves it backwards. See BRANCHING.md (RS-5-S-1)
 - [x] Container scan promoted to a gate: container scanning runs `allow_failure: false` at
       `CS_SEVERITY_THRESHOLD: HIGH`, blocking floating-tag promotion (CS-2-H-2 / DSOR-3-H-2)
 - [x] SBOM published with releases: per-image CycloneDX cosign attestation (CS-2-H-4)
-- [ ] Link checking promoted from `allow_failure: true` to gating once the external-link
-      flake rate is understood (DR-3.3-H-4)
+- [x] Link checking gates merges (DR-3.3-H-4). README's links to this project's docs are checked against
+      the page sources, and a 502-504 or 429 response does not fail it
 - [x] `dataeval-flow serve`: a long-running HTTP service, in every image behind the `service` extra,
       that queues pipelines and runs each as the batch command. IR-2.3-H-2, IR-2.3-S-1 and IR-2.4-S-1
       now apply, and its health, liveness and readiness endpoints and OpenAPI description meet them
