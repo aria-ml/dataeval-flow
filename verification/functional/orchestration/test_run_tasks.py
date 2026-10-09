@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 class TestOrchestration:
-    def test_list_workflows_returns_seven(self) -> None:
+    def test_list_workflows_returns_eight(self) -> None:
         wfs = list_workflows()
         names = {w["name"] for w in wfs}
         assert names == {
