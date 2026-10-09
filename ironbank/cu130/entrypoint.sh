@@ -108,6 +108,11 @@ COMMAND-LINE OPTIONS
   COMMANDS (optional; default runs the headless pipeline):
     app               Launch the interactive TUI (requires the 'app' extra).
     config            Create or edit pipeline config files.
+    workflows         List the workflow types, or show one's parameter schema.
+    evaluators        List the evaluator types, or show one's parameter schema.
+    steps             List every step a workflow can chain, or describe one.
+    verify            Check that a source still holds the items a run's
+                      manifest records. Takes a manifest path, --config, --source.
     encoding          Write the metadata encoding descriptor a result was
                       computed under, ready to review and commit. Takes a
                       result.json path, with -o PATH and --task NAME.
