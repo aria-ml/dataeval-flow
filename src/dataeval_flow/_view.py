@@ -34,7 +34,7 @@ def _coerce_tuple_params(operation_cls: type, params: Mapping[str, Any]) -> dict
     out of reach of every config-driven view unless the conversion happens here.
 
     Only parameters whose annotation admits a tuple are converted, so the operations
-    that take an ordinary sequence (``ClassFilter(classes=...)``,
+    that take an ordinary sequence (``Filter(classes=...)``,
     ``Indices(indices=...)``) receive exactly what the config gave them.
     """
     try:
@@ -89,7 +89,7 @@ def build_view(dataset: AnnotatedDataset[T], operations: list["ViewOperation"]) 
     >>> from dataeval_flow.config import ViewOperation
     >>> operations = [
     ...     ViewOperation(type="Limit", params={"size": 10000}),
-    ...     ViewOperation(type="ClassFilter", params={"classes": [0, 1, 2]}),
+    ...     ViewOperation(type="Filter", params={"classes": [0, 1, 2]}),
     ... ]
     >>> filtered = build_view(dataset, operations)
     """

@@ -35,11 +35,11 @@ class ViewTransformConfig(TransformConfig):
 
 
 class ViewTransform(Transform[ViewTransformConfig]):
-    """``view``: DataEval view operations, such as ``ClassFilter``, ``Relabel``, ``Limit`` or ``Indices``."""
+    """``view``: DataEval view operations, such as ``Filter``, ``Relabel``, ``Limit`` or ``Indices``."""
 
     name: ClassVar[str] = "view"
     title: ClassVar[str] = "View"
-    description: ClassVar[str] = "Applies DataEval view operations, such as ClassFilter, Relabel, Limit or Indices."
+    description: ClassVar[str] = "Applies DataEval view operations, such as Filter, Relabel, Limit or Indices."
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.DATASET),)
     outputs: ClassVar[tuple[Port, ...]] = (Port("output", DataType.DATASET),)
 

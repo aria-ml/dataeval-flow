@@ -1,6 +1,6 @@
 """View pipeline configuration schema.
 
-A *view* is a named pipeline of dataset operations (``Limit``, ``ClassFilter``,
+A *view* is a named pipeline of dataset operations (``Limit``, ``Filter``,
 ``Shuffle``, ...) applied to a source dataset — the config-layer counterpart of
 :class:`dataeval.data.View`.
 """

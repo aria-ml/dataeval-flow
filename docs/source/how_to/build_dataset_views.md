@@ -67,7 +67,7 @@ Operations are pass-throughs to `dataeval.data`, so the type names and parameter
 | --- | --- |
 | `Limit` | Keep the first *n* items |
 | `Indices` | Keep an explicit set of positions |
-| `ClassFilter` | Keep only the listed classes |
+| `Filter` | Keep the listed classes, the items whose metadata factors match a `where` predicate, or both |
 | `ClassBalance` | Even out per-class counts |
 | `Shuffle` | Randomize order (seedable) |
 | `Reverse` | Reverse order |
@@ -80,7 +80,9 @@ Operations are pass-throughs to `dataeval.data`, so the type names and parameter
 
 The `type` is resolved by name against `dataeval.data`, not checked against a fixed list. **Anything that module
 exports is usable**, including operations added by a DataEval release newer than this table. `ClassBalance` had a
-counting bug fixed in DataEval v1.1, so a view using it can select differently than under v0.1.
+counting bug fixed in DataEval v1.1, so a view using it can select differently than under v0.1. `ClassFilter` still
+works but is deprecated in favor of `Filter`: `{type: ClassFilter, params: {classes: [0, 3]}}` becomes
+`{type: Filter, params: {classes: [0, 3]}}`, and `filter_detections: false` becomes `drop: items`.
 
 See the [DataEval `dataeval.data` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/data/index.html)
 for the full parameter list of each.
@@ -94,7 +96,7 @@ whatever 500 is at the front of the file.
 views:
   - name: two_classes_sample
     operations:
-      - type: ClassFilter
+      - type: Filter
         params:
           classes: [0, 3]
       - type: Shuffle
@@ -120,6 +122,25 @@ views:
 ```
 
 See [Reproducibility](../concepts/Reproducibility.md) for how the two interact.
+
+## Filter by metadata factor
+
+`Filter`'s `where` is a SQL `WHERE` clause over the dataset's metadata factors, and `classes` is ANDed with it:
+
+```yaml
+views:
+  - name: night_cars
+    operations:
+      - type: Filter
+        params:
+          where: "time_of_day = 'night' AND altitude > 100"
+          classes: [1]
+```
+
+An item missing a factor never matches; `altitude IS NULL` keeps those items. Double-quote a factor name that holds
+spaces (`"time of day" = 'night'`). For detections, `drop` decides what a detection-level predicate removes: `both`
+(the default) keeps the images holding a match and only their matching detections, `items` keeps those images whole,
+and `detections` keeps every image but only its matching detections.
 
 ## Select an index range without enumerating it
 

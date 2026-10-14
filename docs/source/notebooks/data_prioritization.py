@@ -76,7 +76,7 @@
 from pathlib import Path
 
 import numpy as np
-from dataeval.data import ClassFilter, Indices, Limit, Shuffle, View
+from dataeval.data import Filter, Indices, Limit, Shuffle, View
 from datamaite import load_ic
 from maite_datasets.image_classification import MilitaryVehicles
 
@@ -98,7 +98,7 @@ known_classes = [i for i in sorted(index2label) if i not in held_out]
 # labeled pool directly before pipeline execution.
 #
 # Labeled pool: The twenty known classes only.
-labeled_dataset = View(vehicles, [ClassFilter(known_classes), Shuffle(seed=42), Limit(4000)])
+labeled_dataset = View(vehicles, [Filter(classes=known_classes), Shuffle(seed=42), Limit(4000)])
 labeled_indices = labeled_dataset.resolve_indices()
 
 # Unlabeled pool: The remaining frames, containing Air Defense systems and leftover known types.

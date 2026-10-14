@@ -483,13 +483,13 @@ class TestP1SchemaClasses:
             name="training_subset",
             operations=[
                 ViewOperation(type="Limit", params={"size": 10000}),
-                ViewOperation(type="ClassFilter", params={"classes": [0, 1, 2]}),
+                ViewOperation(type="Filter", params={"classes": [0, 1, 2]}),
             ],
         )
         assert config.name == "training_subset"
         assert len(config.operations) == 2
         assert config.operations[0].type == "Limit"
-        assert config.operations[1].type == "ClassFilter"
+        assert config.operations[1].type == "Filter"
 
     def test_selection_step_indices_range_shorthand(self):
         """ViewOperation expands indices range dict into a list."""

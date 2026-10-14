@@ -353,7 +353,7 @@ Verdict
     {term}`not assessed<Not Assessed>`. Health still counts every warning. See [Preset Catalog](presets.md#audit).
 
 View
-    A named, ordered pipeline of dataset operations (`Limit`, `ClassFilter`,
+    A named, ordered pipeline of dataset operations (`Limit`, `Filter`,
     `Shuffle`, …) applied to a dataset before evaluation, referenced by name from
     a {term}`source<Source>`. The config-layer counterpart of `dataeval.data.View`.
 

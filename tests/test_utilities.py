@@ -186,12 +186,12 @@ class TestOperationsRequiringTuplesAreReachableFromConfig:
         assert view[0][0].shape[-2:] == (6, 6)
 
     def test_a_list_param_that_is_not_a_tuple_is_left_alone(self):
-        """`ClassFilter` takes a sequence; coercion must not change what it receives."""
+        """`Filter`'s `classes` is a sequence; coercion must not change what it receives."""
         from dataeval_flow._view import build_view
 
         view = build_view(
             _ImageDataset(count=6, labels=[0, 1, 0, 1, 0, 1]),
-            [ViewOperation(type="ClassFilter", params={"classes": [1]})],
+            [ViewOperation(type="Filter", params={"classes": [1]})],
         )
 
         assert len(view) == 3

@@ -38,7 +38,7 @@ transform's ports and the JSON Schema of its settings.
 
 ### `view`
 
-Applies DataEval view operations, such as ClassFilter, Relabel, Limit or Indices.
+Applies DataEval view operations, such as Filter, Relabel, Limit or Indices.
 
 It applies them as a source's `view:` does.
 
