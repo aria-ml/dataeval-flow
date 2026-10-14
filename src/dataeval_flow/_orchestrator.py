@@ -1425,17 +1425,28 @@ def run_tasks(
     >>> results = run_tasks(load_config("params.yaml"), data_dir=Path("."))  # doctest: +SKIP
     >>> print(results["find_dupes"].report())  # doctest: +SKIP
     """
+    from dataeval_flow import _activity
+    from dataeval_flow._result import failure_message
+
     to_run = select_tasks(config, tasks)
 
     _logger.info("Running %d task(s)", len(to_run))
+    for task in to_run:
+        _activity.task_state(task.name, "pending")
     results: dict[str, Result[Any, Any]] = {}
     for task in to_run:
         _logger.info("--- Task: %s (%s) ---", task.name, _target_of(task))
-        results[task.name] = _run_single_task(
-            task, config, data_dir=data_dir, cache_dir=cache_dir, output_dir=output_dir
-        )
+        _activity.task_state(task.name, "running")
+        try:
+            result = _run_single_task(task, config, data_dir=data_dir, cache_dir=cache_dir, output_dir=output_dir)
+        except Exception as error:
+            _activity.task_state(task.name, "failed", failure_message(error))
+            raise
+        results[task.name] = result
+        failed = None if result.success else "; ".join(result.errors) or None
+        _activity.task_state(task.name, "ok" if result.success else "failed", failed)
         if on_result is not None:
-            on_result(task.name, results[task.name])
+            on_result(task.name, result)
     return results
 
 

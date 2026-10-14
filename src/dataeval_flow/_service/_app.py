@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -12,33 +12,50 @@ from typing import Any
 import dataeval
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from dataeval_flow import __version__
+from dataeval_flow._activity import ACTIVITY_FILE, page, read_events, snapshot
 from dataeval_flow._orchestrator import select_tasks
 from dataeval_flow._runner import _requirement
+from dataeval_flow._service import _contract
 from dataeval_flow._service._evidence import PAGE_SIZE, Evidence, UnknownItemError
 from dataeval_flow._service._manager import RunManager
+from dataeval_flow._service._resolve import Resolution, resolve
 from dataeval_flow._service._selections import SelectionError, SelectionRequest, Selections
-from dataeval_flow._service._store import RunStore, UnknownRunError
-from dataeval_flow.config import PipelineConfig, ResultConfig
+from dataeval_flow._service._store import TERMINAL, RunStore, UnknownRunError
+from dataeval_flow.config import PipelineConfig, ResultConfig, TaskConfig
 from dataeval_flow.steps import list_steps
 
 API_VERSION = 1
 _LOG_TAIL = 65536
 
 
+_FINGERPRINT = r"^sha256:[0-9a-f]{64}$"
+
+
 class RunRequest(BaseModel):
     """A pipeline, and which of its tasks to run: what ``dataeval-flow`` reads from ``--config`` and ``--task``."""
 
     model_config = ConfigDict(extra="forbid")
-    pipeline: PipelineConfig
+    pipeline: dict[str, Any] = Field(
+        description="The pipeline configuration, as JSON: what `--config` holds. `GET /v1/schema` describes it."
+    )
     tasks: list[str] | None = Field(
         default=None,
         description=(
             "Tasks to run, in order; every enabled task when omitted. Naming a task runs it whether or not the "
             "pipeline marks it enabled."
+        ),
+    )
+    expected_schema_fingerprint: str | None = Field(
+        default=None,
+        pattern=_FINGERPRINT,
+        description=(
+            "The `schema_fingerprint` the client read the schema and catalog under. When given and the service's "
+            "differs, the request is refused with `409 schema_changed`, before the pipeline is read."
         ),
     )
 
@@ -48,22 +65,78 @@ def _refused(loc: list[str], message: str) -> HTTPException:
     return HTTPException(422, [{"type": "value_error", "loc": loc, "msg": message}])
 
 
-def _checked(request: RunRequest) -> dict[str, Any]:
-    """The tasks a request runs and the snapshot it runs from, or a 422 saying why it would fail before any ran."""
-    pipeline = request.pipeline
+def _pinned(request: RunRequest) -> None:
+    """Refuse a request pinned to another schema than this service's, before reading its pipeline under this one."""
+    actual = _contract.schema_fingerprint()
+    expected = request.expected_schema_fingerprint
+    if expected is not None and expected != actual:
+        raise _contract.ContractError(
+            409,
+            "schema_changed",
+            "The service's pipeline schema changed since the client read it: read /v1/capabilities again.",
+            expected=expected,
+            actual=actual,
+        )
+
+
+def _parsed(request: RunRequest) -> PipelineConfig:
+    """`request`'s pipeline, checked as a config file is; a 422 locates what it refuses as FastAPI does.
+
+    Whether its workflows connect is left for the caller to check and locate (builder spec §5.1).
+    """
     try:
-        tasks = [task.name for task in select_tasks(pipeline, request.tasks)]
+        return PipelineConfig.model_validate(request.pipeline, context={"graphs": False})
+    except ValidationError as error:
+        problems = [
+            {**problem, "loc": ("body", "pipeline", *problem["loc"])} for problem in error.errors(include_url=False)
+        ]
+        raise RequestValidationError(problems) from None
+
+
+def _selected(request: RunRequest, pipeline: PipelineConfig) -> list[TaskConfig]:
+    """The tasks a request runs, or a 422 saying why it would fail before any ran."""
+    try:
+        tasks = select_tasks(pipeline, request.tasks)
     except ValueError as error:
         where = ["body", "tasks"] if request.tasks is not None else ["body", "pipeline", "tasks"]
         raise _refused(where, str(error)) from None
     try:
-        _requirement(pipeline, tasks, None)
+        _requirement(pipeline, [task.name for task in tasks], None)
     except ValueError as error:
         raise _refused(["body", "pipeline", "result", "require"], str(error)) from None
     if "json" not in pipeline.result.formats:
         message = "The service reads each run's results as JSON: keep `json` in `result: formats`."
         raise _refused(["body", "pipeline", "result", "formats"], message)
-    return {"valid": True, "tasks": tasks, "pipeline": pipeline.model_dump(mode="json", by_alias=True)}
+    return tasks
+
+
+def _resolved(request: RunRequest) -> tuple[PipelineConfig, list[TaskConfig], Resolution]:
+    """A request's pipeline, its tasks, and its graphs resolved: what `/validate`, `/resolve` and `/runs` share
+    (builder spec §5.1). Its graphs are checked here rather than as it loads, so each problem is located."""
+    _pinned(request)
+    pipeline = _parsed(request)
+    tasks = _selected(request, pipeline)
+    return pipeline, tasks, resolve(pipeline, tasks)
+
+
+def _located(diagnostic: dict[str, Any]) -> dict[str, Any]:
+    """A diagnostic as one entry of a 422, located at its pointer into the pipeline."""
+    parts = (diagnostic["document_pointer"] or "").split("/")[1:]
+    loc = ["body", "pipeline", *(int(part) if part.isdigit() else part for part in parts)]
+    return {"type": "value_error", "loc": loc, "msg": diagnostic["message"]}
+
+
+def _checked(request: RunRequest) -> dict[str, Any]:
+    """The tasks a request runs and the snapshot it runs from, or a 422 saying why it would fail before any ran."""
+    pipeline, tasks, resolution = _resolved(request)
+    if resolution.diagnostics:
+        raise HTTPException(422, [_located(diagnostic) for diagnostic in resolution.diagnostics])
+    return {
+        "valid": True,
+        "tasks": [task.name for task in tasks],
+        "pipeline": pipeline.model_dump(mode="json", by_alias=True),
+        "schema_fingerprint": _contract.schema_fingerprint(),
+    }
 
 
 def _results(directory: Path, run: dict[str, Any]) -> dict[str, Any]:
@@ -111,8 +184,24 @@ def create_app(  # noqa: C901 - one nested route per endpoint
     app.state.store = store
 
     @app.exception_handler(UnknownRunError)
-    async def unknown(_request: Request, _error: UnknownRunError) -> PlainTextResponse:
-        return PlainTextResponse("Unknown run", status_code=404)
+    async def unknown(_request: Request, _error: UnknownRunError) -> JSONResponse:
+        return JSONResponse({"detail": "Unknown run"}, status_code=404)
+
+    @app.exception_handler(_contract.ContractError)
+    async def refused(_request: Request, error: _contract.ContractError) -> JSONResponse:
+        return JSONResponse(error.body, status_code=error.status)
+
+    @app.middleware("http")
+    async def bounded(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        # ponytail: trusts Content-Length, so a chunked body isn't bounded; count the stream if a client sends one.
+        length = request.headers.get("content-length", "")
+        limit = _contract.MAX_DOCUMENT_BYTES
+        if length.isdigit() and int(length) > limit:
+            refusal = _contract.ContractError(
+                413, "document_too_large", f"The request body is over {limit} bytes.", limit=limit
+            )
+            return JSONResponse(refusal.body, status_code=413)
+        return await call_next(request)
 
     @app.exception_handler(UnknownItemError)
     async def unknown_item(_request: Request, error: UnknownItemError) -> JSONResponse:
@@ -154,9 +243,23 @@ def create_app(  # noqa: C901 - one nested route per endpoint
             "api_version": API_VERSION,
             "flow_version": __version__,
             "dataeval_version": dataeval.__version__,
+            "schema_fingerprint": _contract.schema_fingerprint(),
             "max_active_runs": 1,
-            "features": {"items": 1, "profiles": 1, "selections": 1, "schema": 1},
-            "limits": {"page_size": PAGE_SIZE},
+            "features": {
+                "items": 1,
+                "profiles": 1,
+                "selections": 1,
+                "schema": 1,
+                "builder_metadata": 1,
+                "graph_resolution": 1,
+                "step_activity": 1,
+            },
+            "limits": {
+                "page_size": PAGE_SIZE,
+                "max_document_bytes": _contract.MAX_DOCUMENT_BYTES,
+                "max_resolved_nodes": _contract.MAX_RESOLVED_NODES,
+                "activity_page_size": _contract.ACTIVITY_PAGE_SIZE,
+            },
             "steps": list_steps().model_dump(mode="json"),
         }
 
@@ -170,11 +273,35 @@ def create_app(  # noqa: C901 - one nested route per endpoint
         """Check a pipeline and resolve the tasks it would run, without queueing it."""
         return _checked(request)
 
+    @app.post("/v1/resolve", tags=["builder"])
+    def resolve_graphs(request: RunRequest) -> dict[str, Any]:
+        """Resolve each task's graph without reading data or queueing: its steps, ports and bindings, and where it does
+        not connect (builder spec §5)."""
+        pipeline, _, resolution = _resolved(request)
+        limit = _contract.MAX_RESOLVED_NODES
+        if resolution.node_count > limit:
+            raise _contract.ContractError(
+                413,
+                "too_many_nodes",
+                f"The pipeline resolves to {resolution.node_count} nodes; the service resolves at most {limit}.",
+                limit=limit,
+                count=resolution.node_count,
+            )
+        return {
+            "schema": _contract.CONTRACT_SCHEMA,
+            "schema_fingerprint": _contract.schema_fingerprint(),
+            "valid": not resolution.diagnostics,
+            "pipeline": pipeline.model_dump(mode="json", by_alias=True),
+            "tasks": resolution.tasks,
+            "workflows": resolution.workflows,
+            "diagnostics": resolution.diagnostics,
+        }
+
     @app.post("/v1/runs", status_code=202, tags=["runs"])
     def submit(request: RunRequest) -> dict[str, Any]:
         """Check a pipeline and queue a snapshot of it; the run continues whoever is listening."""
         checked = _checked(request)
-        return manager.submit({"tasks": checked["tasks"]}, checked["pipeline"])
+        return manager.submit({"tasks": checked["tasks"]}, checked["pipeline"], checked["schema_fingerprint"])
 
     @app.get("/v1/runs", tags=["runs"])
     def runs() -> list[dict[str, Any]]:
@@ -197,9 +324,13 @@ def create_app(  # noqa: C901 - one nested route per endpoint
     @app.get("/v1/runs/{run_id}/results", tags=["runs"])
     def results(run_id: str) -> dict[str, Any]:
         """Each finished task's result, keyed by task, as ``result.json`` holds it; 409 before any task finishes."""
-        found = _results(store.directory(run_id), store.get(run_id))
+        record = store.get(run_id)
+        found = _results(store.directory(run_id), record)
         if not found:
-            raise HTTPException(409, "No task of this run has written a result yet")
+            finished = record["status"] in TERMINAL
+            raise HTTPException(
+                409, "The run finished without a result" if finished else "No task of this run has written a result yet"
+            )
         return found
 
     @app.get("/v1/runs/{run_id}/logs", tags=["runs"], response_class=PlainTextResponse)
@@ -211,6 +342,35 @@ def create_app(  # noqa: C901 - one nested route per endpoint
         with path.open("rb") as stream:
             stream.seek(max(0, path.stat().st_size - _LOG_TAIL))
             return stream.read().decode(errors="replace")
+
+    def recorded(run_id: str) -> list[dict[str, Any]]:
+        path = store.directory(run_id) / ACTIVITY_FILE
+        if not path.exists():
+            raise _contract.ContractError(
+                409,
+                "activity_unavailable",
+                "The run was queued before the service recorded activity; "
+                "its results, logs and artifacts stay readable.",
+            )
+        return read_events(path)
+
+    @app.get("/v1/runs/{run_id}/activity", tags=["builder"])
+    def activity(run_id: str) -> dict[str, Any]:
+        """Each task's and step's state, consistent at the `sequence` of the last event read (builder spec §6.5)."""
+        record = store.get(run_id)
+        return snapshot(recorded(run_id), run_id, record.get("schema_fingerprint"))
+
+    @app.get("/v1/runs/{run_id}/events", tags=["builder"])
+    def events(
+        run_id: str,
+        after: int = Query(0, ge=0, description="The last sequence the client applied: a snapshot's `sequence`"),
+        limit: int = Query(_contract.ACTIVITY_PAGE_SIZE, ge=1, le=_contract.ACTIVITY_PAGE_SIZE),
+    ) -> dict[str, Any]:
+        """The events after `after`, in order, each carrying the full row it changed (builder spec §6.5)."""
+        found = recorded(run_id)
+        if after > len(found):
+            raise _refused(["query", "after"], f"The run's last event is {len(found)}; `after` is {after}.")
+        return page(found, run_id, after, limit)
 
     @app.get("/v1/runs/{run_id}/artifacts", tags=["runs"])
     def artifacts(run_id: str) -> list[str]:

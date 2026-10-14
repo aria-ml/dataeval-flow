@@ -14,6 +14,7 @@ from typing import Any, ClassVar
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
+from dataeval_flow.config._schemas._refs import pool_ref
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.workflows._base import WorkflowConfig
 from dataeval_flow.workflows.scope import RepresentationSettings
@@ -96,6 +97,7 @@ class TaxonomyConfig(WorkflowConfig[ChainResult]):
             "The ontology to judge labels against: a name under the top-level `ontologies:` key, a path to a "
             "serialized RDF artifact resolved against the data root, or a nested mapping of concept to children."
         ),
+        json_schema_extra=pool_ref("ontologies", or_path=True),
     )
     representation: RepresentationSettings = Field(
         default_factory=RepresentationSettings, description="The `representation` step's settings."

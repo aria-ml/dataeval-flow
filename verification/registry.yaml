@@ -3622,8 +3622,9 @@ test_cases:
     - f21_iface::test_openapi_json_describes_every_route
     - f21_iface::test_every_operation_has_a_unique_id
   - do: Fetch `/v1/capabilities` and `/v1/schema`.
-    expect: Capabilities give the API, Flow and DataEval versions, one active run, the feature versions, the page limit of
-      100 and the step catalog. The schema equals `PipelineConfig.model_json_schema()`.
+    expect: Capabilities give the API, Flow and DataEval versions, one active run, the feature versions, the limits (100 per
+      page, 1 MiB per request body, 1000 resolved nodes, 100 activity events per page) and the step catalog. The schema
+      equals `PipelineConfig.model_json_schema()`.
     tests:
     - f21_iface::test_capabilities_give_versions_features_limits_and_every_step
     - f21_iface::test_schema_is_the_json_schema_of_a_pipeline

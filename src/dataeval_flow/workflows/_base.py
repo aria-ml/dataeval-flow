@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler
 
 from dataeval_flow._blocks import Block
 from dataeval_flow._kind import KindConfig, bind_implementation, bind_result_type, is_abstract, type_arguments
+from dataeval_flow.config._schemas._refs import pool_ref
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import Step, StepKind
 
@@ -93,6 +94,7 @@ class WorkflowConfig(KindConfig, Generic[R]):
             "refuses it, so a scope run on a conformed source records no label "
             "space of its own."
         ),
+        json_schema_extra=pool_ref("ontologies", or_path=True),
     )
 
     @classmethod

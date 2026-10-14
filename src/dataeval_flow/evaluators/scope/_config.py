@@ -22,6 +22,7 @@ from pydantic import Field
 from dataeval_flow._alignment import LabelAlignmentOutput
 from dataeval_flow._blocks import Block
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
+from dataeval_flow.config._schemas._refs import pool_ref
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators._result import EvaluatorResult
 from dataeval_flow.evaluators.scope._result import (
@@ -67,6 +68,7 @@ class RepresentationConfig(EvaluatorConfig[RepresentationResult]):
             "synthesizes a flat ontology from the dataset's `index2label`, which can only name the classes the "
             "dataset declares."
         ),
+        json_schema_extra=pool_ref("ontologies", or_path=True),
     )
     expected: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] | None = Field(
         default=None,
@@ -273,7 +275,8 @@ class LabelAlignmentConfig(EvaluatorConfig[LabelAlignmentResult]):
     )
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
     ontology: dict[str, Any] | str = Field(
-        description="The ontology to align to: a name from `ontologies:`, a path, or an inline hierarchy."
+        description="The ontology to align to: a name from `ontologies:`, a path, or an inline hierarchy.",
+        json_schema_extra=pool_ref("ontologies", or_path=True),
     )
     threshold: float = Field(
         default=0.0, ge=0.0, le=1.0, description="DataEval's `threshold`: the lowest confidence a fuzzy match keeps."
@@ -317,7 +320,8 @@ class LabelReconciliationConfig(EvaluatorConfig[LabelReconciliationResult]):
     )
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
     ontology: dict[str, Any] | str = Field(
-        description="The ontology to reconcile against: a name from `ontologies:`, a path, or an inline hierarchy."
+        description="The ontology to reconcile against: a name from `ontologies:`, a path, or an inline hierarchy.",
+        json_schema_extra=pool_ref("ontologies", or_path=True),
     )
 
 
@@ -342,7 +346,8 @@ class OntologyValidationConfig(EvaluatorConfig[OntologyValidationResult]):
     )
     inputs: ClassVar[InputSpec] = InputSpec(required=frozenset({InputKind.LABELS}), sources=SourceCount.ONE)
     ontology: dict[str, Any] | str = Field(
-        description="The ontology to validate: a name from `ontologies:`, a path, or an inline hierarchy."
+        description="The ontology to validate: a name from `ontologies:`, a path, or an inline hierarchy.",
+        json_schema_extra=pool_ref("ontologies", or_path=True),
     )
     label_pattern: str | None = Field(
         default=None,

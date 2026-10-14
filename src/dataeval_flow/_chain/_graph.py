@@ -9,6 +9,8 @@ __all__ = [
     "binding_problems",
     "build_graph",
     "one_step_graph",
+    "output_type",
+    "resolve_graph",
     "task_problems",
     "verdict_steps",
 ]
@@ -43,7 +45,19 @@ _ARTICLE = {
 
 
 class GraphError(ValueError):
-    """A custom workflow whose steps do not connect, found before any data is read."""
+    """A custom workflow whose steps do not connect, found before any data is read.
+
+    `code` says what kind of problem it is, `step` and `port` where (builder spec §5.2). Each is set where it is known;
+    a caller resolving a step fills in the step, and binding a port fills in the port.
+    """
+
+    def __init__(
+        self, message: str, *, code: str = "graph_error", step: str | None = None, port: str | None = None
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.step = step
+        self.port = port
 
 
 @dataclass(frozen=True)
@@ -136,13 +150,25 @@ def build_graph(
     GraphError
         Naming the step and the address that does not connect.
     """
-    verdicts = verdict_steps(workflow, pipeline)
-    if len(verdicts) > 1:
-        named = ", ".join(f"`{name}`" for name in verdicts[:-1]) + f" and `{verdicts[-1]}`"
-        raise GraphError(
-            f"Workflow '{workflow.name}' runs {_count_word(len(verdicts))} steps that give a verdict, {named}; a "
-            "workflow gives one verdict."
-        )
+    graph, error = resolve_graph(workflow, pipeline, slot_keys, evaluators=evaluators, slot_types=slot_types)
+    if error is not None:
+        raise error
+    return graph
+
+
+def resolve_graph(
+    workflow: CustomWorkflowConfig,
+    pipeline: "PipelineConfig",
+    slot_keys: Mapping[str, tuple[str, ...]] | None = None,
+    *,
+    evaluators: Sequence["EvaluatorConfig[Any]"] = (),
+    slot_types: Mapping[str, ValueType] | None = None,
+) -> tuple[ChainGraph, GraphError | None]:
+    """Resolve `workflow` as far as its steps connect: the graph of the steps before the first problem, and that
+    problem, located by step and port (builder spec §5.2). :func:`build_graph` raises the problem instead.
+
+    The arguments are :func:`build_graph`'s.
+    """
     keys = slot_keys or {}
     given = slot_types or {}
     types: dict[str, ValueType] = {
@@ -154,35 +180,55 @@ def build_graph(
     empty: dict[str, frozenset[str]] = {}
     aliases: dict[str, str] = {}
     splices: list[Splice] = []
+
+    def graph() -> ChainGraph:
+        return ChainGraph(
+            workflow.name, tuple(workflow.inputs), tuple(specs.values()), aliases=aliases, splices=tuple(splices)
+        )
+
+    verdicts = verdict_steps(workflow, pipeline)
+    if len(verdicts) > 1:
+        named = ", ".join(f"`{name}`" for name in verdicts[:-1]) + f" and `{verdicts[-1]}`"
+        message = (
+            f"Workflow '{workflow.name}' runs {_count_word(len(verdicts))} steps that give a verdict, {named}; a "
+            "workflow gives one verdict."
+        )
+        return graph(), GraphError(message, code="too_many_verdicts", step=verdicts[1])
     for entry in workflow.steps:
         later.discard(entry.name)
-        preset = _preset_step(entry, pipeline)
-        if preset is not None:
-            spliced = _splice(entry, *preset, workflow, pipeline, types, later, empty)
-            specs.update((spec.name, spec) for spec in spliced.steps)
-            aliases.update(spliced.aliases)
-            types.update(spliced.types)
-            empty[entry.name] = spliced.empty
-            splices.append(spliced.splice)
-            continue
-        spec = _resolve(entry, workflow, pipeline, types, later, specs, empty, evaluators)
+        try:
+            preset = _preset_step(entry, pipeline)
+            if preset is not None:
+                spliced = _splice(entry, *preset, workflow, pipeline, types, later, empty)
+                specs.update((spec.name, spec) for spec in spliced.steps)
+                aliases.update(spliced.aliases)
+                types.update(spliced.types)
+                empty[entry.name] = spliced.empty
+                splices.append(spliced.splice)
+                continue
+            spec = _resolve(entry, workflow, pipeline, types, later, specs, empty, evaluators)
+        except GraphError as error:
+            error.step = error.step or entry.name
+            return graph(), error
         specs[entry.name] = spec
-        fixed: dict[str, tuple[str, ...]] = {}
         if issubclass(spec.impl, Transform):
-            fixed = dict(spec.impl.output_keys(spec.config))
             empty[entry.name] = spec.impl.empty_outputs(spec.config)
         for port in spec.outputs:
-            keys = fixed.get(port.name) if port.is_list else spec.keys
-            types[spec.output_address(port)] = ValueType(
-                port.type,
-                port.classes,
-                port.is_list or spec.broadcast,
-                keys,
-                step=spec.name,
-                by=spec.by if spec.kind == "evaluator" else None,
-            )
-    return ChainGraph(
-        workflow.name, tuple(workflow.inputs), tuple(specs.values()), aliases=aliases, splices=tuple(splices)
+            types[spec.output_address(port)] = output_type(spec, port)
+    return graph(), None
+
+
+def output_type(spec: StepSpec, port: Port) -> ValueType:
+    """What `spec`'s output `port` holds: a list when the port gives one or the step runs once per element, keyed as a
+    transform fixes it or as the step ran."""
+    fixed = dict(spec.impl.output_keys(spec.config)) if issubclass(spec.impl, Transform) else {}
+    return ValueType(
+        port.type,
+        port.classes,
+        port.is_list or spec.broadcast,
+        fixed.get(port.name) if port.is_list else spec.keys,
+        step=spec.name,
+        by=spec.by if spec.kind == "evaluator" else None,
     )
 
 
@@ -219,15 +265,15 @@ def one_step_graph(task: "TaskConfig", instance: "EvaluatorConfig[Any]", source_
     return ChainGraph(task.name, slots, (spec,), one_step=True)
 
 
-def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) -> list[str]:
+def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) -> list[tuple[str, str]]:
     """Why a task cannot run the graph it names: a list key its sources do not bind, a missing extractor, or two
-    exports to one place. `graphs` holds the graph of each custom workflow and each preset entry, by name, as
-    :func:`build_graph` built it."""
+    exports to one place, by the task each belongs to. `graphs` holds the graph of each custom workflow and each
+    preset entry, by name, as :func:`build_graph` built it."""
     workflows = {
         workflow.name: workflow for workflow in pipeline.workflows or () if isinstance(workflow, CustomWorkflowConfig)
     }
     extractors = {extractor.name: extractor for extractor in pipeline.extractors or ()}
-    problems: list[str] = []
+    problems: list[tuple[str, str]] = []
     owners: dict[str, str] = {export.name: f"export '{export.name}'" for export in pipeline.exports or ()}
     for task in pipeline.tasks or ():
         graph = graphs.get(task.workflow) if task.kind == "workflow" else None
@@ -238,13 +284,13 @@ def task_problems(pipeline: "PipelineConfig", graphs: Mapping[str, ChainGraph]) 
             # every other task's and export's (task-matrix spec §5.6).
             for spec in graph.steps:
                 if issubclass(spec.impl, Transform):
-                    problems.extend(_export_clashes(task, spec, spec.impl, owners))
+                    problems.extend((task.name, problem) for problem in _export_clashes(task, spec, spec.impl, owners))
             continue
         # A preset's chain reads no key of its list slot, so only a custom workflow's list slot has keys to bind.
         workflow = workflows.get(task.workflow)
         if workflow is not None:
-            problems.extend(binding_problems(task, workflow, pipeline))
-        problems.extend(_task_graph_problems(task, graph, owners, extractors))
+            problems.extend((task.name, problem) for problem in binding_problems(task, workflow, pipeline))
+        problems.extend((task.name, problem) for problem in _task_graph_problems(task, graph, owners, extractors))
     return problems
 
 
@@ -350,7 +396,8 @@ def _resolve(
         if read:
             raise GraphError(
                 f"Step '{entry.name}' has `by:`, which slices embeddings and labels, and `{type_id}` reads "
-                f"{', '.join(read)}."
+                f"{', '.join(read)}.",
+                code="bad_by",
             )
     else:
         config, impl, addresses = _inline(entry, pipeline)
@@ -365,14 +412,16 @@ def _resolve(
         element = f"{address}[{value.keys[0] if value.keys else '<key>'}]"
         raise GraphError(
             f"Step '{entry.name}' reads `{address}`, a list, on a port that takes one item, so it would run once per "
-            f"element; but it outputs lists, and lists do not nest: name one element, such as `{element}`."
+            f"element; but it outputs lists, and lists do not nest: name one element, such as `{element}`.",
+            code="list_mismatch",
         )
     if broadcast and issubclass(impl, Transform) and not impl.broadcasts:
         address, value = _first_list(bindings, entry, workflow, types, later, empty)
         element = f"{address}[{value.keys[0] if value.keys else '<key>'}]"
         raise GraphError(
             f"Step '{entry.name}' reads `{address}`, a list, but transform '{type_id}' does not run once per element "
-            f"of a list: name one element, such as `{element}`."
+            f"of a list: name one element, such as `{element}`.",
+            code="list_mismatch",
         )
     if issubclass(impl, InlineStep):
         _same_node(entry, impl, addresses, specs, types)
@@ -419,7 +468,12 @@ def _inline(entry: StepEntry, pipeline: "PipelineConfig") -> tuple[Any, type[Ste
         config = impl.resolved(entry.config, pipeline)
     except ValueError as error:
         raise GraphError(f"Step '{entry.name}': {error}") from error
-    addresses = {port.name: port_addresses(config, port) for port in impl.input_ports()}
+    addresses: dict[str, tuple[Address, ...]] = {}
+    for port in impl.input_ports():
+        try:
+            addresses[port.name] = port_addresses(config, port)
+        except ValueError as error:
+            raise GraphError(f"Step '{entry.name}': {error}", code="bad_address", port=port.name) from error
     return config, impl, addresses
 
 
@@ -437,11 +491,15 @@ def _pooled(
     pool = [*evaluators, *(pipeline.evaluators or ())] if kind == "evaluator" else pipeline.workflows
     config = next((item for item in pool or () if item.name == entry.target), None)
     if config is None:
-        raise GraphError(f"Step '{entry.name}' names {kind} '{entry.target}', which `{kind}s:` does not define.")
+        raise GraphError(
+            f"Step '{entry.name}' names {kind} '{entry.target}', which `{kind}s:` does not define.",
+            code="unknown_entry",
+        )
     if isinstance(config, CustomWorkflowConfig):
         raise GraphError(
             f"Step '{entry.name}' names workflow '{entry.target}', a custom workflow: only a workflow type (`type:`) "
-            "runs as a step."
+            "runs as a step.",
+            code="unknown_entry",
         )
     return config, get_evaluator(config.type), {"input": _input_addresses(entry)}
 
@@ -449,12 +507,12 @@ def _pooled(
 def _input_addresses(entry: StepEntry) -> tuple[Address, ...]:
     """The addresses an evaluator or workflow step's `input` names, refused when it names none or one is no address."""
     if entry.input is None:
-        raise GraphError(f"Step '{entry.name}' reads nothing: give it `input:`.")
+        raise GraphError(f"Step '{entry.name}' reads nothing: give it `input:`.", code="bad_address", port="input")
     raw = [entry.input] if isinstance(entry.input, str) else list(entry.input)
     try:
         return tuple(parse_address(text) for text in raw)
     except ValueError as error:
-        raise GraphError(f"Step '{entry.name}': {error}") from error
+        raise GraphError(f"Step '{entry.name}': {error}", code="bad_address", port="input") from error
 
 
 def _preset_step(entry: StepEntry, pipeline: "PipelineConfig") -> "tuple[Any, type[Preset]] | None":
@@ -485,7 +543,8 @@ def _splice(
     if entry.pairs:
         raise GraphError(
             f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), a preset, which runs no pairs: "
-            "remove `pairs:`."
+            "remove `pairs:`.",
+            code="bad_by",
         )
 
     names = preset.slot_names()
@@ -497,7 +556,9 @@ def _splice(
         )
         raise GraphError(
             f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), whose inputs are {slots}, but the "
-            f"step names {len(found)}."
+            f"step names {len(found)}.",
+            code="count_mismatch",
+            port="input",
         )
     bound: list[tuple[Address, ValueType]] = []
     for slot, name, address in zip(preset.slots, names, found, strict=True):
@@ -505,12 +566,16 @@ def _splice(
         if value.type is not DataType.DATASET:
             raise GraphError(
                 f"Step '{entry.name}' reads `{address}`, which is {_ARTICLE[value.type]}, but workflow "
-                f"'{entry.target}' ({config.type}) reads Datasets."
+                f"'{entry.target}' ({config.type}) reads Datasets.",
+                code="wrong_type",
+                port="input",
             )
         if not isinstance(slot, str) and slot.is_list and not value.is_list:
             raise GraphError(
                 f"Step '{entry.name}' binds `{address}` to `{name}`, which takes a list of Datasets, but `{address}` "
-                "is one Dataset."
+                "is one Dataset.",
+                code="list_mismatch",
+                port="input",
             )
         bound.append((address, value))
     by_slot = dict(zip(names, bound, strict=True))
@@ -543,7 +608,8 @@ def _check_splice(
         if "[" in accepted and (element := accepted[accepted.index("[") + 1 : -1]) not in keys:
             raise GraphError(
                 f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}), whose `accepted` names "
-                f"`{accepted}`, but `{lists[0][0]}` has no element `{element}`. Its elements: {', '.join(keys)}."
+                f"`{accepted}`, but `{lists[0][0]}` has no element `{element}`. Its elements: {', '.join(keys)}.",
+                code="list_mismatch",
             )
     if chain.reference is None and chain.record is None and chain.blocking is None:
         return
@@ -576,7 +642,9 @@ def _check_reference(
                 element = f"{address}[{value.keys[0] if value.keys else '<key>'}]"
                 raise GraphError(
                     f"Step '{entry.name}' binds `{address}`, a list, to `{name}` of workflow '{entry.target}' "
-                    f"({config.type}), which takes one Dataset there: name one element, such as `{element}`."
+                    f"({config.type}), which takes one Dataset there: name one element, such as `{element}`.",
+                    code="list_mismatch",
+                    port="input",
                 )
     if chain.reference is not None and (named := getattr(config, "metadata", None)) is not None:
         policy = next((item for item in pipeline.metadata or () if item.name == named), None)
@@ -609,35 +677,45 @@ def _bind_inputs(
     keys: list[str] | None = []
     paired = lists = 0
     for port in impl.input_ports():
-        found = addresses.get(port.name, ())
-        values = [_typed(address, entry, workflow, types, later, empty) for address in found]
-        pair = entry.pairs and len(values) == 1 and values[0].is_list and not port.is_list
-        named, said = (2, "`pairs:` hands it two") if pair else (len(found), f"the step names {len(found)}")
-        if pair and port.count is None:
-            raise GraphError(
-                f"Step '{entry.name}' has `pairs: true`, but `{port.name}` of {kind} '{type_id}' reads one item, "
-                "not two."
-            )
-        if port.count is not None and kind == "evaluator":
-            problem = _count_problem(port.count, named, said, config)
-            if problem is not None:
-                raise GraphError(f"Step '{entry.name}' runs {kind} '{entry.target}' ({type_id}), which {problem}")
-        elif port.count is not None and not port.count.allows(named):
-            raise GraphError(
-                f"Step '{entry.name}' runs {kind} '{type_id}', whose `{port.name}` takes {port.count.phrase}, but "
-                f"{said}."
-            )
-        for address, value in zip(found, values, strict=True):
-            _accepts(port, value, entry, address)
-            if value.is_list and not port.is_list:
-                broadcast, lists = True, lists + 1
-                keys = _pair_keys(value.keys, entry, address) if pair else _broadcast_keys(keys, value)
-        paired += pair
-        bindings.append(PortBinding(port, found))
+        try:
+            found = addresses.get(port.name, ())
+            values = [_typed(address, entry, workflow, types, later, empty) for address in found]
+            pair = entry.pairs and len(values) == 1 and values[0].is_list and not port.is_list
+            named, said = (2, "`pairs:` hands it two") if pair else (len(found), f"the step names {len(found)}")
+            if pair and port.count is None:
+                raise GraphError(
+                    f"Step '{entry.name}' has `pairs: true`, but `{port.name}` of {kind} '{type_id}' reads one item, "
+                    "not two.",
+                    code="bad_by",
+                )
+            if port.count is not None and kind == "evaluator":
+                problem = _count_problem(port.count, named, said, config)
+                if problem is not None:
+                    raise GraphError(
+                        f"Step '{entry.name}' runs {kind} '{entry.target}' ({type_id}), which {problem}",
+                        code="count_mismatch",
+                    )
+            elif port.count is not None and not port.count.allows(named):
+                raise GraphError(
+                    f"Step '{entry.name}' runs {kind} '{type_id}', whose `{port.name}` takes {port.count.phrase}, but "
+                    f"{said}.",
+                    code="count_mismatch",
+                )
+            for address, value in zip(found, values, strict=True):
+                _accepts(port, value, entry, address)
+                if value.is_list and not port.is_list:
+                    broadcast, lists = True, lists + 1
+                    keys = _pair_keys(value.keys, entry, address) if pair else _broadcast_keys(keys, value)
+            paired += pair
+            bindings.append(PortBinding(port, found))
+        except GraphError as error:
+            error.port = error.port or port.name
+            raise
     if entry.pairs and (paired != 1 or lists != 1):
         raise GraphError(
             f"Step '{entry.name}' has `pairs: true`, so it reads one list, alone on one input, and runs once per pair "
-            "of its elements."
+            "of its elements.",
+            code="bad_by",
         )
     return tuple(bindings), broadcast, keys
 
@@ -675,7 +753,8 @@ def _pair_keys(keys: tuple[str, ...] | None, entry: StepEntry, address: Address)
         return pair_keys(keys)
     except ValueError as error:
         raise GraphError(
-            f"Step '{entry.name}' pairs `{address}`, whose {error}: rename a source so no two pairs share a key."
+            f"Step '{entry.name}' pairs `{address}`, whose {error}: rename a source so no two pairs share a key.",
+            code="bad_by",
         ) from None
 
 
@@ -691,15 +770,20 @@ def _check_extractor(entry: StepEntry, kind: StepKind, type_id: str, config: Any
     if entry.extractor is None:
         return
     if kind not in ("evaluator", "workflow"):
-        raise GraphError(f"Step '{entry.name}' runs {kind} '{type_id}', which embeds nothing; remove `extractor:`.")
+        raise GraphError(
+            f"Step '{entry.name}' runs {kind} '{type_id}', which embeds nothing; remove `extractor:`.",
+            code="bad_extractor",
+        )
     if entry.extractor not in {extractor.name for extractor in pipeline.extractors or ()}:
         raise GraphError(
-            f"Step '{entry.name}' names extractor '{entry.extractor}', which `extractors:` does not define."
+            f"Step '{entry.name}' names extractor '{entry.extractor}', which `extractors:` does not define.",
+            code="bad_extractor",
         )
     if kind in ("evaluator", "workflow") and not config.inputs.accepts_extractor:
         raise GraphError(
             f"Step '{entry.name}' runs {kind} '{entry.target}' ({type_id}), which does not use an extractor; "
-            "remove `extractor:`."
+            "remove `extractor:`.",
+            code="bad_extractor",
         )
 
 
@@ -715,7 +799,8 @@ def _typed(
     if address.name in later:
         raise GraphError(
             f"Step '{entry.name}' reads `{address}`, but step '{address.name}' runs later: a step reads only "
-            "inputs and earlier steps."
+            "inputs and earlier steps.",
+            code="forward_address",
         )
     value = _resolved_output(address, entry, workflow, types, empty)
     return _keyed(value, address, entry)
@@ -737,22 +822,28 @@ def _resolved_output(
         if named:
             raise GraphError(
                 f"Step '{entry.name}' reads `{address}`, but step '{address.name}' has outputs "
-                f"{', '.join(named)}: name one, such as `{address.name}.{named[0]}`."
+                f"{', '.join(named)}: name one, such as `{address.name}.{named[0]}`.",
+                code="ambiguous_output",
             )
         raise GraphError(
-            f"Step '{entry.name}' reads `{address}`, which is no input or earlier step of workflow '{workflow.name}'."
+            f"Step '{entry.name}' reads `{address}`, which is no input or earlier step of workflow '{workflow.name}'.",
+            code="unknown_address",
         )
     if whole is not None:
         raise GraphError(
-            f"Step '{entry.name}' reads `{address}`, but `{address.name}` has one output: name it `{address.name}`."
+            f"Step '{entry.name}' reads `{address}`, but `{address.name}` has one output: name it `{address.name}`.",
+            code="ambiguous_output",
         )
     found = types.get(f"{address.name}.{address.output}")
     if found is None:
         where = f"has outputs {', '.join(named)}" if named else "is no input or earlier step"
-        raise GraphError(f"Step '{entry.name}' reads `{address}`, but `{address.name}` {where}.")
+        raise GraphError(
+            f"Step '{entry.name}' reads `{address}`, but `{address.name}` {where}.", code="unknown_address"
+        )
     if address.output in empty.get(address.name, frozenset()):
         raise GraphError(
-            f"Step '{entry.name}' reads `{address.base}`, which step '{address.name}' leaves empty with its settings."
+            f"Step '{entry.name}' reads `{address.base}`, which step '{address.name}' leaves empty with its settings.",
+            code="unavailable_output",
         )
     return found
 
@@ -762,11 +853,14 @@ def _keyed(value: ValueType, address: Address, entry: StepEntry) -> ValueType:
     if address.key is None:
         return value
     if not value.is_list:
-        raise GraphError(f"Step '{entry.name}' reads `{address}`, but `{address.base}` is not a list.")
+        raise GraphError(
+            f"Step '{entry.name}' reads `{address}`, but `{address.base}` is not a list.", code="list_mismatch"
+        )
     if value.keys is not None and address.key not in value.keys:
         raise GraphError(
             f"Step '{entry.name}' reads `{address}`, but `{address.base}` has elements "
-            f"{', '.join(value.keys) or 'none'}, not `{address.key}`."
+            f"{', '.join(value.keys) or 'none'}, not `{address.key}`.",
+            code="list_mismatch",
         )
     return replace(value, is_list=False, keys=None)
 
@@ -776,23 +870,31 @@ def _accepts(port: Port, value: ValueType, entry: StepEntry, address: Address) -
     if value.type != port.type:
         raise GraphError(
             f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes {_ARTICLE[port.type]}, but "
-            f"`{address}` is {_ARTICLE[value.type]}."
+            f"`{address}` is {_ARTICLE[value.type]}.",
+            code="wrong_type",
         )
     if value.classes and not any(port.accepts_class(cls) for cls in value.classes):
         wanted = ", ".join(cls.__name__ for cls in port.classes)
         given = ", ".join(cls.__name__ for cls in value.classes)
-        raise GraphError(f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes {wanted}, not {given}.")
+        raise GraphError(
+            f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes {wanted}, not {given}.",
+            code="wrong_class",
+        )
     if value.by is not None and (entry.kind != "check" or entry.by is None):
         raise GraphError(
             f"Step '{entry.name}' reads `{address}`, which holds Outputs per key (`by:`): only a check with "
-            "`by:` reads them."
+            "`by:` reads them.",
+            code="bad_by",
         )
     if entry.kind == "check" and entry.by is not None and value.by is None:
-        raise GraphError(f"Step '{entry.name}' has `by:`, but `{address}` holds one Output, not one per key.")
+        raise GraphError(
+            f"Step '{entry.name}' has `by:`, but `{address}` holds one Output, not one per key.", code="bad_by"
+        )
     if port.is_list and not value.is_list:
         raise GraphError(
             f"Step '{entry.name}' reads `{address}` on `{port.name}`, which takes a whole list, but `{address}` "
-            "is one item."
+            "is one item.",
+            code="list_mismatch",
         )
 
 
@@ -814,7 +916,9 @@ def _same_node(
                 target = ", ".join(f"`{item}`" for item in on)
                 raise GraphError(
                     f"Step '{entry.name}' reads `{address}`, which was computed on {where}, not on {target}: it "
-                    "applies only to the Dataset it was computed on."
+                    "applies only to the Dataset it was computed on.",
+                    code="wrong_dataset",
+                    port=port,
                 )
 
 
@@ -832,7 +936,9 @@ def _datasets_agree(
             listed = "; ".join(f"`{address}` on {_where(on)}" for address, on in found.items())
             raise GraphError(
                 f"Step '{entry.name}' reads Outputs on `{port}` computed on different Datasets ({listed}): it reads "
-                "the Outputs of one comparison."
+                "the Outputs of one comparison.",
+                code="wrong_dataset",
+                port=port,
             )
     for port, dataset_ports in impl.computed_on.items():
         wanted = tuple(str(address) for name in dataset_ports for address in addresses.get(name, ()))
@@ -841,7 +947,9 @@ def _datasets_agree(
             if computed != wanted:
                 raise GraphError(
                     f"Step '{entry.name}' reads `{address}`, which was computed on {_where(computed)}, not on "
-                    f"{_where(wanted)}: it applies only to the Datasets it was computed on."
+                    f"{_where(wanted)}: it applies only to the Datasets it was computed on.",
+                    code="wrong_dataset",
+                    port=port,
                 )
 
 

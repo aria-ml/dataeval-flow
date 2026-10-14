@@ -52,6 +52,7 @@ dataeval_flow.config:TaskKind
 dataeval_flow.config:ViewConfig
 dataeval_flow.config:ViewOperation
 dataeval_flow.config:YoloDatasetConfig
+dataeval_flow.config:pool_ref
 dataeval_flow.config.extractors:BoVWExtractorConfig
 dataeval_flow.config.extractors:Extractor
 dataeval_flow.config.extractors:ExtractorConfig

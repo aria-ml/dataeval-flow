@@ -67,6 +67,17 @@ def test_command_runs_the_batch_command_on_the_snapshot(tmp_path):
     assert command[-4:] == ["--task", "quality", "--task", "metadata"]
 
 
+def test_command_names_the_activity_file_only_when_the_run_has_one(tmp_path):
+    store = RunStore(tmp_path / "runs")
+    run = store.create({"tasks": ["quality"]}, {})
+    directory = store.directory(run["id"])
+    manager = RunManager(store, tmp_path / "data", tmp_path / "cache")
+    assert "--activity" not in manager._command(directory)
+    (directory / "activity.jsonl").touch()
+    command = manager._command(directory)
+    assert command[command.index("--activity") + 1] == str(directory / "activity.jsonl")
+
+
 def test_exit_codes_decide_status_and_output_is_kept(tmp_path, monkeypatch, wait_for):
     monkeypatch.setenv("DATAEVAL_REQUIRE", "ready")  # The service's own settings never reach a run.
     store = RunStore(tmp_path / "runs")

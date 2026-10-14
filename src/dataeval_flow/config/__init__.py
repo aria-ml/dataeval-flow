@@ -51,6 +51,8 @@ __all__ = [
     # Config mixins
     "MetadataConfigMixin",
     "StatsConfigMixin",
+    # Marking a field that names another pool's entry
+    "pool_ref",
     # Other schemas
     "PreprocessingStep",
     "PreprocessorConfig",
@@ -89,3 +91,4 @@ from dataeval_flow.config._schemas import (
     YoloDatasetConfig,
 )
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.config._schemas._refs import pool_ref

@@ -51,7 +51,8 @@ def _step_union(plugins: bool) -> Any:
 
     def required(key: str) -> Any:
         """`StepEntry`'s field `key`, without its default: a step of this kind must write it."""
-        return Field(description=StepEntry.model_fields[key].description)
+        field = StepEntry.model_fields[key]
+        return Field(description=field.description, json_schema_extra=field.json_schema_extra)
 
     evaluator = create_model(
         "EvaluatorStep",

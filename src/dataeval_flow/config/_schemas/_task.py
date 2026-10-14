@@ -16,6 +16,7 @@ from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
 
 from dataeval_flow.config._schemas._matrix import Matrix
+from dataeval_flow.config._schemas._refs import pool_ref
 
 AutoBinMethod = Literal["uniform_width", "uniform_count", "clusters"]
 FactorSource = Literal["coded", "values", "auto"]
@@ -49,7 +50,8 @@ class TaskConfig(BaseModel):
         description=(
             "What this task runs, by name: an entry of `workflows:` or of `evaluators:`, as `kind` says. "
             "A config file names an evaluator under `evaluator:` instead."
-        )
+        ),
+        json_schema_extra=pool_ref("workflows"),
     )
     kind: TaskKind = Field(
         default="workflow",
@@ -60,10 +62,13 @@ class TaskConfig(BaseModel):
     )
     enabled: bool = Field(default=True, description="Whether this task is included when running the pipeline.")
     sources: str | Sequence[str] = Field(
-        description="The sources this task reads, by name: one, or several in the order the workflow reads them."
+        description="The sources this task reads, by name: one, or several in the order the workflow reads them.",
+        json_schema_extra=pool_ref("sources"),
     )
     extractor: str | None = Field(
-        default=None, description="The extractor this task embeds with, by name. Leave unset when it needs none."
+        default=None,
+        description="The extractor this task embeds with, by name. Leave unset when it needs none.",
+        json_schema_extra=pool_ref("extractors"),
     )
     matrix: Matrix | None = Field(
         default=None,
@@ -140,6 +145,7 @@ class TaskConfig(BaseModel):
             "type": "string",
             "title": "Evaluator",
             "description": "The evaluator this task runs, by its name in `evaluators:`. Set this or `workflow`.",
+            **pool_ref("evaluators"),
         }
         schema["required"] = [key for key in schema["required"] if key != "workflow"]
         schema["oneOf"] = [{"required": ["workflow"]}, {"required": ["evaluator"]}]

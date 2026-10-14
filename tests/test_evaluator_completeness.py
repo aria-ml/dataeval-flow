@@ -29,7 +29,7 @@ _VIEWS: dict[str, frozenset[str]] = {
             "tracks",
         }
     ),
-    "outliers": frozenset({"outliers"}),
+    "outliers": frozenset({"detections", "frames", "items", "outliers", "sequences", "targets", "tracks"}),
     "prioritization": frozenset({"indices"}),
     # `alignment` is the same `LabelAlignment` `data()` already dumps, as a model rather than a dict.
     "label-alignment": frozenset({"alignment"}),
@@ -59,7 +59,15 @@ _ECHOES: dict[str, frozenset[str]] = {
         }
     ),
     "outliers": frozenset(
-        {"calculation_results", "cluster_stats", "cluster_threshold", "dataset_steps", "outlier_threshold"}
+        {
+            "calculation_results",
+            "cluster_stats",
+            "cluster_threshold",
+            "dataset_steps",
+            "outlier_threshold",
+            "restricted_to",
+            "tracking",
+        }
     ),
     "label-health": frozenset(),
     "factor-leakage": frozenset(),

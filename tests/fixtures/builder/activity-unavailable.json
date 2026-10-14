@@ -1,0 +1,18 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev786+gd8a82ecb9",
+  "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+  "request": {
+    "method": "GET",
+    "path": "/v1/runs/070b9d67-7622-4cbd-a9c4-875dce6e7784/activity",
+    "body": null
+  },
+  "status": 409,
+  "response": {
+    "schema": 1,
+    "code": "activity_unavailable",
+    "message": "The run was queued before the service recorded activity; its results, logs and artifacts stay readable.",
+    "retryable": false,
+    "details": {}
+  }
+}

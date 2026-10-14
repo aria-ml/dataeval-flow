@@ -478,11 +478,13 @@ def chain_pipeline(
     datasets: Mapping[str, Any] | None = None,
     extractor: bool = False,
     extra: Mapping[str, Any] | None = None,
+    graphs: bool = True,
 ) -> PipelineConfig:
     """A pipeline with one in-memory dataset and one same-named source per entry of `datasets`.
 
     `workflows` holds dicts, model instances, or both mixed; `tasks` are written as a config file would write
-    them. `datasets` defaults to one source `src` over :class:`ToyImages`.
+    them. `datasets` defaults to one source `src` over :class:`ToyImages`. `graphs=False` loads the pipeline as a
+    service request does, leaving whether its workflows connect unchecked.
     """
     datasets = datasets if datasets is not None else {"src": ToyImages()}
     data: dict[str, Any] = {
@@ -497,7 +499,7 @@ def chain_pipeline(
     }
     if extractor:
         data["extractors"] = [FLAT]
-    return PipelineConfig.model_validate(data)
+    return PipelineConfig.model_validate(data, context=None if graphs else {"graphs": False})
 
 
 def yaml_pipeline(text: str, datasets: Mapping[str, Any]) -> PipelineConfig:

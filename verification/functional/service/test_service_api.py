@@ -98,8 +98,21 @@ class TestInterfaceDescription:
         assert capabilities["flow_version"] == __version__
         assert capabilities["dataeval_version"] == dataeval.__version__
         assert capabilities["max_active_runs"] == 1
-        assert capabilities["features"] == {"items": 1, "profiles": 1, "selections": 1, "schema": 1}
-        assert capabilities["limits"] == {"page_size": 100}
+        assert capabilities["features"] == {
+            "items": 1,
+            "profiles": 1,
+            "selections": 1,
+            "schema": 1,
+            "builder_metadata": 1,
+            "graph_resolution": 1,
+            "step_activity": 1,
+        }
+        assert capabilities["limits"] == {
+            "page_size": 100,
+            "max_document_bytes": 1_048_576,
+            "max_resolved_nodes": 1000,
+            "activity_page_size": 100,
+        }
         assert capabilities["steps"]["format"] == 1
 
     def test_schema_is_the_json_schema_of_a_pipeline(self, data_root: Path, tmp_path: Path) -> None:

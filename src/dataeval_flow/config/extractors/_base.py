@@ -11,6 +11,7 @@ from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema
 
 from dataeval_flow._kind import bind_implementation, check_type_id, default_name, state_type_id
+from dataeval_flow.config._schemas._refs import pool_ref
 
 if TYPE_CHECKING:
     from dataeval.protocols import FeatureExtractor
@@ -72,7 +73,11 @@ class ExtractorConfig(BaseModel):
     name: str = Field(
         default_factory=str, description="Identifier for the extractor, referenced by tasks. Defaults to its `model`."
     )
-    preprocessor: str | None = Field(default=None, description="Reference to a preprocessor name (optional)")
+    preprocessor: str | None = Field(
+        default=None,
+        description="Reference to a preprocessor name (optional)",
+        json_schema_extra=pool_ref("preprocessors"),
+    )
     batch_size: int | None = Field(
         default=None,
         description=(

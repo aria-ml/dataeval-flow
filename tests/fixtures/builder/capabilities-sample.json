@@ -1,0 +1,666 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev786+gd8a82ecb9",
+  "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+  "request": {
+    "method": "GET",
+    "path": "/v1/capabilities",
+    "body": null
+  },
+  "status": 200,
+  "response": {
+    "api_version": 1,
+    "flow_version": "0.2.3.dev786+gd8a82ecb9",
+    "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+    "schema_fingerprint": "sha256:88658593e5e80300df4df2303dca4e14dce2a6af1183542590f0963e3fd4e4f7",
+    "max_active_runs": 1,
+    "features": {
+      "items": 1,
+      "profiles": 1,
+      "selections": 1,
+      "schema": 1,
+      "builder_metadata": 1,
+      "graph_resolution": 1,
+      "step_activity": 1
+    },
+    "limits": {
+      "page_size": 100,
+      "max_document_bytes": 1048576,
+      "max_resolved_nodes": 1000,
+      "activity_page_size": 100
+    },
+    "steps": {
+      "format": 1,
+      "flow_version": "0.2.3.dev786+gd8a82ecb9",
+      "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+      "data_types": [
+        "dataset",
+        "output",
+        "export",
+        "findings"
+      ],
+      "dataset_kinds": [
+        "image_only",
+        "classification",
+        "object_detection",
+        "segmentation",
+        "multiobject_tracking"
+      ],
+      "steps": [
+        {
+          "kind": "evaluator",
+          "type": "duplicates",
+          "title": "Duplicates",
+          "description": "Exact and near duplicate groups (DataEval Duplicates).",
+          "origin": "dataeval-flow",
+          "inputs": [
+            {
+              "port": "input",
+              "type": "dataset",
+              "kinds": [
+                "any"
+              ],
+              "list": false,
+              "count": "1+",
+              "derives": [
+                "clusters",
+                "stats"
+              ],
+              "classes": [],
+              "shape": "array"
+            }
+          ],
+          "outputs": [
+            {
+              "port": "output",
+              "type": "output",
+              "kinds": null,
+              "list": false,
+              "count": null,
+              "derives": [],
+              "classes": [
+                "dataeval.quality.DuplicatesOutput"
+              ],
+              "shape": null
+            }
+          ],
+          "judges": [],
+          "judged_by": [
+            "image-duplicates",
+            "leakage"
+          ],
+          "same_dataset": [],
+          "config_schema": {
+            "additionalProperties": false,
+            "description": "Config for ``duplicates``, DataEval's Duplicates.\n\nDetermines which images are exact or near duplicates of each other, across every source\nthe task names. Setting ``cluster_sensitivity`` adds embedding-space near duplicates,\nwhich needs an extractor and a single source.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the\nEvaluator Catalog (``reference/evaluators``), and\n``dataeval-flow evaluators duplicates`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: dupes\n        type: duplicates\n        flags: [hash_basic, hash_d4]",
+            "properties": {
+              "stats": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
+                "title": "Stats",
+                "x-flow-ref": {
+                  "pool": "stats"
+                }
+              },
+              "name": {
+                "description": "The name this entry is referenced by. Defaults to its `type`.",
+                "title": "Name",
+                "type": "string"
+              },
+              "type": {
+                "const": "duplicates",
+                "default": "duplicates",
+                "description": "The evaluator type this entry configures: `duplicates`.",
+                "title": "Type",
+                "type": "string"
+              },
+              "cluster_algorithm": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "kmeans",
+                      "hdbscan"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Clustering algorithm for cluster mode. Unset uses DataEval's default (`hdbscan`).",
+                "title": "Cluster Algorithm"
+              },
+              "n_clusters": {
+                "anyOf": [
+                  {
+                    "exclusiveMinimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Expected number of clusters for cluster mode. Unset lets DataEval choose.",
+                "title": "N Clusters"
+              },
+              "per_image": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Passed to `from_stats`: evaluate whole images. Unset uses DataEval's default.",
+                "title": "Per Image"
+              },
+              "per_target": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Passed to `from_stats`: evaluate individual targets (detections). Unset uses DataEval's default.",
+                "title": "Per Target"
+              },
+              "flags": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "enum": [
+                        "hash_basic",
+                        "hash_d4"
+                      ],
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Hash families to compare. Unset uses DataEval's default (`hash_basic`).",
+                "title": "Flags"
+              },
+              "merge_near_duplicates": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Merge overlapping near-duplicate groups found by different methods. Unset uses DataEval's default.",
+                "title": "Merge Near Duplicates"
+              },
+              "hash_radius": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Maximum Hamming distance, in bits, for two perceptual hashes to be treated as near duplicates. Unset uses DataEval's default (0, documented to change in a future major release).",
+                "title": "Hash Radius"
+              },
+              "cluster_sensitivity": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Enables cluster mode: embedding-space near duplicates at this sensitivity, merged with the hash groups. Needs an extractor on the task, and reads one source.",
+                "title": "Cluster Sensitivity"
+              },
+              "redundancy_radius": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Maximum Hamming distance, in bits, for a video frame to count as carrying nothing new over the frame before it; such stretches are reported as `redundant` groups. No effect on image datasets. Unset uses DataEval's default (4).",
+                "title": "Redundancy Radius"
+              },
+              "min_segment_frames": {
+                "anyOf": [
+                  {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Shortest stretch, in frames, two videos may share and still be reported as a `segment` row. No effect on image datasets. Unset uses DataEval's default (30).",
+                "title": "Min Segment Frames"
+              },
+              "max_segment_gap": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Frames a shared stretch may skip and still count as continuous; too large a value bridges a cut. No effect on image datasets. Unset uses DataEval's default (5).",
+                "title": "Max Segment Gap"
+              },
+              "segment_offset_tolerance": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "How far two stretches may differ in offset and still be joined into one; raise it where two videos were sampled at slightly different rates. No effect on image datasets. Unset uses DataEval's default (0).",
+                "title": "Segment Offset Tolerance"
+              },
+              "verify_alignment": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Mean bits per frame two videos may differ by along a warped alignment and still be reported as an `aligned` row; around 8 is a reasonable start, and the cost is quadratic in the videos' lengths. No effect on image datasets. Unset skips warped matching.",
+                "title": "Verify Alignment"
+              },
+              "min_track_frames": {
+                "anyOf": [
+                  {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Shortest stretch, in detections, two tracks may share and still be reported at `level: track`. Read only with `per_target: true`. No effect on image datasets. Unset uses DataEval's default (5).",
+                "title": "Min Track Frames"
+              },
+              "frame_sample": {
+                "anyOf": [
+                  {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  {
+                    "exclusiveMinimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "How much of each video to read: an integer is a stride in frames (`5` keeps every fifth), a float a target rate in frames per second. No effect on image datasets. Unset reads every frame.",
+                "title": "Frame Sample"
+              }
+            },
+            "title": "DuplicatesConfig",
+            "type": "object"
+          }
+        },
+        {
+          "kind": "transform",
+          "type": "conform",
+          "title": "Conform",
+          "description": "Relabels a Dataset onto an ontology by its label alignment, refusing loss beyond `allow`.",
+          "origin": "dataeval-flow",
+          "inputs": [
+            {
+              "port": "input",
+              "type": "dataset",
+              "kinds": [
+                "any"
+              ],
+              "list": false,
+              "count": null,
+              "derives": [],
+              "classes": [],
+              "shape": "scalar"
+            },
+            {
+              "port": "alignment",
+              "type": "output",
+              "kinds": null,
+              "list": false,
+              "count": null,
+              "derives": [],
+              "classes": [
+                "dataeval_flow.evaluators.scope.LabelAlignmentOutput"
+              ],
+              "shape": "scalar"
+            }
+          ],
+          "outputs": [
+            {
+              "port": "output",
+              "type": "dataset",
+              "kinds": [
+                "any"
+              ],
+              "list": false,
+              "count": null,
+              "derives": [],
+              "classes": [],
+              "shape": null
+            }
+          ],
+          "judges": [],
+          "judged_by": [],
+          "same_dataset": [
+            {
+              "port": "alignment",
+              "on": "input",
+              "first_only": false
+            }
+          ],
+          "config_schema": {
+            "additionalProperties": false,
+            "description": "A `conform` step's settings: its input, the alignment of it, what loss it may accept, and overrides.",
+            "properties": {
+              "input": {
+                "description": "The Dataset to relabel.",
+                "title": "Input",
+                "type": "string"
+              },
+              "alignment": {
+                "description": "A `label-alignment` step computed on `input`.",
+                "title": "Alignment",
+                "type": "string"
+              },
+              "allow": {
+                "default": "lossless",
+                "description": "The most loss accepted: `lossy` lets classes collapse, `partial` drops unaligned classes.",
+                "enum": [
+                  "lossless",
+                  "lossy",
+                  "partial"
+                ],
+                "title": "Allow",
+                "type": "string"
+              },
+              "class_remap": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Overrides: a source class to a target concept, by id or by an unambiguous label.",
+                "title": "Class Remap",
+                "type": "object"
+              }
+            },
+            "required": [
+              "input",
+              "alignment"
+            ],
+            "title": "ConformConfig",
+            "type": "object"
+          }
+        },
+        {
+          "kind": "transform",
+          "type": "remove",
+          "title": "Remove",
+          "description": "Removes the items, detections or tracks that Duplicates and Outliers plans name.",
+          "origin": "dataeval-flow",
+          "inputs": [
+            {
+              "port": "input",
+              "type": "dataset",
+              "kinds": [
+                "any"
+              ],
+              "list": false,
+              "count": null,
+              "derives": [],
+              "classes": [],
+              "shape": "scalar"
+            },
+            {
+              "port": "plans",
+              "type": "output",
+              "kinds": null,
+              "list": false,
+              "count": null,
+              "derives": [],
+              "classes": [
+                "dataeval.quality.DuplicatesOutput",
+                "dataeval.quality.OutliersOutput"
+              ],
+              "shape": "map_keys"
+            }
+          ],
+          "outputs": [
+            {
+              "port": "output",
+              "type": "dataset",
+              "kinds": [
+                "any"
+              ],
+              "list": false,
+              "count": null,
+              "derives": [],
+              "classes": [],
+              "shape": null
+            }
+          ],
+          "judges": [],
+          "judged_by": [],
+          "same_dataset": [
+            {
+              "port": "plans",
+              "on": "input",
+              "first_only": false
+            }
+          ],
+          "config_schema": {
+            "additionalProperties": false,
+            "description": "A `remove` step's settings: its input, and each Output's plan method arguments, keyed by the Output's address.",
+            "properties": {
+              "input": {
+                "description": "The Dataset to remove from; every plan must have been computed on it.",
+                "title": "Input",
+                "type": "string"
+              },
+              "plans": {
+                "additionalProperties": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "description": "The Outputs whose plans to apply, by address, each with its plan method's arguments: `deduplicate`'s for a Duplicates Output (`dup_types`, `keep`, `exclude_groups`, `levels`), `prune`'s for an Outliers Output (`metrics`, `min_flags`).",
+                "minProperties": 1,
+                "title": "Plans",
+                "type": "object"
+              }
+            },
+            "required": [
+              "input",
+              "plans"
+            ],
+            "title": "RemoveConfig",
+            "type": "object"
+          }
+        },
+        {
+          "kind": "check",
+          "type": "image-duplicates",
+          "title": "Image Duplicates",
+          "description": "Judges `duplicates`'s output: warns when more than `exact` or `near` percent of the images are duplicates.",
+          "origin": "dataeval-flow",
+          "inputs": [
+            {
+              "port": "input",
+              "type": "output",
+              "kinds": null,
+              "list": false,
+              "count": null,
+              "derives": [],
+              "classes": [
+                "dataeval.quality.DuplicatesOutput"
+              ],
+              "shape": "scalar"
+            }
+          ],
+          "outputs": [
+            {
+              "port": "findings",
+              "type": "findings",
+              "kinds": null,
+              "list": false,
+              "count": null,
+              "derives": [],
+              "classes": [],
+              "shape": null
+            }
+          ],
+          "judges": [
+            "duplicates"
+          ],
+          "judged_by": [],
+          "same_dataset": [],
+          "config_schema": {
+            "additionalProperties": false,
+            "description": "An `image-duplicates` step's input, and the shares of a Dataset that may be exact and near duplicates.",
+            "properties": {
+              "input": {
+                "description": "A `duplicates` Output.",
+                "title": "Input",
+                "type": "string"
+              },
+              "exact": {
+                "anyOf": [
+                  {
+                    "maximum": 100.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": 0.0,
+                "description": "Most images, as a percentage of the Dataset, that may sit in exact-duplicate groups before the finding warns; `null` judges nothing.",
+                "title": "Exact"
+              },
+              "near": {
+                "anyOf": [
+                  {
+                    "maximum": 100.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": 5.0,
+                "description": "Most images, as a percentage of the Dataset, that may sit in near-duplicate groups before the finding warns; `null` judges nothing.",
+                "title": "Near"
+              }
+            },
+            "required": [
+              "input"
+            ],
+            "title": "ImageDuplicatesConfig",
+            "type": "object"
+          }
+        }
+      ],
+      "address_grammar": {
+        "name_pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+        "address_pattern": "^(?P<name>[A-Za-z_][A-Za-z0-9_-]*)(?:\\.(?P<output>[A-Za-z_][A-Za-z0-9_-]*))?(?:\\[(?P<key>[^\\[\\]\\s]+)\\])?$",
+        "rules": {
+          "single_output": "A step with one output stores it at its name: `clean`.",
+          "multiple_outputs": "A step with several stores each at `name.output`: `split.train`.",
+          "element": "`[key]` names one element of a list: `kfold.train[0]`."
+        }
+      },
+      "step_settings": {
+        "evaluator": {
+          "pool": "evaluators"
+        },
+        "workflow": {
+          "pool": "workflows"
+        },
+        "transform": "inline",
+        "combine": "inline",
+        "check": "inline"
+      },
+      "classes": {
+        "dataeval.bias.BalanceOutput": [],
+        "dataeval.bias.DiversityOutput": [],
+        "dataeval.bias.ParityOutput": [],
+        "dataeval.quality.DuplicatesOutput": [],
+        "dataeval.quality.OutliersOutput": [],
+        "dataeval.scope.CoverageOutput": [],
+        "dataeval.scope.PrioritizeOutput": [],
+        "dataeval.scope.RepresentationOutput": [],
+        "dataeval.shift.DriftOutput": [],
+        "dataeval.shift.OODOutput": [],
+        "dataeval_flow.evaluators.bias.FactorSummaryOutput": [],
+        "dataeval_flow.evaluators.quality.ContentDigestOutput": [],
+        "dataeval_flow.evaluators.quality.FactorLeakageOutput": [],
+        "dataeval_flow.evaluators.quality.FactorTriageOutput": [],
+        "dataeval_flow.evaluators.quality.LabelHealthOutput": [],
+        "dataeval_flow.evaluators.quality.ProfileOutput": [],
+        "dataeval_flow.evaluators.scope.CompletenessOutput": [],
+        "dataeval_flow.evaluators.scope.LabelAlignmentOutput": [],
+        "dataeval_flow.evaluators.scope.LabelReconciliationOutput": [],
+        "dataeval_flow.evaluators.scope.OntologyValidationOutput": [],
+        "dataeval_flow.evaluators.shift.DivergenceOutput": [],
+        "dataeval_flow.steps.combines.FactorDeviationOutput": [],
+        "dataeval_flow.steps.combines.FactorGapsOutput": [],
+        "dataeval_flow.steps.combines.FactorPredictorsOutput": [],
+        "dataeval_flow.steps.combines.OODUnionOutput": [],
+        "dataeval_flow.steps.combines.OutliersByClassOutput": []
+      }
+    }
+  }
+}

@@ -6,6 +6,8 @@ from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from dataeval_flow.config._schemas._refs import pool_ref
+
 ONE_DIRECTORY_SEGMENT = r"^(?!\.\.?$)[^/\\]+$"
 """What :func:`one_directory_segment` accepts, as a JSON schema pattern, so an editor flags what loading refuses.
 
@@ -35,7 +37,7 @@ class ExportConfig(BaseModel):
         description="Identifier for the export, and the directory it is written to.",
         json_schema_extra={"pattern": ONE_DIRECTORY_SEGMENT},
     )
-    source: str = Field(description="Reference to a source name.")
+    source: str = Field(description="Reference to a source name.", json_schema_extra=pool_ref("sources"))
     format: Literal["coco", "yolo", "huggingface_vision", "visdrone"] = Field(
         default="coco",
         description=(
@@ -59,6 +61,7 @@ class ExportConfig(BaseModel):
             "provenance so the emitted dataset carries the same digest as the run and the "
             "taxonomy run. An export names no workflow, so it cannot inherit one."
         ),
+        json_schema_extra=pool_ref("ontologies", or_path=True),
     )
 
     @field_validator("name")

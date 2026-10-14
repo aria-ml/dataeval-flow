@@ -2,15 +2,20 @@
 
 import importlib
 import json
+import re
 import subprocess
 import sys
+from types import SimpleNamespace
 from typing import ClassVar
 
 import dataeval.data
 import pytest
 from dataeval.data._view import Operation
+from pydantic import BaseModel
 
 from dataeval_flow.steps import StepCatalog, list_steps
+from dataeval_flow.steps._catalog import input_shape
+from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._registry import _BUILTINS as TRANSFORM_BUILTINS
 from tests.chain_toys import Keep, register_toys
 
@@ -76,6 +81,7 @@ def test_a_port_writes_the_spec_keys() -> None:
         "count",
         "derives",
         "classes",
+        "shape",
     }
     assert entry.outputs[0].model_dump(mode="json")["list"] is True
 
@@ -230,3 +236,74 @@ def test_a_check_lists_what_it_judges_and_each_producer_lists_its_checks() -> No
         steps["evaluator", "label-health"].judged_by
     )
     assert steps["transform", "split"].judges == steps["transform", "split"].judged_by == []
+
+
+def test_every_input_says_how_its_field_holds_addresses() -> None:
+    catalog = list_steps(plugins=False)
+    shapes = {(entry.kind, entry.type, port.port): port.shape for entry in catalog.steps for port in entry.inputs}
+    assert None not in shapes.values()
+    assert all(port.shape is None for entry in catalog.steps for port in entry.outputs)
+    assert shapes["transform", "remove", "plans"] == "map_keys"
+    assert shapes["transform", "conform", "alignment"] == "scalar"
+    assert shapes["transform", "collect", "input"] == "array"
+    assert shapes["check", "leakage", "duplicates"] == "array"  # `str | list[str]`: written as a list
+    assert shapes["check", "class-sufficiency", "evals"] == "scalar"  # `str | None`
+    assert shapes["evaluator", "duplicates", "input"] == "array"  # takes 1+ sources
+    assert shapes["evaluator", "balance", "input"] == "scalar"  # takes exactly 1
+    assert shapes["workflow", "quality", "input"] == "scalar"
+
+
+def test_same_dataset_names_what_must_be_computed_on_the_steps_own_input() -> None:
+    entries = {(entry.kind, entry.type): entry for entry in list_steps(plugins=False).steps}
+    assert [rule.model_dump() for rule in entries["transform", "conform"].same_dataset] == [
+        {"port": "alignment", "on": "input", "first_only": False}
+    ]
+    assert [rule.model_dump() for rule in entries["transform", "select"].same_dataset] == [
+        {"port": "ranking", "on": "input", "first_only": True}
+    ]
+    assert entries["transform", "split"].same_dataset == []
+
+
+def test_the_class_table_reproduces_issubclass() -> None:
+    catalog = list_steps(plugins=False)
+
+    def load(path: str) -> type:
+        module, _, name = path.rpartition(".")
+        return getattr(importlib.import_module(module), name)
+
+    classes = {path: load(path) for path in catalog.classes}
+    assert "dataeval.quality.DuplicatesOutput" in classes
+    for path, cls in classes.items():
+        for other_path, other in classes.items():
+            if other is not cls:
+                assert (other_path in catalog.classes[path]) == issubclass(cls, other), (path, other_path)
+
+
+def test_the_catalog_publishes_the_address_grammar_and_where_settings_live() -> None:
+    catalog = list_steps(plugins=False)
+    pattern = re.compile(catalog.address_grammar.address_pattern)
+    assert all(pattern.match(text) for text in ("clean", "split.train", "kfold.train[0]"))
+    assert not any(pattern.match(text) for text in ("a b", "a/b", "a.b.c"))
+    assert re.compile(catalog.address_grammar.name_pattern).match("my-step_1")
+    assert catalog.step_settings == {
+        "evaluator": {"pool": "evaluators"},
+        "workflow": {"pool": "workflows"},
+        "transform": "inline",
+        "combine": "inline",
+        "check": "inline",
+    }
+
+
+def test_a_plugin_step_is_described_by_the_same_rules(plugins) -> None:
+    register_toys(plugins)
+    entry = next(entry for entry in list_steps().steps if entry.type == "toy-keep")
+    assert [(port.port, port.shape) for port in entry.inputs] == [("input", "scalar")]
+    assert entry.same_dataset == []
+
+
+def test_a_plugin_input_with_no_same_named_field_holds_one_address() -> None:
+    class _Config(BaseModel):
+        other: str = ""
+
+    step = SimpleNamespace(kind="transform", config_type=_Config)
+    assert input_shape(step, Port(name="input", type=DataType.DATASET)) == "scalar"

@@ -9,7 +9,7 @@ import pytest
 
 from dataeval_flow.evaluators import get_evaluator
 from dataeval_flow.steps import get_check, get_combine, get_transform, list_steps
-from dataeval_flow.steps._catalog import StepCatalogEntry, _class_path
+from dataeval_flow.steps._catalog import StepCatalogEntry, class_path
 from tests.test_naming_conventions import _MINIMAL, _PRESETS
 
 _REFERENCE = Path(__file__).resolve().parents[1] / "docs" / "source" / "reference"
@@ -140,7 +140,7 @@ def test_an_entry_follows_the_template(entry: StepCatalogEntry) -> None:
     section = _entry(entry)
     first = section.strip().split("\n\n", 1)[0].replace("\n", " ")
     assert first == entry.description, f"`{entry.type}` opens with {first!r}, not its registry description"
-    settings = f"**Settings** ({{py:class}}`~{_class_path(_GET[entry.kind](entry.type).config_type)}`)"
+    settings = f"**Settings** ({{py:class}}`~{class_path(_GET[entry.kind](entry.type).config_type)}`)"
     assert settings in section, f"`{entry.type}`'s settings do not name its config class as {settings}"
 
     cross = {"check": ["- **Judges:**"], "transform": []}.get(entry.kind, ["- **Judged by:**"])
@@ -201,10 +201,10 @@ def test_a_preset_section_follows_the_template(cls: type) -> None:
     assert not missing, f"`{cls.name}`'s section lacks {missing}"
     assert positions == sorted(positions), f"`{cls.name}`'s section is out of the template's order"
 
-    settings = f"**Settings** ({{py:class}}`~{_class_path(cls.config_type)}`)"
+    settings = f"**Settings** ({{py:class}}`~{class_path(cls.config_type)}`)"
     assert settings in section, f"`{cls.name}`'s settings do not name its config class as {settings}"
     if checks:
-        named = f"({{py:class}}`~{_class_path(checks.annotation)}`)"
+        named = f"({{py:class}}`~{class_path(checks.annotation)}`)"
         assert named in _part(section, "**Checks**", "\n"), f"`{cls.name}`'s checks do not name their class as {named}"
 
 

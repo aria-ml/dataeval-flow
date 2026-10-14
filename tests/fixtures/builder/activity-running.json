@@ -1,0 +1,65 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev786+gd8a82ecb9",
+  "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+  "note": "What the route answers at the first running step's sequence, folded from this run's own events.",
+  "request": {
+    "method": "GET",
+    "path": "/v1/runs/2d1682a4-38a8-47a1-ba7d-055e9fef0b99/activity",
+    "body": null
+  },
+  "status": 200,
+  "response": {
+    "schema": 1,
+    "run_id": "2d1682a4-38a8-47a1-ba7d-055e9fef0b99",
+    "schema_fingerprint": "sha256:88658593e5e80300df4df2303dca4e14dce2a6af1183542590f0963e3fd4e4f7",
+    "sequence": 7,
+    "first_available_sequence": 1,
+    "run_status": "running",
+    "tasks": [
+      {
+        "task": "review",
+        "status": "running",
+        "started_at": 1791961740.1938639,
+        "finished_at": null,
+        "reason": null
+      }
+    ],
+    "steps": [
+      {
+        "node_id": "review:dupes",
+        "definition_node_id": "review:dupes",
+        "task": "review",
+        "path": [
+          "review",
+          "dupes"
+        ],
+        "instances": [],
+        "status": "running",
+        "started_at": 1791961740.3502376,
+        "finished_at": null,
+        "reason": null,
+        "not_assessed": null,
+        "elapsed_s": null,
+        "elements": null
+      },
+      {
+        "node_id": "review:judge",
+        "definition_node_id": "review:judge",
+        "task": "review",
+        "path": [
+          "review",
+          "judge"
+        ],
+        "instances": [],
+        "status": "pending",
+        "started_at": null,
+        "finished_at": null,
+        "reason": null,
+        "not_assessed": null,
+        "elapsed_s": null,
+        "elements": null
+      }
+    ]
+  }
+}

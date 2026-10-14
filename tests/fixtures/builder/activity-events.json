@@ -1,0 +1,114 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev786+gd8a82ecb9",
+  "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+  "request": {
+    "method": "GET",
+    "path": "/v1/runs/2d1682a4-38a8-47a1-ba7d-055e9fef0b99/events?after=7&limit=100",
+    "body": null
+  },
+  "status": 200,
+  "response": {
+    "schema": 1,
+    "run_id": "2d1682a4-38a8-47a1-ba7d-055e9fef0b99",
+    "after": 7,
+    "next_after": 12,
+    "snapshot_sequence": 12,
+    "first_available_sequence": 1,
+    "has_more": false,
+    "events": [
+      {
+        "sequence": 8,
+        "timestamp": 1791961740.3857768,
+        "kind": "step_state",
+        "step": {
+          "node_id": "review:dupes",
+          "definition_node_id": "review:dupes",
+          "task": "review",
+          "path": [
+            "review",
+            "dupes"
+          ],
+          "instances": [],
+          "status": "ok",
+          "started_at": 1791961740.3502376,
+          "finished_at": 1791961740.385769,
+          "reason": null,
+          "not_assessed": null,
+          "elapsed_s": 0.035,
+          "elements": null
+        },
+        "run_id": "2d1682a4-38a8-47a1-ba7d-055e9fef0b99"
+      },
+      {
+        "sequence": 9,
+        "timestamp": 1791961740.3858523,
+        "kind": "step_state",
+        "step": {
+          "node_id": "review:judge",
+          "definition_node_id": "review:judge",
+          "task": "review",
+          "path": [
+            "review",
+            "judge"
+          ],
+          "instances": [],
+          "status": "running",
+          "started_at": 1791961740.385851,
+          "finished_at": null,
+          "reason": null,
+          "not_assessed": null,
+          "elapsed_s": null,
+          "elements": null
+        },
+        "run_id": "2d1682a4-38a8-47a1-ba7d-055e9fef0b99"
+      },
+      {
+        "sequence": 10,
+        "timestamp": 1791961740.3861372,
+        "kind": "step_state",
+        "step": {
+          "node_id": "review:judge",
+          "definition_node_id": "review:judge",
+          "task": "review",
+          "path": [
+            "review",
+            "judge"
+          ],
+          "instances": [],
+          "status": "ok",
+          "started_at": 1791961740.385851,
+          "finished_at": 1791961740.3861349,
+          "reason": null,
+          "not_assessed": null,
+          "elapsed_s": 0.0,
+          "elements": null
+        },
+        "run_id": "2d1682a4-38a8-47a1-ba7d-055e9fef0b99"
+      },
+      {
+        "sequence": 11,
+        "timestamp": 1791961740.4056277,
+        "kind": "task_state",
+        "task": {
+          "task": "review",
+          "status": "ok",
+          "started_at": 1791961740.1938639,
+          "finished_at": 1791961740.4056256,
+          "reason": null
+        },
+        "run_id": "2d1682a4-38a8-47a1-ba7d-055e9fef0b99"
+      },
+      {
+        "sequence": 12,
+        "timestamp": 1791961741.1247206,
+        "kind": "run_state",
+        "run": {
+          "status": "succeeded",
+          "reason": null
+        },
+        "run_id": "2d1682a4-38a8-47a1-ba7d-055e9fef0b99"
+      }
+    ]
+  }
+}

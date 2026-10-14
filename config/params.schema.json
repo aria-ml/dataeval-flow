@@ -246,7 +246,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
-          "title": "Stats"
+          "title": "Stats",
+          "x-flow-ref": {
+            "pool": "stats"
+          }
         },
         "metadata": {
           "anyOf": [
@@ -259,7 +262,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -288,7 +294,11 @@
           ],
           "default": null,
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "outliers": {
           "$ref": "#/$defs/OutliersSettings",
@@ -381,7 +391,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -519,7 +532,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -548,7 +564,11 @@
           ],
           "default": null,
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "diversity": {
           "$ref": "#/$defs/DiversitySettings"
@@ -594,7 +614,10 @@
           ],
           "default": null,
           "description": "Reference to a preprocessor name (optional)",
-          "title": "Preprocessor"
+          "title": "Preprocessor",
+          "x-flow-ref": {
+            "pool": "preprocessors"
+          }
         },
         "batch_size": {
           "anyOf": [
@@ -3573,7 +3596,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
-          "title": "Stats"
+          "title": "Stats",
+          "x-flow-ref": {
+            "pool": "stats"
+          }
         },
         "metadata": {
           "anyOf": [
@@ -3586,7 +3612,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "ood": {
           "description": "An `ood-union` Output, or one OOD evaluator's Output, computed on `reference` and `input`.",
@@ -3659,7 +3688,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "input": {
           "description": "The Dataset whose Metadata the gaps are counted in.",
@@ -3733,7 +3765,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
-          "title": "Stats"
+          "title": "Stats",
+          "x-flow-ref": {
+            "pool": "stats"
+          }
         },
         "metadata": {
           "anyOf": [
@@ -3746,7 +3781,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "ood": {
           "description": "An `ood-union` Output, or one OOD evaluator's Output, computed on `reference` and `input`.",
@@ -4622,7 +4660,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -4867,7 +4908,10 @@
           ],
           "default": null,
           "description": "An `extractors:` entry this detector's steps embed with, instead of the task's.",
-          "title": "Extractor"
+          "title": "Extractor",
+          "x-flow-ref": {
+            "pool": "extractors"
+          }
         }
       },
       "title": "DriftDomainClassifierDetector",
@@ -5036,7 +5080,10 @@
           ],
           "default": null,
           "description": "An `extractors:` entry this detector's steps embed with, instead of the task's.",
-          "title": "Extractor"
+          "title": "Extractor",
+          "x-flow-ref": {
+            "pool": "extractors"
+          }
         }
       },
       "title": "DriftKNeighborsDetector",
@@ -5205,7 +5252,10 @@
           ],
           "default": null,
           "description": "An `extractors:` entry this detector's steps embed with, instead of the task's.",
-          "title": "Extractor"
+          "title": "Extractor",
+          "x-flow-ref": {
+            "pool": "extractors"
+          }
         }
       },
       "title": "DriftMMDDetector",
@@ -5493,7 +5543,10 @@
           ],
           "default": null,
           "description": "An `extractors:` entry this detector's steps embed with, instead of the task's.",
-          "title": "Extractor"
+          "title": "Extractor",
+          "x-flow-ref": {
+            "pool": "extractors"
+          }
         }
       },
       "title": "DriftUnivariateDetector",
@@ -5574,7 +5627,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
-          "title": "Stats"
+          "title": "Stats",
+          "x-flow-ref": {
+            "pool": "stats"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -5979,7 +6035,10 @@
         "evaluator": {
           "description": "An `evaluators:` entry to run.",
           "title": "Evaluator",
-          "type": "string"
+          "type": "string",
+          "x-flow-ref": {
+            "pool": "evaluators"
+          }
         },
         "input": {
           "anyOf": [
@@ -6025,7 +6084,10 @@
           ],
           "default": null,
           "description": "An `extractors:` entry to embed with, instead of the task's.",
-          "title": "Extractor"
+          "title": "Extractor",
+          "x-flow-ref": {
+            "pool": "extractors"
+          }
         },
         "optional": {
           "default": false,
@@ -6061,7 +6123,10 @@
         "source": {
           "description": "Reference to a source name.",
           "title": "Source",
-          "type": "string"
+          "type": "string",
+          "x-flow-ref": {
+            "pool": "sources"
+          }
         },
         "format": {
           "default": "coco",
@@ -6097,7 +6162,11 @@
           ],
           "default": null,
           "description": "Label space the emitted dataset's labels are read under, by name under the top-level `ontologies:` key or as a path. Written into the dataset's provenance so the emitted dataset carries the same digest as the run and the taxonomy run. An export names no workflow, so it cannot inherit one.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         }
       },
       "required": [
@@ -6196,7 +6265,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -6292,7 +6364,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -6325,7 +6400,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -6384,7 +6462,10 @@
           ],
           "default": null,
           "description": "Reference to a preprocessor name (optional)",
-          "title": "Preprocessor"
+          "title": "Preprocessor",
+          "x-flow-ref": {
+            "pool": "preprocessors"
+          }
         },
         "batch_size": {
           "anyOf": [
@@ -6790,7 +6871,11 @@
             }
           ],
           "description": "The ontology to align to: a name from `ontologies:`, a path, or an inline hierarchy.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "threshold": {
           "default": 0.0,
@@ -6844,7 +6929,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -6889,7 +6977,11 @@
             }
           ],
           "description": "The ontology to reconcile against: a name from `ontologies:`, a path, or an inline hierarchy.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         }
       },
       "required": [
@@ -7458,7 +7550,10 @@
           ],
           "default": null,
           "description": "An `extractors:` entry this detector's steps embed with, instead of the task's.",
-          "title": "Extractor"
+          "title": "Extractor",
+          "x-flow-ref": {
+            "pool": "extractors"
+          }
         }
       },
       "title": "OODDomainClassifierDetector",
@@ -7603,7 +7698,10 @@
           ],
           "default": null,
           "description": "An `extractors:` entry this detector's steps embed with, instead of the task's.",
-          "title": "Extractor"
+          "title": "Extractor",
+          "x-flow-ref": {
+            "pool": "extractors"
+          }
         }
       },
       "title": "OODKNeighborsDetector",
@@ -7721,7 +7819,10 @@
           ],
           "default": null,
           "description": "Reference to a preprocessor name (optional)",
-          "title": "Preprocessor"
+          "title": "Preprocessor",
+          "x-flow-ref": {
+            "pool": "preprocessors"
+          }
         },
         "batch_size": {
           "anyOf": [
@@ -7925,7 +8026,11 @@
             }
           ],
           "description": "The ontology to validate: a name from `ontologies:`, a path, or an inline hierarchy.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "label_pattern": {
           "anyOf": [
@@ -7983,7 +8088,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
-          "title": "Stats"
+          "title": "Stats",
+          "x-flow-ref": {
+            "pool": "stats"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -9344,7 +9452,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -9918,7 +10029,11 @@
           ],
           "default": null,
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "prioritization": {
           "$ref": "#/$defs/PrioritizationSettings",
@@ -9947,7 +10062,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "stats": {
           "anyOf": [
@@ -9960,7 +10078,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
-          "title": "Stats"
+          "title": "Stats",
+          "x-flow-ref": {
+            "pool": "stats"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -10062,7 +10183,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
-          "title": "Stats"
+          "title": "Stats",
+          "x-flow-ref": {
+            "pool": "stats"
+          }
         },
         "metadata": {
           "anyOf": [
@@ -10075,7 +10199,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -10104,7 +10231,11 @@
           ],
           "default": null,
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "outliers": {
           "$ref": "#/$defs/OutliersSettings",
@@ -10518,7 +10649,11 @@
           ],
           "default": null,
           "description": "The label space to count against: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children. Unset synthesizes a flat ontology from the dataset's `index2label`, which can only name the classes the dataset declares.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "expected": {
           "anyOf": [
@@ -10791,7 +10926,11 @@
           ],
           "default": null,
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "representation": {
           "$ref": "#/$defs/RepresentationSettings",
@@ -10891,7 +11030,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `stats:` key. Declare one to measure named band groups or the image background, and to name the views outlier detection reads. Leave unset to measure the whole image.",
-          "title": "Stats"
+          "title": "Stats",
+          "x-flow-ref": {
+            "pool": "stats"
+          }
         },
         "metadata": {
           "anyOf": [
@@ -10904,7 +11046,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -10933,7 +11078,11 @@
           ],
           "default": null,
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "detectors": {
           "description": "Drift (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`) and OOD (`ood-kneighbors`, `ood-domain-classifier`) evaluator entries, each testing every test source against the reference. An entry's `name` names its step, and it may name its own `extractor:`. Unset is `drift-univariate` and `ood-kneighbors`.",
@@ -11067,7 +11216,10 @@
           ],
           "default": null,
           "description": "Reference to a dataset name. Name either this or `merge`, not both.",
-          "title": "Dataset"
+          "title": "Dataset",
+          "x-flow-ref": {
+            "pool": "datasets"
+          }
         },
         "merge": {
           "anyOf": [
@@ -11083,7 +11235,10 @@
           ],
           "default": null,
           "description": "Sources to concatenate into one dataset, in the order given. Name either this or `dataset`, not both. Give every operand a view whose `Relabel` passes the identical `target`, or their integer labels denote different classes and the merge is refused. Each datum's id becomes '<position>:<id>', so an item keeps its source's identity.",
-          "title": "Merge"
+          "title": "Merge",
+          "x-flow-ref": {
+            "pool": "sources"
+          }
         },
         "view": {
           "anyOf": [
@@ -11096,7 +11251,10 @@
           ],
           "default": null,
           "description": "Reference to a view name (optional)",
-          "title": "View"
+          "title": "View",
+          "x-flow-ref": {
+            "pool": "views"
+          }
         }
       },
       "required": [
@@ -11132,7 +11290,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -11161,7 +11322,11 @@
           ],
           "default": null,
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "folds": {
           "default": 1,
@@ -11412,7 +11577,10 @@
         "workflow": {
           "description": "The workflow this task runs, by its name in `workflows:`.",
           "title": "Workflow",
-          "type": "string"
+          "type": "string",
+          "x-flow-ref": {
+            "pool": "workflows"
+          }
         },
         "enabled": {
           "default": true,
@@ -11433,7 +11601,10 @@
             }
           ],
           "description": "The sources this task reads, by name: one, or several in the order the workflow reads them.",
-          "title": "Sources"
+          "title": "Sources",
+          "x-flow-ref": {
+            "pool": "sources"
+          }
         },
         "extractor": {
           "anyOf": [
@@ -11446,7 +11617,10 @@
           ],
           "default": null,
           "description": "The extractor this task embeds with, by name. Leave unset when it needs none.",
-          "title": "Extractor"
+          "title": "Extractor",
+          "x-flow-ref": {
+            "pool": "extractors"
+          }
         },
         "matrix": {
           "anyOf": [
@@ -11497,7 +11671,10 @@
         "evaluator": {
           "description": "The evaluator this task runs, by its name in `evaluators:`. Set this or `workflow`.",
           "title": "Evaluator",
-          "type": "string"
+          "type": "string",
+          "x-flow-ref": {
+            "pool": "evaluators"
+          }
         }
       },
       "required": [
@@ -11550,7 +11727,11 @@
             }
           ],
           "description": "The ontology to judge labels against: a name under the top-level `ontologies:` key, a path to a serialized RDF artifact resolved against the data root, or a nested mapping of concept to children.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "representation": {
           "$ref": "#/$defs/RepresentationSettings",
@@ -11590,7 +11771,10 @@
           ],
           "default": null,
           "description": "Reference to a preprocessor name (optional)",
-          "title": "Preprocessor"
+          "title": "Preprocessor",
+          "x-flow-ref": {
+            "pool": "preprocessors"
+          }
         },
         "batch_size": {
           "anyOf": [
@@ -11812,7 +11996,11 @@
           ],
           "default": null,
           "description": "The ontology to record in the provenance, by `ontologies:` name.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "to": {
           "anyOf": [
@@ -11875,7 +12063,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "input": {
           "description": "The Dataset to split.",
@@ -12139,7 +12330,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "input": {
           "description": "The Dataset to split.",
@@ -12252,7 +12446,10 @@
           ],
           "default": null,
           "description": "A `views:` entry whose operations to apply instead.",
-          "title": "View"
+          "title": "View",
+          "x-flow-ref": {
+            "pool": "views"
+          }
         },
         "transform": {
           "const": "view",
@@ -12378,7 +12575,10 @@
           ],
           "default": null,
           "description": "Name of a policy defined under the top-level `metadata:` key. A policy is defined once and shared, so entries meant to be compared read their factors under one encoding. Leave unset for DataEval's defaults.",
-          "title": "Metadata"
+          "title": "Metadata",
+          "x-flow-ref": {
+            "pool": "metadata"
+          }
         },
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -12407,7 +12607,11 @@
           ],
           "default": null,
           "description": "Label space this workflow's labels are read under. Name an entry under the top-level `ontologies:` key, or give a path to a serialized RDF artifact resolved against the data root; a nested mapping of concept to children is read as an inline hierarchy. Recorded in the result envelope's `label_space`, so a run conformed by a `taxonomy` entry's stanza carries that entry's digest and can be matched back to it. Declare it wherever a source's view applies a `Relabel`. `taxonomy` judges labels against it; `scope` refuses it, so a scope run on a conformed source records no label space of its own.",
-          "title": "Ontology"
+          "title": "Ontology",
+          "x-flow-ref": {
+            "or_path": true,
+            "pool": "ontologies"
+          }
         },
         "checks": {
           "$ref": "#/$defs/TriageChecks",
@@ -12458,7 +12662,10 @@
           ],
           "default": null,
           "description": "Reference to a preprocessor name (optional)",
-          "title": "Preprocessor"
+          "title": "Preprocessor",
+          "x-flow-ref": {
+            "pool": "preprocessors"
+          }
         },
         "batch_size": {
           "anyOf": [
@@ -12672,7 +12879,10 @@
         "workflow": {
           "description": "A `workflows:` entry with a `type:` to run.",
           "title": "Workflow",
-          "type": "string"
+          "type": "string",
+          "x-flow-ref": {
+            "pool": "workflows"
+          }
         },
         "input": {
           "anyOf": [
@@ -12706,7 +12916,10 @@
           ],
           "default": null,
           "description": "An `extractors:` entry to embed with, instead of the task's.",
-          "title": "Extractor"
+          "title": "Extractor",
+          "x-flow-ref": {
+            "pool": "extractors"
+          }
         },
         "optional": {
           "default": false,
