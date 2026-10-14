@@ -36,6 +36,7 @@ from dataeval_flow.config._schemas import (
     TaskConfig,
     ViewConfig,
 )
+from dataeval_flow.config._schemas._refs import pool_ref
 from dataeval_flow.config.extractors._base import ExtractorConfig
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.steps._workflow import CustomWorkflowConfig
@@ -77,6 +78,7 @@ class SourceConfig(BaseModel):
     dataset: str | None = Field(
         default=None,
         description="Reference to a dataset name. Name either this or `merge`, not both.",
+        json_schema_extra=pool_ref("datasets"),
     )
     merge: Sequence[str] | None = Field(
         default=None,
@@ -87,10 +89,12 @@ class SourceConfig(BaseModel):
             "merge is refused. Each datum's id becomes '<position>:<id>', so an item keeps "
             "its source's identity."
         ),
+        json_schema_extra=pool_ref("sources"),
     )
     view: str | None = Field(
         default=None,
         description="Reference to a view name (optional)",
+        json_schema_extra=pool_ref("views"),
     )
 
     @model_validator(mode="after")

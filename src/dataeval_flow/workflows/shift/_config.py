@@ -10,6 +10,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, SerializeAsA
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.config._schemas._mixins import MetadataConfigMixin, StatsConfigMixin
+from dataeval_flow.config._schemas._refs import pool_ref
 from dataeval_flow.evaluators.shift import (
     DriftDomainClassifierConfig,
     DriftKNeighborsConfig,
@@ -40,37 +41,37 @@ _RESERVED_SUFFIXES = ("-check", "-by-class", "-unchunked")
 class DriftUnivariateDetector(DriftUnivariateConfig):
     """A `drift-univariate` detector: its evaluator entry, and the extractor its steps embed with."""
 
-    extractor: str | None = Field(default=None, description=_EXTRACTOR)
+    extractor: str | None = Field(default=None, description=_EXTRACTOR, json_schema_extra=pool_ref("extractors"))
 
 
 class DriftMMDDetector(DriftMMDConfig):
     """A `drift-mmd` detector: its evaluator entry, and the extractor its steps embed with."""
 
-    extractor: str | None = Field(default=None, description=_EXTRACTOR)
+    extractor: str | None = Field(default=None, description=_EXTRACTOR, json_schema_extra=pool_ref("extractors"))
 
 
 class DriftKNeighborsDetector(DriftKNeighborsConfig):
     """A `drift-kneighbors` detector: its evaluator entry, and the extractor its steps embed with."""
 
-    extractor: str | None = Field(default=None, description=_EXTRACTOR)
+    extractor: str | None = Field(default=None, description=_EXTRACTOR, json_schema_extra=pool_ref("extractors"))
 
 
 class DriftDomainClassifierDetector(DriftDomainClassifierConfig):
     """A `drift-domain-classifier` detector: its evaluator entry, and the extractor its steps embed with."""
 
-    extractor: str | None = Field(default=None, description=_EXTRACTOR)
+    extractor: str | None = Field(default=None, description=_EXTRACTOR, json_schema_extra=pool_ref("extractors"))
 
 
 class OODKNeighborsDetector(OODKNeighborsConfig):
     """An `ood-kneighbors` detector: its evaluator entry, and the extractor its steps embed with."""
 
-    extractor: str | None = Field(default=None, description=_EXTRACTOR)
+    extractor: str | None = Field(default=None, description=_EXTRACTOR, json_schema_extra=pool_ref("extractors"))
 
 
 class OODDomainClassifierDetector(OODDomainClassifierConfig):
     """An `ood-domain-classifier` detector: its evaluator entry, and the extractor its steps embed with."""
 
-    extractor: str | None = Field(default=None, description=_EXTRACTOR)
+    extractor: str | None = Field(default=None, description=_EXTRACTOR, json_schema_extra=pool_ref("extractors"))
 
 
 _DETECTORS: dict[str, type[BaseModel]] = {

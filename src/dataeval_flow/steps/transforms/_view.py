@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from pydantic import Field, model_validator
 
 from dataeval_flow._view import root_indices
+from dataeval_flow.config._schemas._refs import pool_ref
 from dataeval_flow.config._schemas._view import ViewOperation
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import Transform, TransformConfig, TransformContext
@@ -25,7 +26,11 @@ class ViewTransformConfig(TransformConfig):
     operations: list[ViewOperation] | None = Field(
         default=None, description="The `dataeval.data` operations to apply, in order, as a `views:` entry writes them."
     )
-    view: str | None = Field(default=None, description="A `views:` entry whose operations to apply instead.")
+    view: str | None = Field(
+        default=None,
+        description="A `views:` entry whose operations to apply instead.",
+        json_schema_extra=pool_ref("views"),
+    )
 
     @model_validator(mode="after")
     def _one_source_of_operations(self) -> "ViewTransformConfig":

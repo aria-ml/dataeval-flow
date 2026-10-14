@@ -4,6 +4,8 @@ __all__ = ["MetadataConfigMixin", "StatsConfigMixin"]
 
 from pydantic import BaseModel, Field
 
+from dataeval_flow.config._schemas._refs import pool_ref
+
 
 class MetadataConfigMixin(BaseModel):
     """Mixin for configs that read dataset metadata: which metadata policy they read it under.
@@ -19,6 +21,7 @@ class MetadataConfigMixin(BaseModel):
             "entries meant to be compared read their factors under one encoding. Leave unset for DataEval's "
             "defaults."
         ),
+        json_schema_extra=pool_ref("metadata"),
     )
 
 
@@ -32,4 +35,5 @@ class StatsConfigMixin(BaseModel):
             "groups or the image background, and to name the views outlier detection reads. Leave unset to "
             "measure the whole image."
         ),
+        json_schema_extra=pool_ref("stats"),
     )

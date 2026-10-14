@@ -18,6 +18,7 @@ from pydantic import (
     model_validator,
 )
 
+from dataeval_flow.config._schemas._refs import pool_ref
 from dataeval_flow.steps._address import STEP_NAME_PATTERN
 from dataeval_flow.steps._by import ByConfig
 from dataeval_flow.steps._step import StepConfig, StepKind
@@ -76,8 +77,14 @@ class StepEntry(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="allow")
 
     name: str = Field(pattern=STEP_NAME_PATTERN, description="The step's name, which is the address of its output.")
-    evaluator: str | None = Field(default=None, description="An `evaluators:` entry to run.")
-    workflow: str | None = Field(default=None, description="A `workflows:` entry with a `type:` to run.")
+    evaluator: str | None = Field(
+        default=None, description="An `evaluators:` entry to run.", json_schema_extra=pool_ref("evaluators")
+    )
+    workflow: str | None = Field(
+        default=None,
+        description="A `workflows:` entry with a `type:` to run.",
+        json_schema_extra=pool_ref("workflows"),
+    )
     transform: str | None = Field(
         default=None, description="A registered transform to run, with its settings beside it."
     )
@@ -85,7 +92,9 @@ class StepEntry(BaseModel):
     check: str | None = Field(default=None, description="A registered check to run, with its thresholds beside it.")
     input: str | list[str] | None = Field(default=None, description="The address, or addresses, the step reads.")
     extractor: str | None = Field(
-        default=None, description="An `extractors:` entry to embed with, instead of the task's."
+        default=None,
+        description="An `extractors:` entry to embed with, instead of the task's.",
+        json_schema_extra=pool_ref("extractors"),
     )
     optional: bool = Field(
         default=False, description="Whether a failure is recorded as a skip that does not fail the task."

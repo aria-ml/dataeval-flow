@@ -8,6 +8,7 @@ from typing import Any, ClassVar, Literal
 from pydantic import BaseModel, Field, field_validator
 
 from dataeval_flow.config._schemas._export import ONE_DIRECTORY_SEGMENT, one_directory_segment
+from dataeval_flow.config._schemas._refs import pool_ref
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import StepSkipped, Transform, TransformConfig, TransformContext
 
@@ -24,7 +25,9 @@ class ExportTransformConfig(TransformConfig):
         description="What to do when the destination holds a dataset: refuse, replace it, or add to it.",
     )
     ontology: str | None = Field(
-        default=None, description="The ontology to record in the provenance, by `ontologies:` name."
+        default=None,
+        description="The ontology to record in the provenance, by `ontologies:` name.",
+        json_schema_extra=pool_ref("ontologies", or_path=True),
     )
     to: str | None = Field(
         default=None,
