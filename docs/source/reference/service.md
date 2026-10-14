@@ -31,45 +31,45 @@ runs. Bind it to a trusted network only.
 
 ## Endpoints
 
-| Method and path                                  | Success                        | Errors          | Does                                                               |
-| ------------------------------------------------ | ------------------------------ | --------------- | ------------------------------------------------------------------ |
-| `GET /healthz`                                   | `200`                          | `503`           | Whether the service takes and runs work                            |
-| `GET /readyz`                                    | `200`                          | `503`           | The same, as a readiness probe                                     |
-| `GET /livez`                                     | `200`                          | `503`           | Whether the process can run work, as a liveness probe              |
-| `GET /openapi.json`                              | `200`                          |                 | The API's OpenAPI description                                      |
-| `GET /docs`                                      | `200`                          |                 | That description rendered; its page assets load from a CDN         |
-| `GET /v1/capabilities`                           | `200`                          |                 | Versions, features, limits, and every step a pipeline uses         |
-| `GET /v1/schema`                                 | `200`                          |                 | The JSON Schema of a pipeline, every registered step in it         |
-| `POST /v1/validate`                              | `200` with the checked request | `409, 413, 422` | Check a run request without queueing it                            |
+| Method and path                                  | Success                        | Errors          | Does                                                                                      |
+| ------------------------------------------------ | ------------------------------ | --------------- | ----------------------------------------------------------------------------------------- |
+| `GET /healthz`                                   | `200`                          | `503`           | Whether the service takes and runs work                                                   |
+| `GET /readyz`                                    | `200`                          | `503`           | The same, as a readiness probe                                                            |
+| `GET /livez`                                     | `200`                          | `503`           | Whether the process can run work, as a liveness probe                                     |
+| `GET /openapi.json`                              | `200`                          |                 | The API's OpenAPI description                                                             |
+| `GET /docs`                                      | `200`                          |                 | That description rendered; its page assets load from a CDN                                |
+| `GET /v1/capabilities`                           | `200`                          |                 | Versions, features, limits, and every step a pipeline uses                                |
+| `GET /v1/schema`                                 | `200`                          |                 | The JSON Schema of a pipeline, every registered step in it                                |
+| `POST /v1/validate`                              | `200` with the checked request | `409, 413, 422` | Check a run request without queueing it                                                   |
 | `POST /v1/resolve`                               | `200` with the resolved graphs | `409, 413, 422` | Resolve each task's graph without reading data; see [Graph resolution](#graph-resolution) |
-| `POST /v1/runs`                                  | `202` with the run record      | `409, 413, 422` | Check a run request and queue it                                   |
-| `GET /v1/runs`                                   | `200` with every run record    |                 | Run history, newest first                                          |
-| `GET /v1/runs/{id}`                              | `200` with the run record      | `404`           | One run                                                            |
-| `POST /v1/runs/{id}/cancel`                      | `202` with the run record      | `404, 409`      | Cancel a queued run, or stop a running one                         |
-| `GET /v1/runs/{id}/results`                      | `200` with the results         | `404, 409`      | Each finished task's result                                        |
-| `GET /v1/runs/{id}/logs`                         | `200`, plain text              | `404`           | The last 64 KiB of what the run printed                            |
-| `GET /v1/runs/{id}/activity`                     | `200` with the snapshot        | `404, 409`      | Each task's and step's state; see [Activity](#activity)            |
-| `GET /v1/runs/{id}/events`                       | `200` with a page of events    | `404, 409, 422` | The changes after a sequence; see [Activity](#activity)            |
-| `GET /v1/runs/{id}/artifacts`                    | `200` with a list of paths     | `404`           | Every file in the run's directory                                  |
-| `GET /v1/runs/{id}/artifacts/{path}`             | `200` with the file            | `404`           | One file, by a path the list gives                                 |
-| `GET /v1/runs/{id}/items/{source}`               | `200` with a page of items     | `404, 422`      | A source's items as the run read them; see [Items](#items)         |
-| `GET /v1/runs/{id}/items/{source}/{index}`       | `200` with the item            | `404`           | One item, checked against the run's manifest                       |
-| `GET /v1/runs/{id}/items/{source}/{index}/image` | `200`, PNG                     | `404, 409`      | The item's image, or one box cropped from it                       |
-| `POST /v1/runs/{id}/selections`                  | `200` with the summary         | `404, 409, 422` | Select rows of a profile or a table; see [Selections](#selections) |
-| `GET /v1/runs/{id}/selections/{sel}`             | `200` with a page of members   | `404, 409`      | A selection's summary and members                                  |
-| `GET /v1/runs/{id}/selections/{sel}/view`        | `200` with a source            | `404, 422`      | A selection's images as a source a later run reads                 |
+| `POST /v1/runs`                                  | `202` with the run record      | `409, 413, 422` | Check a run request and queue it                                                          |
+| `GET /v1/runs`                                   | `200` with every run record    |                 | Run history, newest first                                                                 |
+| `GET /v1/runs/{id}`                              | `200` with the run record      | `404`           | One run                                                                                   |
+| `POST /v1/runs/{id}/cancel`                      | `202` with the run record      | `404, 409`      | Cancel a queued run, or stop a running one                                                |
+| `GET /v1/runs/{id}/results`                      | `200` with the results         | `404, 409`      | Each finished task's result                                                               |
+| `GET /v1/runs/{id}/logs`                         | `200`, plain text              | `404`           | The last 64 KiB of what the run printed                                                   |
+| `GET /v1/runs/{id}/activity`                     | `200` with the snapshot        | `404, 409`      | Each task's and step's state; see [Activity](#activity)                                   |
+| `GET /v1/runs/{id}/events`                       | `200` with a page of events    | `404, 409, 422` | The changes after a sequence; see [Activity](#activity)                                   |
+| `GET /v1/runs/{id}/artifacts`                    | `200` with a list of paths     | `404`           | Every file in the run's directory                                                         |
+| `GET /v1/runs/{id}/artifacts/{path}`             | `200` with the file            | `404`           | One file, by a path the list gives                                                        |
+| `GET /v1/runs/{id}/items/{source}`               | `200` with a page of items     | `404, 422`      | A source's items as the run read them; see [Items](#items)                                |
+| `GET /v1/runs/{id}/items/{source}/{index}`       | `200` with the item            | `404`           | One item, checked against the run's manifest                                              |
+| `GET /v1/runs/{id}/items/{source}/{index}/image` | `200`, PNG                     | `404, 409`      | The item's image, or one box cropped from it                                              |
+| `POST /v1/runs/{id}/selections`                  | `200` with the summary         | `404, 409, 422` | Select rows of a profile or a table; see [Selections](#selections)                        |
+| `GET /v1/runs/{id}/selections/{sel}`             | `200` with a page of members   | `404, 409`      | A selection's summary and members                                                         |
+| `GET /v1/runs/{id}/selections/{sel}/view`        | `200` with a source            | `404, 422`      | A selection's images as a source a later run reads                                        |
 
 Request and response bodies are JSON, except the logs and the files. Times are Unix epoch seconds.
 
 ### Errors
 
-| Status | When                                                                                                                                                                                                                                    |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `404`  | No run has the ID; the run holds no file at the path; its pipeline names no such source; the source held no such item; no selection has the ID                                                                                          |
+| Status | When                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `404`  | No run has the ID; the run holds no file at the path; its pipeline names no such source; the source held no such item; no selection has the ID                                                                                                                                                                                                                                                                                                                                                        |
 | `409`  | A request pinning a `schema_fingerprint` other than the service's (`schema_changed`, an extension error, on `/v1/validate`, `/v1/resolve` and `/v1/runs`); a run's activity from before the service recorded it (`activity_unavailable`, an extension error); cancelling a run that has finished; reading results, or selecting from them, before the task has written them, or of a run that finished without any (`The run finished without a result`); the image of an item that is not `verified` |
-| `413`  | A `POST` body over `limits.max_document_bytes`, or a pipeline `/v1/resolve` finds to hold more than `limits.max_resolved_nodes` nodes (`too_many_nodes`, with `limit` and `count`); the body is an extension error                                                                                                                                                          |
-| `422`  | The request is malformed, the run would fail before any task ran, or the run cannot answer the selection; an `after` beyond the run's last event, or a `limit` outside 1 to 100; the body says why                                                                                                             |
-| `503`  | From a probe only: the service cannot run work; the body names the reasons                                                                                                                                                              |
+| `413`  | A `POST` body over `limits.max_document_bytes`, or a pipeline `/v1/resolve` finds to hold more than `limits.max_resolved_nodes` nodes (`too_many_nodes`, with `limit` and `count`); the body is an extension error                                                                                                                                                                                                                                                                                    |
+| `422`  | The request is malformed, the run would fail before any task ran, or the run cannot answer the selection; an `after` beyond the run's last event, or a `limit` outside 1 to 100; the body says why                                                                                                                                                                                                                                                                                                    |
+| `503`  | From a probe only: the service cannot run work; the body names the reasons                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 A `422` body is `{"detail": [{"type", "loc", "msg"}, ...]}`: `loc` is where in the request the error is, such as
 `["body", "pipeline", "result", "formats"]`, as Pydantic gives it for a field the configuration refuses, or
@@ -84,11 +84,11 @@ carry the extension envelope instead: `{"schema": 1, "code": "<code>", "message"
 
 `POST /v1/validate`, `POST /v1/resolve` and `POST /v1/runs` take the same body:
 
-| Field      | Type                   | Default            | Meaning                                                              |
-| ---------- | ---------------------- | ------------------ | -------------------------------------------------------------------- |
-| `pipeline` | Pipeline configuration | Required           | The configuration the batch command reads, as JSON                   |
-| `tasks`    | List of task names     | Every enabled task | The tasks to run, in order; a named task runs even if it is disabled |
-| `expected_schema_fingerprint` | `schema_fingerprint` | None | A `schema_fingerprint` from `/v1/capabilities`. When given and the service's differs, `409 schema_changed`, read before the pipeline |
+| Field                         | Type                   | Default            | Meaning                                                                                                                              |
+| ----------------------------- | ---------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `pipeline`                    | Pipeline configuration | Required           | The configuration the batch command reads, as JSON                                                                                   |
+| `tasks`                       | List of task names     | Every enabled task | The tasks to run, in order; a named task runs even if it is disabled                                                                 |
+| `expected_schema_fingerprint` | `schema_fingerprint`   | None               | A `schema_fingerprint` from `/v1/capabilities`. When given and the service's differs, `409 schema_changed`, read before the pipeline |
 
 `/v1/schema` describes `pipeline`; the request's OpenAPI types it as an object.
 
@@ -116,15 +116,15 @@ nothing, so it answers for a pipeline whose datasets are not there. It checks th
 
 The response has:
 
-| Field                | Meaning                                                                                  |
-| -------------------- | ---------------------------------------------------------------------------------------- |
-| `schema`             | The contract version, `1`                                                                |
-| `schema_fingerprint` | The service's, as in `/v1/capabilities`                                                  |
-| `valid`              | Whether `diagnostics` is empty                                                           |
-| `pipeline`           | The normalized pipeline, as `/v1/validate` gives it                                      |
+| Field                | Meaning                                                                                                                                      |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema`             | The contract version, `1`                                                                                                                    |
+| `schema_fingerprint` | The service's, as in `/v1/capabilities`                                                                                                      |
+| `valid`              | Whether `diagnostics` is empty                                                                                                               |
+| `pipeline`           | The normalized pipeline, as `/v1/validate` gives it                                                                                          |
 | `tasks[]`            | One entry per task to run: `name`, `kind`, `workflow`, `source_bindings`, `nodes`, `execution_order`, `output_aliases`, `complete`, `matrix` |
-| `workflows[]`        | The graphs of workflow entries no selected task runs, so a canvas can show them          |
-| `diagnostics[]`      | Each problem: `code`, `severity`, `message`, `document_pointer`, `task`, `node_id`, `port` |
+| `workflows[]`        | The graphs of workflow entries no selected task runs, so a canvas can show them                                                              |
+| `diagnostics[]`      | Each problem: `code`, `severity`, `message`, `document_pointer`, `task`, `node_id`, `port`                                                   |
 
 `source_bindings` lists each workflow input with its `slot`, whether it is a `list`, the `sources` bound to it and the
 `document_pointer` of the task's `sources`. `execution_order` lists the `node_id`s in the order the steps run.
@@ -149,8 +149,8 @@ without translation. An evaluator task's single node is `<task>:<task>`.
 Each node's `inputs` give the port, its `type`, `count`, accepted `classes` and `kinds`, `shape`, and the `addresses` it
 reads. Its `outputs` give the `address` another step reads it by, the `classes` it holds and its `keys`.
 
-An output's `availability` is `available`, or `unavailable` with a `reason` when the step's settings leave it empty, so a
-step reading it is a `unavailable_output` problem. `keys` is the list of keys a list output holds, or `null` when the
+An output's `availability` is `available`, or `unavailable` with a `reason` when the step's settings leave it empty, so
+a step reading it is an `unavailable_output` problem. `keys` is the list of keys a list output holds, or `null` when the
 data decides them.
 
 ### Diagnostics
@@ -161,24 +161,24 @@ among `nodes`: the graph stops before it, or it is a preset step whose nodes are
 `document_pointer`. A `task_problem` can name a task that isn't in the selected `tasks[]`, because every task's bindings
 are checked, as `/v1/validate` checks them. Each `code` is one of:
 
-| Code | Raised when |
-| --- | --- |
-| `unknown_address` | An address names no slot, step or output |
-| `forward_address` | It names a step that runs later |
-| `ambiguous_output` | A bare name is used on a multi-output step, or `.output` on a single-output step |
-| `unavailable_output` | The settings leave the output empty |
-| `wrong_type` | The data type doesn't match the port |
-| `wrong_class` | The Output class doesn't fit the port's classes |
-| `list_mismatch` | A list is read where a non-list port won't broadcast, lists are nested, `[key]` is used on a non-list, or a key is unknown |
-| `count_mismatch` | The port's `count` is violated |
-| `wrong_dataset` | A `same_node`, `shared_datasets` or `computed_on` rule is violated |
-| `too_many_verdicts` | A workflow has more than one verdict-giving step |
-| `bad_extractor` | A step's `extractor` names no entry or is invalid |
-| `bad_by` | `by:` or `pairs:` is misused |
-| `unknown_entry` | An evaluator or workflow step names an entry its pool lacks, or a custom workflow |
-| `bad_address` | A port field holds text that isn't an address, or a pooled step has no `input:` |
-| `task_problem` | A task's sources don't bind to its workflow's inputs, an extractor is missing, or exports clash |
-| `graph_error` | Anything else |
+| Code                 | Raised when                                                                                                                |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `unknown_address`    | An address names no slot, step or output                                                                                   |
+| `forward_address`    | It names a step that runs later                                                                                            |
+| `ambiguous_output`   | A bare name is used on a multi-output step, or `.output` on a single-output step                                           |
+| `unavailable_output` | The settings leave the output empty                                                                                        |
+| `wrong_type`         | The data type doesn't match the port                                                                                       |
+| `wrong_class`        | The Output class doesn't fit the port's classes                                                                            |
+| `list_mismatch`      | A list is read where a non-list port won't broadcast, lists are nested, `[key]` is used on a non-list, or a key is unknown |
+| `count_mismatch`     | The port's `count` is violated                                                                                             |
+| `wrong_dataset`      | A `same_node`, `shared_datasets` or `computed_on` rule is violated                                                         |
+| `too_many_verdicts`  | A workflow has more than one verdict-giving step                                                                           |
+| `bad_extractor`      | A step's `extractor` names no entry or is invalid                                                                          |
+| `bad_by`             | `by:` or `pairs:` is misused                                                                                               |
+| `unknown_entry`      | An evaluator or workflow step names an entry its pool lacks, or a custom workflow                                          |
+| `bad_address`        | A port field holds text that isn't an address, or a pooled step has no `input:`                                            |
+| `task_problem`       | A task's sources don't bind to its workflow's inputs, an extractor is missing, or exports clash                            |
+| `graph_error`        | Anything else                                                                                                              |
 
 A workflow reports at most one graph problem: resolution stops at the first, and the steps before it are kept in the
 graph. Steps run in the order written, so reading a step listed later is `forward_address`. A task with a `matrix`
@@ -188,12 +188,12 @@ outputs a step leaves empty, or which keys a list holds, is not reflected in the
 ## Capabilities
 
 `GET /v1/capabilities` returns `api_version`, `flow_version`, `dataeval_version`, `schema_fingerprint`,
-`max_active_runs`, `features`,
-`limits` and `steps`. `features` names each optional part of the API with its version, so a client checks for a feature
-rather than a Flow version: `items`, `profiles`, `selections`, `schema`, `builder_metadata`, `graph_resolution` and `step_activity`, each `1`. `limits.page_size` is the largest
-page the item and selection routes serve. `limits.max_document_bytes`, `limits.max_resolved_nodes` and
-`limits.activity_page_size` are the bounds in [Limits](#limits). `steps` is the step catalog `dataeval-flow steps`
-prints: every evaluator, transform, combine, check and workflow, with its ports and its settings' JSON Schema.
+`max_active_runs`, `features`, `limits` and `steps`. `features` names each optional part of the API with its version, so
+a client checks for a feature rather than a Flow version: `items`, `profiles`, `selections`, `schema`,
+`builder_metadata`, `graph_resolution` and `step_activity`, each `1`. `limits.page_size` is the largest page the item
+and selection routes serve. `limits.max_document_bytes`, `limits.max_resolved_nodes` and `limits.activity_page_size` are
+the bounds in [Limits](#limits). `steps` is the step catalog `dataeval-flow steps` prints: every evaluator, transform,
+combine, check and workflow, with its ports and its settings' JSON Schema.
 `GET /v1/schema` is the JSON Schema of the whole pipeline, which `pipeline` in a run request follows.
 
 `schema_fingerprint` is a SHA-256 over the pipeline schema and the step catalog, so it changes with the Flow and DataEval
@@ -211,19 +211,19 @@ which kind a task runs.
 
 ## Run record
 
-| Field         | Meaning                                                                        |
-| ------------- | ------------------------------------------------------------------------------ |
-| `api_version` | `1`                                                                            |
-| `id`          | The run's ID, a UUID                                                           |
-| `status`      | Where the run is; see [Run states](#run-states)                                |
-| `created_at`  | When it was queued                                                             |
-| `started_at`  | When its process started, else `null`                                          |
-| `finished_at` | When it reached its final state, else `null`                                   |
-| `exit_code`   | Its process's exit code, once it has one; negative when a signal killed it     |
-| `request`     | `{"tasks": [...]}`, the resolved task list                                     |
-| `pipeline`    | The snapshot it runs from: the submitted pipeline with every default filled in |
-| `schema_fingerprint` | The fingerprint the run was checked under                               |
-| `error`       | Why it failed or was interrupted, else `null`                                  |
+| Field                | Meaning                                                                        |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `api_version`        | `1`                                                                            |
+| `id`                 | The run's ID, a UUID                                                           |
+| `status`             | Where the run is; see [Run states](#run-states)                                |
+| `created_at`         | When it was queued                                                             |
+| `started_at`         | When its process started, else `null`                                          |
+| `finished_at`        | When it reached its final state, else `null`                                   |
+| `exit_code`          | Its process's exit code, once it has one; negative when a signal killed it     |
+| `request`            | `{"tasks": [...]}`, the resolved task list                                     |
+| `pipeline`           | The snapshot it runs from: the submitted pipeline with every default filled in |
+| `schema_fingerprint` | The fingerprint the run was checked under                                      |
+| `error`              | Why it failed or was interrupted, else `null`                                  |
 
 The snapshot alone defines a run. No `DATAEVAL_*` environment variable set for the service reaches a run's process.
 
@@ -300,13 +300,13 @@ To follow a run, read a snapshot at `sequence` S, then page from `after=S` until
 later. Each event carries the full row, so applying one sets that state: replaying events is safe, and a client that
 missed some can fetch a snapshot again.
 
-| Step status   | Meaning                                                                                                    |
-| ------------- | ---------------------------------------------------------------------------------------------------------- |
-| `pending`     | Not started. It stays pending after a cancel or a stop, with a `reason` saying so                           |
-| `running`     | Started and not finished; at most one step runs at a time                                                   |
+| Step status               | Meaning                                                                                                               |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `pending`                 | Not started. It stays pending after a cancel or a stop, with a `reason` saying so                                     |
+| `running`                 | Started and not finished; at most one step runs at a time                                                             |
 | `ok`, `failed`, `skipped` | As the chain records them; only the chain sets `skipped` (a missing input from a failed step, or an optional failure) |
-| `cancelled`   | Was running when the run was cancelled                                                                      |
-| `interrupted` | Was running when the worker died or the service stopped                                                     |
+| `cancelled`               | Was running when the run was cancelled                                                                                |
+| `interrupted`             | Was running when the worker died or the service stopped                                                               |
 
 A task has the same statuses. `not_assessed` is separate from status: a check that ran `ok` but judged nothing carries
 the reason Flow gives. `run_status` is the run's status, except that `cancelling` is not an activity state: the
