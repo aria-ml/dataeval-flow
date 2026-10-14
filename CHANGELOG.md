@@ -30,6 +30,9 @@
   - Every run record keeps the fingerprint it was checked under
   - An unknown run is a JSON `404`, a `POST` body over 1 MiB a `413`, and `/results` of a run that finished without
     one says so
+- `POST /v1/resolve` gives each task's resolved graph without reading data: steps, ports, bindings, origins, which
+  outputs the settings leave empty, and each problem with its code, step and port (FLOW-BUILDER-002)
+  - `/validate` and `/runs` locate a workflow that doesn't connect at the step and port, one 422 entry per problem
 - `run_tasks(..., on_result=...)`, called with each task's name and result as soon as the task finishes
 - `judges` and `judged_by` in the step catalog link each check to the Outputs it judges
   - `dataeval-flow steps <type>` shows both

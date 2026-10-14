@@ -104,6 +104,7 @@ class TestInterfaceDescription:
             "selections": 1,
             "schema": 1,
             "builder_metadata": 1,
+            "graph_resolution": 1,
         }
         assert capabilities["limits"] == {
             "page_size": 100,

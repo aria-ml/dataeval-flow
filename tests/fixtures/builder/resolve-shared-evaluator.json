@@ -1,0 +1,438 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev771+g1faad9142.d20261014",
+  "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+  "request": {
+    "method": "POST",
+    "path": "/v1/resolve",
+    "body": {
+      "pipeline": {
+        "datasets": [
+          {
+            "name": "fixture",
+            "format": "coco",
+            "path": "fixture"
+          }
+        ],
+        "sources": [
+          {
+            "name": "data",
+            "dataset": "fixture"
+          }
+        ],
+        "evaluators": [
+          {
+            "name": "dupes",
+            "type": "duplicates"
+          }
+        ],
+        "workflows": [
+          {
+            "name": "review",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "dupes",
+                "evaluator": "dupes",
+                "input": "data"
+              },
+              {
+                "name": "s",
+                "transform": "split",
+                "input": "data",
+                "test_frac": 0.2,
+                "val_frac": 0
+              },
+              {
+                "name": "dupes-train",
+                "evaluator": "dupes",
+                "input": "s.train"
+              }
+            ]
+          }
+        ],
+        "tasks": [
+          {
+            "name": "review",
+            "workflow": "review",
+            "sources": "data"
+          }
+        ]
+      }
+    }
+  },
+  "status": 200,
+  "response": {
+    "schema": 1,
+    "schema_fingerprint": "sha256:d36c7b73149bd4684fe2db5f4e61f20480f4928b5f8eeb9aa1d12185dc9ebf56",
+    "valid": true,
+    "pipeline": {
+      "logging": null,
+      "result": {
+        "name": "result",
+        "formats": [
+          "json",
+          "text",
+          "html"
+        ],
+        "detail": "full",
+        "per_task": false,
+        "fail_on": "failure",
+        "require": null,
+        "width": 80,
+        "max_images": 200,
+        "max_rows": 500,
+        "preview_rows": 10
+      },
+      "seed": null,
+      "deterministic": false,
+      "max_processes": null,
+      "datasets": [
+        {
+          "format": "coco",
+          "name": "fixture",
+          "path": "fixture",
+          "value_range": null,
+          "channel_groups": null,
+          "provenance": null,
+          "annotations_file": null,
+          "images_dir": null
+        }
+      ],
+      "preprocessors": null,
+      "views": null,
+      "metadata": null,
+      "ontologies": null,
+      "stats": null,
+      "sources": [
+        {
+          "name": "data",
+          "dataset": "fixture",
+          "merge": null,
+          "view": null
+        }
+      ],
+      "extractors": null,
+      "exports": null,
+      "workflows": [
+        {
+          "name": "review",
+          "inputs": [
+            "data"
+          ],
+          "steps": [
+            {
+              "name": "dupes",
+              "evaluator": "dupes",
+              "input": "data"
+            },
+            {
+              "name": "s",
+              "transform": "split",
+              "input": "data",
+              "test_frac": 0.2,
+              "val_frac": 0
+            },
+            {
+              "name": "dupes-train",
+              "evaluator": "dupes",
+              "input": "s.train"
+            }
+          ]
+        }
+      ],
+      "evaluators": [
+        {
+          "stats": null,
+          "name": "dupes",
+          "type": "duplicates",
+          "cluster_algorithm": null,
+          "n_clusters": null,
+          "per_image": null,
+          "per_target": null,
+          "flags": null,
+          "merge_near_duplicates": null,
+          "hash_radius": null,
+          "cluster_sensitivity": null,
+          "redundancy_radius": null,
+          "min_segment_frames": null,
+          "max_segment_gap": null,
+          "segment_offset_tolerance": null,
+          "verify_alignment": null,
+          "min_track_frames": null,
+          "frame_sample": null
+        }
+      ],
+      "tasks": [
+        {
+          "name": "review",
+          "workflow": "review",
+          "enabled": true,
+          "sources": "data",
+          "extractor": null
+        }
+      ]
+    },
+    "tasks": [
+      {
+        "name": "review",
+        "kind": "workflow",
+        "workflow": "review",
+        "source_bindings": [
+          {
+            "slot": "data",
+            "list": false,
+            "sources": [
+              "data"
+            ],
+            "document_pointer": "/tasks/0/sources"
+          }
+        ],
+        "nodes": [
+          {
+            "node_id": "review:dupes",
+            "path": [
+              "review",
+              "dupes"
+            ],
+            "step": {
+              "kind": "evaluator",
+              "type": "duplicates"
+            },
+            "origin": {
+              "step_pointer": "/workflows/0/steps/0",
+              "definition_pointer": "/evaluators/0",
+              "generated": false
+            },
+            "settings": {
+              "stats": null,
+              "name": "dupes",
+              "type": "duplicates",
+              "cluster_algorithm": null,
+              "n_clusters": null,
+              "per_image": null,
+              "per_target": null,
+              "flags": null,
+              "merge_near_duplicates": null,
+              "hash_radius": null,
+              "cluster_sensitivity": null,
+              "redundancy_radius": null,
+              "min_segment_frames": null,
+              "max_segment_gap": null,
+              "segment_offset_tolerance": null,
+              "verify_alignment": null,
+              "min_track_frames": null,
+              "frame_sample": null
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": "1+",
+                "derives": [
+                  "clusters",
+                  "stats"
+                ],
+                "classes": [],
+                "shape": "array",
+                "addresses": [
+                  "data"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "output",
+                "type": "output",
+                "list": false,
+                "classes": [
+                  "dataeval.quality.DuplicatesOutput"
+                ],
+                "kinds": null,
+                "address": "dupes",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "review:s",
+            "path": [
+              "review",
+              "s"
+            ],
+            "step": {
+              "kind": "transform",
+              "type": "split"
+            },
+            "origin": {
+              "step_pointer": "/workflows/0/steps/1",
+              "definition_pointer": null,
+              "generated": false
+            },
+            "settings": {
+              "metadata": null,
+              "input": "data",
+              "test_frac": 0.2,
+              "stratify": true,
+              "split_on": null,
+              "val_frac": 0.0
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [],
+                "shape": "scalar",
+                "addresses": [
+                  "data"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "train",
+                "type": "dataset",
+                "list": false,
+                "classes": [],
+                "kinds": [
+                  "any"
+                ],
+                "address": "s.train",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              },
+              {
+                "port": "val",
+                "type": "dataset",
+                "list": false,
+                "classes": [],
+                "kinds": [
+                  "any"
+                ],
+                "address": "s.val",
+                "keys": null,
+                "availability": "unavailable",
+                "reason": "`s`'s settings leave `val` empty."
+              },
+              {
+                "port": "test",
+                "type": "dataset",
+                "list": false,
+                "classes": [],
+                "kinds": [
+                  "any"
+                ],
+                "address": "s.test",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "review:dupes-train",
+            "path": [
+              "review",
+              "dupes-train"
+            ],
+            "step": {
+              "kind": "evaluator",
+              "type": "duplicates"
+            },
+            "origin": {
+              "step_pointer": "/workflows/0/steps/2",
+              "definition_pointer": "/evaluators/0",
+              "generated": false
+            },
+            "settings": {
+              "stats": null,
+              "name": "dupes",
+              "type": "duplicates",
+              "cluster_algorithm": null,
+              "n_clusters": null,
+              "per_image": null,
+              "per_target": null,
+              "flags": null,
+              "merge_near_duplicates": null,
+              "hash_radius": null,
+              "cluster_sensitivity": null,
+              "redundancy_radius": null,
+              "min_segment_frames": null,
+              "max_segment_gap": null,
+              "segment_offset_tolerance": null,
+              "verify_alignment": null,
+              "min_track_frames": null,
+              "frame_sample": null
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": "1+",
+                "derives": [
+                  "clusters",
+                  "stats"
+                ],
+                "classes": [],
+                "shape": "array",
+                "addresses": [
+                  "s.train"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "output",
+                "type": "output",
+                "list": false,
+                "classes": [
+                  "dataeval.quality.DuplicatesOutput"
+                ],
+                "kinds": null,
+                "address": "dupes-train",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          }
+        ],
+        "execution_order": [
+          "review:dupes",
+          "review:s",
+          "review:dupes-train"
+        ],
+        "output_aliases": [],
+        "complete": true,
+        "matrix": null
+      }
+    ],
+    "workflows": [],
+    "diagnostics": []
+  }
+}

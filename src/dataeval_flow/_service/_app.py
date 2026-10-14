@@ -22,9 +22,10 @@ from dataeval_flow._runner import _requirement
 from dataeval_flow._service import _contract
 from dataeval_flow._service._evidence import PAGE_SIZE, Evidence, UnknownItemError
 from dataeval_flow._service._manager import RunManager
+from dataeval_flow._service._resolve import Resolution, resolve
 from dataeval_flow._service._selections import SelectionError, SelectionRequest, Selections
 from dataeval_flow._service._store import TERMINAL, RunStore, UnknownRunError
-from dataeval_flow.config import PipelineConfig, ResultConfig
+from dataeval_flow.config import PipelineConfig, ResultConfig, TaskConfig
 from dataeval_flow.steps import list_steps
 
 API_VERSION = 1
@@ -91,25 +92,47 @@ def _parsed(request: RunRequest, *, graphs: bool = True) -> PipelineConfig:
         raise RequestValidationError(problems) from None
 
 
-def _checked(request: RunRequest) -> dict[str, Any]:
-    """The tasks a request runs and the snapshot it runs from, or a 422 saying why it would fail before any ran."""
-    _pinned(request)
-    pipeline = _parsed(request)
+def _selected(request: RunRequest, pipeline: PipelineConfig) -> list[TaskConfig]:
+    """The tasks a request runs, or a 422 saying why it would fail before any ran."""
     try:
-        tasks = [task.name for task in select_tasks(pipeline, request.tasks)]
+        tasks = select_tasks(pipeline, request.tasks)
     except ValueError as error:
         where = ["body", "tasks"] if request.tasks is not None else ["body", "pipeline", "tasks"]
         raise _refused(where, str(error)) from None
     try:
-        _requirement(pipeline, tasks, None)
+        _requirement(pipeline, [task.name for task in tasks], None)
     except ValueError as error:
         raise _refused(["body", "pipeline", "result", "require"], str(error)) from None
     if "json" not in pipeline.result.formats:
         message = "The service reads each run's results as JSON: keep `json` in `result: formats`."
         raise _refused(["body", "pipeline", "result", "formats"], message)
+    return tasks
+
+
+def _resolved(request: RunRequest) -> tuple[PipelineConfig, list[TaskConfig], Resolution]:
+    """A request's pipeline, its tasks, and its graphs resolved: what `/validate`, `/resolve` and `/runs` share
+    (builder spec §5.1). Its graphs are checked here rather than as it loads, so each problem is located."""
+    _pinned(request)
+    pipeline = _parsed(request, graphs=False)
+    tasks = _selected(request, pipeline)
+    return pipeline, tasks, resolve(pipeline, tasks)
+
+
+def _located(diagnostic: dict[str, Any]) -> dict[str, Any]:
+    """A diagnostic as one entry of a 422, located at its pointer into the pipeline."""
+    parts = (diagnostic["document_pointer"] or "").split("/")[1:]
+    loc = ["body", "pipeline", *(int(part) if part.isdigit() else part for part in parts)]
+    return {"type": "value_error", "loc": loc, "msg": diagnostic["message"]}
+
+
+def _checked(request: RunRequest) -> dict[str, Any]:
+    """The tasks a request runs and the snapshot it runs from, or a 422 saying why it would fail before any ran."""
+    pipeline, tasks, resolution = _resolved(request)
+    if resolution.diagnostics:
+        raise HTTPException(422, [_located(diagnostic) for diagnostic in resolution.diagnostics])
     return {
         "valid": True,
-        "tasks": tasks,
+        "tasks": [task.name for task in tasks],
         "pipeline": pipeline.model_dump(mode="json", by_alias=True),
         "schema_fingerprint": _contract.schema_fingerprint(),
     }
@@ -221,7 +244,14 @@ def create_app(  # noqa: C901 - one nested route per endpoint
             "dataeval_version": dataeval.__version__,
             "schema_fingerprint": _contract.schema_fingerprint(),
             "max_active_runs": 1,
-            "features": {"items": 1, "profiles": 1, "selections": 1, "schema": 1, "builder_metadata": 1},
+            "features": {
+                "items": 1,
+                "profiles": 1,
+                "selections": 1,
+                "schema": 1,
+                "builder_metadata": 1,
+                "graph_resolution": 1,
+            },
             "limits": {
                 "page_size": PAGE_SIZE,
                 "max_document_bytes": _contract.MAX_DOCUMENT_BYTES,
@@ -240,6 +270,30 @@ def create_app(  # noqa: C901 - one nested route per endpoint
     def validate(request: RunRequest) -> dict[str, Any]:
         """Check a pipeline and resolve the tasks it would run, without queueing it."""
         return _checked(request)
+
+    @app.post("/v1/resolve", tags=["builder"])
+    def resolve_graphs(request: RunRequest) -> dict[str, Any]:
+        """Resolve each task's graph without reading data or queueing: its steps, ports and bindings, and where it does
+        not connect (builder spec §5)."""
+        pipeline, _, resolution = _resolved(request)
+        limit = _contract.MAX_RESOLVED_NODES
+        if resolution.node_count > limit:
+            raise _contract.ContractError(
+                413,
+                "too_many_nodes",
+                f"The pipeline resolves to {resolution.node_count} nodes; the service resolves at most {limit}.",
+                limit=limit,
+                count=resolution.node_count,
+            )
+        return {
+            "schema": _contract.CONTRACT_SCHEMA,
+            "schema_fingerprint": _contract.schema_fingerprint(),
+            "valid": not resolution.diagnostics,
+            "pipeline": pipeline.model_dump(mode="json", by_alias=True),
+            "tasks": resolution.tasks,
+            "workflows": resolution.workflows,
+            "diagnostics": resolution.diagnostics,
+        }
 
     @app.post("/v1/runs", status_code=202, tags=["runs"])
     def submit(request: RunRequest) -> dict[str, Any]:

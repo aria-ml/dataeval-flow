@@ -138,6 +138,7 @@ def test_capabilities_name_the_investigation_features_and_the_pipeline_schema_is
             "selections": 1,
             "schema": 1,
             "builder_metadata": 1,
+            "graph_resolution": 1,
         }
         assert capabilities["limits"] == {
             "page_size": 100,

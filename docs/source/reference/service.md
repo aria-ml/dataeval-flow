@@ -41,6 +41,8 @@ runs. Bind it to a trusted network only.
 | `GET /v1/capabilities`                           | `200`                          |                 | Versions, features, limits, and every step a pipeline uses         |
 | `GET /v1/schema`                                 | `200`                          |                 | The JSON Schema of a pipeline, every registered step in it         |
 | `POST /v1/validate`                              | `200` with the checked request | `422`           | Check a run request without queueing it                            |
+| `POST /v1/resolve`                               | `200` with the resolved graphs | `409, 413, 422` | Resolve each task's graph without reading data; see [Graph resolution](#graph-resolution) |
+| `POST /v1/resolve`                               | `200` with the resolved graphs | `409, 413, 422` | Resolve each task's graph without reading data; see [Graph resolution](#graph-resolution) |
 | `POST /v1/runs`                                  | `202` with the run record      | `422`           | Check a run request and queue it                                   |
 | `GET /v1/runs`                                   | `200` with every run record    |                 | Run history, newest first                                          |
 | `GET /v1/runs/{id}`                              | `200` with the run record      | `404`           | One run                                                            |
@@ -64,7 +66,7 @@ Request and response bodies are JSON, except the logs and the files. Times are U
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `404`  | No run has the ID; the run holds no file at the path; its pipeline names no such source; the source held no such item; no selection has the ID                                                                                          |
 | `409`  | Cancelling a run that has finished; reading results, or selecting from them, before the task has written them, or of a run that finished without any (`The run finished without a result`); the image of an item that is not `verified` |
-| `413`  | A `POST` body over `limits.max_document_bytes`; the body is an extension error                                                                                                                                                          |
+| `413`  | A `POST` body over `limits.max_document_bytes`, or a pipeline `/v1/resolve` finds to hold more than `limits.max_resolved_nodes` nodes (`too_many_nodes`, with `limit` and `count`); the body is an extension error                                                                                                                                                          |
 | `422`  | The request is malformed, the run would fail before any task ran, or the run cannot answer the selection; the body says why                                                                                                             |
 | `503`  | From a probe only: the service cannot run work; the body names the reasons                                                                                                                                                              |
 
@@ -79,7 +81,7 @@ on `code` and shows `message`.
 
 ## Run request
 
-`POST /v1/validate` and `POST /v1/runs` take the same body:
+`POST /v1/validate`, `POST /v1/resolve` and `POST /v1/runs` take the same body:
 
 | Field      | Type                   | Default            | Meaning                                                              |
 | ---------- | ---------------------- | ------------------ | -------------------------------------------------------------------- |
@@ -96,15 +98,93 @@ Both refuse with `422` a request that would fail before any task ran:
 - a `result: require` when none of the tasks to run gives a verdict (only presets such as `audit` do)
 - a `result: formats` without `json`: the service reads each run's results as JSON
 
+A pipeline whose workflows don't connect is refused by `/v1/validate` and `/v1/runs` with one `422` entry per problem.
+Each entry's `loc` is the problem's step, and its port when it has one, such as
+`["body", "pipeline", "workflows", 0, "steps", 1, "input"]`. `/v1/resolve` reports the same problems as `diagnostics`.
+
 `POST /v1/validate` answers with `valid`, the resolved `tasks`, and the `pipeline` the run would read. Validation reads
 no data: a pipeline that validates can still fail on a dataset that is missing or unreadable, which the run reports.
+
+## Graph resolution
+
+`POST /v1/resolve` takes the [run request](#run-request) and gives the graph of each task it would run: the steps, their
+ports, what each port reads, and where the graph does not connect. It reads no data, loads no source and queues
+nothing, so it answers for a pipeline whose datasets are not there. It checks the pin and parses the pipeline as
+`/v1/validate` does, so a malformed pipeline is the same `422`; a graph that does not connect is a `200` with
+`valid: false`. A pipeline resolving to more than `limits.max_resolved_nodes` nodes is a `413` `too_many_nodes`.
+
+The response has:
+
+| Field                | Meaning                                                                                  |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `schema`             | The contract version, `1`                                                                |
+| `schema_fingerprint` | The service's, as in `/v1/capabilities`                                                  |
+| `valid`              | Whether `diagnostics` is empty                                                           |
+| `pipeline`           | The normalized pipeline, as `/v1/validate` gives it                                      |
+| `tasks[]`            | One entry per task to run: `name`, `kind`, `workflow`, `source_bindings`, `nodes`, `execution_order`, `output_aliases`, `complete`, `matrix` |
+| `workflows[]`        | The graphs of workflow entries no selected task runs, so a canvas can show them          |
+| `diagnostics[]`      | Each problem: `code`, `severity`, `message`, `document_pointer`, `task`, `node_id`, `port` |
+
+`source_bindings` lists each workflow input with its `slot`, whether it is a `list`, the `sources` bound to it and the
+`document_pointer` of the task's `sources`. `execution_order` lists the `node_id`s in the order the steps run.
+`output_aliases` maps an address such as `cleaning.clean` to the `node_id` and `port` that holds it. `complete` is
+`false` when the graph stops short of a problem.
+
+### Nodes
+
+`node_id` is `"<task>:<step>"`, with the steps a preset adds named `<step>/<inner>`. Treat it as opaque. `path` is the
+task followed by the step's name split at `/`. A node in `workflows[]` uses the workflow's name where a task's would
+go. Step names are the keys of a task result's `steps`, so a resolved node matches the final result without translation.
+
+`origin` says where a node came from:
+
+- `step_pointer` is a JSON Pointer to the step, such as `/workflows/0/steps/1`. An evaluator task's node has `null`.
+- `definition_pointer` points at the `evaluators` or `workflows` entry a pooled step uses, and is `null` otherwise.
+- `generated` is `true` for a step a preset adds. It carries the preset step's `step_pointer` and the preset entry as
+  `definition_pointer`: the service never points at a step that is not in the document.
+
+Each node's `inputs` give the port, its `type`, `count`, accepted `classes` and `kinds`, `shape`, and the `addresses` it
+reads. Its `outputs` give the `address` another step reads it by, the `classes` it holds and its `keys`.
+
+An output's `availability` is `available`, or `unavailable` with a `reason` when the step's settings leave it empty, so a
+step reading it is a `unavailable_output` problem. `keys` is the list of keys a list output holds, or `null` when the
+data decides them.
+
+### Diagnostics
+
+A diagnostic's `document_pointer` points at the port when it has one, else at the step, else at the workflow or task.
+`task` is `null` for a workflow no selected task runs. Each `code` is one of:
+
+| Code | Raised when |
+| --- | --- |
+| `unknown_address` | An address names no slot, step or output |
+| `forward_address` | It names a step that runs later |
+| `ambiguous_output` | A bare name is used on a multi-output step, or `.output` on a single-output step |
+| `unavailable_output` | The settings leave the output empty |
+| `wrong_type` | The data type doesn't match the port |
+| `wrong_class` | The Output class doesn't fit the port's classes |
+| `list_mismatch` | A list is read where a non-list port won't broadcast, lists are nested, `[key]` is used on a non-list, or a key is unknown |
+| `count_mismatch` | The port's `count` is violated |
+| `wrong_dataset` | A `same_node`, `shared_datasets` or `computed_on` rule is violated |
+| `too_many_verdicts` | A workflow has more than one verdict-giving step |
+| `bad_extractor` | A step's `extractor` names no entry or is invalid |
+| `bad_by` | `by:` or `pairs:` is misused |
+| `unknown_entry` | An evaluator or workflow step names an entry its pool lacks, or a custom workflow |
+| `bad_address` | A port field holds text that isn't an address, or a pooled step has no `input:` |
+| `task_problem` | A task's sources don't bind to its workflow's inputs, an extractor is missing, or exports clash |
+| `graph_error` | Anything else |
+
+A workflow reports at most one graph problem: resolution stops at the first, and the steps before it are kept in the
+graph. Steps run in the order written, so reading a step listed later is `forward_address`. A task with a `matrix`
+resolves once, as written: `matrix.runs` lists the runs as `{number, label, values}`, but a cell that changes which
+outputs a step leaves empty, or which keys a list holds, is not reflected in the graph.
 
 ## Capabilities
 
 `GET /v1/capabilities` returns `api_version`, `flow_version`, `dataeval_version`, `schema_fingerprint`,
 `max_active_runs`, `features`,
 `limits` and `steps`. `features` names each optional part of the API with its version, so a client checks for a feature
-rather than a Flow version: `items`, `profiles`, `selections`, `schema` and `builder_metadata`, each `1`. `limits.page_size` is the largest
+rather than a Flow version: `items`, `profiles`, `selections`, `schema`, `builder_metadata` and `graph_resolution`, each `1`. `limits.page_size` is the largest
 page the item and selection routes serve. `limits.max_document_bytes`, `limits.max_resolved_nodes` and
 `limits.activity_page_size` are the bounds in [Limits](#limits). `steps` is the step catalog `dataeval-flow steps`
 prints: every evaluator, transform, combine, check and workflow, with its ports and its settings' JSON Schema.

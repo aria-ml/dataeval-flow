@@ -1,0 +1,1422 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev771+g1faad9142.d20261014",
+  "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+  "request": {
+    "method": "POST",
+    "path": "/v1/resolve",
+    "body": {
+      "pipeline": {
+        "datasets": [
+          {
+            "name": "fixture",
+            "format": "coco",
+            "path": "fixture"
+          }
+        ],
+        "sources": [
+          {
+            "name": "data",
+            "dataset": "fixture"
+          }
+        ],
+        "evaluators": [
+          {
+            "name": "dupes",
+            "type": "duplicates"
+          }
+        ],
+        "workflows": [
+          {
+            "name": "review",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "q",
+                "workflow": "quality",
+                "input": "data"
+              }
+            ]
+          },
+          {
+            "name": "quality",
+            "type": "quality",
+            "outliers": {
+              "flags": [
+                "pixel"
+              ],
+              "outlier_threshold": "zscore"
+            }
+          }
+        ],
+        "tasks": [
+          {
+            "name": "review",
+            "workflow": "review",
+            "sources": "data"
+          }
+        ]
+      }
+    }
+  },
+  "status": 200,
+  "response": {
+    "schema": 1,
+    "schema_fingerprint": "sha256:d36c7b73149bd4684fe2db5f4e61f20480f4928b5f8eeb9aa1d12185dc9ebf56",
+    "valid": true,
+    "pipeline": {
+      "logging": null,
+      "result": {
+        "name": "result",
+        "formats": [
+          "json",
+          "text",
+          "html"
+        ],
+        "detail": "full",
+        "per_task": false,
+        "fail_on": "failure",
+        "require": null,
+        "width": 80,
+        "max_images": 200,
+        "max_rows": 500,
+        "preview_rows": 10
+      },
+      "seed": null,
+      "deterministic": false,
+      "max_processes": null,
+      "datasets": [
+        {
+          "format": "coco",
+          "name": "fixture",
+          "path": "fixture",
+          "value_range": null,
+          "channel_groups": null,
+          "provenance": null,
+          "annotations_file": null,
+          "images_dir": null
+        }
+      ],
+      "preprocessors": null,
+      "views": null,
+      "metadata": null,
+      "ontologies": null,
+      "stats": null,
+      "sources": [
+        {
+          "name": "data",
+          "dataset": "fixture",
+          "merge": null,
+          "view": null
+        }
+      ],
+      "extractors": null,
+      "exports": null,
+      "workflows": [
+        {
+          "name": "review",
+          "inputs": [
+            "data"
+          ],
+          "steps": [
+            {
+              "name": "q",
+              "workflow": "quality",
+              "input": "data"
+            }
+          ]
+        },
+        {
+          "stats": null,
+          "metadata": null,
+          "name": "quality",
+          "type": "quality",
+          "ontology": null,
+          "outliers": {
+            "flags": [
+              "pixel"
+            ],
+            "outlier_threshold": "zscore",
+            "cluster_threshold": null,
+            "cluster_algorithm": null,
+            "n_clusters": null
+          },
+          "duplicates": {
+            "flags": null,
+            "merge_near_duplicates": null,
+            "cluster_sensitivity": null,
+            "cluster_algorithm": null,
+            "n_clusters": null
+          },
+          "checks": {
+            "image-outliers": {
+              "warning": 3.0
+            },
+            "target-outliers": {
+              "warning": 3.0
+            },
+            "class-outliers": {
+              "warning": 3.0
+            },
+            "image-duplicates": {
+              "exact": 0.0,
+              "near": 5.0
+            }
+          }
+        }
+      ],
+      "evaluators": [
+        {
+          "stats": null,
+          "name": "dupes",
+          "type": "duplicates",
+          "cluster_algorithm": null,
+          "n_clusters": null,
+          "per_image": null,
+          "per_target": null,
+          "flags": null,
+          "merge_near_duplicates": null,
+          "hash_radius": null,
+          "cluster_sensitivity": null,
+          "redundancy_radius": null,
+          "min_segment_frames": null,
+          "max_segment_gap": null,
+          "segment_offset_tolerance": null,
+          "verify_alignment": null,
+          "min_track_frames": null,
+          "frame_sample": null
+        }
+      ],
+      "tasks": [
+        {
+          "name": "review",
+          "workflow": "review",
+          "enabled": true,
+          "sources": "data",
+          "extractor": null
+        }
+      ]
+    },
+    "tasks": [
+      {
+        "name": "review",
+        "kind": "workflow",
+        "workflow": "review",
+        "source_bindings": [
+          {
+            "slot": "data",
+            "list": false,
+            "sources": [
+              "data"
+            ],
+            "document_pointer": "/tasks/0/sources"
+          }
+        ],
+        "nodes": [
+          {
+            "node_id": "review:q/outliers",
+            "path": [
+              "review",
+              "q",
+              "outliers"
+            ],
+            "step": {
+              "kind": "evaluator",
+              "type": "outliers"
+            },
+            "origin": {
+              "step_pointer": "/workflows/0/steps/0",
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "stats": null,
+              "name": "outliers",
+              "type": "outliers",
+              "cluster_algorithm": null,
+              "n_clusters": null,
+              "per_image": null,
+              "per_target": true,
+              "flags": [
+                "pixel"
+              ],
+              "outlier_threshold": "zscore",
+              "cluster_threshold": null
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": "1+",
+                "derives": [
+                  "clusters",
+                  "stats"
+                ],
+                "classes": [],
+                "shape": "array",
+                "addresses": [
+                  "data"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "output",
+                "type": "output",
+                "list": false,
+                "classes": [
+                  "dataeval.quality.OutliersOutput"
+                ],
+                "kinds": null,
+                "address": "q/outliers",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "review:q/label-health",
+            "path": [
+              "review",
+              "q",
+              "label-health"
+            ],
+            "step": {
+              "kind": "evaluator",
+              "type": "label-health"
+            },
+            "origin": {
+              "step_pointer": "/workflows/0/steps/0",
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "metadata": null,
+              "name": "label-health",
+              "type": "label-health"
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": "1",
+                "derives": [
+                  "metadata"
+                ],
+                "classes": [],
+                "shape": "scalar",
+                "addresses": [
+                  "data"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "output",
+                "type": "output",
+                "list": false,
+                "classes": [
+                  "dataeval_flow.evaluators.quality.LabelHealthOutput"
+                ],
+                "kinds": null,
+                "address": "q/label-health",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "review:q/outliers-by-class",
+            "path": [
+              "review",
+              "q",
+              "outliers-by-class"
+            ],
+            "step": {
+              "kind": "combine",
+              "type": "outliers-by-class"
+            },
+            "origin": {
+              "step_pointer": "/workflows/0/steps/0",
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "input": "data",
+              "outliers": "outliers"
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": null,
+                "derives": [
+                  "metadata"
+                ],
+                "classes": [],
+                "shape": "scalar",
+                "addresses": [
+                  "data"
+                ]
+              },
+              {
+                "port": "outliers",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval.quality.OutliersOutput"
+                ],
+                "shape": "scalar",
+                "addresses": [
+                  "q/outliers"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "output",
+                "type": "output",
+                "list": false,
+                "classes": [
+                  "dataeval_flow.steps.combines.OutliersByClassOutput"
+                ],
+                "kinds": null,
+                "address": "q/outliers-by-class",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "review:q/duplicates",
+            "path": [
+              "review",
+              "q",
+              "duplicates"
+            ],
+            "step": {
+              "kind": "evaluator",
+              "type": "duplicates"
+            },
+            "origin": {
+              "step_pointer": "/workflows/0/steps/0",
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "stats": null,
+              "name": "duplicates",
+              "type": "duplicates",
+              "cluster_algorithm": null,
+              "n_clusters": null,
+              "per_image": null,
+              "per_target": null,
+              "flags": null,
+              "merge_near_duplicates": null,
+              "hash_radius": null,
+              "cluster_sensitivity": null,
+              "redundancy_radius": null,
+              "min_segment_frames": null,
+              "max_segment_gap": null,
+              "segment_offset_tolerance": null,
+              "verify_alignment": null,
+              "min_track_frames": null,
+              "frame_sample": null
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": "1+",
+                "derives": [
+                  "clusters",
+                  "stats"
+                ],
+                "classes": [],
+                "shape": "array",
+                "addresses": [
+                  "data"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "output",
+                "type": "output",
+                "list": false,
+                "classes": [
+                  "dataeval.quality.DuplicatesOutput"
+                ],
+                "kinds": null,
+                "address": "q/duplicates",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "review:q/image-outliers",
+            "path": [
+              "review",
+              "q",
+              "image-outliers"
+            ],
+            "step": {
+              "kind": "check",
+              "type": "image-outliers"
+            },
+            "origin": {
+              "step_pointer": "/workflows/0/steps/0",
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "input": "outliers",
+              "warning": 3.0
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval.quality.OutliersOutput"
+                ],
+                "shape": "scalar",
+                "addresses": [
+                  "q/outliers"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "findings",
+                "type": "findings",
+                "list": false,
+                "classes": [],
+                "kinds": null,
+                "address": "q/image-outliers",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "review:q/target-outliers",
+            "path": [
+              "review",
+              "q",
+              "target-outliers"
+            ],
+            "step": {
+              "kind": "check",
+              "type": "target-outliers"
+            },
+            "origin": {
+              "step_pointer": "/workflows/0/steps/0",
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "input": "outliers",
+              "labels": "label-health",
+              "warning": 3.0
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval.quality.OutliersOutput"
+                ],
+                "shape": "scalar",
+                "addresses": [
+                  "q/outliers"
+                ]
+              },
+              {
+                "port": "labels",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval_flow.evaluators.quality.LabelHealthOutput"
+                ],
+                "shape": "scalar",
+                "addresses": [
+                  "q/label-health"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "findings",
+                "type": "findings",
+                "list": false,
+                "classes": [],
+                "kinds": null,
+                "address": "q/target-outliers",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "review:q/class-outliers",
+            "path": [
+              "review",
+              "q",
+              "class-outliers"
+            ],
+            "step": {
+              "kind": "check",
+              "type": "class-outliers"
+            },
+            "origin": {
+              "step_pointer": "/workflows/0/steps/0",
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "input": "outliers-by-class",
+              "warning": 3.0
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval_flow.steps.combines.OutliersByClassOutput"
+                ],
+                "shape": "scalar",
+                "addresses": [
+                  "q/outliers-by-class"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "findings",
+                "type": "findings",
+                "list": false,
+                "classes": [],
+                "kinds": null,
+                "address": "q/class-outliers",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "review:q/image-duplicates",
+            "path": [
+              "review",
+              "q",
+              "image-duplicates"
+            ],
+            "step": {
+              "kind": "check",
+              "type": "image-duplicates"
+            },
+            "origin": {
+              "step_pointer": "/workflows/0/steps/0",
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "input": "duplicates",
+              "exact": 0.0,
+              "near": 5.0
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval.quality.DuplicatesOutput"
+                ],
+                "shape": "scalar",
+                "addresses": [
+                  "q/duplicates"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "findings",
+                "type": "findings",
+                "list": false,
+                "classes": [],
+                "kinds": null,
+                "address": "q/image-duplicates",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "review:q/clean",
+            "path": [
+              "review",
+              "q",
+              "clean"
+            ],
+            "step": {
+              "kind": "transform",
+              "type": "remove"
+            },
+            "origin": {
+              "step_pointer": "/workflows/0/steps/0",
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "input": "data",
+              "plans": {
+                "duplicates": {
+                  "dup_types": [
+                    "exact",
+                    "near"
+                  ],
+                  "keep": "first"
+                },
+                "outliers": {
+                  "min_flags": 1
+                }
+              }
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [],
+                "shape": "scalar",
+                "addresses": [
+                  "data"
+                ]
+              },
+              {
+                "port": "plans",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval.quality.DuplicatesOutput",
+                  "dataeval.quality.OutliersOutput"
+                ],
+                "shape": "map_keys",
+                "addresses": [
+                  "q/duplicates",
+                  "q/outliers"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "output",
+                "type": "dataset",
+                "list": false,
+                "classes": [],
+                "kinds": [
+                  "any"
+                ],
+                "address": "q/clean",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          }
+        ],
+        "execution_order": [
+          "review:q/outliers",
+          "review:q/label-health",
+          "review:q/outliers-by-class",
+          "review:q/duplicates",
+          "review:q/image-outliers",
+          "review:q/target-outliers",
+          "review:q/class-outliers",
+          "review:q/image-duplicates",
+          "review:q/clean"
+        ],
+        "output_aliases": [
+          {
+            "address": "q.clean",
+            "node_id": "review:q/clean",
+            "port": "output"
+          }
+        ],
+        "complete": true,
+        "matrix": null
+      }
+    ],
+    "workflows": [
+      {
+        "name": "quality",
+        "nodes": [
+          {
+            "node_id": "quality:outliers",
+            "path": [
+              "quality",
+              "outliers"
+            ],
+            "step": {
+              "kind": "evaluator",
+              "type": "outliers"
+            },
+            "origin": {
+              "step_pointer": null,
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "stats": null,
+              "name": "outliers",
+              "type": "outliers",
+              "cluster_algorithm": null,
+              "n_clusters": null,
+              "per_image": null,
+              "per_target": true,
+              "flags": [
+                "pixel"
+              ],
+              "outlier_threshold": "zscore",
+              "cluster_threshold": null
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": "1+",
+                "derives": [
+                  "clusters",
+                  "stats"
+                ],
+                "classes": [],
+                "shape": "array",
+                "addresses": [
+                  "data"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "output",
+                "type": "output",
+                "list": false,
+                "classes": [
+                  "dataeval.quality.OutliersOutput"
+                ],
+                "kinds": null,
+                "address": "outliers",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "quality:label-health",
+            "path": [
+              "quality",
+              "label-health"
+            ],
+            "step": {
+              "kind": "evaluator",
+              "type": "label-health"
+            },
+            "origin": {
+              "step_pointer": null,
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "metadata": null,
+              "name": "label-health",
+              "type": "label-health"
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": "1",
+                "derives": [
+                  "metadata"
+                ],
+                "classes": [],
+                "shape": "scalar",
+                "addresses": [
+                  "data"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "output",
+                "type": "output",
+                "list": false,
+                "classes": [
+                  "dataeval_flow.evaluators.quality.LabelHealthOutput"
+                ],
+                "kinds": null,
+                "address": "label-health",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "quality:outliers-by-class",
+            "path": [
+              "quality",
+              "outliers-by-class"
+            ],
+            "step": {
+              "kind": "combine",
+              "type": "outliers-by-class"
+            },
+            "origin": {
+              "step_pointer": null,
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "input": "data",
+              "outliers": "outliers"
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": null,
+                "derives": [
+                  "metadata"
+                ],
+                "classes": [],
+                "shape": "scalar",
+                "addresses": [
+                  "data"
+                ]
+              },
+              {
+                "port": "outliers",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval.quality.OutliersOutput"
+                ],
+                "shape": "scalar",
+                "addresses": [
+                  "outliers"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "output",
+                "type": "output",
+                "list": false,
+                "classes": [
+                  "dataeval_flow.steps.combines.OutliersByClassOutput"
+                ],
+                "kinds": null,
+                "address": "outliers-by-class",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "quality:duplicates",
+            "path": [
+              "quality",
+              "duplicates"
+            ],
+            "step": {
+              "kind": "evaluator",
+              "type": "duplicates"
+            },
+            "origin": {
+              "step_pointer": null,
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "stats": null,
+              "name": "duplicates",
+              "type": "duplicates",
+              "cluster_algorithm": null,
+              "n_clusters": null,
+              "per_image": null,
+              "per_target": null,
+              "flags": null,
+              "merge_near_duplicates": null,
+              "hash_radius": null,
+              "cluster_sensitivity": null,
+              "redundancy_radius": null,
+              "min_segment_frames": null,
+              "max_segment_gap": null,
+              "segment_offset_tolerance": null,
+              "verify_alignment": null,
+              "min_track_frames": null,
+              "frame_sample": null
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": "1+",
+                "derives": [
+                  "clusters",
+                  "stats"
+                ],
+                "classes": [],
+                "shape": "array",
+                "addresses": [
+                  "data"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "output",
+                "type": "output",
+                "list": false,
+                "classes": [
+                  "dataeval.quality.DuplicatesOutput"
+                ],
+                "kinds": null,
+                "address": "duplicates",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "quality:image-outliers",
+            "path": [
+              "quality",
+              "image-outliers"
+            ],
+            "step": {
+              "kind": "check",
+              "type": "image-outliers"
+            },
+            "origin": {
+              "step_pointer": null,
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "input": "outliers",
+              "warning": 3.0
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval.quality.OutliersOutput"
+                ],
+                "shape": "scalar",
+                "addresses": [
+                  "outliers"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "findings",
+                "type": "findings",
+                "list": false,
+                "classes": [],
+                "kinds": null,
+                "address": "image-outliers",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "quality:target-outliers",
+            "path": [
+              "quality",
+              "target-outliers"
+            ],
+            "step": {
+              "kind": "check",
+              "type": "target-outliers"
+            },
+            "origin": {
+              "step_pointer": null,
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "input": "outliers",
+              "labels": "label-health",
+              "warning": 3.0
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval.quality.OutliersOutput"
+                ],
+                "shape": "scalar",
+                "addresses": [
+                  "outliers"
+                ]
+              },
+              {
+                "port": "labels",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval_flow.evaluators.quality.LabelHealthOutput"
+                ],
+                "shape": "scalar",
+                "addresses": [
+                  "label-health"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "findings",
+                "type": "findings",
+                "list": false,
+                "classes": [],
+                "kinds": null,
+                "address": "target-outliers",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "quality:class-outliers",
+            "path": [
+              "quality",
+              "class-outliers"
+            ],
+            "step": {
+              "kind": "check",
+              "type": "class-outliers"
+            },
+            "origin": {
+              "step_pointer": null,
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "input": "outliers-by-class",
+              "warning": 3.0
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval_flow.steps.combines.OutliersByClassOutput"
+                ],
+                "shape": "scalar",
+                "addresses": [
+                  "outliers-by-class"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "findings",
+                "type": "findings",
+                "list": false,
+                "classes": [],
+                "kinds": null,
+                "address": "class-outliers",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "quality:image-duplicates",
+            "path": [
+              "quality",
+              "image-duplicates"
+            ],
+            "step": {
+              "kind": "check",
+              "type": "image-duplicates"
+            },
+            "origin": {
+              "step_pointer": null,
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "input": "duplicates",
+              "exact": 0.0,
+              "near": 5.0
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval.quality.DuplicatesOutput"
+                ],
+                "shape": "scalar",
+                "addresses": [
+                  "duplicates"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "findings",
+                "type": "findings",
+                "list": false,
+                "classes": [],
+                "kinds": null,
+                "address": "image-duplicates",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          },
+          {
+            "node_id": "quality:clean",
+            "path": [
+              "quality",
+              "clean"
+            ],
+            "step": {
+              "kind": "transform",
+              "type": "remove"
+            },
+            "origin": {
+              "step_pointer": null,
+              "definition_pointer": "/workflows/1",
+              "generated": true
+            },
+            "settings": {
+              "input": "data",
+              "plans": {
+                "duplicates": {
+                  "dup_types": [
+                    "exact",
+                    "near"
+                  ],
+                  "keep": "first"
+                },
+                "outliers": {
+                  "min_flags": 1
+                }
+              }
+            },
+            "inputs": [
+              {
+                "port": "input",
+                "type": "dataset",
+                "kinds": [
+                  "any"
+                ],
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [],
+                "shape": "scalar",
+                "addresses": [
+                  "data"
+                ]
+              },
+              {
+                "port": "plans",
+                "type": "output",
+                "kinds": null,
+                "list": false,
+                "count": null,
+                "derives": [],
+                "classes": [
+                  "dataeval.quality.DuplicatesOutput",
+                  "dataeval.quality.OutliersOutput"
+                ],
+                "shape": "map_keys",
+                "addresses": [
+                  "duplicates",
+                  "outliers"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "port": "output",
+                "type": "dataset",
+                "list": false,
+                "classes": [],
+                "kinds": [
+                  "any"
+                ],
+                "address": "clean",
+                "keys": null,
+                "availability": "available",
+                "reason": null
+              }
+            ],
+            "optional": false,
+            "broadcast": false
+          }
+        ],
+        "execution_order": [
+          "quality:outliers",
+          "quality:label-health",
+          "quality:outliers-by-class",
+          "quality:duplicates",
+          "quality:image-outliers",
+          "quality:target-outliers",
+          "quality:class-outliers",
+          "quality:image-duplicates",
+          "quality:clean"
+        ],
+        "output_aliases": [],
+        "complete": true
+      }
+    ],
+    "diagnostics": []
+  }
+}

@@ -81,10 +81,134 @@ def _too_large(client: Any) -> dict[str, Any]:
     return exchange(client, "POST", "/v1/validate", body, shown="<a pipeline padded past 1 MiB>")
 
 
+_ONTOLOGY = {
+    "name": "vehicles",
+    "concepts": [
+        {"id": "Vehicle", "label": "Vehicle", "synonyms": ["car", "truck"]},
+        {"id": "Person", "label": "Person", "synonyms": ["person", "pedestrian"]},
+    ],
+}
+_SPLIT = {"name": "s", "transform": "split", "input": "data", "test_frac": 0.2, "val_frac": 0}
+_DUPES = {"name": "dupes", "evaluator": "dupes", "input": "data"}
+
+
+def _steps(pipeline: dict[str, Any], steps: list[dict[str, Any]]) -> dict[str, Any]:
+    pipeline["workflows"][0]["steps"] = steps
+    return pipeline
+
+
+def _resolve(client: Any, pipeline: dict[str, Any]) -> dict[str, Any]:
+    return exchange(client, "POST", "/v1/resolve", {"pipeline": pipeline})
+
+
+def _resolve_valid(client: Any) -> dict[str, Any]:
+    return _resolve(client, fixture_pipeline())
+
+
+def _unknown_address() -> dict[str, Any]:
+    pipeline = fixture_pipeline()
+    pipeline["workflows"][0]["steps"][1]["input"] = "missing"
+    return pipeline
+
+
+def _resolve_unknown_address(client: Any) -> dict[str, Any]:
+    return _resolve(client, _unknown_address())
+
+
+def _resolve_split_unavailable(client: Any) -> dict[str, Any]:
+    steps = [_SPLIT, {"name": "dupes", "evaluator": "dupes", "input": "s.train"}]
+    return _resolve(client, _steps(fixture_pipeline(), steps))
+
+
+def _resolve_shared_evaluator(client: Any) -> dict[str, Any]:
+    steps = [_DUPES, _SPLIT, {"name": "dupes-train", "evaluator": "dupes", "input": "s.train"}]
+    return _resolve(client, _steps(fixture_pipeline(), steps))
+
+
+def _resolve_list_slot(client: Any) -> dict[str, Any]:
+    pipeline = fixture_pipeline()
+    pipeline["sources"].append({"name": "more", "dataset": "fixture"})
+    pipeline["workflows"][0]["inputs"] = [{"name": "all", "list": True}]
+    pipeline["tasks"][0]["sources"] = ["data", "more"]
+    steps = [
+        {"name": "dupes", "evaluator": "dupes", "input": "all"},
+        {"name": "judge", "check": "image-duplicates", "input": "dupes[more]"},
+    ]
+    return _resolve(client, _steps(pipeline, steps))
+
+
+def _resolve_nested_preset(client: Any) -> dict[str, Any]:
+    pipeline = fixture_pipeline()
+    outliers = {"flags": ["pixel"], "outlier_threshold": "zscore"}
+    pipeline["workflows"].append({"name": "quality", "type": "quality", "outliers": outliers})
+    return _resolve(client, _steps(pipeline, [{"name": "q", "workflow": "quality", "input": "data"}]))
+
+
+def _resolve_remove_plans(client: Any) -> dict[str, Any]:
+    pipeline = fixture_pipeline()
+    pipeline["evaluators"].append({"name": "outs", "type": "outliers"})
+    steps = [
+        _DUPES,
+        {"name": "outs", "evaluator": "outs", "input": "data"},
+        {"name": "clean", "transform": "remove", "input": "data", "plans": {"dupes": {}, "outs": {}}},
+    ]
+    return _resolve(client, _steps(pipeline, steps))
+
+
+def _resolve_wrong_dataset(client: Any) -> dict[str, Any]:
+    pipeline = fixture_pipeline()
+    pipeline["evaluators"].append({"name": "align", "type": "label-alignment", "ontology": "vehicles"})
+    pipeline["ontologies"] = [_ONTOLOGY]
+    steps = [
+        {"name": "few", "transform": "view", "input": "data", "operations": [{"type": "Limit", "params": {"size": 2}}]},
+        {"name": "aligned", "evaluator": "align", "input": "few"},
+        {"name": "c", "transform": "conform", "input": "data", "alignment": "aligned"},
+    ]
+    return _resolve(client, _steps(pipeline, steps))
+
+
+def _resolve_forward_address(client: Any) -> dict[str, Any]:
+    steps = [{"name": "judge", "check": "image-duplicates", "input": "dupes"}, _DUPES]
+    return _resolve(client, _steps(fixture_pipeline(), steps))
+
+
+def _resolve_matrix(client: Any) -> dict[str, Any]:
+    pipeline = _steps(fixture_pipeline(), [_SPLIT, _DUPES])
+    pipeline["tasks"][0]["matrix"] = {"steps.s.test_frac": [0.2, 0.3]}
+    return _resolve(client, pipeline)
+
+
+def _resolve_unattached_workflow(client: Any) -> dict[str, Any]:
+    pipeline = fixture_pipeline()
+    draft = {
+        "name": "draft",
+        "inputs": ["data"],
+        "steps": [{"name": "j", "check": "image-duplicates", "input": "nothing"}],
+    }
+    pipeline["workflows"].append(draft)
+    return _resolve(client, pipeline)
+
+
+def _validate_located_422(client: Any) -> dict[str, Any]:
+    return exchange(client, "POST", "/v1/validate", {"pipeline": _unknown_address()})
+
+
 GENERATORS: dict[str, Callable[[Any], dict[str, Any]]] = {
     "capabilities-sample": _capabilities,
     "schema-changed": _schema_changed,
     "document-too-large": _too_large,
+    "resolve-valid": _resolve_valid,
+    "resolve-unknown-address": _resolve_unknown_address,
+    "resolve-split-unavailable": _resolve_split_unavailable,
+    "resolve-shared-evaluator": _resolve_shared_evaluator,
+    "resolve-list-slot": _resolve_list_slot,
+    "resolve-nested-preset": _resolve_nested_preset,
+    "resolve-remove-plans": _resolve_remove_plans,
+    "resolve-wrong-dataset": _resolve_wrong_dataset,
+    "resolve-forward-address": _resolve_forward_address,
+    "resolve-matrix": _resolve_matrix,
+    "resolve-unattached-workflow": _resolve_unattached_workflow,
+    "validate-located-422": _validate_located_422,
 }
 
 
