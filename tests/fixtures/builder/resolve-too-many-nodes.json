@@ -1,0 +1,71 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev786+gd8a82ecb9",
+  "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+  "note": "Answered with `max_resolved_nodes` lowered to 1, to show the error's shape; the service's limit is 1000.",
+  "request": {
+    "method": "POST",
+    "path": "/v1/resolve",
+    "body": {
+      "pipeline": {
+        "datasets": [
+          {
+            "name": "fixture",
+            "format": "coco",
+            "path": "fixture"
+          }
+        ],
+        "sources": [
+          {
+            "name": "data",
+            "dataset": "fixture"
+          }
+        ],
+        "evaluators": [
+          {
+            "name": "dupes",
+            "type": "duplicates"
+          }
+        ],
+        "workflows": [
+          {
+            "name": "review",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "dupes",
+                "evaluator": "dupes",
+                "input": "data"
+              },
+              {
+                "name": "judge",
+                "check": "image-duplicates",
+                "input": "dupes"
+              }
+            ]
+          }
+        ],
+        "tasks": [
+          {
+            "name": "review",
+            "workflow": "review",
+            "sources": "data"
+          }
+        ]
+      }
+    }
+  },
+  "status": 413,
+  "response": {
+    "schema": 1,
+    "code": "too_many_nodes",
+    "message": "The pipeline resolves to 2 nodes; the service resolves at most 1.",
+    "retryable": false,
+    "details": {
+      "limit": 1,
+      "count": 2
+    }
+  }
+}
