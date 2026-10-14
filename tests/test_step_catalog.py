@@ -5,13 +5,17 @@ import json
 import re
 import subprocess
 import sys
+from types import SimpleNamespace
 from typing import ClassVar
 
 import dataeval.data
 import pytest
 from dataeval.data._view import Operation
+from pydantic import BaseModel
 
 from dataeval_flow.steps import StepCatalog, list_steps
+from dataeval_flow.steps._catalog import input_shape
+from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._registry import _BUILTINS as TRANSFORM_BUILTINS
 from tests.chain_toys import Keep, register_toys
 
@@ -295,3 +299,11 @@ def test_a_plugin_step_is_described_by_the_same_rules(plugins) -> None:
     entry = next(entry for entry in list_steps().steps if entry.type == "toy-keep")
     assert [(port.port, port.shape) for port in entry.inputs] == [("input", "scalar")]
     assert entry.same_dataset == []
+
+
+def test_a_plugin_input_with_no_same_named_field_holds_one_address() -> None:
+    class _Config(BaseModel):
+        other: str = ""
+
+    step = SimpleNamespace(kind="transform", config_type=_Config)
+    assert input_shape(step, Port(name="input", type=DataType.DATASET)) == "scalar"

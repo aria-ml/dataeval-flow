@@ -199,7 +199,11 @@ def input_shape(cls: Any, port: Port) -> Shape:
     """
     if cls.kind in ("evaluator", "workflow"):
         return "array" if port.count is not None and port.count.allows(2) else "scalar"
-    held = _held(cls.config_type.model_fields[port.name].annotation)
+    field = cls.config_type.model_fields.get(port.name)
+    if field is None:
+        # ponytail: a malformed plugin step names a port with no field; `port_addresses` reads it as no address.
+        return "scalar"
+    held = _held(field.annotation)
     if "map" in held:
         return "map_keys"
     return "array" if "list" in held else "scalar"
