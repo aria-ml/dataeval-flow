@@ -225,3 +225,13 @@ def test_resolved_nodes_are_the_steps_a_run_records() -> None:
     config = _config(_one(steps), _TASK, graphs=True)
     nodes = resolve(config, select_tasks(config, None)).tasks[0]["nodes"]
     assert ["/".join(node["path"][1:]) for node in nodes] == list(run_chain_task(config, "t").steps)
+
+
+def test_a_matrix_task_keeps_its_unkeyed_graph() -> None:
+    found = _resolve(
+        _one([{"name": "k", "transform": "toy-keep", "input": "all[more]"}], [{"name": "all", "list": True}]),
+        [{"name": "t", "workflow": "w", "sources": ["src"], "matrix": {"sources": [["src", "more"]]}}],
+        datasets={"src": ToyImages(), "more": ToyImages(seed=1)},
+    )
+    assert found.diagnostics == []
+    assert found.tasks[0]["complete"] is True

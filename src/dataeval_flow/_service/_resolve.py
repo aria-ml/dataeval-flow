@@ -184,7 +184,7 @@ def _task(
         owner = pointers.entries[task.workflow]
         graph, complete = graphs[owner.name], owner.name not in failed
         slot = owner.list_slot if isinstance(owner, CustomWorkflowConfig) else None
-        if complete and slot is not None and owner.binding_problem(len(names)) is None:
+        if complete and task.matrix is None and slot is not None and owner.binding_problem(len(names)) is None:
             bound = tuple(names[len(owner.single_slots) :])
             try:
                 graph, error = resolve_graph(owner, pipeline, slot_keys={slot.name: bound})
