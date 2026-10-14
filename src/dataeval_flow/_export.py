@@ -52,7 +52,7 @@ _DECODED_CHANNELS = 3
 # export wrong (it writes a file the run never analyzed). Add a name only once confirmed
 # the operation cannot touch pixels.
 _PIXEL_SAFE_OPERATIONS = frozenset(
-    {"ClassBalance", "ClassFilter", "Indices", "Limit", "Relabel", "Reverse", "Shuffle", "Stride"}
+    {"ClassBalance", "ClassFilter", "Filter", "Indices", "Limit", "Relabel", "Reverse", "Shuffle", "Stride"}
 )
 
 

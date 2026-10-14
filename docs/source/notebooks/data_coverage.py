@@ -35,7 +35,7 @@
 # %% [markdown]
 # ## What you will do
 #
-# - Load MilitaryVehicles and filter out the Air Defense category using `ClassFilter` to
+# - Load MilitaryVehicles and filter out the Air Defense category using `Filter` to
 #   simulate missing collection categories.
 # - Run `bias` and `scope` without an extractor for a fast label and metadata pass.
 # - See why class counts alone do not reveal a missing category.
@@ -72,7 +72,7 @@
 # provides a `hierarchy` attribute categorizing tanks, BMPs, BTRs, self-propelled
 # artillery, air defense systems, and related vehicle types.
 #
-# You will drop the Air Defense category using `ClassFilter` to simulate a collection
+# You will drop the Air Defense category using `Filter` to simulate a collection
 # cycle that missed a required category. All remaining class counts and imagery remain
 # unmodified.
 
@@ -80,7 +80,7 @@
 from pathlib import Path
 
 import numpy as np
-from dataeval.data import ClassFilter, Limit, Shuffle, View
+from dataeval.data import Filter, Limit, Shuffle, View
 from datamaite import load_ic
 from maite_datasets.image_classification import MilitaryVehicles
 
@@ -95,9 +95,9 @@ index2label = vehicles_raw.metadata.get("index2label", {})
 AIR_DEFENSE = {"30N6E", "Iskander", "Pantsir-S1", "Rs-24"}
 collected_classes = [i for i, name in index2label.items() if name not in AIR_DEFENSE]
 
-# `ClassFilter` enforces the gap by filtering on sample labels.
+# `Filter` enforces the gap by filtering on sample labels.
 # `Shuffle` and `Limit` sample the result for faster execution.
-collected = View(vehicles_raw, [ClassFilter(collected_classes), Shuffle(seed=0), Limit(1500)])
+collected = View(vehicles_raw, [Filter(classes=collected_classes), Shuffle(seed=0), Limit(1500)])
 
 print(f"Full collection:  {len(vehicles_raw)} frames, {len(index2label)} types")
 print(f"After the gap:    {len(collected)} frames, {len(collected_classes)} types")
@@ -317,7 +317,7 @@ for row in worklist.data().iter_rows(named=True):
 # classes, 266 labels in all: the four Air Defense types have 0 of a target of 62, and
 # `BTR-70` and `T-90` have 53.
 #
-# `ClassFilter` removed samples while leaving `index2label` intact in the dataset
+# `Filter` removed samples while leaving `index2label` intact in the dataset
 # metadata. If a dataset loader drops unused category entries completely, count-based
 # workflows cannot detect missing categories. To guarantee detection of missing
 # classes regardless of dataset metadata formatting, you should declare an ontology.
@@ -683,7 +683,7 @@ print(json_str[:500] + "\n...")
 #
 # In this tutorial, you learned how to:
 #
-# - Simulate missing categories using `ClassFilter` view operations.
+# - Simulate missing categories using `Filter` view operations.
 # - Run `bias` to assess class balance, shortcut factors and cross-tabulated factor gaps, and
 #   `scope` without an extractor for the class worklist.
 # - Run `taxonomy` on the same source to benchmark the labels against an ontology and name missing categories.
@@ -713,7 +713,7 @@ print(json_str[:500] + "\n...")
 # - **How-to**: [Declare an ontology](../how_to/declare_an_ontology.md) explains
 #   defining label spaces via inline dictionaries or SKOS/OWL files, and what `taxonomy` finds.
 # - **How-to**: [Build dataset views](../how_to/build_dataset_views.md) covers
-#   view operations such as `ClassFilter`, `Shuffle`, and `Limit`.
+#   view operations such as `Filter`, `Shuffle`, and `Limit`.
 # - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) explains
 #   running coverage tasks in Docker.
 # - **Guide**: [Use an ONNX model for embeddings](onnx_embeddings) covers configuring

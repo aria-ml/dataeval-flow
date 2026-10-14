@@ -716,8 +716,8 @@ wheels = [
 
 [[package]]
 name = "dataeval"
-version = "1.1.1.dev148+gfaf9ff3ed"
-source = { git = "https://github.com/aria-ml/dataeval.git?rev=main#faf9ff3ed7c4e89d15f05e9b5e74825e9c22d4e1" }
+version = "1.1.1.dev161+gaf8148b30"
+source = { git = "https://github.com/aria-ml/dataeval.git?rev=main#af8148b30d18b083ec58bd86200421afd2dcec68" }
 dependencies = [
     { name = "lightgbm" },
     { name = "maite" },

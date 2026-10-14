@@ -1391,11 +1391,11 @@ test_cases:
     tests:
     - f5_vops::test_a_limit_operation_reduces_the_dataset_to_the_requested_size
     - f5_vops::test_a_source_without_a_view_reads_the_whole_dataset
-  - do: Apply `ClassFilter` and `Limit` in both orders.
+  - do: Apply `Filter` and `Limit` in both orders.
     expect: Filtering first gives four items of the class; limiting first leaves none of it.
     tests:
     - f5_vops::test_operations_apply_in_the_order_listed
-  - do: Apply `ClassFilter`, `Reverse`, `Indices`, `SelectChannels` and `Relabel`.
+  - do: Apply `Filter`, `Reverse`, `Indices`, `SelectChannels` and `Relabel`.
     expect: Each selects, orders, slices, narrows or renames as its name says.
     tests:
     - f5_vops::test_class_filter_keeps_only_the_classes_named
@@ -1421,7 +1421,7 @@ test_cases:
     tests:
     - f5_vrep::test_seeded_shuffle_view_pipeline_is_deterministic
     - f5_vrep::test_the_pipeline_seed_fixes_a_shuffle_that_has_none_of_its_own
-  - do: Run a task over a source with a `ClassFilter` view.
+  - do: Run a task over a source with a `Filter` view.
     expect: The task reads only the filtered items, and its result records the view.
     tests:
     - f5_vrep::test_the_view_a_task_read_is_recorded_in_its_result

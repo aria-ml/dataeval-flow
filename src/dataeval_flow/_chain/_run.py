@@ -1058,7 +1058,7 @@ def _made_node(
 def _subset_of(dataset: Any, sources: Sequence[Node]) -> "Subset | None":
     """Where `dataset`'s items sit in its one input's, when it views that input through operations that change no
     pixels; ``None`` otherwise, and it extracts its own embeddings (data-splitting spec §5.3)."""
-    from dataeval.data import ClassBalance, ClassFilter, Indices, Limit, Relabel, Reverse, Shuffle, View
+    from dataeval.data import ClassBalance, Filter, Indices, Limit, Relabel, Reverse, Shuffle, View
 
     from dataeval_flow.workflows._context import Subset
 
@@ -1069,7 +1069,7 @@ def _subset_of(dataset: Any, sources: Sequence[Node]) -> "Subset | None":
         return None
     below = dataset.source.operation_groups if isinstance(dataset.source, View) else []
     operations = [operation for group in dataset.operation_groups[len(below) :] for operation in group]
-    safe = (ClassBalance, ClassFilter, Indices, Limit, Relabel, Reverse, Shuffle)
+    safe = (ClassBalance, Filter, Indices, Limit, Relabel, Reverse, Shuffle)
     if not all(isinstance(operation, safe) for operation in operations):
         return None
     return Subset(source.context, tuple(int(index) for index in dataset.resolve_indices()))

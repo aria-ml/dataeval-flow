@@ -255,9 +255,16 @@ class TestImageReference:
         assert sample.path_or_uri == str(tmp_path / "on_disk_0.png")
         assert sample.image_bytes is None
 
-    def test_a_view_that_leaves_the_imagery_alone_still_references_the_file(self, tmp_path):
-        operations = [ViewOperation(type="Limit", params={"size": 1})]
-        sample = _built_from_disk(tmp_path, operations=operations).samples[0]
+    @pytest.mark.parametrize(
+        "operation",
+        [
+            ViewOperation(type="Limit", params={"size": 1}),
+            ViewOperation(type="Filter", params={"classes": [0]}),
+            ViewOperation(type="Filter", params={"where": "weather = 'rain'"}),
+        ],
+    )
+    def test_a_view_that_leaves_the_imagery_alone_still_references_the_file(self, tmp_path, operation):
+        sample = _built_from_disk(tmp_path, operations=[operation]).samples[0]
         assert sample.path_or_uri == str(tmp_path / "on_disk_0.png")
         assert sample.image_bytes is None
 

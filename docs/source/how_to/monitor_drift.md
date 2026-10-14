@@ -162,16 +162,16 @@ workflows:
       - name: ref-cats
         transform: view
         input: reference
-        operations: [{type: ClassFilter, params: {classes: [0]}}]
+        operations: [{type: Filter, params: {classes: [0]}}]
       - name: test-dogs
         transform: view
         input: tests
-        operations: [{type: ClassFilter, params: {classes: [1]}}]
+        operations: [{type: Filter, params: {classes: [1]}}]
       - {name: drift, evaluator: mmd, input: [ref-cats, test-dogs]}
       - {name: drift-check, check: drift, input: drift}
 ```
 
-`ClassFilter` takes class indexes. `test-dogs` and the steps after it run once for each test source.
+`Filter`'s `classes` takes class indexes. `test-dogs` and the steps after it run once for each test source.
 
 ## 4. Detections
 

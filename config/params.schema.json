@@ -12256,7 +12256,7 @@
         },
         "transform": {
           "const": "view",
-          "description": "`view`: Applies DataEval view operations, such as ClassFilter, Relabel, Limit or Indices.",
+          "description": "`view`: Applies DataEval view operations, such as Filter, Relabel, Limit or Indices.",
           "title": "Transform",
           "type": "string"
         },

@@ -117,9 +117,10 @@ _WHOLE = {"name": "whole", "evaluator": "cov", "input": "data"}
 _SUB = {"name": "sub", "evaluator": "cov", "input": "part"}
 
 
-def test_a_view_of_an_embedded_node_extracts_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("operations", [_PART["operations"], [{"type": "Filter", "params": {"classes": [0]}}]])
+def test_a_view_of_an_embedded_node_extracts_nothing(monkeypatch: pytest.MonkeyPatch, operations: list[Any]) -> None:
     sizes = _extractions(monkeypatch)
-    _chain([_WHOLE, _PART, _SUB], _COVERAGE)
+    _chain([_WHOLE, {**_PART, "operations": operations}, _SUB], _COVERAGE)
     assert sizes == [12]
 
 

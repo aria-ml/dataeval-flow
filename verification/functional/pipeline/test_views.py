@@ -62,12 +62,12 @@ class TestViewConfig:
         view = ViewConfig(
             name="sample",
             operations=[
-                ViewOperation(type="ClassFilter", params={"classes": [0, 3]}),
+                ViewOperation(type="Filter", params={"classes": [0, 3]}),
                 ViewOperation(type="Shuffle", params={"seed": 42}),
                 ViewOperation(type="Limit", params={"size": 500}),
             ],
         )
-        assert [operation.type for operation in view.operations] == ["ClassFilter", "Shuffle", "Limit"]
+        assert [operation.type for operation in view.operations] == ["Filter", "Shuffle", "Limit"]
 
     def test_a_view_needs_a_name_and_operations(self) -> None:
         with pytest.raises(ValidationError) as caught:
@@ -120,7 +120,7 @@ class TestViewOperations:
         assert len(load_source(config, "s", data_dir=data_root)) == 2 * PER_CLASS
 
     def test_operations_apply_in_the_order_listed(self, data_root: Path) -> None:
-        keep_class_1 = {"type": "ClassFilter", "params": {"classes": [1]}}
+        keep_class_1 = {"type": "Filter", "params": {"classes": [1]}}
         limit = {"type": "Limit", "params": {"size": 4}}
         filtered_first = _load(data_root, [keep_class_1, limit])
         limited_first = _load(data_root, [limit, keep_class_1])
@@ -128,7 +128,7 @@ class TestViewOperations:
         assert len(limited_first) == 0  # the first four items are all class 0, so none are left
 
     def test_class_filter_keeps_only_the_classes_named(self, data_root: Path) -> None:
-        kept = _load(data_root, [{"type": "ClassFilter", "params": {"classes": [1]}}])
+        kept = _load(data_root, [{"type": "Filter", "params": {"classes": [1]}}])
         assert _classes(kept) == [1] * PER_CLASS
 
     def test_reverse_and_indices_select_by_position(self, data_root: Path) -> None:
@@ -210,7 +210,7 @@ class TestReproducibleViews:
 
     def test_the_view_a_task_read_is_recorded_in_its_result(self, data_root: Path) -> None:
         config = _config(
-            [{"type": "ClassFilter", "params": {"classes": [1]}}],
+            [{"type": "Filter", "params": {"classes": [1]}}],
             evaluators=[{"name": "labels", "type": "label-health"}],
             tasks=[{"name": "t", "evaluator": "labels", "sources": "s"}],
         )
@@ -221,4 +221,4 @@ class TestReproducibleViews:
         assert result.metadata.selection_id == "v"
         (source,) = result.metadata.resolved_config["sources"]
         assert source["view"] == "v"
-        assert source["view_config"]["operations"] == [{"type": "ClassFilter", "params": {"classes": [1]}}]
+        assert source["view_config"]["operations"] == [{"type": "Filter", "params": {"classes": [1]}}]
