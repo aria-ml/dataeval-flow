@@ -40,9 +40,9 @@ runs. Bind it to a trusted network only.
 | `GET /docs`                                      | `200`                          |                 | That description rendered; its page assets load from a CDN         |
 | `GET /v1/capabilities`                           | `200`                          |                 | Versions, features, limits, and every step a pipeline uses         |
 | `GET /v1/schema`                                 | `200`                          |                 | The JSON Schema of a pipeline, every registered step in it         |
-| `POST /v1/validate`                              | `200` with the checked request | `422`           | Check a run request without queueing it                            |
+| `POST /v1/validate`                              | `200` with the checked request | `409, 413, 422` | Check a run request without queueing it                            |
 | `POST /v1/resolve`                               | `200` with the resolved graphs | `409, 413, 422` | Resolve each task's graph without reading data; see [Graph resolution](#graph-resolution) |
-| `POST /v1/runs`                                  | `202` with the run record      | `422`           | Check a run request and queue it                                   |
+| `POST /v1/runs`                                  | `202` with the run record      | `409, 413, 422` | Check a run request and queue it                                   |
 | `GET /v1/runs`                                   | `200` with every run record    |                 | Run history, newest first                                          |
 | `GET /v1/runs/{id}`                              | `200` with the run record      | `404`           | One run                                                            |
 | `POST /v1/runs/{id}/cancel`                      | `202` with the run record      | `404, 409`      | Cancel a queued run, or stop a running one                         |
@@ -66,7 +66,7 @@ Request and response bodies are JSON, except the logs and the files. Times are U
 | Status | When                                                                                                                                                                                                                                    |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `404`  | No run has the ID; the run holds no file at the path; its pipeline names no such source; the source held no such item; no selection has the ID                                                                                          |
-| `409`  | A run's activity from before the service recorded it (`activity_unavailable`, an extension error); cancelling a run that has finished; reading results, or selecting from them, before the task has written them, or of a run that finished without any (`The run finished without a result`); the image of an item that is not `verified` |
+| `409`  | A request pinning a `schema_fingerprint` other than the service's (`schema_changed`, an extension error, on `/v1/validate`, `/v1/resolve` and `/v1/runs`); a run's activity from before the service recorded it (`activity_unavailable`, an extension error); cancelling a run that has finished; reading results, or selecting from them, before the task has written them, or of a run that finished without any (`The run finished without a result`); the image of an item that is not `verified` |
 | `413`  | A `POST` body over `limits.max_document_bytes`, or a pipeline `/v1/resolve` finds to hold more than `limits.max_resolved_nodes` nodes (`too_many_nodes`, with `limit` and `count`); the body is an extension error                                                                                                                                                          |
 | `422`  | The request is malformed, the run would fail before any task ran, or the run cannot answer the selection; an `after` beyond the run's last event, or a `limit` outside 1 to 100; the body says why                                                                                                             |
 | `503`  | From a probe only: the service cannot run work; the body names the reasons                                                                                                                                                              |
@@ -74,11 +74,11 @@ Request and response bodies are JSON, except the logs and the files. Times are U
 A `422` body is `{"detail": [{"type", "loc", "msg"}, ...]}`: `loc` is where in the request the error is, such as
 `["body", "pipeline", "result", "formats"]`, as Pydantic gives it for a field the configuration refuses, or
 `["body", "predicate", "index"]` for a bin a selection names that the histogram doesn't have. Every `404` and `409`
-carries `{"detail": "<why>"}`.
+carries `{"detail": "<why>"}`, except the extension errors.
 
-The routes the builder contracts add, and the checks they add to existing routes, refuse with an extension error
-instead: `{"schema": 1, "code": "<code>", "message": "<why>", "retryable": false, "details": {…}}`. A client branches
-on `code` and shows `message`.
+The builder contracts' errors (`schema_changed`, `activity_unavailable`, `document_too_large` and `too_many_nodes`)
+carry the extension envelope instead: `{"schema": 1, "code": "<code>", "message": "<why>", "retryable": false,
+"details": {…}}`. A client branches on `code` and shows `message`.
 
 ## Run request
 
@@ -92,16 +92,16 @@ on `code` and shows `message`.
 
 `/v1/schema` describes `pipeline`; the request's OpenAPI types it as an object.
 
-Both refuse with `422` a request that would fail before any task ran:
+All three routes refuse with `422` a request that would fail before any task ran:
 
 - a field the pipeline configuration does not define, or a value it refuses
 - a task the pipeline does not define, or a pipeline whose every task is disabled
 - a `result: require` when none of the tasks to run gives a verdict (only presets such as `audit` do)
 - a `result: formats` without `json`: the service reads each run's results as JSON
 
-A pipeline whose workflows don't connect is refused by `/v1/validate` and `/v1/runs` with one `422` entry per problem.
-Each entry's `loc` is the problem's step, and its port when it has one, such as
-`["body", "pipeline", "workflows", 0, "steps", 1, "input"]`. `/v1/resolve` reports the same problems as `diagnostics`.
+A pipeline whose workflows don't connect is refused by `/v1/validate` and `/v1/runs` with one `422` entry per problem,
+while `/v1/resolve` answers `200` and reports the same problems as `diagnostics`. Each entry's `loc` is the problem's
+step, and its port when it has one, such as `["body", "pipeline", "workflows", 0, "steps", 1, "input"]`.
 
 `POST /v1/validate` answers with `valid`, the resolved `tasks`, and the `pipeline` the run would read. Validation reads
 no data: a pipeline that validates can still fail on a dataset that is missing or unreadable, which the run reports.
@@ -129,13 +129,15 @@ The response has:
 `source_bindings` lists each workflow input with its `slot`, whether it is a `list`, the `sources` bound to it and the
 `document_pointer` of the task's `sources`. `execution_order` lists the `node_id`s in the order the steps run.
 `output_aliases` maps an address such as `cleaning.clean` to the `node_id` and `port` that holds it. `complete` is
-`false` when the graph stops short of a problem.
+`false` when the graph stops short of a problem. In `tasks[]`, `workflow` names the entry the task runs, and `kind` says
+whether that is a `workflows` or an `evaluators` entry.
 
 ### Nodes
 
 `node_id` is `"<task>:<step>"`, with the steps a preset adds named `<step>/<inner>`. Treat it as opaque. `path` is the
 task followed by the step's name split at `/`. A node in `workflows[]` uses the workflow's name where a task's would
-go. Step names are the keys of a task result's `steps`, so a resolved node matches the final result without translation.
+go. For a workflow task, step names are the keys of its result's `steps`, so a resolved node matches the final result
+without translation. An evaluator task's single node is `<task>:<task>`.
 
 `origin` says where a node came from:
 
@@ -154,7 +156,10 @@ data decides them.
 ### Diagnostics
 
 A diagnostic's `document_pointer` points at the port when it has one, else at the step, else at the workflow or task.
-`task` is `null` for a workflow no selected task runs. Each `code` is one of:
+`task` is `null` for a workflow no selected task runs. Its `node_id` names the step the problem is on, which may not be
+among `nodes`: the graph stops before it, or it is a preset step whose nodes are `<step>/<inner>`. Locate it by
+`document_pointer`. A `task_problem` can name a task that isn't in the selected `tasks[]`, because every task's bindings
+are checked, as `/v1/validate` checks them. Each `code` is one of:
 
 | Code | Raised when |
 | --- | --- |
