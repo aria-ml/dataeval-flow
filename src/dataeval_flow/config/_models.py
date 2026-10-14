@@ -17,6 +17,7 @@ from pydantic import (
     ConfigDict,
     Field,
     SerializeAsAny,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -506,9 +507,12 @@ class PipelineConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _check_custom_workflows(self) -> "PipelineConfig":
+    def _check_custom_workflows(self, info: ValidationInfo) -> "PipelineConfig":
         """Refuse a custom workflow whose steps do not connect, a preset entry whose chain does not, and a task
-        either cannot run, before any data is read."""
+        either cannot run, before any data is read. A service request validates with ``context={"graphs": False}``
+        and checks these itself, to say where each problem is (builder spec §5.1)."""
+        if (info.context or {}).get("graphs") is False:
+            return self
         from dataeval_flow._chain._graph import ChainGraph, build_graph, task_problems
         from dataeval_flow.workflows._preset import expand_preset, preset_of
 
@@ -521,7 +525,7 @@ class PipelineConfig(BaseModel):
                 graphs[workflow.name] = build_graph(chain, self, evaluators=evaluators)
         problems = task_problems(self, graphs)
         if problems:
-            raise ValueError(" ".join(problems))
+            raise ValueError(" ".join(message for _, message in problems))
         return self
 
     @model_validator(mode="after")

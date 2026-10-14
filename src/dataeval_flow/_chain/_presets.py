@@ -91,7 +91,9 @@ def splice_preset(
             chain, pipeline, evaluators=evaluators, slot_types={slot: value for slot, (_, value) in bound.items()}
         )
     except GraphError as error:
-        raise GraphError(f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}): {error}") from error
+        raise GraphError(
+            f"Step '{entry.name}' runs workflow '{entry.target}' ({config.type}): {error}", code=error.code
+        ) from error
     renamed = {spec.name: f"{entry.name}/{spec.name}" for spec in graph.steps}
     steps = tuple(
         replace(
