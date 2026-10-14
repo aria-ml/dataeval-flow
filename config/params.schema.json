@@ -11576,11 +11576,7 @@
           "title": "Workflow",
           "type": "string",
           "x-flow-ref": {
-            "pools": {
-              "evaluator": "evaluators",
-              "workflow": "workflows"
-            },
-            "selector": "kind"
+            "pool": "workflows"
           }
         },
         "enabled": {

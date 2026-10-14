@@ -45,8 +45,7 @@ def test_each_reference_names_a_pool_of_the_pipeline() -> None:
     refs = [body["x-flow-ref"] for _, _, body in _fields(PipelineConfig.model_json_schema()) if "x-flow-ref" in body]
     assert len(refs) >= 60
     for ref in refs:
-        named = ref["pools"].values() if "selector" in ref else [ref["pool"]]
-        assert set(named) <= pools, ref
+        assert ref["pool"] in pools, ref
 
 
 def test_a_reference_keeps_its_mark_through_the_step_union() -> None:
@@ -54,8 +53,6 @@ def test_a_reference_keeps_its_mark_through_the_step_union() -> None:
     assert schema["EvaluatorStep"]["properties"]["evaluator"]["x-flow-ref"] == {"pool": "evaluators"}
     assert schema["EvaluatorStep"]["properties"]["extractor"]["x-flow-ref"] == {"pool": "extractors"}
     assert schema["WorkflowStep"]["properties"]["workflow"]["x-flow-ref"] == {"pool": "workflows"}
-    assert schema["TaskConfig"]["properties"]["workflow"]["x-flow-ref"] == {
-        "selector": "kind",
-        "pools": {"workflow": "workflows", "evaluator": "evaluators"},
-    }
+    assert schema["TaskConfig"]["properties"]["workflow"]["x-flow-ref"] == {"pool": "workflows"}
+    assert schema["TaskConfig"]["properties"]["evaluator"]["x-flow-ref"] == {"pool": "evaluators"}
     assert schema["ExportConfig"]["properties"]["ontology"]["x-flow-ref"] == {"pool": "ontologies", "or_path": True}

@@ -51,9 +51,7 @@ class TaskConfig(BaseModel):
             "What this task runs, by name: an entry of `workflows:` or of `evaluators:`, as `kind` says. "
             "A config file names an evaluator under `evaluator:` instead."
         ),
-        json_schema_extra={
-            "x-flow-ref": {"selector": "kind", "pools": {"workflow": "workflows", "evaluator": "evaluators"}}
-        },
+        json_schema_extra=pool_ref("workflows"),
     )
     kind: TaskKind = Field(
         default="workflow",
