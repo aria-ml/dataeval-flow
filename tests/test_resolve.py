@@ -9,6 +9,7 @@ from dataeval_flow._orchestrator import select_tasks
 from dataeval_flow._service._resolve import resolve
 from dataeval_flow.evaluators.quality import DuplicatesConfig
 from dataeval_flow.evaluators.scope import LabelAlignmentConfig
+from dataeval_flow.steps import ChainResult
 from tests.chain_toys import ToyDetections, chain_pipeline, register_toys, run_chain_task
 from tests.evaluator_toys import ToyImages
 from tests.test_graph_diagnostics import _ONTOLOGY
@@ -224,7 +225,9 @@ def test_resolved_nodes_are_the_steps_a_run_records() -> None:
     ]
     config = _config(_one(steps), _TASK, graphs=True)
     nodes = resolve(config, select_tasks(config, None)).tasks[0]["nodes"]
-    assert ["/".join(node["path"][1:]) for node in nodes] == list(run_chain_task(config, "t").steps)
+    result = run_chain_task(config, "t")
+    assert isinstance(result, ChainResult)
+    assert ["/".join(node["path"][1:]) for node in nodes] == list(result.steps)
 
 
 def test_a_matrix_task_keeps_its_unkeyed_graph() -> None:
