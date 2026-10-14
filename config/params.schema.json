@@ -6123,7 +6123,10 @@
         "source": {
           "description": "Reference to a source name.",
           "title": "Source",
-          "type": "string"
+          "type": "string",
+          "x-flow-ref": {
+            "pool": "sources"
+          }
         },
         "format": {
           "default": "coco",

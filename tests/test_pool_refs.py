@@ -8,10 +8,14 @@ from dataeval_flow.config import PipelineConfig
 
 _POOL_NAMED = {
     "dataset", "merge", "view", "preprocessor", "workflow", "evaluator", "sources", "extractor", "metadata", "stats",
-    "ontology",
+    "ontology", "source",
 }  # fmt: skip
 # Text fields named like a pool that hold something else, with what they hold.
-_NOT_REFERENCES = {("DemoDatasetConfig", "dataset"): "a built-in tutorial dataset's name"}
+_NOT_REFERENCES = {
+    ("DemoDatasetConfig", "dataset"): "a built-in tutorial dataset's name",
+    ("AggregatorConfig", "source"): "a factor level whose rows are rolled up",
+    ("OntologyConfig", "source"): "a path under the data root to a serialized RDF artifact",
+}
 
 
 def _holds_text(body: dict[str, Any]) -> bool:

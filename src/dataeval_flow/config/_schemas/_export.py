@@ -37,7 +37,7 @@ class ExportConfig(BaseModel):
         description="Identifier for the export, and the directory it is written to.",
         json_schema_extra={"pattern": ONE_DIRECTORY_SEGMENT},
     )
-    source: str = Field(description="Reference to a source name.")
+    source: str = Field(description="Reference to a source name.", json_schema_extra=pool_ref("sources"))
     format: Literal["coco", "yolo", "huggingface_vision", "visdrone"] = Field(
         default="coco",
         description=(
