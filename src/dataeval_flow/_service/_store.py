@@ -53,7 +53,9 @@ class RunStore:
             return False
         return os.access(self.root, os.W_OK)
 
-    def create(self, request: dict[str, Any], pipeline: dict[str, Any]) -> dict[str, Any]:
+    def create(
+        self, request: dict[str, Any], pipeline: dict[str, Any], schema_fingerprint: str | None = None
+    ) -> dict[str, Any]:
         """Persist an immutable input snapshot before putting the run on the queue."""
         run_id = str(uuid4())
         directory = self.root / run_id
@@ -70,6 +72,7 @@ class RunStore:
             "exit_code": None,
             "request": request,
             "pipeline": pipeline,
+            "schema_fingerprint": schema_fingerprint,
             "error": None,
         }
         with self.connect() as connection:

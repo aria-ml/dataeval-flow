@@ -85,6 +85,9 @@ on `code` and shows `message`.
 | ---------- | ---------------------- | ------------------ | -------------------------------------------------------------------- |
 | `pipeline` | Pipeline configuration | Required           | The configuration the batch command reads, as JSON                   |
 | `tasks`    | List of task names     | Every enabled task | The tasks to run, in order; a named task runs even if it is disabled |
+| `expected_schema_fingerprint` | `schema_fingerprint` | None | A `schema_fingerprint` from `/v1/capabilities`. When given and the service's differs, `409 schema_changed`, read before the pipeline |
+
+`/v1/schema` describes `pipeline`; the request's OpenAPI types it as an object.
 
 Both refuse with `422` a request that would fail before any task ran:
 
@@ -98,13 +101,27 @@ no data: a pipeline that validates can still fail on a dataset that is missing o
 
 ## Capabilities
 
-`GET /v1/capabilities` returns `api_version`, `flow_version`, `dataeval_version`, `max_active_runs`, `features`,
+`GET /v1/capabilities` returns `api_version`, `flow_version`, `dataeval_version`, `schema_fingerprint`,
+`max_active_runs`, `features`,
 `limits` and `steps`. `features` names each optional part of the API with its version, so a client checks for a feature
-rather than a Flow version: `items`, `profiles`, `selections` and `schema`, each `1`. `limits.page_size` is the largest
+rather than a Flow version: `items`, `profiles`, `selections`, `schema` and `builder_metadata`, each `1`. `limits.page_size` is the largest
 page the item and selection routes serve. `limits.max_document_bytes`, `limits.max_resolved_nodes` and
 `limits.activity_page_size` are the bounds in [Limits](#limits). `steps` is the step catalog `dataeval-flow steps`
 prints: every evaluator, transform, combine, check and workflow, with its ports and its settings' JSON Schema.
 `GET /v1/schema` is the JSON Schema of the whole pipeline, which `pipeline` in a run request follows.
+
+`schema_fingerprint` is a SHA-256 over the pipeline schema and the step catalog, so it changes with the Flow and DataEval
+versions and with the plugins installed. A client reads it with the schema and catalog, and sends it back as
+`expected_schema_fingerprint`. The service computes it once: restart the service after installing a plugin.
+
+The catalog's entries also give: `shape` on each input (the form of the address it takes), `same_dataset` (which inputs
+must come from one dataset), `address_grammar` (how an address is written), `step_settings` (where each kind's settings
+live in a step) and `classes` (each Output class's ancestors).
+
+`/v1/schema` marks each field that names another pool's entry with `x-flow-ref`, in two forms: `{"pool": "<pool>"}`, and
+`{"pool": "ontologies", "or_path": true}` for an ontology field, which takes an entry's name or else a file path. A
+task's `workflow` and `evaluator` keys each carry their own pool, `workflows` and `evaluators`; the schema never shows
+which kind a task runs.
 
 ## Run record
 
@@ -119,6 +136,7 @@ prints: every evaluator, transform, combine, check and workflow, with its ports 
 | `exit_code`   | Its process's exit code, once it has one; negative when a signal killed it     |
 | `request`     | `{"tasks": [...]}`, the resolved task list                                     |
 | `pipeline`    | The snapshot it runs from: the submitted pipeline with every default filled in |
+| `schema_fingerprint` | The fingerprint the run was checked under                               |
 | `error`       | Why it failed or was interrupted, else `null`                                  |
 
 The snapshot alone defines a run. No `DATAEVAL_*` environment variable set for the service reaches a run's process.

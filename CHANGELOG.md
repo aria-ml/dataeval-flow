@@ -22,6 +22,14 @@
   - A selection's members are exact and paged, its ID is stable, and `.../view` turns its images into a source
   - `/v1/capabilities` lists the service's `features` and `limits`, and `/v1/schema` gives the pipeline's JSON Schema
   - A `422` names where in the request it failed, as `loc`
+- Builder metadata in the service (Studio builder contracts, FLOW-BUILDER-001)
+  - The step catalog gives each input's address `shape`, `same_dataset` rules, an `address_grammar`, where each kind's
+    settings live (`step_settings`), and each Output class's ancestors (`classes`)
+  - `/v1/schema` marks every field naming another pool's entry with `x-flow-ref`
+  - `/v1/capabilities` gives a `schema_fingerprint`; a request pinning another one is refused with `409 schema_changed`
+  - Every run record keeps the fingerprint it was checked under
+  - An unknown run is a JSON `404`, a `POST` body over 1 MiB a `413`, and `/results` of a run that finished without
+    one says so
 - `run_tasks(..., on_result=...)`, called with each task's name and result as soon as the task finishes
 - `judges` and `judged_by` in the step catalog link each check to the Outputs it judges
   - `dataeval-flow steps <type>` shows both

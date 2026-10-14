@@ -12,8 +12,9 @@ from typing import Any
 import dataeval
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from dataeval_flow import __version__
 from dataeval_flow._orchestrator import select_tasks
@@ -30,16 +31,29 @@ API_VERSION = 1
 _LOG_TAIL = 65536
 
 
+_FINGERPRINT = r"^sha256:[0-9a-f]{64}$"
+
+
 class RunRequest(BaseModel):
     """A pipeline, and which of its tasks to run: what ``dataeval-flow`` reads from ``--config`` and ``--task``."""
 
     model_config = ConfigDict(extra="forbid")
-    pipeline: PipelineConfig
+    pipeline: dict[str, Any] = Field(
+        description="The pipeline configuration, as JSON: what `--config` holds. `GET /v1/schema` describes it."
+    )
     tasks: list[str] | None = Field(
         default=None,
         description=(
             "Tasks to run, in order; every enabled task when omitted. Naming a task runs it whether or not the "
             "pipeline marks it enabled."
+        ),
+    )
+    expected_schema_fingerprint: str | None = Field(
+        default=None,
+        pattern=_FINGERPRINT,
+        description=(
+            "The `schema_fingerprint` the client read the schema and catalog under. When given and the service's "
+            "differs, the request is refused with `409 schema_changed`, before the pipeline is read."
         ),
     )
 
@@ -49,9 +63,38 @@ def _refused(loc: list[str], message: str) -> HTTPException:
     return HTTPException(422, [{"type": "value_error", "loc": loc, "msg": message}])
 
 
+def _pinned(request: RunRequest) -> None:
+    """Refuse a request pinned to another schema than this service's, before reading its pipeline under this one."""
+    actual = _contract.schema_fingerprint()
+    expected = request.expected_schema_fingerprint
+    if expected is not None and expected != actual:
+        raise _contract.ContractError(
+            409,
+            "schema_changed",
+            "The service's pipeline schema changed since the client read it: read /v1/capabilities again.",
+            expected=expected,
+            actual=actual,
+        )
+
+
+def _parsed(request: RunRequest, *, graphs: bool = True) -> PipelineConfig:
+    """`request`'s pipeline, checked as a config file is; a 422 locates what it refuses as FastAPI does.
+
+    Without `graphs`, whether its workflows connect is left for the caller to check and locate (builder spec §5.1).
+    """
+    try:
+        return PipelineConfig.model_validate(request.pipeline, context=None if graphs else {"graphs": False})
+    except ValidationError as error:
+        problems = [
+            {**problem, "loc": ("body", "pipeline", *problem["loc"])} for problem in error.errors(include_url=False)
+        ]
+        raise RequestValidationError(problems) from None
+
+
 def _checked(request: RunRequest) -> dict[str, Any]:
     """The tasks a request runs and the snapshot it runs from, or a 422 saying why it would fail before any ran."""
-    pipeline = request.pipeline
+    _pinned(request)
+    pipeline = _parsed(request)
     try:
         tasks = [task.name for task in select_tasks(pipeline, request.tasks)]
     except ValueError as error:
@@ -64,7 +107,12 @@ def _checked(request: RunRequest) -> dict[str, Any]:
     if "json" not in pipeline.result.formats:
         message = "The service reads each run's results as JSON: keep `json` in `result: formats`."
         raise _refused(["body", "pipeline", "result", "formats"], message)
-    return {"valid": True, "tasks": tasks, "pipeline": pipeline.model_dump(mode="json", by_alias=True)}
+    return {
+        "valid": True,
+        "tasks": tasks,
+        "pipeline": pipeline.model_dump(mode="json", by_alias=True),
+        "schema_fingerprint": _contract.schema_fingerprint(),
+    }
 
 
 def _results(directory: Path, run: dict[str, Any]) -> dict[str, Any]:
@@ -171,8 +219,9 @@ def create_app(  # noqa: C901 - one nested route per endpoint
             "api_version": API_VERSION,
             "flow_version": __version__,
             "dataeval_version": dataeval.__version__,
+            "schema_fingerprint": _contract.schema_fingerprint(),
             "max_active_runs": 1,
-            "features": {"items": 1, "profiles": 1, "selections": 1, "schema": 1},
+            "features": {"items": 1, "profiles": 1, "selections": 1, "schema": 1, "builder_metadata": 1},
             "limits": {
                 "page_size": PAGE_SIZE,
                 "max_document_bytes": _contract.MAX_DOCUMENT_BYTES,
@@ -196,7 +245,7 @@ def create_app(  # noqa: C901 - one nested route per endpoint
     def submit(request: RunRequest) -> dict[str, Any]:
         """Check a pipeline and queue a snapshot of it; the run continues whoever is listening."""
         checked = _checked(request)
-        return manager.submit({"tasks": checked["tasks"]}, checked["pipeline"])
+        return manager.submit({"tasks": checked["tasks"]}, checked["pipeline"], checked["schema_fingerprint"])
 
     @app.get("/v1/runs", tags=["runs"])
     def runs() -> list[dict[str, Any]]:

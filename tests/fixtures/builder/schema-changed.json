@@ -1,0 +1,71 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev770+gf884d23f9.d20261014",
+  "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+  "request": {
+    "method": "POST",
+    "path": "/v1/validate",
+    "body": {
+      "pipeline": {
+        "datasets": [
+          {
+            "name": "fixture",
+            "format": "coco",
+            "path": "fixture"
+          }
+        ],
+        "sources": [
+          {
+            "name": "data",
+            "dataset": "fixture"
+          }
+        ],
+        "evaluators": [
+          {
+            "name": "dupes",
+            "type": "duplicates"
+          }
+        ],
+        "workflows": [
+          {
+            "name": "review",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "dupes",
+                "evaluator": "dupes",
+                "input": "data"
+              },
+              {
+                "name": "judge",
+                "check": "image-duplicates",
+                "input": "dupes"
+              }
+            ]
+          }
+        ],
+        "tasks": [
+          {
+            "name": "review",
+            "workflow": "review",
+            "sources": "data"
+          }
+        ]
+      },
+      "expected_schema_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "status": 409,
+  "response": {
+    "schema": 1,
+    "code": "schema_changed",
+    "message": "The service's pipeline schema changed since the client read it: read /v1/capabilities again.",
+    "retryable": false,
+    "details": {
+      "expected": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "actual": "sha256:583fd2c4d4bd16d56235eb8e3091b1d2f6cb4d2d3efd32be06714d65d42d43d0"
+    }
+  }
+}

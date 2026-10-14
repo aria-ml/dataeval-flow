@@ -1,0 +1,20 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev770+gf884d23f9.d20261014",
+  "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+  "request": {
+    "method": "POST",
+    "path": "/v1/validate",
+    "body": "<a pipeline padded past 1 MiB>"
+  },
+  "status": 413,
+  "response": {
+    "schema": 1,
+    "code": "document_too_large",
+    "message": "The request body is over 1048576 bytes.",
+    "retryable": false,
+    "details": {
+      "limit": 1048576
+    }
+  }
+}

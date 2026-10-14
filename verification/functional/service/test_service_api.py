@@ -98,7 +98,13 @@ class TestInterfaceDescription:
         assert capabilities["flow_version"] == __version__
         assert capabilities["dataeval_version"] == dataeval.__version__
         assert capabilities["max_active_runs"] == 1
-        assert capabilities["features"] == {"items": 1, "profiles": 1, "selections": 1, "schema": 1}
+        assert capabilities["features"] == {
+            "items": 1,
+            "profiles": 1,
+            "selections": 1,
+            "schema": 1,
+            "builder_metadata": 1,
+        }
         assert capabilities["limits"] == {
             "page_size": 100,
             "max_document_bytes": 1_048_576,

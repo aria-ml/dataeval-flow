@@ -31,10 +31,9 @@ def pipeline() -> dict:
     }
 
 
-@pytest.fixture
-def data_root(tmp_path: Path) -> Path:
-    """A data root holding a 12-image COCO detection dataset: two exact duplicates, a rare class, and telemetry."""
-    root = tmp_path / "data"
+def write_dataset(root: Path) -> Path:
+    """Write a 12-image COCO detection dataset under `root / "fixture"`: two exact duplicates, a rare class, and
+    telemetry. Returns `root`."""
     (root / "fixture" / "images").mkdir(parents=True)
     rng = np.random.default_rng(0)
     duplicate = rng.integers(0, 256, (32, 48, 3), dtype=np.uint8)
@@ -62,6 +61,12 @@ def data_root(tmp_path: Path) -> Path:
         json.dumps({"images": images, "annotations": annotations, "categories": categories})
     )
     return root
+
+
+@pytest.fixture
+def data_root(tmp_path: Path) -> Path:
+    """A data root holding the fixture dataset."""
+    return write_dataset(tmp_path / "data")
 
 
 @pytest.fixture

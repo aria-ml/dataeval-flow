@@ -103,10 +103,12 @@ class RunManager:
         self.thread = threading.Thread(target=self._loop, name="dataeval-flow-queue", daemon=True)
         self.thread.start()
 
-    def submit(self, request: dict[str, Any], pipeline: dict[str, Any]) -> dict[str, Any]:
-        """Durably queue a validated snapshot."""
+    def submit(
+        self, request: dict[str, Any], pipeline: dict[str, Any], schema_fingerprint: str | None = None
+    ) -> dict[str, Any]:
+        """Durably queue a validated snapshot, with the schema fingerprint it was checked under."""
         with self.lock:
-            record = self.store.create(request, pipeline)
+            record = self.store.create(request, pipeline, schema_fingerprint)
             self.wake.set()
         _logger.info("Run %s queued", record["id"])
         return record
