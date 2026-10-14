@@ -1,6 +1,6 @@
 """Addresses: how a step names a chain input, an earlier step's output, or one element of a list."""
 
-__all__ = ["STEP_NAME_PATTERN", "Address", "pair_key", "pair_keys", "pair_members", "parse_address"]
+__all__ = ["ADDRESS_PATTERN", "STEP_NAME_PATTERN", "Address", "pair_key", "pair_keys", "pair_members", "parse_address"]
 
 import re
 from collections.abc import Sequence
@@ -11,6 +11,8 @@ STEP_NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_-]*$"
 
 _NAME = r"[A-Za-z_][A-Za-z0-9_-]*"
 _ADDRESS = re.compile(rf"^(?P<name>{_NAME})(?:\.(?P<output>{_NAME}))?(?:\[(?P<key>[^\[\]\s]+)\])?$")
+ADDRESS_PATTERN = _ADDRESS.pattern
+"""The regex an address matches: ``name``, ``name.output``, ``name[key]`` or ``name.output[key]``."""
 
 
 @dataclass(frozen=True)
