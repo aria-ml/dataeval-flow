@@ -72,15 +72,24 @@ class RunManager:
     def _activity(self, run_id: str) -> Path:
         return self.store.root / run_id / ACTIVITY_FILE
 
+    def _noting(self, write: Callable[[], None], run_id: str) -> None:
+        """Write a run's activity, never letting a failure stop its record, the queue, or the service."""
+        try:
+            write()
+        except Exception:  # activity is a status view: a bad file must not stop the run's record turning final
+            _logger.exception("Run %s: could not write its activity", run_id)
+
     def _command(self, directory: Path) -> list[str]:
         """The batch command that runs a queued snapshot, writing into the run's own directory."""
         tasks = json.loads((directory / "request.json").read_text())["tasks"]
+        activity = directory / ACTIVITY_FILE
+        # A run queued before activity was recorded has no file, and keeps none.
+        recording = ["--activity", str(activity)] if activity.exists() else []
         return [
             sys.executable,
             "-m",
             "dataeval_flow._service._worker",
-            "--activity",
-            str(directory / ACTIVITY_FILE),
+            *recording,
             "--log-format",
             "plain",
             "-vv",
@@ -106,7 +115,10 @@ class RunManager:
         self.lease = lease
         self.stopping.clear()
         for run_id in self.store.lost():
-            close(self._activity(run_id), "interrupted", "The service stopped mid-run")
+            self._noting(
+                lambda run_id=run_id: close(self._activity(run_id), "interrupted", "The service stopped mid-run"),
+                run_id,
+            )
         self.store.recover()
         self.thread = threading.Thread(target=self._loop, name="dataeval-flow-queue", daemon=True)
         self.thread.start()
@@ -117,7 +129,12 @@ class RunManager:
         """Durably queue a validated snapshot, with the schema fingerprint it was checked under."""
         with self.lock:
             record = self.store.create(request, pipeline, schema_fingerprint)
-            ActivityLog(self._activity(record["id"])).append("run_state", {"status": "queued", "reason": None})
+            self._noting(
+                lambda: ActivityLog(self._activity(record["id"])).append(
+                    "run_state", {"status": "queued", "reason": None}
+                ),
+                record["id"],
+            )
             self.wake.set()
         _logger.info("Run %s queued", record["id"])
         return record
@@ -130,7 +147,7 @@ class RunManager:
                 raise ValueError("The run has already finished")
             if run["status"] == "queued":
                 _logger.info("Run %s cancelled before it started", run_id)
-                close(self._activity(run_id), "cancelled", "Cancelled before it started")
+                self._noting(lambda: close(self._activity(run_id), "cancelled", "Cancelled before it started"), run_id)
                 return self.store.update(run_id, status="cancelled", finished_at=time.time())
             if run["status"] != "cancelling":
                 self.store.update(run_id, status="cancelling")
@@ -160,7 +177,9 @@ class RunManager:
         env = {name: value for name, value in os.environ.items() if not name.startswith("DATAEVAL_")}
         activity = self._activity(run["id"])
         if activity.exists():  # a run queued before activity was recorded keeps none
-            ActivityLog(activity).append("run_state", {"status": "running", "reason": None})
+            self._noting(
+                lambda: ActivityLog(activity).append("run_state", {"status": "running", "reason": None}), run["id"]
+            )
         try:
             process = subprocess.Popen(  # noqa: S603 - our own interpreter and module, with paths we made
                 self.command(directory),
@@ -171,10 +190,9 @@ class RunManager:
             )
         except (OSError, ValueError, KeyError) as error:
             _logger.error("Run %s could not start: %s", run["id"], error)
-            close(activity, "failed", f"The run could not start: {error}")
-            self.store.update(
-                run["id"], status="failed", finished_at=time.time(), error=f"The run could not start: {error}"
-            )
+            reason = f"The run could not start: {error}"
+            self._noting(lambda: close(activity, "failed", reason), run["id"])
+            self.store.update(run["id"], status="failed", finished_at=time.time(), error=reason)
             return
         self.process, self.active = process, run["id"]
         log = directory / "console.log"
@@ -212,7 +230,8 @@ class RunManager:
             how = f"was killed by signal {-code}" if code < 0 else f"exited with code {code}"
             status, reason = "failed", f"The run {how}; its log says why"
             changes["error"] = reason
-        close(self._activity(self.active), status, reason)  # before the record: activity never trails it
+        active = self.active
+        self._noting(lambda: close(self._activity(active), status, reason), active)  # before the record, which follows
         record = self.store.update(self.active, status=status, **changes)
         _logger.info("Run %s %s", self.active, record["status"])
         self._clear()
@@ -256,7 +275,8 @@ class RunManager:
                 self.process.wait(timeout=_GRACE)
             self._signal(signal.SIGKILL)
             self._drain()
-            close(self._activity(self.active), "interrupted", "The service stopped mid-run")
+            active = self.active
+            self._noting(lambda: close(self._activity(active), "interrupted", "The service stopped mid-run"), active)
             self.store.update(
                 self.active,
                 status="interrupted",

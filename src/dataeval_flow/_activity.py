@@ -8,6 +8,7 @@ writes a run's file at a time: the service before the worker starts and after it
 from __future__ import annotations
 
 import json
+import os
 import time
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
@@ -33,6 +34,7 @@ __all__ = [
 ACTIVITY_FILE = "activity.jsonl"
 _ROW = {"run_state": "run", "task_state": "task", "step_state": "step"}
 _FINISHED = frozenset({"ok", "failed", "skipped", "cancelled", "interrupted"})
+_RUN_ENDED = frozenset({"succeeded", "failed", "cancelled", "interrupted"})
 
 
 def read_events(path: Path) -> list[dict[str, Any]]:
@@ -48,9 +50,9 @@ class ActivityLog:
 
     def __init__(self, path: Path) -> None:
         self.path = path
-        text = path.read_text(encoding="utf-8") if path.exists() else ""
-        if not text.endswith("\n") and text:  # a writer died mid-line: drop the partial event before appending
-            path.write_text(text[: text.rfind("\n") + 1], encoding="utf-8")
+        data = path.read_bytes() if path.exists() else b""
+        if data and not data.endswith(b"\n"):  # a writer died mid-line: drop the partial event before appending
+            os.truncate(path, data.rfind(b"\n") + 1)  # in place, so a reader never sees the file emptied
         self.sequence = len(read_events(path))
         self.started: dict[str, float] = {}
 
@@ -170,12 +172,14 @@ def close(path: Path, status: str, reason: str | None) -> None:
 
     A step or task still running was cancelled with the run, or else interrupted; one never started stays pending, now
     saying why. Then the run's own final state. A run with no activity file, queued before activity was recorded, gets
-    none.
+    none, and one already closed is left as it is.
     """
     if not path.exists():
         return
-    log = ActivityLog(path)
     state = fold(read_events(path))
+    if state["run"] is not None and state["run"]["status"] in _RUN_ENDED:
+        return
+    log = ActivityLog(path)
     cancelled = status == "cancelled"
     unstarted = "the run was cancelled before it started" if cancelled else "the run stopped before it started"
     now = time.time()

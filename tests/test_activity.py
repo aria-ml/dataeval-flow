@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from dataeval_flow import _activity
 from dataeval_flow._activity import ActivityLog, close, fold, page, read_events, recording, snapshot
 from dataeval_flow.steps._result import StepResult
@@ -117,6 +119,26 @@ def test_closing_a_run_that_died_interrupts_what_ran_and_invents_no_skip(tmp_pat
 def test_closing_a_run_without_an_activity_file_writes_none(tmp_path):
     close(tmp_path / "a.jsonl", "interrupted", "The service stopped mid-run")
     assert not (tmp_path / "a.jsonl").exists()
+
+
+def test_closing_twice_appends_one_terminal_state(tmp_path):
+    path = _started(tmp_path / "a.jsonl", [("a", "running")])
+    close(path, "cancelled", "Cancelled while it ran")
+    count = len(read_events(path))
+    close(path, "interrupted", "The service stopped mid-run")
+    events = read_events(path)
+    assert len(events) == count
+    assert [event["run"]["status"] for event in events if event["kind"] == "run_state"][-1] == "cancelled"
+
+
+def test_repairing_a_partial_line_never_leaves_the_file_empty(tmp_path, monkeypatch):
+    path = tmp_path / "a.jsonl"
+    ActivityLog(path).append("run_state", {"status": "running", "reason": None})
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write('{"sequence": 2, "kind": "step_st')
+    monkeypatch.setattr(Path, "write_text", lambda *_, **__: pytest.fail("rewrote the file"))
+    ActivityLog(path)
+    assert len(read_events(path)) == 1
 
 
 def test_a_page_follows_its_cursor(tmp_path):

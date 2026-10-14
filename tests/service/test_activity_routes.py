@@ -143,6 +143,36 @@ def test_a_restart_interrupts_what_a_lost_run_was_doing(data_root, tmp_path):
         assert client.get(f"/v1/runs/{record['id']}").json()["status"] == "interrupted"
 
 
+def test_a_failing_activity_write_never_stops_a_record_or_the_queue(data_root, tmp_path, wait_for, monkeypatch):
+    def broken(*_, **__):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("dataeval_flow._service._manager.close", broken)
+    app = create_app(data_root, tmp_path / "out")
+    app.state.manager.command = _worker("sleep")
+    store = app.state.store
+    with TestClient(app) as client:
+        first = client.post("/v1/runs", json={"pipeline": fixture_pipeline()}).json()
+        second = client.post("/v1/runs", json={"pipeline": fixture_pipeline()}).json()
+        _wait_until(lambda: _running(store, first["id"]))
+        client.post(f"/v1/runs/{first['id']}/cancel")
+        wait_for(store, first["id"], {"cancelled"})
+        _wait_until(lambda: _running(store, second["id"]))
+        client.post(f"/v1/runs/{second['id']}/cancel")
+        wait_for(store, second["id"], {"cancelled"})
+
+
+def test_a_restart_survives_a_lost_run_with_a_corrupt_activity_file(data_root, tmp_path):
+    store = RunStore(tmp_path / "out" / "runs")
+    record = store.create({"tasks": ["review"]}, fixture_pipeline(), "sha256:" + "1" * 64)
+    ActivityLog(store.root / record["id"] / ACTIVITY_FILE).append("run_state", {"status": "running", "reason": None})
+    with (store.root / record["id"] / ACTIVITY_FILE).open("a", encoding="utf-8") as stream:
+        stream.write("not json\n")
+    store.update(record["id"], status="running", started_at=time.time())
+    with TestClient(create_app(data_root, tmp_path / "out")) as client:
+        assert client.get(f"/v1/runs/{record['id']}").json()["status"] == "interrupted"
+
+
 def test_a_run_queued_across_a_restart_continues_its_sequence(data_root, tmp_path, wait_for):
     first = create_app(data_root, tmp_path / "out")
     first.state.manager.command = lambda _: [sys.executable, "-c", "import time; time.sleep(60)"]
