@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Res
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from dataeval_flow import __version__
+from dataeval_flow._activity import ACTIVITY_FILE, page, read_events, snapshot
 from dataeval_flow._orchestrator import select_tasks
 from dataeval_flow._runner import _requirement
 from dataeval_flow._service import _contract
@@ -251,6 +252,7 @@ def create_app(  # noqa: C901 - one nested route per endpoint
                 "schema": 1,
                 "builder_metadata": 1,
                 "graph_resolution": 1,
+                "step_activity": 1,
             },
             "limits": {
                 "page_size": PAGE_SIZE,
@@ -340,6 +342,35 @@ def create_app(  # noqa: C901 - one nested route per endpoint
         with path.open("rb") as stream:
             stream.seek(max(0, path.stat().st_size - _LOG_TAIL))
             return stream.read().decode(errors="replace")
+
+    def recorded(run_id: str) -> list[dict[str, Any]]:
+        path = store.directory(run_id) / ACTIVITY_FILE
+        if not path.exists():
+            raise _contract.ContractError(
+                409,
+                "activity_unavailable",
+                "The run was queued before the service recorded activity; "
+                "its results, logs and artifacts stay readable.",
+            )
+        return read_events(path)
+
+    @app.get("/v1/runs/{run_id}/activity", tags=["builder"])
+    def activity(run_id: str) -> dict[str, Any]:
+        """Each task's and step's state, consistent at the `sequence` of the last event read (builder spec §6.5)."""
+        record = store.get(run_id)
+        return snapshot(recorded(run_id), run_id, record.get("schema_fingerprint"))
+
+    @app.get("/v1/runs/{run_id}/events", tags=["builder"])
+    def events(
+        run_id: str,
+        after: int = Query(0, ge=0, description="The last sequence the client applied: a snapshot's `sequence`"),
+        limit: int = Query(_contract.ACTIVITY_PAGE_SIZE, ge=1, le=_contract.ACTIVITY_PAGE_SIZE),
+    ) -> dict[str, Any]:
+        """The events after `after`, in order, each carrying the full row it changed (builder spec §6.5)."""
+        found = recorded(run_id)
+        if after > len(found):
+            raise _refused(["query", "after"], f"The run's last event is {len(found)}; `after` is {after}.")
+        return page(found, run_id, after, limit)
 
     @app.get("/v1/runs/{run_id}/artifacts", tags=["runs"])
     def artifacts(run_id: str) -> list[str]:

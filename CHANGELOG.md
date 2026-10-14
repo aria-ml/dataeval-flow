@@ -33,6 +33,9 @@
 - `POST /v1/resolve` gives each task's resolved graph without reading data: steps, ports, bindings, origins, which
   outputs the settings leave empty, and each problem with its code, step and port (FLOW-BUILDER-002)
   - `/validate` and `/runs` locate a workflow that doesn't connect at the step and port, one 422 entry per problem
+- Run activity (FLOW-BUILDER-003): each task's and step's state as it runs, kept with the run
+  - `GET /v1/runs/{id}/activity` gives a snapshot, `GET /v1/runs/{id}/events?after=` the changes since
+  - A cancelled, failed or interrupted run closes what was running before its record turns final
 - `run_tasks(..., on_result=...)`, called with each task's name and result as soon as the task finishes
 - `judges` and `judged_by` in the step catalog link each check to the Outputs it judges
   - `dataeval-flow steps <type>` shows both

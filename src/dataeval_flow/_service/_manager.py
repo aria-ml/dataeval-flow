@@ -16,6 +16,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import IO, Any
 
+from dataeval_flow._activity import ACTIVITY_FILE, ActivityLog, close
 from dataeval_flow._service._store import TERMINAL, RunStore
 
 _logger = logging.getLogger(__name__)
@@ -68,6 +69,9 @@ class RunManager:
         """Whether the queue consumer is running and not shutting down."""
         return self.thread is not None and self.thread.is_alive() and not self.stopping.is_set()
 
+    def _activity(self, run_id: str) -> Path:
+        return self.store.root / run_id / ACTIVITY_FILE
+
     def _command(self, directory: Path) -> list[str]:
         """The batch command that runs a queued snapshot, writing into the run's own directory."""
         tasks = json.loads((directory / "request.json").read_text())["tasks"]
@@ -75,6 +79,8 @@ class RunManager:
             sys.executable,
             "-m",
             "dataeval_flow._service._worker",
+            "--activity",
+            str(directory / ACTIVITY_FILE),
             "--log-format",
             "plain",
             "-vv",
@@ -99,6 +105,8 @@ class RunManager:
             raise RuntimeError(f"Another service is running the queue in {self.store.root}") from None
         self.lease = lease
         self.stopping.clear()
+        for run_id in self.store.lost():
+            close(self._activity(run_id), "interrupted", "The service stopped mid-run")
         self.store.recover()
         self.thread = threading.Thread(target=self._loop, name="dataeval-flow-queue", daemon=True)
         self.thread.start()
@@ -109,6 +117,7 @@ class RunManager:
         """Durably queue a validated snapshot, with the schema fingerprint it was checked under."""
         with self.lock:
             record = self.store.create(request, pipeline, schema_fingerprint)
+            ActivityLog(self._activity(record["id"])).append("run_state", {"status": "queued", "reason": None})
             self.wake.set()
         _logger.info("Run %s queued", record["id"])
         return record
@@ -121,6 +130,7 @@ class RunManager:
                 raise ValueError("The run has already finished")
             if run["status"] == "queued":
                 _logger.info("Run %s cancelled before it started", run_id)
+                close(self._activity(run_id), "cancelled", "Cancelled before it started")
                 return self.store.update(run_id, status="cancelled", finished_at=time.time())
             if run["status"] != "cancelling":
                 self.store.update(run_id, status="cancelling")
@@ -148,6 +158,9 @@ class RunManager:
         directory = self.store.directory(run["id"])
         # The snapshot alone defines a run: no DATAEVAL_* setting of the service's own reaches it.
         env = {name: value for name, value in os.environ.items() if not name.startswith("DATAEVAL_")}
+        activity = self._activity(run["id"])
+        if activity.exists():  # a run queued before activity was recorded keeps none
+            ActivityLog(activity).append("run_state", {"status": "running", "reason": None})
         try:
             process = subprocess.Popen(  # noqa: S603 - our own interpreter and module, with paths we made
                 self.command(directory),
@@ -158,6 +171,7 @@ class RunManager:
             )
         except (OSError, ValueError, KeyError) as error:
             _logger.error("Run %s could not start: %s", run["id"], error)
+            close(activity, "failed", f"The run could not start: {error}")
             self.store.update(
                 run["id"], status="failed", finished_at=time.time(), error=f"The run could not start: {error}"
             )
@@ -191,14 +205,15 @@ class RunManager:
         code = self.process.returncode
         changes: dict[str, Any] = {"finished_at": time.time(), "exit_code": code}
         if cancelling:
-            record = self.store.update(self.active, status="cancelled", **changes)
+            status, reason = "cancelled", "Cancelled while it ran"
         elif code in _RAN:
-            record = self.store.update(self.active, status="succeeded", **changes)
+            status, reason = "succeeded", None
         else:
             how = f"was killed by signal {-code}" if code < 0 else f"exited with code {code}"
-            record = self.store.update(
-                self.active, status="failed", error=f"The run {how}; its log says why", **changes
-            )
+            status, reason = "failed", f"The run {how}; its log says why"
+            changes["error"] = reason
+        close(self._activity(self.active), status, reason)  # before the record: activity never trails it
+        record = self.store.update(self.active, status=status, **changes)
         _logger.info("Run %s %s", self.active, record["status"])
         self._clear()
 
@@ -241,6 +256,7 @@ class RunManager:
                 self.process.wait(timeout=_GRACE)
             self._signal(signal.SIGKILL)
             self._drain()
+            close(self._activity(self.active), "interrupted", "The service stopped mid-run")
             self.store.update(
                 self.active,
                 status="interrupted",

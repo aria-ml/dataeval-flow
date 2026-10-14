@@ -48,6 +48,8 @@ runs. Bind it to a trusted network only.
 | `POST /v1/runs/{id}/cancel`                      | `202` with the run record      | `404, 409`      | Cancel a queued run, or stop a running one                         |
 | `GET /v1/runs/{id}/results`                      | `200` with the results         | `404, 409`      | Each finished task's result                                        |
 | `GET /v1/runs/{id}/logs`                         | `200`, plain text              | `404`           | The last 64 KiB of what the run printed                            |
+| `GET /v1/runs/{id}/activity`                     | `200` with the snapshot        | `404, 409`      | Each task's and step's state; see [Activity](#activity)            |
+| `GET /v1/runs/{id}/events`                       | `200` with a page of events    | `404, 409, 422` | The changes after a sequence; see [Activity](#activity)            |
 | `GET /v1/runs/{id}/artifacts`                    | `200` with a list of paths     | `404`           | Every file in the run's directory                                  |
 | `GET /v1/runs/{id}/artifacts/{path}`             | `200` with the file            | `404`           | One file, by a path the list gives                                 |
 | `GET /v1/runs/{id}/items/{source}`               | `200` with a page of items     | `404, 422`      | A source's items as the run read them; see [Items](#items)         |
@@ -64,9 +66,9 @@ Request and response bodies are JSON, except the logs and the files. Times are U
 | Status | When                                                                                                                                                                                                                                    |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `404`  | No run has the ID; the run holds no file at the path; its pipeline names no such source; the source held no such item; no selection has the ID                                                                                          |
-| `409`  | Cancelling a run that has finished; reading results, or selecting from them, before the task has written them, or of a run that finished without any (`The run finished without a result`); the image of an item that is not `verified` |
+| `409`  | A run's activity from before the service recorded it (`activity_unavailable`, an extension error); cancelling a run that has finished; reading results, or selecting from them, before the task has written them, or of a run that finished without any (`The run finished without a result`); the image of an item that is not `verified` |
 | `413`  | A `POST` body over `limits.max_document_bytes`, or a pipeline `/v1/resolve` finds to hold more than `limits.max_resolved_nodes` nodes (`too_many_nodes`, with `limit` and `count`); the body is an extension error                                                                                                                                                          |
-| `422`  | The request is malformed, the run would fail before any task ran, or the run cannot answer the selection; the body says why                                                                                                             |
+| `422`  | The request is malformed, the run would fail before any task ran, or the run cannot answer the selection; an `after` beyond the run's last event, or a `limit` outside 1 to 100; the body says why                                                                                                             |
 | `503`  | From a probe only: the service cannot run work; the body names the reasons                                                                                                                                                              |
 
 A `422` body is `{"detail": [{"type", "loc", "msg"}, ...]}`: `loc` is where in the request the error is, such as
@@ -183,7 +185,7 @@ outputs a step leaves empty, or which keys a list holds, is not reflected in the
 `GET /v1/capabilities` returns `api_version`, `flow_version`, `dataeval_version`, `schema_fingerprint`,
 `max_active_runs`, `features`,
 `limits` and `steps`. `features` names each optional part of the API with its version, so a client checks for a feature
-rather than a Flow version: `items`, `profiles`, `selections`, `schema`, `builder_metadata` and `graph_resolution`, each `1`. `limits.page_size` is the largest
+rather than a Flow version: `items`, `profiles`, `selections`, `schema`, `builder_metadata`, `graph_resolution` and `step_activity`, each `1`. `limits.page_size` is the largest
 page the item and selection routes serve. `limits.max_document_bytes`, `limits.max_resolved_nodes` and
 `limits.activity_page_size` are the bounds in [Limits](#limits). `steps` is the step catalog `dataeval-flow steps`
 prints: every evaluator, transform, combine, check and workflow, with its ports and its settings' JSON Schema.
@@ -265,6 +267,7 @@ Under `--output`, the service keeps:
     ├── pipeline.json     the snapshot
     ├── console.log       everything the run printed
     ├── result.log        the run's DEBUG log, with timestamps
+    ├── activity.jsonl    each task's and step's state, one event per line
     ├── results/          result.json, result.txt, result.html, and any manifests and encoding.json
     │   ├── manifests/    each content-digest task's manifest: <task>/content-digest.json
     │   └── profiles/     each profile task's rows: <task>/image.parquet, <task>/target.parquet
@@ -274,6 +277,45 @@ Under `--output`, the service keeps:
 
 Every file in a run's directory is listed by `GET /v1/runs/{id}/artifacts`. Keep the directory while its run is in
 the history.
+
+## Activity
+
+`GET /v1/runs/{id}/activity` returns a snapshot: `schema` (`1`), `run_id`, `schema_fingerprint` (the one the run was
+checked under), `sequence` (the last event it folds), `first_available_sequence` (`1`), `run_status`, `tasks` and
+`steps`. A task row is `{task, status, started_at, finished_at, reason}`. A step row is `{node_id,
+definition_node_id, task, path, instances, status, started_at, finished_at, reason, not_assessed, elapsed_s,
+elements}`; a step's `node_id` is `<task>:<step>`, with `#<n>` after it for a matrix run's instance.
+
+`GET /v1/runs/{id}/events?after=S&limit=N` returns a page: `schema`, `run_id`, `after`, `next_after`,
+`snapshot_sequence` (the run's last event now), `first_available_sequence`, `has_more` and `events`. `after`
+defaults to `0` and `limit` to 100, its most. An event is `{sequence, timestamp, kind, run_id}` and one row, the full
+state of what it is about: `run` for a `run_state`, `task` for a `task_state`, `step` for a `step_state`.
+
+To follow a run, read a snapshot at `sequence` S, then page from `after=S` until `has_more` is `false`, and again
+later. Each event carries the full row, so applying one sets that state: replaying events is safe, and a client that
+missed some can fetch a snapshot again.
+
+| Step status   | Meaning                                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------------------------- |
+| `pending`     | Not started. It stays pending after a cancel or a stop, with a `reason` saying so                           |
+| `running`     | Started and not finished; at most one step runs at a time                                                   |
+| `ok`, `failed`, `skipped` | As the chain records them; only the chain sets `skipped` (a missing input from a failed step, or an optional failure) |
+| `cancelled`   | Was running when the run was cancelled                                                                      |
+| `interrupted` | Was running when the worker died or the service stopped                                                     |
+
+A task has the same statuses. `not_assessed` is separate from status: a check that ran `ok` but judged nothing carries
+the reason Flow gives. `run_status` is the run's status, except that `cancelling` is not an activity state: the
+snapshot shows `running` until the run closes, up to three seconds after a cancel.
+
+Steps run one at a time, in config order. A task with a matrix runs its steps once per run: each is an instance,
+`<task>:<step>#<n>`, with `definition_node_id` naming the step it repeats. A step that takes a list reports its
+elements, each with a status, a reason and `not_assessed`, on its finished row.
+
+The service closes a run's activity before its record turns final, so activity never trails the record: a run that is
+cancelled, fails or is interrupted leaves its running steps `cancelled` or `interrupted`, and the rest `pending` with a
+reason. Events are kept for the run's life, so `first_available_sequence` is always `1` and `cursor_expired` is never
+sent. A run queued before the service recorded activity has no events: its activity routes answer `409
+activity_unavailable`, and its results, logs and artifacts stay readable.
 
 ## Items
 

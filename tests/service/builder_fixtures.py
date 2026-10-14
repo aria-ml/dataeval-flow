@@ -5,7 +5,9 @@ checked-in fixture differs from what the service answers now, apart from version
 """
 
 import json
+import re
 import tempfile
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -22,6 +24,7 @@ _VARYING = {
     "flow_version", "dataeval_version", "schema_fingerprint", "actual", "id", "run_id", "created_at", "started_at",
     "finished_at", "timestamp", "elapsed_s",
 }  # fmt: skip
+_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 _STALE = "sha256:" + "0" * 64
 
 
@@ -31,6 +34,8 @@ def normalized(value: Any) -> Any:
         return {key: "<varies>" if key in _VARYING else normalized(item) for key, item in value.items()}
     if isinstance(value, list):
         return [normalized(item) for item in value]
+    if isinstance(value, str):
+        return _UUID.sub("<run-id>", value)
     return value
 
 
@@ -220,7 +225,44 @@ def generate(directory: Path) -> dict[str, dict[str, Any]]:
     from tests.service.conftest import write_dataset
 
     with TestClient(create_app(write_dataset(directory / "data"), directory / "out")) as client:
-        return {name: make(client) for name, make in GENERATORS.items()}
+        fixtures = {name: make(client) for name, make in GENERATORS.items()}
+        fixtures.update(_activity_fixtures(client))
+        return fixtures
+
+
+def _finished(store: Any, run_id: str, timeout: float = 300) -> None:
+    end = time.monotonic() + timeout
+    while store.get(run_id)["status"] not in {"succeeded", "failed", "cancelled", "interrupted"}:
+        if time.monotonic() > end:
+            raise TimeoutError(f"run {run_id} did not finish")
+        time.sleep(0.2)
+
+
+def _activity_fixtures(client: Any) -> dict[str, dict[str, Any]]:
+    """One real run of the fixture pipeline as the activity routes answer it, and a run from before activity."""
+    from dataeval_flow._activity import ACTIVITY_FILE, read_events, snapshot
+
+    store = client.app.state.store
+    run_id = client.post("/v1/runs", json={"pipeline": fixture_pipeline()}).json()["id"]
+    _finished(store, run_id)
+    events = read_events(store.directory(run_id) / ACTIVITY_FILE)
+    running = next(
+        event["sequence"] for event in events if event["kind"] == "step_state" and event["step"]["status"] == "running"
+    )
+    path = f"/v1/runs/{run_id}/activity"
+    legacy = store.create({"tasks": ["review"]}, fixture_pipeline())  # as a run queued before activity was recorded
+    return {
+        "activity-final": exchange(client, "GET", path),
+        "activity-running": {
+            "note": "What the route answers at the first running step's sequence, folded from this run's own events.",
+            "request": {"method": "GET", "path": path, "body": None},
+            "status": 200,
+            "response": snapshot(events[:running], run_id, store.get(run_id)["schema_fingerprint"]),
+        },
+        "activity-events": exchange(client, "GET", f"/v1/runs/{run_id}/events?after={running}&limit=100"),
+        "activity-unavailable": exchange(client, "GET", f"/v1/runs/{legacy['id']}/activity"),
+        "events-after-the-end": exchange(client, "GET", f"/v1/runs/{run_id}/events?after={len(events) + 1}"),
+    }
 
 
 def main() -> None:

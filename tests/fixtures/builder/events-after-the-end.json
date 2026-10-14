@@ -1,0 +1,23 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev779+gb60cce232.d20261014",
+  "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+  "request": {
+    "method": "GET",
+    "path": "/v1/runs/9484dcc4-cacd-40a9-aec6-1c6a4a391558/events?after=13",
+    "body": null
+  },
+  "status": 422,
+  "response": {
+    "detail": [
+      {
+        "type": "value_error",
+        "loc": [
+          "query",
+          "after"
+        ],
+        "msg": "The run's last event is 12; `after` is 13."
+      }
+    ]
+  }
+}
