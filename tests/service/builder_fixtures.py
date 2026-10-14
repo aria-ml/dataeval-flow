@@ -194,6 +194,19 @@ def _resolve_unattached_workflow(client: Any) -> dict[str, Any]:
     return _resolve(client, pipeline)
 
 
+def _resolve_too_many_nodes(client: Any) -> dict[str, Any]:
+    from dataeval_flow._service import _contract
+
+    limit = _contract.MAX_RESOLVED_NODES
+    _contract.MAX_RESOLVED_NODES = 1
+    try:
+        answer = _resolve(client, fixture_pipeline())
+    finally:
+        _contract.MAX_RESOLVED_NODES = limit
+    note = "Answered with `max_resolved_nodes` lowered to 1, to show the error's shape; the service's limit is 1000."
+    return {"note": note, **answer}
+
+
 def _validate_located_422(client: Any) -> dict[str, Any]:
     return exchange(client, "POST", "/v1/validate", {"pipeline": _unknown_address()})
 
@@ -213,6 +226,7 @@ GENERATORS: dict[str, Callable[[Any], dict[str, Any]]] = {
     "resolve-forward-address": _resolve_forward_address,
     "resolve-matrix": _resolve_matrix,
     "resolve-unattached-workflow": _resolve_unattached_workflow,
+    "resolve-too-many-nodes": _resolve_too_many_nodes,
     "validate-located-422": _validate_located_422,
 }
 
