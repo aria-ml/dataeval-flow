@@ -79,13 +79,13 @@ def _pinned(request: RunRequest) -> None:
         )
 
 
-def _parsed(request: RunRequest, *, graphs: bool = True) -> PipelineConfig:
+def _parsed(request: RunRequest) -> PipelineConfig:
     """`request`'s pipeline, checked as a config file is; a 422 locates what it refuses as FastAPI does.
 
-    Without `graphs`, whether its workflows connect is left for the caller to check and locate (builder spec §5.1).
+    Whether its workflows connect is left for the caller to check and locate (builder spec §5.1).
     """
     try:
-        return PipelineConfig.model_validate(request.pipeline, context=None if graphs else {"graphs": False})
+        return PipelineConfig.model_validate(request.pipeline, context={"graphs": False})
     except ValidationError as error:
         problems = [
             {**problem, "loc": ("body", "pipeline", *problem["loc"])} for problem in error.errors(include_url=False)
@@ -114,7 +114,7 @@ def _resolved(request: RunRequest) -> tuple[PipelineConfig, list[TaskConfig], Re
     """A request's pipeline, its tasks, and its graphs resolved: what `/validate`, `/resolve` and `/runs` share
     (builder spec §5.1). Its graphs are checked here rather than as it loads, so each problem is located."""
     _pinned(request)
-    pipeline = _parsed(request, graphs=False)
+    pipeline = _parsed(request)
     tasks = _selected(request, pipeline)
     return pipeline, tasks, resolve(pipeline, tasks)
 

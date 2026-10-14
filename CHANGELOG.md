@@ -28,6 +28,7 @@
   - `/v1/schema` marks every field naming another pool's entry with `x-flow-ref`
   - `/v1/capabilities` gives a `schema_fingerprint`; a request pinning another one is refused with `409 schema_changed`
   - Every run record keeps the fingerprint it was checked under
+  - `dataeval_flow.config.pool_ref` marks a plugin config's reference fields the same way
   - An unknown run is a JSON `404`, a `POST` body over 1 MiB a `413`, and `/results` of a run that finished without
     one says so
 - `POST /v1/resolve` gives each task's resolved graph without reading data: steps, ports, bindings, origins, which
