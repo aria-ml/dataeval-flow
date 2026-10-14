@@ -11,6 +11,7 @@ from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from dataeval_flow import _activity
 from dataeval_flow._chain._graph import ChainGraph, StepSpec
 from dataeval_flow._chain._identity import element_key, output_key, settings_of, short_digest, step_key
 from dataeval_flow._chain._nodes import Missing, Node, NodeList, Root
@@ -161,6 +162,12 @@ def _source_node(
     return input_node(address, contexts[name], source=name, cache_name=source.cache_name, cache_key=source.cache_key)
 
 
+def _announce(graph: ChainGraph, settings: RunSettings) -> None:
+    """Record every step of `graph` as pending, before the first runs."""
+    for spec in graph.steps:
+        _activity.step_state(settings.task, settings.run, spec.name, "pending")
+
+
 def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings: RunSettings) -> ChainRun:
     """Run each step in order. Never raises for a step's failure: it becomes the step's status.
 
@@ -179,6 +186,7 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
     splice_runs: dict[str, SpliceRun] = {}
     made_from_reference: dict[str, set[str]] = {}
     read_by: dict[str, list[MetadataRead]] = {}
+    _announce(graph, settings)
     with noting_reads() as reads:
         for spec in graph.steps:
             if (splice := starts.get(spec.name)) is not None:
@@ -198,11 +206,13 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
                 if grown is not None:
                     settings = _with_reference(settings, spec.name, grown)
                 before = len(reads)
+                _activity.step_state(settings.task, settings.run, spec.name, "running")
                 record, produced, records = _run_step(spec, nodes, settings, lineage, label_space, steps)
                 read_by[spec.name] = reads[before:]
                 if grown is not None:
                     _grow(grown, produced)
             steps[spec.name] = record
+            _activity.step_state(settings.task, settings.run, spec.name, record.status, record)
             nodes.update(produced)
             # A preset step's declared output reads what the spliced step made.
             for address, value in produced.items():
