@@ -133,7 +133,12 @@ def test_capabilities_name_the_investigation_features_and_the_pipeline_schema_is
     with TestClient(create_app(data_root, tmp_path / "out")) as client:
         capabilities = client.get("/v1/capabilities").json()
         assert capabilities["features"] == {"items": 1, "profiles": 1, "selections": 1, "schema": 1}
-        assert capabilities["limits"] == {"page_size": 100}
+        assert capabilities["limits"] == {
+            "page_size": 100,
+            "max_document_bytes": 1048576,
+            "max_resolved_nodes": 1000,
+            "activity_page_size": 100,
+        }
         assert client.get("/v1/schema").json() == PipelineConfig.model_json_schema()
 
 

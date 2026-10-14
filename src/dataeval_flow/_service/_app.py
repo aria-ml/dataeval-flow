@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -18,10 +18,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from dataeval_flow import __version__
 from dataeval_flow._orchestrator import select_tasks
 from dataeval_flow._runner import _requirement
+from dataeval_flow._service import _contract
 from dataeval_flow._service._evidence import PAGE_SIZE, Evidence, UnknownItemError
 from dataeval_flow._service._manager import RunManager
 from dataeval_flow._service._selections import SelectionError, SelectionRequest, Selections
-from dataeval_flow._service._store import RunStore, UnknownRunError
+from dataeval_flow._service._store import TERMINAL, RunStore, UnknownRunError
 from dataeval_flow.config import PipelineConfig, ResultConfig
 from dataeval_flow.steps import list_steps
 
@@ -111,8 +112,24 @@ def create_app(  # noqa: C901 - one nested route per endpoint
     app.state.store = store
 
     @app.exception_handler(UnknownRunError)
-    async def unknown(_request: Request, _error: UnknownRunError) -> PlainTextResponse:
-        return PlainTextResponse("Unknown run", status_code=404)
+    async def unknown(_request: Request, _error: UnknownRunError) -> JSONResponse:
+        return JSONResponse({"detail": "Unknown run"}, status_code=404)
+
+    @app.exception_handler(_contract.ContractError)
+    async def refused(_request: Request, error: _contract.ContractError) -> JSONResponse:
+        return JSONResponse(error.body, status_code=error.status)
+
+    @app.middleware("http")
+    async def bounded(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        # ponytail: trusts Content-Length, so a chunked body isn't bounded; count the stream if a client sends one.
+        length = request.headers.get("content-length", "")
+        limit = _contract.MAX_DOCUMENT_BYTES
+        if length.isdigit() and int(length) > limit:
+            refusal = _contract.ContractError(
+                413, "document_too_large", f"The request body is over {limit} bytes.", limit=limit
+            )
+            return JSONResponse(refusal.body, status_code=413)
+        return await call_next(request)
 
     @app.exception_handler(UnknownItemError)
     async def unknown_item(_request: Request, error: UnknownItemError) -> JSONResponse:
@@ -156,7 +173,12 @@ def create_app(  # noqa: C901 - one nested route per endpoint
             "dataeval_version": dataeval.__version__,
             "max_active_runs": 1,
             "features": {"items": 1, "profiles": 1, "selections": 1, "schema": 1},
-            "limits": {"page_size": PAGE_SIZE},
+            "limits": {
+                "page_size": PAGE_SIZE,
+                "max_document_bytes": _contract.MAX_DOCUMENT_BYTES,
+                "max_resolved_nodes": _contract.MAX_RESOLVED_NODES,
+                "activity_page_size": _contract.ACTIVITY_PAGE_SIZE,
+            },
             "steps": list_steps().model_dump(mode="json"),
         }
 
@@ -197,9 +219,13 @@ def create_app(  # noqa: C901 - one nested route per endpoint
     @app.get("/v1/runs/{run_id}/results", tags=["runs"])
     def results(run_id: str) -> dict[str, Any]:
         """Each finished task's result, keyed by task, as ``result.json`` holds it; 409 before any task finishes."""
-        found = _results(store.directory(run_id), store.get(run_id))
+        record = store.get(run_id)
+        found = _results(store.directory(run_id), record)
         if not found:
-            raise HTTPException(409, "No task of this run has written a result yet")
+            finished = record["status"] in TERMINAL
+            raise HTTPException(
+                409, "The run finished without a result" if finished else "No task of this run has written a result yet"
+            )
         return found
 
     @app.get("/v1/runs/{run_id}/logs", tags=["runs"], response_class=PlainTextResponse)

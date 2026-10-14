@@ -60,17 +60,22 @@ Request and response bodies are JSON, except the logs and the files. Times are U
 
 ### Errors
 
-| Status | When                                                                                                                                                       |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `404`  | No run has the ID; the run holds no file at the path; its pipeline names no such source; the source held no such item; no selection has the ID             |
-| `409`  | Cancelling a run that has finished; reading results, or selecting from them, before the task has written them; the image of an item that is not `verified` |
-| `422`  | The request is malformed, the run would fail before any task ran, or the run cannot answer the selection; the body says why                                |
-| `503`  | From a probe only: the service cannot run work; the body names the reasons                                                                                 |
+| Status | When                                                                                                                                                                                                                                    |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `404`  | No run has the ID; the run holds no file at the path; its pipeline names no such source; the source held no such item; no selection has the ID                                                                                          |
+| `409`  | Cancelling a run that has finished; reading results, or selecting from them, before the task has written them, or of a run that finished without any (`The run finished without a result`); the image of an item that is not `verified` |
+| `413`  | A `POST` body over `limits.max_document_bytes`; the body is an extension error                                                                                                                                                          |
+| `422`  | The request is malformed, the run would fail before any task ran, or the run cannot answer the selection; the body says why                                                                                                             |
+| `503`  | From a probe only: the service cannot run work; the body names the reasons                                                                                                                                                              |
 
 A `422` body is `{"detail": [{"type", "loc", "msg"}, ...]}`: `loc` is where in the request the error is, such as
 `["body", "pipeline", "result", "formats"]`, as Pydantic gives it for a field the configuration refuses, or
 `["body", "predicate", "index"]` for a bin a selection names that the histogram doesn't have. Every `404` and `409`
 carries `{"detail": "<why>"}`.
+
+The routes the builder contracts add, and the checks they add to existing routes, refuse with an extension error
+instead: `{"schema": 1, "code": "<code>", "message": "<why>", "retryable": false, "details": {…}}`. A client branches
+on `code` and shows `message`.
 
 ## Run request
 
@@ -94,11 +99,12 @@ no data: a pipeline that validates can still fail on a dataset that is missing o
 ## Capabilities
 
 `GET /v1/capabilities` returns `api_version`, `flow_version`, `dataeval_version`, `max_active_runs`, `features`,
-`limits` and `steps`. `features` names each optional part of the API with its version, so a client checks for a
-feature rather than a Flow version: `items`, `profiles`, `selections` and `schema`, each `1`. `limits.page_size` is the
-largest page the item and selection routes serve. `steps` is the step catalog `dataeval-flow steps` prints: every
-evaluator, transform, combine, check and workflow, with its ports and its settings' JSON Schema. `GET /v1/schema` is
-the JSON Schema of the whole pipeline, which `pipeline` in a run request follows.
+`limits` and `steps`. `features` names each optional part of the API with its version, so a client checks for a feature
+rather than a Flow version: `items`, `profiles`, `selections` and `schema`, each `1`. `limits.page_size` is the largest
+page the item and selection routes serve. `limits.max_document_bytes`, `limits.max_resolved_nodes` and
+`limits.activity_page_size` are the bounds in [Limits](#limits). `steps` is the step catalog `dataeval-flow steps`
+prints: every evaluator, transform, combine, check and workflow, with its ports and its settings' JSON Schema.
+`GET /v1/schema` is the JSON Schema of the whole pipeline, which `pipeline` in a run request follows.
 
 ## Run record
 
@@ -313,6 +319,10 @@ standard error is logged as a warning.
 - The item routes load a source in the service's own process and keep the four most recently read loaded. A source
   that takes long to load makes its first page slow.
 - A page holds at most 100 items or members.
+- Every `POST` body is at most `max_document_bytes` (1 MiB); a larger one is refused with `413` before it is read. The
+  bound checks `Content-Length`, so a body sent without one is not bounded.
+- `POST /v1/resolve` resolves at most `max_resolved_nodes` (1000) nodes.
+- The activity routes page at most `activity_page_size` (100) events.
 - `GET /v1/runs` returns the whole history in one response.
 - The service runs on Linux and macOS: it relies on POSIX process groups and file locks.
 - `/docs` needs internet access in the viewer's browser for its page assets; `/openapi.json` needs none.
