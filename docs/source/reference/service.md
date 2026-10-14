@@ -42,7 +42,6 @@ runs. Bind it to a trusted network only.
 | `GET /v1/schema`                                 | `200`                          |                 | The JSON Schema of a pipeline, every registered step in it         |
 | `POST /v1/validate`                              | `200` with the checked request | `422`           | Check a run request without queueing it                            |
 | `POST /v1/resolve`                               | `200` with the resolved graphs | `409, 413, 422` | Resolve each task's graph without reading data; see [Graph resolution](#graph-resolution) |
-| `POST /v1/resolve`                               | `200` with the resolved graphs | `409, 413, 422` | Resolve each task's graph without reading data; see [Graph resolution](#graph-resolution) |
 | `POST /v1/runs`                                  | `202` with the run record      | `422`           | Check a run request and queue it                                   |
 | `GET /v1/runs`                                   | `200` with every run record    |                 | Run history, newest first                                          |
 | `GET /v1/runs/{id}`                              | `200` with the run record      | `404`           | One run                                                            |
