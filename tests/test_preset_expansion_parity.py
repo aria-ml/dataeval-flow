@@ -7,6 +7,7 @@ import pytest
 
 from dataeval_flow import run_tasks
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow._chain._verdict import Level
 from dataeval_flow.steps import ChainResult
 from dataeval_flow.workflows._preset import Preset, PresetChain, expand_preset
 from dataeval_flow.workflows._registry import get_workflow
@@ -118,21 +119,32 @@ def _outcome(result: ChainResult) -> dict[str, Any]:
     }
 
 
-_CASES: dict[str, tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = {
-    "audit-train-only": ("audit", _OUTLIERS, {"train": ToyImages()}, {}),
-    "audit-three-splits": ("audit", _OUTLIERS, _three(), {}),
-    "audit-leaky-blocked": ("audit", _OUTLIERS, _leaky(), {}),
-    "audit-accepted": ("audit", {**_OUTLIERS, "accepted": {"leakage": "Shared by design."}}, _leaky(), {}),
-    "audit-extractor": ("audit", _OUTLIERS, _three(), {"extractor": "flat"}),
-    "quality": ("quality", _MINIMAL["quality"], {"src": ToyImages()}, {}),
-    "splits": ("splits", _MINIMAL["splits"], {"src": ToyImages(count=40)}, {}),
-    "taxonomy": ("taxonomy", {"ontology": _ONTOLOGY}, {"src": ToyImages(count=20)}, {}),
+# Each case: the preset, its entry, the data, the task's keys, and the verdict level the preset run itself reaches (None
+# for a preset that declares no verdict), which anchors the case so two runs failing alike cannot pass it.
+_CASES: dict[str, tuple[str, dict[str, Any], dict[str, Any], dict[str, Any], Level | None]] = {
+    "audit-train-only": ("audit", _OUTLIERS, {"train": ToyImages()}, {}, "ready-with-caveats"),
+    "audit-three-splits": ("audit", _OUTLIERS, _three(), {}, "not-ready"),
+    "audit-leaky-blocked": ("audit", _OUTLIERS, _leaky(), {}, "not-ready"),
+    "audit-accepted": (
+        "audit",
+        {**_OUTLIERS, "accepted": {"leakage": "Shared by design."}},
+        _leaky(),
+        {},
+        "ready-with-caveats",
+    ),
+    "audit-extractor": ("audit", _OUTLIERS, _three(), {"extractor": "flat"}, "not-ready"),
+    "quality": ("quality", _MINIMAL["quality"], {"src": ToyImages()}, {}, None),
+    "splits": ("splits", _MINIMAL["splits"], {"src": ToyImages(count=40)}, {}, None),
+    "taxonomy": ("taxonomy", {"ontology": _ONTOLOGY}, {"src": ToyImages(count=20)}, {}, None),
 }
 
 
 @pytest.mark.parametrize("case", sorted(_CASES))
 def test_an_expansion_runs_as_its_preset_does(case: str) -> None:
-    type_id, entry, datasets, task = _CASES[case]
+    type_id, entry, datasets, task, level = _CASES[case]
     preset_result, custom_result = _both(type_id, entry, datasets, **task)
+    assert preset_result.success, preset_result.errors
+    assert not [name for name, record in preset_result.steps.items() if record.status == "failed"]
+    assert (preset_result.verdict.level if preset_result.verdict is not None else None) == level
     assert _outcome(custom_result) == _outcome(preset_result)
     assert _outline(custom_result) == _outline(preset_result)
