@@ -173,9 +173,37 @@ def preset_of(config: object) -> "type[Preset] | None":
 
 
 def expand_preset(config: Any, preset: type[Preset]) -> tuple[CustomWorkflowConfig, tuple["EvaluatorConfig[Any]", ...]]:
-    """`config`'s chain, as a custom workflow named after the entry, and the evaluator entries its steps name."""
+    """`config`'s chain, as a custom workflow named after the entry that declares what the chain declares, and the
+    evaluator entries its steps name. Report groups and next steps keep only the check types the steps run."""
     chain = preset.chain(config)
+    ran = {check for step in chain.steps if (check := _check_of(step)) is not None}
+    declared: dict[str, Any] = {}
+    groups = [
+        {"heading": group.heading, "checks": checks, **({"evidence": list(group.evidence)} if group.evidence else {})}
+        for group in chain.groups
+        if (checks := [check for check in group.checks if check in ran])
+    ]
+    if groups:
+        declared["groups"] = groups
+    if chain.reference is not None:
+        declared["reference"] = chain.reference
+    if chain.record is not None:
+        declared["record"] = {"title": chain.record.title, "steps": list(chain.record.steps)}
+    if chain.blocking is not None:
+        declared["verdict"] = {"blocking": list(chain.blocking), "accepted": dict(chain.accepted)}
+    by_check = {check: text for check, text in chain.next_steps.by_check.items() if check in ran}
+    if by_check or chain.next_steps.by_reason:
+        declared["next_steps"] = {"by_check": by_check, "by_reason": dict(chain.next_steps.by_reason)}
+    if chain.preflight != Preflight():
+        declared["preflight"] = {"nonempty": chain.preflight.nonempty, "one_kind": chain.preflight.one_kind}
+    if getattr(config, "ontology", None) is not None:
+        declared["ontology"] = config.ontology
     workflow = CustomWorkflowConfig.model_validate(
-        {"name": config.name, "inputs": list(preset.slots), "steps": list(chain.steps)}
+        {"name": config.name, "inputs": list(preset.slots), "steps": list(chain.steps), **declared}
     )
     return workflow, tuple(chain.evaluators)
+
+
+def _check_of(step: StepEntry | Mapping[str, Any]) -> str | None:
+    """The check type `step` runs, written as a mapping or a ``StepEntry``; ``None`` for any other kind."""
+    return step.get("check") if isinstance(step, Mapping) else step.check
