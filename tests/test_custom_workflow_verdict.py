@@ -85,8 +85,62 @@ def test_an_acceptance_naming_no_element_of_the_task_is_refused_before_the_run()
 
 
 def test_an_acceptance_by_element_of_a_step_that_runs_once_is_refused_at_load() -> None:
+    declared = {"verdict": {"accepted": {"duplicates-train[val]": "x"}}}
     with pytest.raises(ValidationError, match=r"step `duplicates-train` runs once, not once per element"):
-        _config(verdict={"accepted": {"duplicates-train[val]": "x"}})
+        _config(**declared)
+    pipeline = chain_pipeline(
+        workflows=[{"name": "w", "inputs": _INPUTS, "steps": _STEPS, **declared}],
+        evaluators=_EVALUATORS,
+        tasks=[{"name": "t", "workflow": "w", "sources": ["train", "val"]}],
+        datasets={"train": ToyImages(), "val": ToyImages(seed=1)},
+        graphs=False,
+    )
+    workflow = pipeline.workflows[0] if pipeline.workflows else None
+    assert isinstance(workflow, CustomWorkflowConfig)
+    with pytest.raises(GraphError) as raised:
+        build_graph(workflow, pipeline)
+    assert raised.value.code == "list_mismatch"
+
+
+def _over_a_collected_list(accepted: dict[str, str]):
+    """Inputs `a` and `b`, collected into one list, whose duplicates are judged once per element."""
+    return chain_pipeline(
+        workflows=[
+            {
+                "name": "w",
+                "inputs": ["a", "b"],
+                "steps": [
+                    {"name": "both", "transform": "collect", "input": ["a", "b"]},
+                    {"name": "dupes", "evaluator": "dupes", "input": "both"},
+                    {"name": "duplicates", "check": "image-duplicates", "input": "dupes"},
+                ],
+                "verdict": {"blocking": ["image-duplicates"], "accepted": accepted},
+            }
+        ],
+        evaluators=[DuplicatesConfig(name="dupes")],
+        tasks=[{"name": "t", "workflow": "w", "sources": ["a", "b"]}],
+        datasets={"a": ToyImages(), "b": ToyImages(seed=1)},
+    )
+
+
+def test_an_acceptance_by_element_of_a_list_the_chain_collected_covers_that_element_s_warning() -> None:
+    plain = run_tasks(_over_a_collected_list({}))["t"]
+    assert isinstance(plain, ChainResult)
+    assert plain.verdict is not None
+    assert plain.verdict.level == "not-ready"
+    result = run_tasks(_over_a_collected_list({"duplicates[a]": "x", "duplicates[b]": "y"}))["t"]
+    assert isinstance(result, ChainResult)
+    assert result.verdict is not None
+    assert result.verdict.level == "ready-with-caveats"
+    assert [(a.check, a.state) for a in result.verdict.accepted] == [
+        ("duplicates[a]", "warned"),
+        ("duplicates[b]", "warned"),
+    ]
+
+
+def test_an_acceptance_naming_no_element_of_a_collected_list_is_refused_before_the_run() -> None:
+    with pytest.raises(GraphError, match=r"`duplicates\[c\]`, but step `duplicates` runs over no element `c`"):
+        run_tasks(_over_a_collected_list({"duplicates[c]": "x"}))
 
 
 def _with_audit_step(*, graphs: bool = True, **declared: Any):

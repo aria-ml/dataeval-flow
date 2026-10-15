@@ -880,7 +880,10 @@ def _run_custom_task(
         return refuse(problems)
     # The entry's or the custom workflow's ontology resolves up front, for the envelope to record.
     ontology = _resolve_ontology(entry if entry is not None else workflow, config, data_dir)
-    graph = build_graph(workflow, config, evaluators=evaluators)
+    # The list input's keys bound, so each step's `keys` are those it runs over wherever the graph can tell them.
+    slot = workflow.list_slot
+    slot_keys = {slot.name: tuple(names[len(workflow.single_slots) :])} if slot is not None else None
+    graph = build_graph(workflow, config, slot_keys, evaluators=evaluators)
     inputs = bind_inputs(graph, names, dataset_contexts, {source.name: source for source in resolved_sources})
     slot_contexts: dict[str, list[DatasetContext]] = {}
     for index, slot in enumerate(graph.slots):
@@ -889,7 +892,7 @@ def _run_custom_task(
     contexts = step_contexts(graph, config, data_dir, slot_contexts)
     check_kinds(graph, inputs)
     if declared is not None:
-        check_declared(declared, inputs)
+        check_declared(declared, inputs, {spec.name: spec.keys for spec in graph.steps})
     if preset is not None:
         preset.preflight(entry, inputs)
     # Each step naming its own extractor embeds with it; every other step, with the task's.

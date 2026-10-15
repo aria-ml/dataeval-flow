@@ -224,11 +224,17 @@ def check_kinds(graph: ChainGraph, inputs: Mapping[str, Node | NodeList]) -> dic
     return kinds
 
 
-def check_declared(chain: "PresetChain", inputs: Mapping[str, Node | NodeList]) -> None:
+def check_declared(
+    chain: "PresetChain",
+    inputs: Mapping[str, Node | NodeList],
+    runs_over: Mapping[str, tuple[str, ...] | None],
+) -> None:
     """Refuse the run over `inputs`, the Datasets bound to `chain`'s inputs, where `chain` declares it, by raising
     ``GraphError`` before any step runs: an input with no items, inputs of different kinds, and an ``accepted`` key
-    ``step[element]`` naming no element of the list input. A Dataset an input's own chain made is named by its slot
-    or element key; one read from a source, by the source."""
+    ``step[element]`` naming no element `step` runs over. `runs_over` holds, by step, the keys it runs over where the
+    graph knows them, as :func:`build_graph` gives them with the list input's keys bound; a step over a list whose
+    keys only the run makes is not judged. A Dataset an input's own chain made is named by its slot or element key;
+    one read from a source, by the source."""
     named: list[tuple[str, Node]] = []
     for slot, value in inputs.items():
         if isinstance(value, NodeList):
@@ -243,17 +249,31 @@ def check_declared(chain: "PresetChain", inputs: Mapping[str, Node | NodeList]) 
     if chain.preflight.one_kind and len({node.kind for _, node in named if node.kind is not None}) > 1:
         listing = ", ".join(f"{name}: {node.kind}" for name, node in named)
         raise GraphError(f"This workflow's inputs must be one kind: {listing}.")
+    _check_accepted(chain, inputs, runs_over)
+
+
+def _check_accepted(
+    chain: "PresetChain", inputs: Mapping[str, Node | NodeList], runs_over: Mapping[str, tuple[str, ...] | None]
+) -> None:
+    """Refuse an ``accepted`` key ``step[element]`` naming no element `step` runs over, where `runs_over` knows them."""
     slot, elements = next(
         ((slot, list(value.present)) for slot, value in inputs.items() if isinstance(value, NodeList)), (None, [])
     )
     for accepted in chain.accepted:
-        if "[" not in accepted or (element := accepted[accepted.index("[") + 1 : -1]) in elements:
+        if "[" not in accepted:
             continue
-        if slot is None:
-            raise GraphError(f"`accepted` names `{accepted}`, but this task binds no list, so no element `{element}`.")
+        step, element = accepted[:-1].split("[", 1)
+        keys = runs_over.get(step)
+        if keys is None or element in keys:
+            continue
+        if slot is not None and set(keys) == set(elements):
+            raise GraphError(
+                f"`accepted` names `{accepted}`, but this task has no `{slot}` element `{element}`. Its `{slot}` "
+                f"elements: {', '.join(elements) or 'none'}."
+            )
         raise GraphError(
-            f"`accepted` names `{accepted}`, but this task has no `{slot}` element `{element}`. Its `{slot}` "
-            f"elements: {', '.join(elements) or 'none'}."
+            f"`accepted` names `{accepted}`, but step `{step}` runs over no element `{element}`. Its elements: "
+            f"{', '.join(keys)}."
         )
 
 

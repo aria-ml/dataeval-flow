@@ -258,7 +258,8 @@ def begin_splice(
             columns[slot] = value.address
             owners[value.address] = owners[text] = slot
     try:
-        check_declared(splice.chain, bound)
+        prefix = f"{splice.name}/"
+        check_declared(splice.chain, bound, {step.removeprefix(prefix): specs[step].keys for step in splice.steps})
         splice.preset.preflight(splice.entry, bound)
         reference = splice.chain.reference
         if reference is not None:
