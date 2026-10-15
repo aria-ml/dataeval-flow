@@ -1,7 +1,7 @@
 {
   "generated_by": "uv run python -m tests.service.builder_fixtures",
-  "flow_version": "0.2.3.dev786+gd8a82ecb9",
-  "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+  "flow_version": "0.2.3.dev793+ge41ee7e77.d20261015",
+  "dataeval_version": "1.1.1.dev161+gaf8148b30",
   "note": "Answered with `max_resolved_nodes` lowered to 1, to show the error's shape; the service's limit is 1000.",
   "request": {
     "method": "POST",

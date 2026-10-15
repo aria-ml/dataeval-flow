@@ -4,7 +4,7 @@ __all__ = ["KIND_KEYS", "CustomWorkflowConfig", "InputSlot", "StepEntry"]
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, cast
 
 import yaml
 from pydantic import (
@@ -13,6 +13,7 @@ from pydantic import (
     Field,
     PrivateAttr,
     SerializerFunctionWrapHandler,
+    StringConstraints,
     field_validator,
     model_serializer,
     model_validator,
@@ -25,6 +26,7 @@ from dataeval_flow.steps._step import StepConfig, StepKind
 
 if TYPE_CHECKING:
     from dataeval_flow.config._definitions import Definition
+    from dataeval_flow.workflows._preset import PresetChain
 
 KIND_KEYS: tuple[StepKind, ...] = ("evaluator", "workflow", "transform", "combine", "check")
 
@@ -186,8 +188,12 @@ class StepEntry(BaseModel):
         return written
 
 
+_Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
 class ReportGroupConfig(BaseModel):
-    """A heading of a custom workflow's report, and the check types whose findings it holds."""
+    """A heading of a custom workflow's report, the check types whose findings it holds, and the step types shown
+    under it as evidence."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
@@ -195,6 +201,72 @@ class ReportGroupConfig(BaseModel):
     checks: list[str] = Field(
         min_length=1, description="The check types whose findings it holds, as the steps' `check:` names them."
     )
+    evidence: list[str] = Field(
+        default_factory=list,
+        description="The step types whose results are shown under it, after its findings, such as `diversity`.",
+    )
+
+    @model_serializer(mode="wrap")
+    def _as_written(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data = handler(self)
+        if not self.evidence:
+            data.pop("evidence", None)
+        return data
+
+
+class RecordConfig(BaseModel):
+    """A report section recording what the workflow read: a column per bound source, with rows from the run's
+    metadata and from the results of the step types it names."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    title: _Text = Field(description="The section's title, such as `What was audited`.")
+    steps: list[str] = Field(
+        default_factory=list, description="The step types whose results give rows, such as `content-digest`."
+    )
+
+
+class VerdictConfig(BaseModel):
+    """The workflow's verdict over its checks: ready, ready with caveats, or not ready."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    blocking: list[str] = Field(
+        default_factory=list,
+        description="The check types whose unaccepted warning makes the verdict not ready. Empty, none does.",
+    )
+    accepted: dict[str, _Text] = Field(
+        default_factory=dict,
+        description=(
+            "Why each warning is accepted, by check type, by check step for all its runs, or by `step[element]` for "
+            "one run of a step that runs once per element of a list: an accepted warning can't make the verdict not "
+            "ready, but it still leaves it ready with caveats."
+        ),
+    )
+
+
+class NextStepsConfig(BaseModel):
+    """What the report says to do about each warning and each check left unassessed."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    by_check: dict[str, _Text] = Field(default_factory=dict, description="By check type, what to do about its warning.")
+    by_reason: dict[str, _Text] = Field(
+        default_factory=dict,
+        description=(
+            "By a fragment of a not-assessed reason, what to do about the checks it left unassessed. Fragments match "
+            "in order; a reason none matches is quoted as it stands."
+        ),
+    )
+
+
+class PreflightConfig(BaseModel):
+    """What the workflow refuses before any step runs."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    nonempty: bool = Field(default=False, description="Refuse an input, or a list input's element, with no items.")
+    one_kind: bool = Field(default=False, description="Refuse inputs of different kinds of data.")
 
 
 class CustomWorkflowConfig(BaseModel):
@@ -238,6 +310,33 @@ class CustomWorkflowConfig(BaseModel):
             "report does. The findings of check types no heading names follow them."
         ),
     )
+    ontology: dict[str, Any] | str | None = Field(
+        default=None,
+        description=(
+            "Label space the workflow's labels are read under, recorded in the result envelope's `label_space` as a "
+            "workflow type's is. Name an entry under the top-level `ontologies:` key, or give a path to a serialized "
+            "RDF artifact resolved against the data root; a nested mapping of concept to children is read as an "
+            "inline hierarchy."
+        ),
+        json_schema_extra=pool_ref("ontologies", or_path=True),
+    )
+    reference: str | None = Field(
+        default=None,
+        description=(
+            "An input taking one source, whose Dataset every other Dataset's metadata is encoded like. Unset, each "
+            "Dataset is encoded on its own."
+        ),
+    )
+    record: RecordConfig | None = Field(default=None, description="A report section recording what the run read.")
+    verdict: VerdictConfig | None = Field(
+        default=None, description="Give a verdict over the checks. Unset, the workflow gives none of its own."
+    )
+    next_steps: NextStepsConfig | None = Field(
+        default=None, description="What the report says to do about each warning and each check left unassessed."
+    )
+    preflight: PreflightConfig | None = Field(
+        default=None, description="What the workflow refuses before any step runs."
+    )
 
     @field_validator("inputs", mode="before")
     @classmethod
@@ -276,6 +375,43 @@ class CustomWorkflowConfig(BaseModel):
                     )
         return self
 
+    @model_validator(mode="after")
+    def _declarations_name_what_runs(self) -> "CustomWorkflowConfig":
+        """Refuse a `reference` naming no input taking one source, and a verdict or next step naming a check the steps
+        do not run."""
+        singles = [slot.name for slot in self.single_slots]
+        if self.reference is not None and self.reference not in singles:
+            raise ValueError(
+                f"Workflow '{self.name}': `reference` names `{self.reference}`, which is no input taking one source. "
+                f"Its inputs taking one source: {', '.join(singles) or 'none'}."
+            )
+        entries = [step for step in self.steps if step.check is not None]
+        checks = {cast(str, step.check) for step in entries}
+        check_steps = {step.name for step in entries}
+        listed = ", ".join(sorted(checks)) or "none"
+        verdict = self.verdict or VerdictConfig()
+        for key in verdict.blocking:
+            if key not in checks:
+                raise ValueError(
+                    f"Workflow '{self.name}': `blocking` names `{key}`, which no step runs. Its steps' "
+                    f"checks: {listed}."
+                )
+        for key in verdict.accepted:
+            step = key.split("[", 1)[0]
+            if key in checks or (step in check_steps and (key == step or key.endswith("]"))):
+                continue
+            raise ValueError(
+                f"Workflow '{self.name}': `accepted` names `{key}`, which is no check type or check step of it. Its "
+                f"checks: {listed}. Its check steps: {', '.join(sorted(check_steps)) or 'none'}."
+            )
+        for key in self.next_steps.by_check if self.next_steps is not None else ():
+            if key not in checks:
+                raise ValueError(
+                    f"Workflow '{self.name}': `next_steps` names check `{key}`, which no step runs. Its "
+                    f"steps' checks: {listed}."
+                )
+        return self
+
     @model_serializer(mode="wrap")
     def _as_written(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
         data = handler(self)
@@ -286,6 +422,9 @@ class CustomWorkflowConfig(BaseModel):
         written["steps"] = data["steps"]
         if self.groups:
             written["groups"] = data["groups"]
+        for key in ("ontology", "reference", "record", "verdict", "next_steps", "preflight"):
+            if getattr(self, key) is not None:
+                written[key] = data[key]
         return written
 
     @property
@@ -297,6 +436,25 @@ class CustomWorkflowConfig(BaseModel):
     def list_slot(self) -> InputSlot | None:
         """The last input when it binds every remaining source, else ``None``."""
         return self.inputs[-1] if self.inputs[-1].is_list else None
+
+    def declared_chain(self) -> "PresetChain | None":
+        """What this workflow declares beyond its steps, as a preset's chain declares it: its report's headings,
+        reference, record, verdict, next steps and preflight. ``None`` where it declares none of them."""
+        if not (self.groups or self.reference or self.record or self.verdict or self.next_steps or self.preflight):
+            return None
+        from dataeval_flow.workflows._preset import NextSteps, Preflight, PresetChain, Record, ReportGroup
+
+        steps, preflight = self.next_steps, self.preflight
+        return PresetChain(
+            steps=self.steps,
+            groups=tuple(ReportGroup(g.heading, tuple(g.checks), tuple(g.evidence)) for g in self.groups),
+            reference=self.reference,
+            record=Record(self.record.title, tuple(self.record.steps)) if self.record is not None else None,
+            blocking=tuple(self.verdict.blocking) if self.verdict is not None else None,
+            accepted=dict(self.verdict.accepted) if self.verdict is not None else {},
+            next_steps=NextSteps(dict(steps.by_check), dict(steps.by_reason)) if steps is not None else NextSteps(),
+            preflight=Preflight(preflight.nonempty, preflight.one_kind) if preflight is not None else Preflight(),
+        )
 
     def binding_problem(self, source_count: int) -> str | None:
         """Why a task naming `source_count` sources cannot run this workflow, or ``None``."""
