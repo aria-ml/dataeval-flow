@@ -252,7 +252,6 @@
 - `other_kinds: pass` on `wrap` passes other kinds of Dataset through unchanged, reading their cached embeddings
 - Custom workflows declare what a preset's chain declares (preset decomposition, increment 1)
   - `reference`, `record`, `verdict`, `next_steps`, `preflight`, `ontology`, and `evidence` on each of `groups`
-  - `audit`'s empty-split and mixed-kind refusals are now declared; their messages name the input, not the split
 
 ### Changed
 
@@ -536,6 +535,8 @@
   - An unlabelled Dataset that declares classes now warns in quality and splits (it made no finding before)
   - Its ratio is over the classes with labels, and each class without labels is named
   - `info` is a ratio at or under which the finding is `ok`; evidence adds each class's share and unlabelled images
+- `audit`'s empty-split and mixed-kind refusals name the input, not the split, as a custom workflow's declared preflight
+  does
 
 ### Fixed
 
