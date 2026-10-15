@@ -336,10 +336,13 @@ lint:
 type-check:
   rules: !reference [.rules_gate, rules]
 test:
+  tags: [k8s-medium-cpu]
   rules: !reference [.rules_gate, rules]
 verify:
+  tags: [k8s-medium-cpu]
   rules: !reference [.rules_gate, rules]
 deps:
+  tags: [k8s-medium-cpu]
   rules: !reference [.rules_gate, rules]
 install:lock:
   rules: !reference [.rules_main_mr_deps, rules]
