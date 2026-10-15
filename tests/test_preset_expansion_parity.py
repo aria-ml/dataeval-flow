@@ -1,6 +1,7 @@
 """A preset's expansion, as a custom workflow, declares and runs as the preset does (preset decomposition spec §3.3)."""
 
 from collections.abc import Mapping
+from dataclasses import fields
 from typing import Any
 
 import pytest
@@ -57,6 +58,14 @@ def _expected(chain: PresetChain) -> PresetChain | None:
         next_steps=type(chain.next_steps)(by_check, dict(chain.next_steps.by_reason)),
         preflight=chain.preflight,
     )
+
+
+def test_every_preset_chain_declaration_has_a_custom_workflow_counterpart() -> None:
+    # A new `PresetChain` field must be mapped both by `expand_preset`, into the custom workflow it writes, and back by
+    # `CustomWorkflowConfig.declared_chain()`, or an expansion silently drops it. `outputs` has no custom-workflow
+    # counterpart: it says where a preset run as a step finds each output it declares.
+    declared = {field.name for field in fields(PresetChain)} - {"steps", "evaluators", "outputs"}
+    assert declared == {"reference", "groups", "record", "blocking", "accepted", "next_steps", "preflight"}
 
 
 # The keys a preset's config requires; every other key takes its default.
