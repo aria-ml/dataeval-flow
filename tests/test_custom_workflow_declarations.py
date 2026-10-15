@@ -85,12 +85,31 @@ def test_a_verdict_blocking_nothing_still_gives_one() -> None:
         ),
         ({"verdict": {"accepted": {"dupes[val]": "x"}}}, r"`accepted` names `dupes\[val\]`, which is no check type"),
         ({"next_steps": {"by_check": {"leakage": "x"}}}, r"`next_steps` names check `leakage`, which no step runs"),
+        (
+            {"next_steps": {"by_check": {"image-duplicates": "x"}}},
+            (
+                r"`next_steps\.by_check` advises on the warnings a verdict lists, so it needs `verdict:`; add "
+                r"`verdict: \{\}` to give one that blocks on nothing\."
+            ),
+        ),
     ],
-    ids=["list-reference", "unknown-reference", "blocking", "accepted", "accepted-evaluator", "next-steps"],
+    ids=[
+        "list-reference",
+        "unknown-reference",
+        "blocking",
+        "accepted",
+        "accepted-evaluator",
+        "next-steps",
+        "next-steps-without-verdict",
+    ],
 )
 def test_a_declaration_naming_what_the_workflow_lacks_is_refused(declared: dict[str, Any], message: str) -> None:
     with pytest.raises(ValidationError, match=message):
         _workflow(**declared)
+
+
+def test_next_steps_by_reason_need_no_verdict() -> None:
+    assert _workflow(next_steps={"by_reason": {"failed": "See the Steps table."}}).next_steps is not None
 
 
 def test_an_accepted_key_may_name_a_check_type_or_a_check_step() -> None:

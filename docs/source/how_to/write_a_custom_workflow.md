@@ -643,7 +643,8 @@ workflows:
 - `reference` encodes every Dataset's metadata like the named input's.
 - `record` adds a section recording what the run read.
 - `verdict` gives a verdict: an unaccepted warning of a `blocking` check type makes it not ready.
-- `next_steps` says what to do about each warning, by check type, and each check left unassessed, by reason.
+- `next_steps` says what to do about each warning, by check type, and each check left unassessed, by reason. Advice
+  by check type needs a `verdict`, whose warnings it advises on.
 - `preflight` refuses an input with no items, or inputs of different kinds, before any step runs.
 
 A workflow with an `audit` step (section 11) takes its verdict, reference, record and next steps from that step, so it

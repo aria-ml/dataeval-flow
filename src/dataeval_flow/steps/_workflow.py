@@ -377,8 +377,8 @@ class CustomWorkflowConfig(BaseModel):
 
     @model_validator(mode="after")
     def _declarations_name_what_runs(self) -> "CustomWorkflowConfig":
-        """Refuse a `reference` naming no input taking one source, and a verdict or next step naming a check the steps
-        do not run."""
+        """Refuse a `reference` naming no input taking one source, a verdict or next step naming a check the steps
+        do not run, and next steps by check without a verdict to list the warnings they advise on."""
         singles = [slot.name for slot in self.single_slots]
         if self.reference is not None and self.reference not in singles:
             raise ValueError(
@@ -410,6 +410,11 @@ class CustomWorkflowConfig(BaseModel):
                     f"Workflow '{self.name}': `next_steps` names check `{key}`, which no step runs. Its "
                     f"steps' checks: {listed}."
                 )
+        if self.next_steps is not None and self.next_steps.by_check and self.verdict is None:
+            raise ValueError(
+                f"Workflow '{self.name}': `next_steps.by_check` advises on the warnings a verdict lists, so it needs "
+                "`verdict:`; add `verdict: {}` to give one that blocks on nothing."
+            )
         return self
 
     @model_serializer(mode="wrap")
