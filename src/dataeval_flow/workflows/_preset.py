@@ -1,6 +1,6 @@
 """Presets: workflow types whose settings expand to a chain of steps, which Flow runs as a custom workflow's."""
 
-__all__ = ["NextSteps", "Preset", "PresetChain", "Record", "ReportGroup", "expand_preset", "preset_of"]
+__all__ = ["NextSteps", "Preflight", "Preset", "PresetChain", "Record", "ReportGroup", "expand_preset", "preset_of"]
 
 from abc import abstractmethod
 from collections.abc import Mapping, Sequence
@@ -45,6 +45,16 @@ class NextSteps:
 
 
 @dataclass(frozen=True)
+class Preflight:
+    """What a chain refuses before any step runs, judged on the Datasets bound to its inputs."""
+
+    nonempty: bool = False
+    """Refuse an input, or an element of a list input, that holds no items."""
+    one_kind: bool = False
+    """Refuse inputs of different kinds, such as classification beside object detection."""
+
+
+@dataclass(frozen=True)
 class PresetChain:
     """What one preset entry's settings expand to.
 
@@ -76,6 +86,9 @@ class PresetChain:
     unaccepted warning in the verdict, but an acceptance whose check warned leaves the verdict ready with caveats."""
     next_steps: NextSteps = field(default_factory=NextSteps)
     """What the report says to do about each warning and each check left unassessed."""
+    preflight: Preflight = field(default_factory=Preflight)
+    """What the chain refuses before any step runs. A refusal no field here declares belongs in
+    :meth:`Preset.preflight`, which no custom workflow can carry."""
 
 
 class Preset:
@@ -135,7 +148,9 @@ class Preset:
     @classmethod
     def preflight(cls, config: Any, inputs: "Mapping[str, Node | NodeList]") -> None:
         """Refuse `config`'s run over `inputs`, the Datasets bound to its slots, by raising ``GraphError``, before any
-        step runs. The default refuses nothing."""
+        step runs, after the chain's declared :class:`Preflight`. The default refuses nothing. Declare a refusal in
+        the chain's ``preflight`` where it can be: a preset overriding this hook cannot be decomposed into a custom
+        workflow."""
 
     @classmethod
     def output_ports(cls) -> tuple[Port, ...]:

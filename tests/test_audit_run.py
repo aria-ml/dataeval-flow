@@ -153,7 +153,7 @@ def test_an_accepted_blocking_warning_is_ready_with_caveats() -> None:
 @pytest.mark.parametrize("empty", ["train", "test"])
 def test_a_split_with_no_items_is_refused_naming_it(empty: str) -> None:
     datasets = {"train": ToyImages(), "test": ToyImages(seed=1)} | {empty: Items([])}
-    message = f"Split `{empty}` holds no items; an audit judges only splits with data."
+    message = f"Input `{empty}` holds no items; this workflow judges only inputs with data."
     with pytest.raises(GraphError, match=message):
         run_tasks(_pipeline(datasets, extractor=False))
 
@@ -167,7 +167,10 @@ def test_a_split_with_no_items_is_refused_naming_it(empty: str) -> None:
         ),
         (
             {"train": ToyImages(), "val": ToyImages(seed=1), "test": _detections(12, "det")},
-            "An audit's splits must be one kind: train: classification, val: classification, test: object_detection.",
+            (
+                "This workflow's inputs must be one kind: train: classification, val: classification, "
+                "test: object_detection."
+            ),
         ),
     ],
     ids=["train-against-evals", "among-evals"],
@@ -249,14 +252,14 @@ def test_the_steps_that_take_a_split_are_the_checks_run_once_per_evaluation_spli
 
 def test_an_acceptance_naming_no_split_of_the_task_is_refused_before_the_run() -> None:
     config = _pipeline(_three(), {"accepted": {"image-outliers-evals[tset]": "x"}}, extractor=False)
-    with pytest.raises(GraphError, match=r"`image-outliers-evals\[tset\]`, but this task has no evaluation split"):
+    with pytest.raises(GraphError, match=r"`image-outliers-evals\[tset\]`, but this task has no `evals` element"):
         run_tasks(config)
 
 
 @pytest.mark.parametrize("element", ["train", "val_vs_test"])
 def test_an_acceptance_naming_train_or_a_pair_is_refused_before_the_run(element: str) -> None:
     config = _pipeline(_three(), {"accepted": {f"image-outliers-evals[{element}]": "x"}}, extractor=False)
-    with pytest.raises(GraphError, match=rf"has no evaluation split `{element}`"):
+    with pytest.raises(GraphError, match=rf"has no `evals` element `{element}`"):
         run_tasks(config)
 
 

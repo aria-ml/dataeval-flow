@@ -281,3 +281,11 @@ def test_accepted_refuses_a_key_naming_no_check_or_check_step() -> None:
         AuditConfig.model_validate(
             {"name": "w", "type": "audit", **_OUTLIERS, "accepted": {"image-outliers-nope": "x"}}
         )
+
+
+def test_audit_declares_its_refusals_instead_of_coding_them() -> None:
+    from dataeval_flow.workflows._preset import Preflight, Preset
+
+    config = AuditConfig.model_validate({"name": "w", **_OUTLIERS})
+    assert AuditWorkflow.chain(config).preflight == Preflight(nonempty=True, one_kind=True)
+    assert AuditWorkflow.preflight.__func__ is Preset.preflight.__func__

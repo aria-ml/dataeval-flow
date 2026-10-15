@@ -1,6 +1,6 @@
 """Preflight: what each step needs resolved before any step runs, and the Dataset kinds reaching each (spec §5.4)."""
 
-__all__ = ["check_kinds", "derive_from_node", "derive_policies", "detect_kind", "step_contexts"]
+__all__ = ["check_declared", "check_kinds", "derive_from_node", "derive_policies", "detect_kind", "step_contexts"]
 
 import logging
 from collections.abc import Mapping, Sequence
@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from dataeval_flow._stats import ResolvedStatsPolicy
     from dataeval_flow.config._models import PipelineConfig
     from dataeval_flow.workflows._context import DatasetContext
+    from dataeval_flow.workflows._preset import PresetChain
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -221,6 +222,39 @@ def check_kinds(graph: ChainGraph, inputs: Mapping[str, Node | NodeList]) -> dic
                         kinds[alias] = kinds[spec.output_address(port)]
                         reaching[alias] = reaching[spec.output_address(port)]
     return kinds
+
+
+def check_declared(chain: "PresetChain", inputs: Mapping[str, Node | NodeList]) -> None:
+    """Refuse the run over `inputs`, the Datasets bound to `chain`'s inputs, where `chain` declares it, by raising
+    ``GraphError`` before any step runs: an input with no items, inputs of different kinds, and an ``accepted`` key
+    ``step[element]`` naming no element of the list input. A Dataset an input's own chain made is named by its slot
+    or element key; one read from a source, by the source."""
+    named: list[tuple[str, Node]] = []
+    for slot, value in inputs.items():
+        if isinstance(value, NodeList):
+            named.extend(value.present.items())
+        else:
+            named.append((value.source or slot, value))
+    if chain.preflight.nonempty:
+        for name, node in named:
+            if len(node.value) == 0:
+                raise GraphError(f"Input `{name}` holds no items; this workflow judges only inputs with data.")
+    # A Dataset a chain made carries no kind; check_kinds has judged it already.
+    if chain.preflight.one_kind and len({node.kind for _, node in named if node.kind is not None}) > 1:
+        listing = ", ".join(f"{name}: {node.kind}" for name, node in named)
+        raise GraphError(f"This workflow's inputs must be one kind: {listing}.")
+    slot, elements = next(
+        ((slot, list(value.present)) for slot, value in inputs.items() if isinstance(value, NodeList)), (None, [])
+    )
+    for accepted in chain.accepted:
+        if "[" not in accepted or (element := accepted[accepted.index("[") + 1 : -1]) in elements:
+            continue
+        if slot is None:
+            raise GraphError(f"`accepted` names `{accepted}`, but this task binds no list, so no element `{element}`.")
+        raise GraphError(
+            f"`accepted` names `{accepted}`, but this task has no `{slot}` element `{element}`. Its `{slot}` "
+            f"elements: {', '.join(elements) or 'none'}."
+        )
 
 
 def _check_step(

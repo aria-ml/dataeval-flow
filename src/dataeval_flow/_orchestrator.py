@@ -858,7 +858,7 @@ def _run_custom_task(
     and the verdict it declares.
     """
     from dataeval_flow._chain._graph import binding_problems, build_graph
-    from dataeval_flow._chain._preflight import check_kinds, step_contexts
+    from dataeval_flow._chain._preflight import check_declared, check_kinds, step_contexts
     from dataeval_flow._chain._run import RunSettings, _datasets, bind_inputs
     from dataeval_flow._sources import label_space_records
     from dataeval_flow._tables import limited_tables
@@ -896,6 +896,8 @@ def _run_custom_task(
         slot_contexts[slot.name] = [dataset_contexts[name] for name in bound]
     contexts = step_contexts(graph, config, data_dir, slot_contexts)
     check_kinds(graph, inputs)
+    if preset_chain is not None:
+        check_declared(preset_chain, inputs)
     if preset is not None:
         preset.preflight(entry, inputs)
     # Each step naming its own extractor embeds with it; every other step, with the task's.
