@@ -9,6 +9,26 @@ from pathlib import Path
 import nox
 import nox_uv
 
+
+def available_cpus(cgroup: Path = Path("/sys/fs/cgroup")) -> int:
+    """CPUs this process may use: the container's CPU limit if it has one, else the affinity mask."""
+    cpus = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 1)
+    try:
+        quota, period = (cgroup / "cpu.max").read_text().split()  # cgroup v2: "<quota> <period>" or "max <period>"
+    except (OSError, ValueError):
+        try:  # cgroup v1
+            quota = (cgroup / "cpu/cpu.cfs_quota_us").read_text().strip()
+            period = (cgroup / "cpu/cpu.cfs_period_us").read_text().strip()
+        except OSError:
+            return cpus
+    if quota in ("max", "-1"):
+        return cpus
+    return min(cpus, max(1, int(quota) // int(period)))
+
+
+# pytest-xdist workers: TEST_WORKERS (default 4), never more than the CPUs the container may use.
+TEST_WORKERS = min(int(os.environ.get("TEST_WORKERS") or 4), available_cpus())
+
 nox.options.default_venv_backend = "uv"
 nox.options.reuse_venv = "always"
 nox.options.sessions = ["lint", "type", "test", "schema", "check"]  # Default sessions to run
@@ -196,7 +216,7 @@ def test(session: nox.Session) -> None:
     py = python_version(session)
     session.run(
         "pytest",
-        "-n4",
+        f"-n{TEST_WORKERS}",
         "--dist=loadscope",
         "--cov=src/dataeval_flow",
         "--cov-report=term",
@@ -244,7 +264,7 @@ def deps(session: nox.Session) -> None:
     """
     session.run_install("uv", "pip", "install", ".[cpu]", "--resolution=lowest-direct")
     session.run_install("uv", "pip", "install", "pytest", "pytest-asyncio", "pytest-xdist")
-    session.run("pytest", "-m", "not optional", "--ignore=tests/app", "-n4", "--dist=loadscope")
+    session.run("pytest", "-m", "not optional", "--ignore=tests/app", f"-n{TEST_WORKERS}", "--dist=loadscope")
 
 
 @nox_uv.session(uv_only_groups=["docs"], uv_no_install_project=True)
@@ -510,7 +530,7 @@ def docker_smoke(session: nox.Session) -> None:
         "tests/test_main_run.py",
         "tests/test_runner.py",
         "tests/test_e2e.py",
-        "-n4",
+        f"-n{TEST_WORKERS}",
         "--dist=loadscope",
         "-x",
     )
