@@ -160,6 +160,72 @@ def test_the_outlier_checks_judge_nothing_where_their_limits_are_none() -> None:
     assert [(f.title, f.severity) for f in unjudged] == [(f.title, "info") for f in judged]
 
 
+def _outlier_chain(dataset: Any) -> ChainResult:
+    config = chain_pipeline(
+        workflows=[{"name": "judged", "inputs": ["data"], "steps": _OUTLIER_STEPS}],
+        evaluators=_EVALUATORS,
+        tasks=[{"name": "chain", "workflow": "judged", "sources": ["src"]}],
+        datasets={"src": dataset},
+    )
+    result = run_tasks(config)["chain"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    return result
+
+
+_BELOW_THE_FLOOR = "Outliers judged no population: below 20 rows"
+
+
+def _not_assessed(result: ChainResult) -> dict[str, str | None]:
+    return {name: result.steps[name].not_assessed for name in ("image-outliers", "target-outliers", "classwise")}
+
+
+def test_an_outlier_check_is_not_assessed_where_dataeval_judged_no_population() -> None:
+    small = _outlier_chain(ToyImages(count=12))
+    assert _not_assessed(small) == {
+        "image-outliers": _BELOW_THE_FLOOR,
+        "target-outliers": None,  # classification has no boxes to judge: no finding, as before
+        "classwise": _BELOW_THE_FLOOR,
+    }
+    outlier_findings = [f for f in small.findings if f.title in _OUTLIER_TITLES]
+    assert {(f.title, f.severity, f.brief) for f in outlier_findings} == {
+        ("Image Outliers", "info", "not assessed"),
+        ("Class Outliers", "info", "not assessed"),
+    }
+    large = _outlier_chain(ToyImages(count=20))
+    assert set(_not_assessed(large).values()) == {None}
+    assert _verdicts(large.findings, {"Image Outliers"}) == [("warning", "Image Outliers", "1 images (5.0%)")]
+
+
+def test_each_outlier_check_is_not_assessed_by_the_level_it_judges() -> None:
+    # 12 images hold 24 boxes: DataEval judges the boxes, but not the images.
+    boxes_only = _outlier_chain(ToyDetections([[0, 1], [1, 0]] * 6, {0: "car", 1: "van"}, bright={(3, 0)}))
+    assert _not_assessed(boxes_only) == {"image-outliers": _BELOW_THE_FLOOR, "target-outliers": None, "classwise": None}
+    assert {f.title for f in boxes_only.findings} >= {"Target Outliers", "Class Outliers"}
+    neither = _outlier_chain(ToyDetections([[0, 1], [1], [0], [1, 1], [0]] * 2, {0: "car", 1: "van"}))
+    assert set(_not_assessed(neither).values()) == {_BELOW_THE_FLOOR}
+
+
+def test_in_cluster_mode_the_images_are_judged_by_their_clusters_but_the_boxes_are_not() -> None:
+    clustered = {**_EVALUATORS[0], "cluster_threshold": 2.0, "cluster_algorithm": "kmeans", "n_clusters": 2}
+    config = chain_pipeline(
+        workflows=[{"name": "judged", "inputs": ["data"], "steps": _OUTLIER_STEPS}],
+        evaluators=[clustered, *_EVALUATORS[1:]],
+        tasks=[{"name": "chain", "workflow": "judged", "sources": ["src"], "extractor": "flat"}],
+        datasets={"src": ToyDetections([[0], [1]] * 6, {0: "car", 1: "van"})},
+        extractor=True,
+    )
+    result = run_tasks(config)["chain"]
+    assert isinstance(result, ChainResult)
+    assert result.success, result.errors
+    assert _not_assessed(result) == {
+        "image-outliers": None,
+        "target-outliers": _BELOW_THE_FLOOR,
+        "classwise": _BELOW_THE_FLOOR,  # a detection pivot counts the boxes
+    }
+    assert not result.steps["outliers"].output.populations.is_empty()
+
+
 def test_outlier_rate_counts_each_image_once_and_warns_past_its_limit() -> None:
     output = _issues([(1, None), (1, None), (4, None), (6, 0)])
     (finding,) = ImageOutliersCheck().run(

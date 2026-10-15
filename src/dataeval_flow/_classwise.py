@@ -1,7 +1,7 @@
 """Outliers per class: the pivot the `outliers-by-class` combine builds, and the split of outlier issues into images
 and boxes that it and the outlier checks read."""
 
-__all__ = ["class_labels_frame", "classwise_pivot", "split_outlier_issues"]
+__all__ = ["class_labels_frame", "classwise_pivot", "split_outlier_issues", "unjudged_reason"]
 
 from typing import TYPE_CHECKING, Any
 
@@ -9,6 +9,7 @@ import polars as pl
 
 if TYPE_CHECKING:
     from dataeval import Metadata
+    from dataeval.quality import OutliersOutput
 
 
 def split_outlier_issues(issues_df: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame | None]:
@@ -21,6 +22,22 @@ def split_outlier_issues(issues_df: pl.DataFrame) -> tuple[pl.DataFrame, pl.Data
         img_issues = issues_df
         target_issues = None
     return img_issues, target_issues
+
+
+def unjudged_reason(output: "OutliersOutput[Any]", *, targets: bool) -> str | None:
+    """Why DataEval's Outliers judged none of the image-level populations, or the box-level ones with `targets`.
+
+    ``None`` where it judged one, or listed none at that level, as a result of ``from_clusters`` lists none. A result
+    with cluster statistics judged every image by its cluster, which needs no population of 20.
+    """
+    if not targets and output.cluster_stats is not None:
+        return None
+    level = pl.col("level")
+    at = output.populations.filter(level.is_not_null() if targets else level.is_null())
+    if at.is_empty() or at["judged"].any():
+        return None
+    reasons = sorted(str(reason) for reason in at["reason"].drop_nulls().unique())
+    return f"Outliers judged no population: {', '.join(reasons)}"
 
 
 def class_labels_frame(metadata: "Metadata") -> tuple[pl.DataFrame, list[str], dict[str, int]]:

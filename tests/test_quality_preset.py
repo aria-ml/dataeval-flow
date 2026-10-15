@@ -78,19 +78,19 @@ def _verdicts(result: ChainResult) -> list[tuple[str, str, str | None, str | Non
 
 
 def test_a_data_cleaning_task_returns_a_chain_result_of_its_steps() -> None:
-    result = _task(ToyImages(count=12))
+    result = _task(ToyImages(count=20))
     assert result.type == "quality"
     assert list(result.steps) == _STEPS
     assert _verdicts(result) == [
-        ("warning", "Image Outliers", "1 images (8.3%)", "image-outliers"),
-        ("warning", "Class Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "class-outliers"),
-        ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "image-duplicates"),
+        ("warning", "Image Outliers", "1 images (5.0%)", "image-outliers"),
+        ("warning", "Class Outliers", "worst: b (10.0%), 1/1 classes over 3.0%", "class-outliers"),
+        ("warning", "Image Duplicates", "2 exact (10.0%), 0 near (0.0%)", "image-duplicates"),
     ]
 
 
 def test_clean_removes_each_flagged_item_and_each_duplicate_but_the_first() -> None:
-    clean = _task(ToyImages(count=12)).steps["clean"]
-    assert len(clean.output) == 10
+    clean = _task(ToyImages(count=20)).steps["clean"]
+    assert len(clean.output) == 18
     assert clean.details == {
         "removed": {"items": 2, "detections": 0, "tracks": 0, "frames": 0},
         "by_plan": {"duplicates": {"items": 1}, "outliers": {"items": 1}},
@@ -110,12 +110,12 @@ def test_clean_says_what_it_kept_and_what_each_plan_named() -> None:
 def test_run_returns_the_chain_and_the_cleaned_dataset() -> None:
     result = run(
         QualityConfig(outliers={"flags": ["pixel", "visual"], "outlier_threshold": "zscore"}),  # type: ignore[arg-type]
-        ToyImages(count=12),
+        ToyImages(count=20),
     )
     assert isinstance(result, ChainResult)
     clean = result.steps["clean"].output
     assert isinstance(clean, View)
-    assert len(clean) == 10
+    assert len(clean) == 18
 
 
 def _configuration(result: ChainResult) -> list[str]:
@@ -149,8 +149,8 @@ def test_the_report_keeps_every_threshold_the_user_nulled() -> None:
 
 
 def test_a_null_threshold_judges_nothing() -> None:
-    result = _task(ToyImages(count=12), checks={"image-outliers": {"warning": None}})
-    assert _verdicts(result)[0] == ("info", "Image Outliers", "1 images (8.3%)", "image-outliers")
+    result = _task(ToyImages(count=20), checks={"image-outliers": {"warning": None}})
+    assert _verdicts(result)[0] == ("info", "Image Outliers", "1 images (5.0%)", "image-outliers")
 
 
 def test_a_data_cleaning_task_reads_its_source_through_its_view() -> None:
@@ -190,22 +190,22 @@ def test_a_data_cleaning_step_cleans_each_split_of_a_list() -> None:
         ],
         evaluators=[{"name": "labels", "type": "label-health"}],
         tasks=[{"name": "t", "workflow": "outer", "sources": ["s1", "s2"]}],
-        datasets={"s1": ToyImages(count=12), "s2": ToyImages(count=24)},
+        datasets={"s1": ToyImages(count=20), "s2": ToyImages(count=24)},
     )
     result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
     assert list(result.steps) == [*(f"cleaning/{step}" for step in _STEPS), "sizes"]
     assert _verdicts(result) == [
-        ("warning", "Image Outliers", "1 images (8.3%)", "cleaning/image-outliers[s1]"),
+        ("warning", "Image Outliers", "1 images (5.0%)", "cleaning/image-outliers[s1]"),
         ("warning", "Image Outliers", "1 images (4.2%)", "cleaning/image-outliers[s2]"),
-        ("warning", "Class Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "cleaning/class-outliers[s1]"),
+        ("warning", "Class Outliers", "worst: b (10.0%), 1/1 classes over 3.0%", "cleaning/class-outliers[s1]"),
         ("warning", "Class Outliers", "worst: b (8.3%), 1/1 classes over 3.0%", "cleaning/class-outliers[s2]"),
-        ("warning", "Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "cleaning/image-duplicates[s1]"),
+        ("warning", "Image Duplicates", "2 exact (10.0%), 0 near (0.0%)", "cleaning/image-duplicates[s1]"),
         ("warning", "Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "cleaning/image-duplicates[s2]"),
     ]
     clean = result.steps["cleaning/clean"].elements or {}
-    assert {key: len(element.output) for key, element in clean.items()} == {"s1": 10, "s2": 22}
+    assert {key: len(element.output) for key, element in clean.items()} == {"s1": 18, "s2": 22}
     assert result.steps["sizes"].inputs == ["cleaning.clean"]
     assert list(result.steps["sizes"].elements or {}) == ["s1", "s2"]
 

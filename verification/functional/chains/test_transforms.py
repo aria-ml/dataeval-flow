@@ -171,8 +171,9 @@ workflows:
 tasks:
   - {name: t, workflow: w, sources: [a]}
 """
-        result = _run(text, {"a": Images(12)})
-        assert _sizes(result)["clean"] == 11
+        # 20 images, the fewest in which DataEval's Outliers judges the white one.
+        result = _run(text, {"a": Images(20)})
+        assert _sizes(result)["clean"] == 19
         assert result.steps["clean"].details["by_plan"] == {"out": {"items": 1}}
 
     def test_remove_refuses_a_plan_computed_on_another_dataset_when_the_config_loads(self) -> None:

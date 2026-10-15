@@ -47,8 +47,11 @@ def leaky_pair() -> dict[str, Any]:
 
 
 def three_splits() -> dict[str, Images]:
-    """Train, validation and test, each with a planted duplicate and a white outlier, no image shared."""
-    return {"train": Images(12, seed=0), "val": Images(12, seed=1), "test": Images(12, seed=2)}
+    """Train, validation and test, each with a planted duplicate and a white outlier, no image shared.
+
+    Each holds 20 images, the fewest in which DataEval's Outliers judges the white one.
+    """
+    return {"train": Images(20, seed=0), "val": Images(20, seed=1), "test": Images(20, seed=2)}
 
 
 def audit_pipeline(

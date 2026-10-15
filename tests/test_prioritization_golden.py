@@ -12,6 +12,11 @@ Deliberate differences from its legacy run (spec §10.3 item 3), each with its r
 - **`prioritization` reads the pool's labels.** Legacy passed Prioritize no `class_labels`; the evaluator passes the
   pool's, so `policy: class_balanced`, which legacy always refused ("class_labels not provided"), ranks by them
   wherever a pool has labels.
+- **The cleaned cases are recorded again from the preset, at DataEval 8514871c.** DataEval's Outliers fits a
+  statistical threshold only to 20 values or more, so it flags nothing in the 16-image `ref` or the 12-image `p2`, and
+  cleaning keeps the white image legacy removed from them. That changes their removals and, through `ref`, every
+  cleaned ranking. Flagging just those white images gave back each legacy value, so the floor is the only difference.
+  `plain` and `easy_first` are still legacy's.
 """
 
 import json

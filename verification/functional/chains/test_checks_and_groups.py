@@ -189,13 +189,14 @@ class TestPresetAsAStep:
         assert result.steps["cleaning/clean"].type == "remove"
 
     def test_a_later_step_reads_the_preset_s_declared_output(self) -> None:
-        result = _run(_PRESET_AS_STEP, {"src": Images()})
+        # 20 images, the fewest in which DataEval's Outliers judges the white one.
+        result = _run(_PRESET_AS_STEP, {"src": Images(20)})
         # The preset removed the planted duplicate and the white outlier.
-        assert len(result.steps["cleaning/clean"].output) == 10
-        assert result.steps["after"].output.data()["item_count"] == 10
+        assert len(result.steps["cleaning/clean"].output) == 18
+        assert result.steps["after"].output.data()["item_count"] == 18
 
     def test_the_preset_s_findings_count_toward_the_chain_s_health(self) -> None:
-        result = _run(_PRESET_AS_STEP, {"src": Images()})
+        result = _run(_PRESET_AS_STEP, {"src": Images(20)})
         assert {f.step for f in result.findings} >= {"cleaning/image-outliers", "cleaning/image-duplicates"}
         assert result.health["status"] == "warning"
 

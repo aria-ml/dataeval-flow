@@ -85,7 +85,9 @@ Judges `outliers`'s output: warns when more than `warning` percent of a Dataset'
 
 An image counts when it has at least one image-level outlier flag.
 
-With nothing flagged, the finding is `ok`.
+With nothing flagged, the finding is `ok`. Where DataEval's Outliers judged none of the images' populations, as it
+judges none below 20 images, it is not assessed with DataEval's reason (`Outliers judged no population: below 20
+rows`).
 
 - **Reads:** `input`, an `outliers` Output.
 - **Makes:** one finding, titled Image Outliers.
@@ -116,7 +118,8 @@ workflows:
 
 Judges the `outliers` and `label-health` outputs: warns when more than `warning` percent of the boxes are outliers.
 
-A box counts when it has at least one outlier flag.
+A box counts when it has at least one outlier flag. Where DataEval's Outliers judged none of the boxes' populations,
+as it judges none below 20 boxes, it is not assessed with DataEval's reason.
 
 - **Reads:** `input`, an `outliers` Output run with `per_target: true`; `labels`, a `label-health` Output on the same
   Dataset.
@@ -152,7 +155,9 @@ workflows:
 
 Judges `outliers-by-class`'s output: warns when outliers pass `warning` percent across classes; names the worst class.
 
-It judges the worst class's share, how many classes pass the limit, and whether all classes together do.
+It judges the worst class's share, how many classes pass the limit, and whether all classes together do. Where
+DataEval's Outliers judged none of the populations the pivot counts, images or boxes, it is not assessed with
+DataEval's reason.
 
 - **Reads:** `input`, an `outliers-by-class` Output.
 - **Makes:** one finding, titled Class Outliers, whose evidence is the per-class table.

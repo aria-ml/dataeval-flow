@@ -254,6 +254,11 @@
 ### Changed
 
 - Metadata from DataEval main (`faf9ff3e`) keeps missing values null and drops boolean-mixed factors as `mixed_types`
+- DataEval main is tracked at `8514871c`: Outliers fits a statistical threshold only to populations of at least 20
+  - `image-outliers`, `target-outliers` and `class-outliers` are not assessed, with DataEval's reason, where it judged
+    no population of the images or boxes they count, such as `Outliers judged no population: below 20 rows`
+  - `audit`'s next steps say Outliers needs at least 20 items in a split
+  - An `outliers` result's JSON records which populations were judged, and why not, under `extras.populations`
 - The `dataeval-flow` command writes each task's result files as soon as the task finishes, so a killed run keeps them
   - Each file is replaced whole, so a reader never sees a half-written one
 - Every check's description opens with what it judges, such as "Judges `balance`'s output: …"
