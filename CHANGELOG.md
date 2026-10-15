@@ -250,6 +250,9 @@
 - `factor-gaps` combine: each factor's mutual information with the class, read from a `balance` Output
   - Names under-represented class-factor combinations among the factors at or over `mi_threshold`
 - `other_kinds: pass` on `wrap` passes other kinds of Dataset through unchanged, reading their cached embeddings
+- Custom workflows declare what a preset's chain declares (preset decomposition, increment 1)
+  - `reference`, `record`, `verdict`, `next_steps`, `preflight`, `ontology`, and `evidence` on each of `groups`
+  - `audit`'s empty-split and mixed-kind refusals are now declared; their messages name the input, not the split
 
 ### Changed
 
