@@ -1,18 +1,18 @@
 {
   "generated_by": "uv run python -m tests.service.builder_fixtures",
-  "flow_version": "0.2.3.dev793+ge41ee7e77.d20261015",
+  "flow_version": "0.2.3.dev798+g03157bb1c",
   "dataeval_version": "1.1.1.dev161+gaf8148b30",
   "note": "What the route answers at the first running step's sequence, folded from this run's own events.",
   "request": {
     "method": "GET",
-    "path": "/v1/runs/7233cfb3-7148-429e-ba7c-babffe9ba089/activity",
+    "path": "/v1/runs/ee74f0f0-f2bc-42e6-9ec9-a5be460f9f71/activity",
     "body": null
   },
   "status": 200,
   "response": {
     "schema": 1,
-    "run_id": "7233cfb3-7148-429e-ba7c-babffe9ba089",
-    "schema_fingerprint": "sha256:7d51cd25d938d1f5044ff0c9cda66e47a37a52567b13f87c7fc9524ea3ffcaf1",
+    "run_id": "ee74f0f0-f2bc-42e6-9ec9-a5be460f9f71",
+    "schema_fingerprint": "sha256:e4e7831b2624e5a9dbd9ef1bb0b5ff16410152fc2bbbdd32ee586f227f8593b8",
     "sequence": 7,
     "first_available_sequence": 1,
     "run_status": "running",
@@ -20,7 +20,7 @@
       {
         "task": "review",
         "status": "running",
-        "started_at": 1792043820.9201663,
+        "started_at": 1792046508.7439806,
         "finished_at": null,
         "reason": null
       }
@@ -36,7 +36,7 @@
         ],
         "instances": [],
         "status": "running",
-        "started_at": 1792043821.3212352,
+        "started_at": 1792046509.0096905,
         "finished_at": null,
         "reason": null,
         "not_assessed": null,
