@@ -31,6 +31,12 @@ variables:
   PYTHON_VERSION: "3.11"
   DOCKER_TLS_CERTDIR: "/certs"
   FORCE_COLOR: "1"
+  # The k8s runners check the repo out under a different uid than the job
+  # container runs as, so git refuses it ("dubious ownership"). Env-supplied
+  # config counts as command-line scope, which git honours for safe.directory.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: $CI_PROJECT_DIR
 
   # Long-lived maintenance branches (release/v0.2, ...), cut from a release tag so
   # a supported line can take patches without pulling in everything on main. See
