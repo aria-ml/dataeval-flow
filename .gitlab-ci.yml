@@ -9,6 +9,8 @@ workflow:
 
 default:
   interruptible: true
+  tags:
+    - k8s-small-cpu
 
 stages:
   - lint
@@ -140,6 +142,8 @@ lint:
 # Type Check [TR-7-H-1, TR-7-H-2]
 # Type check should be an explicit, visible job in the pipeline, not hidden in lint
 type-check:
+  tags:
+    - k8s-medium-cpu
   extends: [.nox, .rules_main_mr]
   stage: lint
   script:
@@ -203,6 +207,8 @@ linkchecker:
 # -----------------------------------------------------------------------------
 
 test:
+  tags:
+    - k8s-medium-cpu
   extends: [.nox, .rules_main_mr]
   stage: test
   parallel:
@@ -224,6 +230,8 @@ test:
 # Requirements verification suite (FR/NFR compliance) — runs separately from
 # unit tests, with its own JUnit report and no coverage gate.
 verify:
+  tags:
+    - k8s-medium-cpu
   extends: [.nox, .rules_main_mr]
   stage: test
   parallel:
@@ -253,6 +261,8 @@ verify:
 # `opencv`, and `app` are deliberately omitted, and tests/app is skipped because
 # its conftest imports textual unconditionally.
 deps:
+  tags:
+    - k8s-medium-cpu
   extends: [.nox, .rules_main_mr]
   stage: test
   variables:
