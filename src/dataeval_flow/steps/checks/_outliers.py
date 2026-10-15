@@ -16,10 +16,11 @@ from dataeval.quality import OutliersOutput
 from pydantic import Field
 
 from dataeval_flow._blocks import Cell, Column, Table
-from dataeval_flow._classwise import split_outlier_issues
+from dataeval_flow._classwise import split_outlier_issues, unjudged_reason
 from dataeval_flow.evaluators.quality._result import LabelHealthOutput
 from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
+from dataeval_flow.steps._step import StepSkipped
 from dataeval_flow.steps.checks._limits import exceeds, unjudged
 from dataeval_flow.steps.combines._classwise import OutliersByClassOutput
 from dataeval_flow.workflows._base import Finding
@@ -51,8 +52,16 @@ class ImageOutliersCheck(Check[ImageOutliersConfig]):
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(OutliersOutput,)),)
 
     def run(self, config: ImageOutliersConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
-        """The share of images with at least one image-level flag."""
+        """The share of images with at least one image-level flag.
+
+        Raises
+        ------
+        StepSkipped
+            When DataEval's Outliers judged none of the images' populations, such as one below 20 images.
+        """
         node = inputs["input"]
+        if reason := unjudged_reason(node.value, targets=False):
+            raise StepSkipped(reason)
         image_issues, _ = split_outlier_issues(node.value.data())
         count = image_issues["item_index"].n_unique() if len(image_issues) else 0
         size = node.items or 0
@@ -100,7 +109,15 @@ class TargetOutliersCheck(Check[TargetOutliersConfig]):
     )
 
     def run(self, config: TargetOutliersConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
-        """The share of labelled targets with at least one flag."""
+        """The share of labelled targets with at least one flag.
+
+        Raises
+        ------
+        StepSkipped
+            When DataEval's Outliers judged none of the boxes' populations, such as one below 20 boxes.
+        """
+        if reason := unjudged_reason(inputs["input"].value, targets=True):
+            raise StepSkipped(reason)
         _, target_issues = split_outlier_issues(inputs["input"].value.data())
         if target_issues is None or len(target_issues) == 0:
             return []
@@ -150,8 +167,16 @@ class ClassOutliersCheck(Check[ClassOutliersConfig]):
         inputs: Mapping[str, Any],
         context: CheckContext,  # noqa: ARG002
     ) -> list[Finding]:
-        """The worst class, how many classes pass the limit, and whether the total does."""
+        """The worst class, how many classes pass the limit, and whether the total does.
+
+        Raises
+        ------
+        StepSkipped
+            When DataEval's Outliers judged none of the populations the pivot counts.
+        """
         pivot: OutliersByClassOutput = inputs["input"].value
+        if pivot.unjudged:
+            raise StepSkipped(pivot.unjudged)
         limit = config.warning
         if not pivot.rows or pivot.total is None:
             return [

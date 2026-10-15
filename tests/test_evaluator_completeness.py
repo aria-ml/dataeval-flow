@@ -66,6 +66,9 @@ _ECHOES: dict[str, frozenset[str]] = {
             "dataset_steps",
             "outlier_threshold",
             "restricted_to",
+            "score_input",
+            "scored",
+            "strata",
             "tracking",
         }
     ),

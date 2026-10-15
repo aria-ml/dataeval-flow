@@ -31,14 +31,14 @@ def pipeline() -> dict:
     }
 
 
-def write_dataset(root: Path) -> Path:
-    """Write a 12-image COCO detection dataset under `root / "fixture"`: two exact duplicates, a rare class, and
+def write_dataset(root: Path, count: int = 12) -> Path:
+    """Write a `count`-image COCO detection dataset under `root / "fixture"`: two exact duplicates, a rare class, and
     telemetry. Returns `root`."""
     (root / "fixture" / "images").mkdir(parents=True)
     rng = np.random.default_rng(0)
     duplicate = rng.integers(0, 256, (32, 48, 3), dtype=np.uint8)
     images, annotations = [], []
-    for index in range(12):
+    for index in range(count):
         pixels = duplicate if index < 2 else rng.integers(0, 256, (32, 48, 3), dtype=np.uint8)
         name = f"images/{index:06d}.png"
         Image.fromarray(pixels).save(root / "fixture" / name)
@@ -50,11 +50,17 @@ def write_dataset(root: Path) -> Path:
                 "height": 32,
                 "altitude": float(index + 1),
                 "drone": "test",
-                "latitude": 53.7 if index < 10 else "N",
+                "latitude": 53.7 if index < count - 2 else "N",
             }
         )
         annotations.append(
-            {"id": index, "image_id": index, "category_id": 0 if index < 11 else 1, "bbox": [1, 2, 5, 4], "iscrowd": 0}
+            {
+                "id": index,
+                "image_id": index,
+                "category_id": 0 if index < count - 1 else 1,
+                "bbox": [1, 2, 5, 4],
+                "iscrowd": 0,
+            }
         )
     categories = [{"id": 0, "name": "boat"}, {"id": 1, "name": "swimmer"}]
     (root / "fixture" / "instances.json").write_text(

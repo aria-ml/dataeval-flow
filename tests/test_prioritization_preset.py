@@ -145,7 +145,9 @@ def test_data_prioritization_runs_as_a_step_after_data_cleaning_over_the_pools()
 
 
 def test_cleaning_that_empties_a_pool_ranks_it_as_empty() -> None:
-    cleaning = {"outliers": {"flags": ["visual"], "outlier_threshold": ("zscore", 0.99)}}
+    # A constant bound judges a pool of any size, where a statistical one needs 20 images: it flags both of p2's
+    # brightened images, and p1's white one. p1 also loses its copy of item 0.
+    cleaning = {"outliers": {"flags": ["visual"], "outlier_threshold": {"brightness": ("constant", (None, 100.0))}}}
     config = chain_pipeline(
         workflows=[
             {"name": "basic_clean", "type": "quality", **cleaning},
@@ -160,13 +162,17 @@ def test_cleaning_that_empties_a_pool_ranks_it_as_empty() -> None:
             },
         ],
         tasks=[{"name": "t", "workflow": "outer", "sources": ["ref", "p1", "p2"], "extractor": "flat"}],
-        datasets={"ref": ToyImages(count=80), "p1": ToyImages(count=80, seed=1), "p2": ToyImages(count=2, seed=2)},
+        datasets={
+            "ref": ToyImages(count=80),
+            "p1": ToyImages(count=80, seed=1),
+            "p2": ToyImages(count=2, seed=2, bright=True),
+        },
         extractor=True,
     )
     result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
     selected = result.steps["ranking/selected"].elements or {}
-    assert {key: len(element.output) for key, element in selected.items()} == {"p1": 72, "p2": 0}
+    assert {key: len(element.output) for key, element in selected.items()} == {"p1": 78, "p2": 0}
     assert result.report()
     assert cast(Mapping[str, Any], result.to_dict()["steps"])["ranking/prioritization"]

@@ -18,8 +18,10 @@ def merge_outlier_outputs(stats_output: OutliersOutput, cluster_output: Outliers
     ``percentile``, ``population_mean`` and ``population_std`` included), filling a row
     with null on the side that does not report a given column. Deduplication keeps the
     first matching row and preserves input order, so merging the same inputs twice gives
-    identical frames.
+    identical frames. The result keeps the statistical side's populations and the cluster side's statistics, as
+    DataEval's own re-detection does.
     """
+    populations, cluster_stats = stats_output.populations, cluster_output.cluster_stats
     base_columns = ["item_index", "target_index", "metric_name", "metric_value"]
     stats_df = stats_output.data()
     cluster_df = cluster_output.data()
@@ -32,7 +34,11 @@ def merge_outlier_outputs(stats_output: OutliersOutput, cluster_output: Outliers
             dfs.append(df)
 
     if not dfs:
-        return OutliersOutput(pl.DataFrame(schema=dict.fromkeys(base_columns, pl.Utf8)))
+        return OutliersOutput(
+            pl.DataFrame(schema=dict.fromkeys(base_columns, pl.Utf8)),
+            populations=populations,
+            cluster_stats=cluster_stats,
+        )
 
     merged_df = pl.concat(dfs, how="diagonal_relaxed").unique(
         subset=["item_index", "target_index", "metric_name"],
@@ -44,7 +50,7 @@ def merge_outlier_outputs(stats_output: OutliersOutput, cluster_output: Outliers
     if "target_index" in merged_df.columns and merged_df["target_index"].null_count() == len(merged_df):
         merged_df = merged_df.drop("target_index")
 
-    return OutliersOutput(merged_df)
+    return OutliersOutput(merged_df, populations=populations, cluster_stats=cluster_stats)
 
 
 def merge_duplicate_outputs(hash_result: DuplicatesOutput, cluster_output: DuplicatesOutput) -> DuplicatesOutput:

@@ -95,6 +95,8 @@ class OutliersEvaluator(Evaluator[OutliersConfig, OutliersOutput[Any]]):
     description: ClassVar[str] = "Images whose statistics are outliers (DataEval Outliers)."
     dataeval_class: ClassVar[type] = Outliers
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _DATAEVAL_METHODS
+    # Which metric populations DataEval judged, and why it judged none of a population's rows.
+    output_extras: ClassVar[tuple[str, ...]] = ("populations",)
 
     def run(self, config: OutliersConfig, inputs: Sequence[EvaluatorInputs]) -> OutliersOutput[Any]:
         """Find outliers in the prepared inputs."""

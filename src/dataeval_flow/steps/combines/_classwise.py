@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Literal
 from dataeval.quality import OutliersOutput
 from pydantic import BaseModel, Field
 
-from dataeval_flow._classwise import classwise_pivot, split_outlier_issues
+from dataeval_flow._classwise import classwise_pivot, split_outlier_issues, unjudged_reason
 from dataeval_flow._input_spec import InputKind
 from dataeval_flow.steps._combine import Combine, CombineConfig, CombineContext
 from dataeval_flow.steps._port import DataType, Port
@@ -30,17 +30,26 @@ class OutliersByClassOutput(BaseModel):
     )
     rows: list[OutliersByClassRow] = Field(description="One row per class with a flag, most flagged first.")
     total: OutliersByClassRow | None = Field(description="The row over every class; `null` where nothing was flagged.")
+    unjudged: str | None = Field(
+        default=None,
+        description=(
+            "Why DataEval's Outliers judged none of the images, or boxes, this counts; `null` where it judged some."
+        ),
+    )
 
     @classmethod
-    def from_pivot(cls, pivot: Mapping[str, Any] | None, *, multi_target: bool) -> "OutliersByClassOutput":
+    def from_pivot(
+        cls, pivot: Mapping[str, Any] | None, *, multi_target: bool, unjudged: str | None = None
+    ) -> "OutliersByClassOutput":
         """The pivot :func:`~dataeval_flow._classwise.classwise_pivot` built, its last row the total."""
         if pivot is None:
-            return cls(count_basis="annotation" if multi_target else "image", rows=[], total=None)
+            return cls(count_basis="annotation" if multi_target else "image", rows=[], total=None, unjudged=unjudged)
         *rows, total = pivot["rows"]
         return cls(
             count_basis=pivot["count_basis"],
             rows=[OutliersByClassRow(**row) for row in rows],
             total=OutliersByClassRow(**total),
+            unjudged=unjudged,
         )
 
 
@@ -82,6 +91,10 @@ class OutliersByClassCombine(Combine[OutliersByClassConfig]):
                 "outliers-by-class counts a detection Dataset's boxes, but `outliers` was not computed per box: "
                 "set `per_target: true` on its `outliers` entry."
             )
-        img_issues, target_issues = split_outlier_issues(inputs["outliers"].value.data())
+        outliers = inputs["outliers"].value
+        img_issues, target_issues = split_outlier_issues(outliers.data())
         pivot = classwise_pivot(target_issues, img_issues, metadata)
-        return {"output": OutliersByClassOutput.from_pivot(pivot, multi_target=metadata.multi_target)}
+        unjudged = unjudged_reason(outliers, targets=metadata.multi_target)
+        return {
+            "output": OutliersByClassOutput.from_pivot(pivot, multi_target=metadata.multi_target, unjudged=unjudged)
+        }

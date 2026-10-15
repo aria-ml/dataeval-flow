@@ -182,11 +182,12 @@ class TestTheRun:
 
     @staticmethod
     def _run(monkeypatch: pytest.MonkeyPatch, *, success: bool = True, max_images: int | None = None) -> Any:
-        """An outliers task over the toy dataset, whose report names item 7, the one image it flags."""
+        """An outliers task over 20 toy images, enough for DataEval to judge: its report names item 7, the one image
+        it flags."""
         from dataeval_flow import run_tasks
         from dataeval_flow.config import ResultConfig, TaskConfig
         from dataeval_flow.evaluators.quality import OutliersConfig, OutliersEvaluator
-        from tests.evaluator_toys import toy_pipeline
+        from tests.evaluator_toys import ToyImages, toy_pipeline
 
         def boom(*_args: Any, **_kwargs: Any) -> Any:
             raise RuntimeError("boom")
@@ -196,6 +197,7 @@ class TestTheRun:
         config = toy_pipeline(
             evaluators=[OutliersConfig(name="clean", flags=["pixel", "visual"], outlier_threshold="zscore")],
             tasks=[TaskConfig(name="t", workflow="clean", kind="evaluator", sources="src")],
+            dataset=ToyImages(count=20),
         )
         if max_images is not None:
             config.result = ResultConfig(max_images=max_images)

@@ -59,12 +59,8 @@ class Served(Copies):
     client: TestClient = None  # type: ignore[assignment]
 
 
-@pytest.fixture(scope="module")
-def finished(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path, str, str]:
-    """Two runs through a real service: one with a content-digest task, one without."""
-    root = tmp_path_factory.mktemp("evidence")
-    data, output = root / "data", root / "out"
-    write_coco(data, count=12)
+def _two_runs(data: Path, output: Path) -> tuple[str, str]:
+    """Two runs of `data` through a real service: one with a content-digest task, one without."""
     app = create_app(data, output)
     with TestClient(app) as client:
         ids = [client.post("/v1/runs", json={"pipeline": _inspection(digest=d)}).json()["id"] for d in (True, False)]
@@ -74,7 +70,16 @@ def finished(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path, str,
                 assert time.monotonic() < end, "runs did not finish"
                 time.sleep(0.05)
             assert status == "succeeded", client.get(f"/v1/runs/{run_id}/logs").text
-    return data, output, ids[0], ids[1]
+    return ids[0], ids[1]
+
+
+@pytest.fixture(scope="module")
+def finished(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path, str, str]:
+    """Two runs through a real service: one with a content-digest task, one without."""
+    root = tmp_path_factory.mktemp("evidence")
+    data, output = root / "data", root / "out"
+    write_coco(data, count=12)
+    return data, output, *_two_runs(data, output)
 
 
 @pytest.fixture
@@ -87,6 +92,16 @@ def copies(finished: tuple[Path, Path, str, str], tmp_path: Path) -> Copies:
 def served(copies: Copies) -> Iterator[Served]:
     with TestClient(create_app(copies.data, copies.output)) as client:
         yield Served(copies.data, copies.output, copies.run, copies.unrecorded, client)
+
+
+@pytest.fixture
+def flagging(tmp_path: Path) -> Iterator[Served]:
+    """A running service over runs of 20 images, the fewest in which DataEval's Outliers judges them."""
+    data, output = tmp_path / "data", tmp_path / "out"
+    write_coco(data, count=20)
+    run, unrecorded = _two_runs(data, output)
+    with TestClient(create_app(data, output)) as client:
+        yield Served(data, output, run, unrecorded, client)
 
 
 class TestItems:
@@ -228,12 +243,13 @@ class TestSelections:
         selection = _select(served, task="profile", field="altitude", predicate={"kind": "range", "min": 3, "max": 6})
         assert [m["value"] for m in _members(served, selection["id"])] == [3.0, 4.0, 5.0]
 
-    def test_flagged_outliers_are_selected_with_their_metric_and_bound(self, served: Served) -> None:
-        rows = served.client.get(f"/v1/runs/{served.run}/results").json()["outliers"]["output"]["rows"]
-        selection = _select(served, task="outliers", predicate={"kind": "rows"})
+    def test_flagged_outliers_are_selected_with_their_metric_and_bound(self, flagging: Served) -> None:
+        rows = flagging.client.get(f"/v1/runs/{flagging.run}/results").json()["outliers"]["output"]["rows"]
+        selection = _select(flagging, task="outliers", predicate={"kind": "rows"})
         assert selection["total"] == len(rows) > 0
         assert selection["images"] == len({row["item_index"] for row in rows})
-        assert {"metric_name", "metric_value", "bound", "direction"} <= set(_members(served, selection["id"], 100)[0])
+        member = _members(flagging, selection["id"], 100)[0]
+        assert {"metric_name", "metric_value", "bound", "direction"} <= set(member)
 
     def test_an_image_selection_becomes_a_source_a_later_pipeline_can_load(self, served: Served) -> None:
         selection = _select(served, task="profile", field="altitude", predicate={"kind": "range", "min": 3, "max": 6})

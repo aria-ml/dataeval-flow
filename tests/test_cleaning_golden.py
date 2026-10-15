@@ -8,6 +8,9 @@ Deliberate differences from its legacy run (spec §10.3 item 3), each with its r
 - **Class Imbalance is bias's,** so quality no longer makes it: legacy's Class Imbalance findings are left
   out of the comparison. The `class-imbalance` check's own agreement is pinned by the coverage golden.
 - **Names follow the naming pass** (naming spec §3.2): recorded titles are read through `tests/golden/_renames.py`.
+- **An outlier check DataEval judged no population for is not assessed.** DataEval's Outliers fits a statistical
+  threshold only to 20 values or more, so on `no_duplicates`'s 6 images the Image and Class Outliers findings, `ok`
+  before, are each an `info` briefed `not assessed`.
 """
 
 import json
@@ -23,6 +26,14 @@ from tests.golden._renames import title
 from tests.golden.cleaning import CASES
 
 _GOLDEN = json.loads((Path(__file__).parent / "golden" / "cleaning_findings.json").read_text())
+_BELOW_THE_OUTLIERS_FLOOR = {"no_duplicates"}
+_OUTLIER_TITLES = {"Image Outliers", "Class Outliers"}
+
+
+def _now(case: str, severity: str, title: str, brief: str) -> list[str]:
+    if case in _BELOW_THE_OUTLIERS_FLOOR and title in _OUTLIER_TITLES:
+        return ["info", title, "not assessed"]
+    return [severity, title, brief]
 
 
 def test_every_case_is_recorded() -> None:
@@ -32,7 +43,9 @@ def test_every_case_is_recorded() -> None:
 @pytest.mark.parametrize("name", sorted(CASES))
 def test_data_cleaning_gives_the_findings_it_gave_before_its_port(name: str) -> None:
     expected = [
-        [severity, title(name), brief] for severity, name, brief in _GOLDEN[name] if title(name) != "Class Imbalance"
+        _now(name, severity, title(recorded), brief)
+        for severity, recorded, brief in _GOLDEN[name]
+        if title(recorded) != "Class Imbalance"
     ]
     assert [[f.severity, f.title, f.brief] for f in CASES[name]()] == expected
 

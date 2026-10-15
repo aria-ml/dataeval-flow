@@ -65,7 +65,8 @@ def _leaky() -> dict[str, Any]:
 
 
 def _three() -> dict[str, Any]:
-    return {"train": ToyImages(), "val": ToyImages(seed=1), "test": ToyImages(seed=2)}
+    """Three splits of 20 toy images, the fewest in which DataEval's Outliers judges the white one."""
+    return {"train": ToyImages(20), "val": ToyImages(20, seed=1), "test": ToyImages(20, seed=2)}
 
 
 def _detections(count: int, dataset_id: str) -> ToyDetections:
@@ -73,7 +74,7 @@ def _detections(count: int, dataset_id: str) -> ToyDetections:
 
 
 def test_a_one_split_audit_is_ready_with_caveats() -> None:
-    result = _audit({"train": ToyImages()}, extractor=True)
+    result = _audit({"train": ToyImages(20)}, extractor=True)
     verdict = _verdict(result)
     groups = AuditWorkflow.chain(AuditConfig.model_validate({"name": "w", **_OUTLIERS})).groups
     clean, labels, splits = groups[0], groups[1], groups[-1]
@@ -257,3 +258,10 @@ def test_an_acceptance_naming_train_or_a_pair_is_refused_before_the_run(element:
     config = _pipeline(_three(), {"accepted": {f"image-outliers-evals[{element}]": "x"}}, extractor=False)
     with pytest.raises(GraphError, match=rf"has no evaluation split `{element}`"):
         run_tasks(config)
+
+
+def test_an_audit_of_a_split_too_small_for_outliers_says_how_many_items_they_need() -> None:
+    result = _audit({"train": ToyImages()})
+    (line,) = [line for line in _next_steps(result) if line.startswith("Outliers needs")]
+    advice = "Outliers needs at least 20 items in a split to judge it."
+    assert line == f"{advice} Not assessed: Image Outliers (image-outliers-train)."

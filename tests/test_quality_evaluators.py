@@ -45,14 +45,16 @@ class TestDuplicates:
 
 class TestOutliers:
     def test_the_white_image_is_flagged(self):
-        result = execute(get_evaluator("outliers")(), _context("src"), OutliersConfig())
+        # DataEval judges a population of 20 images or more.
+        result = execute(get_evaluator("outliers")(), _context("src", count=20), OutliersConfig())
         assert result.success, result.errors
         assert 7 in {row["item_index"] for row in output_json(result)["rows"]}
 
     def test_a_named_threshold_reaches_dataeval(self):
         params = OutliersConfig(flags=["visual"], outlier_threshold=("zscore", 3.0))
-        result = execute(get_evaluator("outliers")(), _context("src"), params)
+        result = execute(get_evaluator("outliers")(), _context("src", count=20), params)
         assert result.success, result.errors
+        assert output_json(result)["rows"]
         assert {row["metric_name"] for row in output_json(result)["rows"]} <= {
             "brightness",
             "contrast",

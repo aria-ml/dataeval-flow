@@ -427,7 +427,7 @@ def test_a_failed_chain_with_no_findings_still_has_a_health_line() -> None:
 
 
 def _by_split() -> ChainResult:
-    """quality run as step `cleaning` over a list of two splits, `train` of 24 toy images and `val` of 12."""
+    """quality run as step `cleaning` over a list of two splits, `train` of 24 toy images and `val` of 20."""
     tidy = {
         "name": "tidy",
         "type": "quality",
@@ -441,7 +441,7 @@ def _by_split() -> ChainResult:
     config = chain_pipeline(
         workflows=[tidy, workflow],
         tasks=[{"name": "t", "workflow": "w", "sources": ["train", "val"]}],
-        datasets={"train": ToyImages(count=24), "val": ToyImages(count=12)},
+        datasets={"train": ToyImages(count=24), "val": ToyImages(count=20)},
     )
     result = run_tasks(config)["t"]
     assert isinstance(result, ChainResult)
@@ -455,9 +455,9 @@ _SPLIT_BRIEFS = {
         ("Image Duplicates", "2 exact (8.3%), 0 near (0.0%)", "warning"),
     ],
     "val": [
-        ("Image Outliers", "1 images (8.3%)", "warning"),
-        ("Class Outliers", "worst: b (16.7%), 1/1 classes over 3.0%", "warning"),
-        ("Image Duplicates", "2 exact (16.7%), 0 near (0.0%)", "warning"),
+        ("Image Outliers", "1 images (5.0%)", "warning"),
+        ("Class Outliers", "worst: b (10.0%), 1/1 classes over 3.0%", "warning"),
+        ("Image Duplicates", "2 exact (10.0%), 0 near (0.0%)", "warning"),
     ],
 }
 

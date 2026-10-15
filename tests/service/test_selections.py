@@ -14,6 +14,7 @@ from dataeval_flow._service._selections import Selections, flagged, matching
 from dataeval_flow._service._store import RunStore
 from dataeval_flow._sources import load_source
 from dataeval_flow.config import PipelineConfig
+from tests.service.conftest import write_dataset
 from tests.service.test_evidence import _finished, _shuffled
 
 _NUMERIC = {"type": "numeric", "histogram": {"edges": [0.0, 1.0, 2.0], "counts": [2, 2]}}
@@ -93,6 +94,12 @@ def served(data_root: Path, tmp_path: Path, pipeline: dict):
         yield client, run_id
 
 
+@pytest.fixture
+def flagging(tmp_path: Path) -> Path:
+    """A data root holding the fixture dataset at 20 images, the fewest DataEval's Outliers judges."""
+    return write_dataset(tmp_path / "flagging", count=20)
+
+
 def _select(client: TestClient, run_id: str, **request) -> dict:
     response = client.post(f"/v1/runs/{run_id}/selections", json=request)
     assert response.status_code == 200, response.text
@@ -153,14 +160,16 @@ def test_a_field_dataeval_could_not_read_says_why_and_selects_nothing(served) ->
     assert client.post(f"/v1/runs/{run_id}/selections", json=request).status_code == 422
 
 
-def test_flagged_outliers_are_selected_with_their_metric_and_bound(served) -> None:
-    client, run_id = served
-    rows = client.get(f"/v1/runs/{run_id}/results").json()["outliers"]["output"]["rows"]
-    selection = _select(client, run_id, task="outliers", predicate={"kind": "rows"})
-    assert selection["total"] == len(rows)
-    assert selection["images"] == len({row["item_index"] for row in rows})
-    member = _members(client, run_id, selection["id"], limit=100)[0]
-    assert {"metric_name", "metric_value", "bound", "direction"} <= set(member)
+def test_flagged_outliers_are_selected_with_their_metric_and_bound(flagging, tmp_path, pipeline) -> None:
+    run_id = _finished(flagging, tmp_path / "out", _pipeline(pipeline))
+    with TestClient(create_app(flagging, tmp_path / "out")) as client:
+        rows = client.get(f"/v1/runs/{run_id}/results").json()["outliers"]["output"]["rows"]
+        selection = _select(client, run_id, task="outliers", predicate={"kind": "rows"})
+        assert rows
+        assert selection["total"] == len(rows)
+        assert selection["images"] == len({row["item_index"] for row in rows})
+        member = _members(client, run_id, selection["id"], limit=100)[0]
+        assert {"metric_name", "metric_value", "bound", "direction"} <= set(member)
 
 
 def test_an_image_selection_becomes_a_source_a_pipeline_can_load(data_root, served) -> None:
@@ -223,13 +232,13 @@ def test_a_task_name_that_is_not_one_folder_is_refused_before_any_path_is_built(
         assert response.json()["detail"][0]["loc"] == ["body", "task"]
 
 
-def test_a_preset_s_flagged_rows_are_selected_through_its_step(data_root, tmp_path, pipeline) -> None:
+def test_a_preset_s_flagged_rows_are_selected_through_its_step(flagging, tmp_path, pipeline) -> None:
     preset = {**pipeline, "tasks": [pipeline["tasks"][0]]}
     preset["workflows"] = [
         {**pipeline["workflows"][0], "outliers": {"flags": ["visual"], "outlier_threshold": ["zscore", 0.5]}}
     ]
-    run_id = _finished(data_root, tmp_path / "out", preset)
-    with TestClient(create_app(data_root, tmp_path / "out")) as client:
+    run_id = _finished(flagging, tmp_path / "out", preset)
+    with TestClient(create_app(flagging, tmp_path / "out")) as client:
         rows = client.get(f"/v1/runs/{run_id}/results").json()["quality"]["steps"]["outliers"]["output"]["rows"]
         selection = _select(client, run_id, task="quality", step="outliers", predicate={"kind": "rows"})
         assert rows

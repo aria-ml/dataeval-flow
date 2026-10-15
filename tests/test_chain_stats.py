@@ -181,12 +181,14 @@ def test_steps_reading_a_preset_step_s_output_compute_once_on_the_node_it_names(
         workflows=[{"name": "w", "inputs": ["data"], "steps": steps}, cleaning],
         evaluators=_EVALUATORS,
         tasks=[{"name": "t", "workflow": "w", "sources": ["src"]}],
+        datasets={"src": ToyImages(count=20)},
     )
     result, computed = _run(config)
     _all_ok(result)
     union = {None: ImageStats.PIXEL | ImageStats.VISUAL | ImageStats.HASH_DUPLICATES_BASIC}
-    # `data` holds 12 toy images; `cleaning/clean`, the node `cleaning.clean` names, the 10 quality keeps.
-    assert computed == [(12, union), (10, union)]
+    # `data` holds 20 toy images, enough for DataEval to judge outliers; `cleaning/clean`, the node
+    # `cleaning.clean` names, the 18 quality keeps.
+    assert computed == [(20, union), (18, union)]
 
 
 def _policies(toy_multiband_dataset: Any, outliers: dict[str, Any], dupes: dict[str, Any]) -> PipelineConfig:

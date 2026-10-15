@@ -94,6 +94,8 @@ _NEXT_STEPS = NextSteps(
         "No factors found in provided metadata": (
             "Name a metadata policy, or add metadata factors, to assess these checks."
         ),
+        # Mirrors the reason text DataEval's Outliers gives a population below its `_MIN_POPULATION` of 20.
+        "below 20 rows": "Outliers needs at least 20 items in a split to judge it.",
         "failed": "See why each listed step stopped in the Steps table.",
     },
 )

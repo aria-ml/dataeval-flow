@@ -16,18 +16,21 @@ from verification.functional.reporting._project import FAILING_QUALITY, run_proj
 pytestmark = pytest.mark.required
 
 DUPLICATE_GROUPS = 2  # planted by the fixtures below: img_0 and img_1 each have a copy
+PER_CLASS = 10  # 20 images, the fewest in which DataEval's Outliers judges them, so the outlier checks assess
 
 
 @pytest.fixture(scope="module")
 def warned(tmp_path_factory: pytest.TempPathFactory) -> ChainResult:
     """A `quality` result whose duplicates check warns."""
-    return run_project(tmp_path_factory.mktemp("warned"), duplicates=DUPLICATE_GROUPS)["clean_task"]
+    return run_project(tmp_path_factory.mktemp("warned"), duplicates=DUPLICATE_GROUPS, per_class=PER_CLASS)[
+        "clean_task"
+    ]
 
 
 @pytest.fixture(scope="module")
 def clean(tmp_path_factory: pytest.TempPathFactory) -> ChainResult:
     """A `quality` result with nothing to warn about."""
-    return run_project(tmp_path_factory.mktemp("clean"))["clean_task"]
+    return run_project(tmp_path_factory.mktemp("clean"), per_class=PER_CLASS)["clean_task"]
 
 
 @pytest.fixture(scope="module")
