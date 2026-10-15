@@ -215,6 +215,8 @@ linkchecker:
 test:
   tags:
     - k8s-medium-cpu
+  variables:
+    TEST_WORKERS: '2'
   extends: [.nox, .rules_main_mr]
   stage: test
   parallel:
@@ -273,6 +275,7 @@ deps:
   stage: test
   variables:
     PYTHON_VERSION: "3.10"
+    TEST_WORKERS: '2'
   script:
     - uvx --with nox-uv nox -s deps
 
