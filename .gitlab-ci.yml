@@ -360,6 +360,24 @@ install:conda:
 # Documentation — runs in parallel with container jobs
 # -----------------------------------------------------------------------------
 
+# Harbor cache of the notebook datasets, kept outside the docs build: the notebooks
+# download whatever is missing, so a miss or a Harbor failure only costs time.
+# Runs before `nox -s docs` and only when a notebook is about to execute (the cache
+# check exits non-zero then) or on a clean build. After a miss it downloads every
+# dataset listed in docs/source/data.py and stores them, so the stored copy is
+# complete and holds nothing the notebooks generate. See docs/harbor-datasets-cache.sh.
+.docs_datasets:
+  script:
+    - if [ -z "$DOCS_ARG" ]; then bash docs/fetch-docs-cache.sh || true; fi
+    - |
+      if [ -n "$DOCS_ARG" ] || ! uv run --no-project --with jupytext --with nbformat python docs/check_notebook_cache.py >/dev/null 2>&1; then
+        apt-get install -y -qq --no-install-recommends curl >/dev/null || true
+        bash docs/harbor-datasets-cache.sh pull
+        if [ -e "${TMPDIR:-/tmp}/harbor-datasets-missed" ]; then
+          uvx --with nox-uv nox -s docs_data && bash docs/harbor-datasets-cache.sh push || echo "dataset pre-download failed, the notebooks will download their own"
+        fi
+      fi
+
 # Docs preview - Build docs on MRs for review
 docs:preview:
   extends: [.nox, .aria_rules_mr_only]
@@ -373,7 +391,10 @@ docs:preview:
     - key: docs-notebook-cache
       paths:
         - docs/source/notebooks/cache/
+  variables:
+    PYTHONUNBUFFERED: '1'  # show the notebook downloads in the job log as they happen
   script:
+    - !reference [.docs_datasets, script]
     - uvx --with nox-uv nox -s docs
   artifacts:
     when: always
@@ -395,7 +416,10 @@ pages:
     - key: docs-notebook-cache
       paths:
         - docs/source/notebooks/cache/
+  variables:
+    PYTHONUNBUFFERED: '1'  # show the notebook downloads in the job log as they happen
   script:
+    - !reference [.docs_datasets, script]
     - uvx --with nox-uv nox -s docs $DOCS_ARG
     # Push the freshly-built jupyter-cache to the docs-artifacts/main orphan branch
     # so ReadTheDocs (and future CI builds) can fetch it. Requires the group-level
