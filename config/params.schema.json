@@ -4459,6 +4459,14 @@
           ],
           "default": null,
           "description": "What the workflow refuses before any step runs."
+        },
+        "derived_from": {
+          "description": "The preset entries the steps were decomposed from, as they were then: historical, never a reference, and ignored when the workflow runs.",
+          "items": {
+            "$ref": "#/$defs/DerivationConfig"
+          },
+          "title": "Derived From",
+          "type": "array"
         }
       },
       "required": [
@@ -4639,6 +4647,63 @@
         "dataset"
       ],
       "title": "DemoDatasetConfig",
+      "type": "object"
+    },
+    "DerivationConfig": {
+      "additionalProperties": false,
+      "description": "Where a custom workflow's steps came from: the preset entry they were decomposed from, as it stood then.\n\nHistorical only. Nothing reads it to run, it names no entry an editor must keep, and the preset may since have\nchanged or gone; decomposing again makes a new workflow rather than updating this one.",
+      "properties": {
+        "type": {
+          "description": "The preset's workflow type, such as `audit`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "entry": {
+          "description": "The preset entry's name when it was decomposed; not a reference to it.",
+          "title": "Entry",
+          "type": "string"
+        },
+        "settings": {
+          "additionalProperties": true,
+          "description": "The entry's settings, defaults filled in, as it was decomposed.",
+          "title": "Settings",
+          "type": "object"
+        },
+        "steps": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For steps inlined into a parent workflow, the names they were given; unset, the whole workflow.",
+          "title": "Steps"
+        },
+        "flow_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The Flow version that expanded the preset.",
+          "title": "Flow Version"
+        }
+      },
+      "required": [
+        "type",
+        "entry"
+      ],
+      "title": "DerivationConfig",
       "type": "object"
     },
     "DimensionalCompletenessSettings": {
@@ -4895,6 +4960,20 @@
           "description": "AUROC above which drift is declared; with `chunking`, a (lower, upper) pair of AUROC bounds. Unset uses DataEval's default (0.55).",
           "title": "Threshold"
         },
+        "hyperparameters": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "LightGBM hyperparameters for the classifier, replacing DataEval's whole default configuration. Unset uses DataEval's.",
+          "title": "Hyperparameters"
+        },
         "chunking": {
           "anyOf": [
             {
@@ -4966,6 +5045,20 @@
           "default": null,
           "description": "AUROC above which drift is declared; with `chunking`, a (lower, upper) pair of AUROC bounds. Unset uses DataEval's default (0.55).",
           "title": "Threshold"
+        },
+        "hyperparameters": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "LightGBM hyperparameters for the classifier, replacing DataEval's whole default configuration. Unset uses DataEval's.",
+          "title": "Hyperparameters"
         },
         "chunking": {
           "anyOf": [

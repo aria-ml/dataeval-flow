@@ -11,7 +11,7 @@ from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.steps.transforms._split import SplitConfig
 from dataeval_flow.workflows._base import Workflow
-from dataeval_flow.workflows._preset import Preset, PresetChain
+from dataeval_flow.workflows._preset import Preset, PresetChain, Structural
 from dataeval_flow.workflows.splits._config import SplitsConfig
 
 # The `split` step's `val_frac` default.
@@ -42,6 +42,29 @@ class SplitsWorkflow(Preset, Workflow[SplitsConfig, ChainResult]):
         "with `folds` of 2 or more, `train` and `val` are lists keyed by fold."
     )
     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
+    structure: ClassVar[tuple[Structural, ...] | None] = (
+        Structural(
+            "folds",
+            "With `folds: 1`, step `split` runs the `split` transform and `train`, `val` and `test` are single "
+            "Datasets; with 2 or more it runs `kfold`, `train` and `val` become lists keyed by fold, and `val_frac` "
+            "is refused.",
+        ),
+        Structural(
+            "val_frac",
+            "With `folds: 1`, `val_frac: 0` leaves `val` empty and drops `label-health-val`; unset, it holds out "
+            "DataEval's default share. With 2 or more folds each fold's val is its 1/folds.",
+            ("label-health-val",),
+        ),
+        Structural(
+            "test_frac", "`test_frac: 0` leaves `test` empty and drops `label-health-test`.", ("label-health-test",)
+        ),
+        Structural(
+            "rebalance",
+            "Set, each train is rebalanced by a `view` step and the `train` output reads the rebalanced Dataset, "
+            "judged by its own `label-health-rebalanced`; unset, `train` is the split's.",
+            ("rebalanced", "label-health-rebalanced"),
+        ),
+    )
     outputs: ClassVar[tuple[Port, ...]] = tuple(Port(part, DataType.DATASET) for part in _PARTS)
 
     @classmethod

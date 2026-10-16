@@ -10,7 +10,7 @@ from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
-from dataeval_flow.workflows._preset import Preset, PresetChain
+from dataeval_flow.workflows._preset import Preset, PresetChain, Structural
 from dataeval_flow.workflows.quality._config import QualityConfig
 
 
@@ -34,6 +34,8 @@ class QualityWorkflow(Preset, Workflow[QualityConfig, ChainResult]):
     title: ClassVar[str] = "Quality"
     description: ClassVar[str] = "Outlier and duplicate detection for image datasets, and the dataset without them."
     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
+    # No setting decides which steps run.
+    structure: ClassVar[tuple[Structural, ...] | None] = ()
     outputs: ClassVar[tuple[Port, ...]] = (Port("clean", DataType.DATASET),)
 
     @classmethod

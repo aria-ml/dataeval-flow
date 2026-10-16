@@ -7,7 +7,7 @@ are what a new workflow type subclasses.
 
 from dataeval_flow.workflows._base import Workflow, WorkflowConfig
 from dataeval_flow.workflows._context import DatasetContext, ResolvedOntology, WorkflowContext
-from dataeval_flow.workflows._preset import Preset, PresetChain
+from dataeval_flow.workflows._preset import Preset, PresetChain, Structural
 from dataeval_flow.workflows._registry import get_workflow, list_workflows
 
 __all__ = [
@@ -15,6 +15,7 @@ __all__ = [
     "Preset",
     "PresetChain",
     "ResolvedOntology",
+    "Structural",
     "Workflow",
     "WorkflowConfig",
     "WorkflowContext",

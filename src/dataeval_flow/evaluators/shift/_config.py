@@ -332,6 +332,13 @@ class DriftDomainClassifierConfig(EvaluatorConfig[DriftDomainClassifierResult]):
             "DataEval's default (0.55)."
         ),
     )
+    hyperparameters: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "LightGBM hyperparameters for the classifier, replacing DataEval's whole default configuration. Unset "
+            "uses DataEval's."
+        ),
+    )
     chunking: ChunkedDriftConfig | None = Field(default=None, description=_CHUNKING_DESCRIPTION)
 
 

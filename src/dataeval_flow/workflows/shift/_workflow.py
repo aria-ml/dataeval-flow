@@ -10,7 +10,7 @@ from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.steps.checks._drift import evaluator_heading
 from dataeval_flow.workflows._base import Workflow
-from dataeval_flow.workflows._preset import Preset, PresetChain
+from dataeval_flow.workflows._preset import Preset, PresetChain, Structural
 from dataeval_flow.workflows.shift._config import ShiftConfig, evaluator_entry, is_drift
 
 
@@ -41,6 +41,29 @@ class ShiftWorkflow(Preset, Workflow[ShiftConfig, ChainResult]):
     slots: ClassVar[tuple[str | InputSlot, ...]] = (
         "reference",
         InputSlot.model_validate({"name": "tests", "list": True}),
+    )
+    structure: ClassVar[tuple[Structural, ...] | None] = (
+        Structural(
+            "detectors",
+            "Each detector adds a step named for it and a `<name>-check` step (`drift` for a drift detector, `ood` "
+            "for an OOD one). One or more OOD detectors add `ood-union`, and two or more add `ood-agreement`; with "
+            "none, the OOD union and the factor steps are left out.",
+        ),
+        Structural(
+            "classwise",
+            "Each entry adds `<detector>-by-class` and `<detector>-by-class-check`; a detector that chunks is "
+            "compared by class through an unchunked copy of its evaluator.",
+        ),
+        Structural(
+            "factor-predictors",
+            "`false` leaves out `factor-predictors`, which runs only beside an OOD detector.",
+            ("factor-predictors",),
+        ),
+        Structural(
+            "factor-deviation",
+            "`false` leaves out `factor-deviation`, which runs only beside an OOD detector.",
+            ("factor-deviation",),
+        ),
     )
     outputs: ClassVar[tuple[Port, ...]] = ()
 

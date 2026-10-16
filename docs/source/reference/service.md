@@ -31,45 +31,46 @@ runs. Bind it to a trusted network only.
 
 ## Endpoints
 
-| Method and path                                  | Success                        | Errors          | Does                                                                                      |
-| ------------------------------------------------ | ------------------------------ | --------------- | ----------------------------------------------------------------------------------------- |
-| `GET /healthz`                                   | `200`                          | `503`           | Whether the service takes and runs work                                                   |
-| `GET /readyz`                                    | `200`                          | `503`           | The same, as a readiness probe                                                            |
-| `GET /livez`                                     | `200`                          | `503`           | Whether the process can run work, as a liveness probe                                     |
-| `GET /openapi.json`                              | `200`                          |                 | The API's OpenAPI description                                                             |
-| `GET /docs`                                      | `200`                          |                 | That description rendered; its page assets load from a CDN                                |
-| `GET /v1/capabilities`                           | `200`                          |                 | Versions, features, limits, and every step a pipeline uses                                |
-| `GET /v1/schema`                                 | `200`                          |                 | The JSON Schema of a pipeline, every registered step in it                                |
-| `POST /v1/validate`                              | `200` with the checked request | `409, 413, 422` | Check a run request without queueing it                                                   |
-| `POST /v1/resolve`                               | `200` with the resolved graphs | `409, 413, 422` | Resolve each task's graph without reading data; see [Graph resolution](#graph-resolution) |
-| `POST /v1/runs`                                  | `202` with the run record      | `409, 413, 422` | Check a run request and queue it                                                          |
-| `GET /v1/runs`                                   | `200` with every run record    |                 | Run history, newest first                                                                 |
-| `GET /v1/runs/{id}`                              | `200` with the run record      | `404`           | One run                                                                                   |
-| `POST /v1/runs/{id}/cancel`                      | `202` with the run record      | `404, 409`      | Cancel a queued run, or stop a running one                                                |
-| `GET /v1/runs/{id}/results`                      | `200` with the results         | `404, 409`      | Each finished task's result                                                               |
-| `GET /v1/runs/{id}/logs`                         | `200`, plain text              | `404`           | The last 64 KiB of what the run printed                                                   |
-| `GET /v1/runs/{id}/activity`                     | `200` with the snapshot        | `404, 409`      | Each task's and step's state; see [Activity](#activity)                                   |
-| `GET /v1/runs/{id}/events`                       | `200` with a page of events    | `404, 409, 422` | The changes after a sequence; see [Activity](#activity)                                   |
-| `GET /v1/runs/{id}/artifacts`                    | `200` with a list of paths     | `404`           | Every file in the run's directory                                                         |
-| `GET /v1/runs/{id}/artifacts/{path}`             | `200` with the file            | `404`           | One file, by a path the list gives                                                        |
-| `GET /v1/runs/{id}/items/{source}`               | `200` with a page of items     | `404, 422`      | A source's items as the run read them; see [Items](#items)                                |
-| `GET /v1/runs/{id}/items/{source}/{index}`       | `200` with the item            | `404`           | One item, checked against the run's manifest                                              |
-| `GET /v1/runs/{id}/items/{source}/{index}/image` | `200`, PNG                     | `404, 409`      | The item's image, or one box cropped from it                                              |
-| `POST /v1/runs/{id}/selections`                  | `200` with the summary         | `404, 409, 422` | Select rows of a profile or a table; see [Selections](#selections)                        |
-| `GET /v1/runs/{id}/selections/{sel}`             | `200` with a page of members   | `404, 409`      | A selection's summary and members                                                         |
-| `GET /v1/runs/{id}/selections/{sel}/view`        | `200` with a source            | `404, 422`      | A selection's images as a source a later run reads                                        |
+| Method and path                                  | Success                           | Errors          | Does                                                                                                                 |
+| ------------------------------------------------ | --------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `GET /healthz`                                   | `200`                             | `503`           | Whether the service takes and runs work                                                                              |
+| `GET /readyz`                                    | `200`                             | `503`           | The same, as a readiness probe                                                                                       |
+| `GET /livez`                                     | `200`                             | `503`           | Whether the process can run work, as a liveness probe                                                                |
+| `GET /openapi.json`                              | `200`                             |                 | The API's OpenAPI description                                                                                        |
+| `GET /docs`                                      | `200`                             |                 | That description rendered; its page assets load from a CDN                                                           |
+| `GET /v1/capabilities`                           | `200`                             |                 | Versions, features, limits, and every step a pipeline uses                                                           |
+| `GET /v1/schema`                                 | `200`                             |                 | The JSON Schema of a pipeline, every registered step in it                                                           |
+| `POST /v1/validate`                              | `200` with the checked request    | `409, 413, 422` | Check a run request without queueing it                                                                              |
+| `POST /v1/resolve`                               | `200` with the resolved graphs    | `409, 413, 422` | Resolve each task's graph without reading data; see [Graph resolution](#graph-resolution)                            |
+| `POST /v1/presets/decompose`                     | `200` with a candidate or reasons | `409, 413, 422` | Prepare a preset's copy as a custom workflow without reading data; see [Preset decomposition](#preset-decomposition) |
+| `POST /v1/runs`                                  | `202` with the run record         | `409, 413, 422` | Check a run request and queue it                                                                                     |
+| `GET /v1/runs`                                   | `200` with every run record       |                 | Run history, newest first                                                                                            |
+| `GET /v1/runs/{id}`                              | `200` with the run record         | `404`           | One run                                                                                                              |
+| `POST /v1/runs/{id}/cancel`                      | `202` with the run record         | `404, 409`      | Cancel a queued run, or stop a running one                                                                           |
+| `GET /v1/runs/{id}/results`                      | `200` with the results            | `404, 409`      | Each finished task's result                                                                                          |
+| `GET /v1/runs/{id}/logs`                         | `200`, plain text                 | `404`           | The last 64 KiB of what the run printed                                                                              |
+| `GET /v1/runs/{id}/activity`                     | `200` with the snapshot           | `404, 409`      | Each task's and step's state; see [Activity](#activity)                                                              |
+| `GET /v1/runs/{id}/events`                       | `200` with a page of events       | `404, 409, 422` | The changes after a sequence; see [Activity](#activity)                                                              |
+| `GET /v1/runs/{id}/artifacts`                    | `200` with a list of paths        | `404`           | Every file in the run's directory                                                                                    |
+| `GET /v1/runs/{id}/artifacts/{path}`             | `200` with the file               | `404`           | One file, by a path the list gives                                                                                   |
+| `GET /v1/runs/{id}/items/{source}`               | `200` with a page of items        | `404, 422`      | A source's items as the run read them; see [Items](#items)                                                           |
+| `GET /v1/runs/{id}/items/{source}/{index}`       | `200` with the item               | `404`           | One item, checked against the run's manifest                                                                         |
+| `GET /v1/runs/{id}/items/{source}/{index}/image` | `200`, PNG                        | `404, 409`      | The item's image, or one box cropped from it                                                                         |
+| `POST /v1/runs/{id}/selections`                  | `200` with the summary            | `404, 409, 422` | Select rows of a profile or a table; see [Selections](#selections)                                                   |
+| `GET /v1/runs/{id}/selections/{sel}`             | `200` with a page of members      | `404, 409`      | A selection's summary and members                                                                                    |
+| `GET /v1/runs/{id}/selections/{sel}/view`        | `200` with a source               | `404, 422`      | A selection's images as a source a later run reads                                                                   |
 
 Request and response bodies are JSON, except the logs and the files. Times are Unix epoch seconds.
 
 ### Errors
 
-| Status | When                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `404`  | No run has the ID; the run holds no file at the path; its pipeline names no such source; the source held no such item; no selection has the ID                                                                                                                                                                                                                                                                                                                                                        |
-| `409`  | A request pinning a `schema_fingerprint` other than the service's (`schema_changed`, an extension error, on `/v1/validate`, `/v1/resolve` and `/v1/runs`); a run's activity from before the service recorded it (`activity_unavailable`, an extension error); cancelling a run that has finished; reading results, or selecting from them, before the task has written them, or of a run that finished without any (`The run finished without a result`); the image of an item that is not `verified` |
-| `413`  | A `POST` body over `limits.max_document_bytes`, or a pipeline `/v1/resolve` finds to hold more than `limits.max_resolved_nodes` nodes (`too_many_nodes`, with `limit` and `count`); the body is an extension error                                                                                                                                                                                                                                                                                    |
-| `422`  | The request is malformed, the run would fail before any task ran, or the run cannot answer the selection; an `after` beyond the run's last event, or a `limit` outside 1 to 100; the body says why                                                                                                                                                                                                                                                                                                    |
-| `503`  | From a probe only: the service cannot run work; the body names the reasons                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Status | When                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `404`  | No run has the ID; the run holds no file at the path; its pipeline names no such source; the source held no such item; no selection has the ID                                                                                                                                                                                                                                                                                                                                                                                 |
+| `409`  | A request pinning a `schema_fingerprint` other than the service's (`schema_changed`, an extension error, on `/v1/validate`, `/v1/resolve`, `/v1/presets/decompose` and `/v1/runs`); a run's activity from before the service recorded it (`activity_unavailable`, an extension error); cancelling a run that has finished; reading results, or selecting from them, before the task has written them, or of a run that finished without any (`The run finished without a result`); the image of an item that is not `verified` |
+| `413`  | A `POST` body over `limits.max_document_bytes`, or a pipeline `/v1/resolve` or `/v1/presets/decompose` finds to hold more than `limits.max_resolved_nodes` nodes (`too_many_nodes`, with `limit` and `count`); the body is an extension error                                                                                                                                                                                                                                                                                  |
+| `422`  | The request is malformed, the run would fail before any task ran, or the run cannot answer the selection; an `after` beyond the run's last event, or a `limit` outside 1 to 100; the body says why                                                                                                                                                                                                                                                                                                                             |
+| `503`  | From a probe only: the service cannot run work; the body names the reasons                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 A `422` body is `{"detail": [{"type", "loc", "msg"}, ...]}`: `loc` is where in the request the error is, such as
 `["body", "pipeline", "result", "formats"]`, as Pydantic gives it for a field the configuration refuses, or
@@ -185,15 +186,162 @@ graph. Steps run in the order written, so reading a step listed later is `forwar
 resolves once, as written: `matrix.runs` lists the runs as `{number, label, values}`, but a cell that changes which
 outputs a step leaves empty, or which keys a list holds, is not reflected in the graph.
 
+## Preset decomposition
+
+`POST /v1/presets/decompose` prepares the copy of a preset entry as a custom workflow: the whole candidate pipeline an
+editor shows and, once the user accepts it, applies as one edit. It reads no data, stores nothing and queues nothing.
+It checks the pin and parses the draft as `/v1/resolve` does, so a stale pin is the same `409 schema_changed` and a
+malformed draft the same `422`, located under `["body", "pipeline", ...]`. A candidate resolving to more than
+`limits.max_resolved_nodes` nodes is a `413` `too_many_nodes`. Clients check `features.preset_decomposition`.
+
+The body is:
+
+| Field                         | Type                 | Default  | Meaning                                                                                               |
+| ----------------------------- | -------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `pipeline`                    | Pipeline             | Required | The whole draft pipeline, as `/v1/resolve` takes it                                                   |
+| `operation`                   | Text                 | Required | `copy_definition`, or `inline_step`, which answers `operation_unavailable` for now                    |
+| `target_pointer`              | JSON Pointer         | Required | `/workflows/<i>`, a preset entry, for `copy_definition`; `/workflows/<i>/steps/<j>` for `inline_step` |
+| `new_name`                    | Step name            | None     | The copy's name, required by `copy_definition`; no workflow may already have it                       |
+| `reassign_tasks`              | List of task names   | `[]`     | Tasks running the target entry to run the copy instead; every other task is left alone                |
+| `expected_schema_fingerprint` | `schema_fingerprint` | None     | As in the [run request](#run-request)                                                                 |
+
+A request that names nothing to decompose is a `422` located at the field. For `copy_definition`: a `target_pointer`
+that isn't `/workflows/<i>`, or names no workflow or one that is no preset; a missing or taken `new_name`; or a
+`reassign_tasks` entry that is unknown, repeated or runs another workflow, located at its index, such as
+`["body", "reassign_tasks", 1]`. For `inline_step`: a `new_name` or `reassign_tasks` given, which it doesn't take; a
+`target_pointer` that isn't `/workflows/<i>/steps/<j>`, or names no step of a custom workflow; or a step that runs no
+preset. An index in a pointer is written as JSON Pointer writes one, so `/workflows/01` is refused.
+
+Both answers carry `schema`, `schema_fingerprint`, `operation`, `target_pointer`, `supported_operations` and `status`;
+tell them apart by `status`.
+
+### Ready
+
+A copy that can be prepared answers `200` with `status: "ready"`, the OpenAPI component `DecomposeReady`:
+
+```json
+{
+  "schema": 1,
+  "schema_fingerprint": "sha256:...",
+  "operation": "copy_definition",
+  "target_pointer": "/workflows/1",
+  "supported_operations": ["copy_definition"],
+  "status": "ready",
+  "valid": true,
+  "diagnostics": [],
+  "pipeline": {"workflows": ["..."], "evaluators": ["..."], "tasks": ["..."]},
+  "names": {
+    "workflow": "audit_copy",
+    "steps": {"label-health-train": "label-health-train", "...": "..."},
+    "evaluators": {"label-health": "audit_copy-label-health", "...": "..."}
+  },
+  "changes": [
+    {"op": "add", "pointer": "/workflows/2", "summary": "Workflow 'audit_copy', copied from preset 'a' (audit)."},
+    {
+      "op": "add",
+      "pointer": "/evaluators/1",
+      "summary": "Evaluator 'audit_copy-label-health', the copy's own 'label-health'."
+    }
+  ],
+  "structure": [
+    {
+      "setting": "coverage.method",
+      "pointer": "/workflows/1/coverage/method",
+      "value": null,
+      "written": false,
+      "effective_value": "adaptive",
+      "included_steps": [],
+      "excluded_steps": ["uncovered-items"],
+      "rule": "`naive` adds `uncovered-items`, judging the items outside train's coverage radius; `adaptive` doesn't.",
+      "explanation": "`coverage.method` is unset, so `adaptive`: `uncovered-items` not included. `naive` adds ..."
+    }
+  ],
+  "representational_changes": [
+    {
+      "code": "result_type",
+      "pointer": "/workflows/2",
+      "message": "The copy's results carry type 'audit_copy', a custom workflow, where the preset's carry 'audit'."
+    }
+  ]
+}
+```
+
+`pipeline` is the whole candidate, normalized as `/v1/resolve` gives a pipeline: the draft with the copy added to
+`workflows`, its evaluators added to `evaluators`, and the reassigned tasks pointed at the copy. `valid` and
+`diagnostics` are the resolution of the whole candidate, so a problem elsewhere in the draft makes `valid` `false`
+without making the copy unavailable. The client applies `pipeline` as it is; `changes` lists the edits for display.
+
+`structure` has one entry per setting that decides the preset's steps: the steps the copy keeps as `included_steps`, and
+as `excluded_steps` the ones another value would add, which are never in the candidate. `value` is the setting's value,
+its default where the entry doesn't write it, and `written` says whether the entry does; `effective_value` is what a
+`null` value stands for, where it stands for one, and is `null` otherwise. A preset none of whose settings decides its
+steps, such as `quality`, has an empty `structure`. `representational_changes` are differences in how the copy is
+represented, though its results mean the same: `result_type` (the copy's results carry the custom workflow's type) and
+`outputs_not_carried` (a custom workflow declares no outputs, so it can't run as a step).
+
+### Names and `derived_from`
+
+The copy takes `new_name` and keeps the preset's step names, so `names.steps` maps each to itself. Each evaluator the
+preset expands to is copied into the pool as `<new_name>-<evaluator>`, with `-2`, `-3` and so on added where the pool
+already has that name; `names.evaluators` maps the preset's own names to the copies'. The copy is the preset's
+settings made explicit: it does not follow the preset after that.
+
+The copy records where it came from in `derived_from`, a list with one entry of `type`, `entry`, `settings` (the preset
+entry's settings in full, with every default filled in) and `flow_version`. It is historical only: nothing reads it back
+to change the workflow.
+
+### Unsupported
+
+A copy that can't be prepared answers `200` with `status: "unsupported"`, the OpenAPI component
+`DecomposeUnsupported`: every reason found and no `pipeline` to apply.
+
+```json
+{
+  "schema": 1,
+  "schema_fingerprint": "sha256:...",
+  "operation": "copy_definition",
+  "target_pointer": "/workflows/1",
+  "supported_operations": ["copy_definition"],
+  "status": "unsupported",
+  "reasons": [
+    {
+      "code": "unsupported_matrix_rewrite",
+      "category": "scope_limit",
+      "message": "Task 'clean' varies `outliers.outlier_threshold`, a setting of preset 'q'. The copy has no ...",
+      "document_pointer": "/tasks/1/matrix/outliers.outlier_threshold",
+      "preset": {"name": "q", "type": "quality"},
+      "missing_capability": null,
+      "remediation": "Keep task 'clean' on the preset, or take `outliers.outlier_threshold` out of its matrix ...",
+      "details": {"task": "clean", "key": "outliers.outlier_threshold"}
+    }
+  ]
+}
+```
+
+Branch on `code`; `category` says whose gap it is:
+
+| Code                         | Category              | Raised when                                                                                       |
+| ---------------------------- | --------------------- | ------------------------------------------------------------------------------------------------- |
+| `unsupported_matrix_rewrite` | `scope_limit`         | A reassigned task's matrix varies a setting of the preset entry, which the copy doesn't have      |
+| `undeclared_structure`       | `plugin_contract_gap` | A plugin preset declares no `structure`, so Flow can't say which settings decide its steps        |
+| `unrepresentable_preflight`  | `plugin_contract_gap` | A plugin preset refuses runs by overriding `Preset.preflight`, which no custom workflow can carry |
+| `operation_unavailable`      | `implementation_gap`  | The operation is `inline_step`, which this Flow version doesn't offer; see `supported_operations` |
+
+The categories are `implementation_gap` (Flow doesn't do it yet), `plugin_contract_gap` (the preset's author has to
+declare something) and `scope_limit` (Flow doesn't do it by design). `missing_capability` names what is missing, where
+one is, and `remediation` says what would change the answer. An `unsupported_matrix_rewrite` reason's `document_pointer`
+is the matrix key itself, `/tasks/<i>/matrix/<key>`, or `/tasks/<i>/matrix/<grid>/<key>` in a list of grids, with `/`
+and `~` in the key escaped as JSON Pointer escapes them; `details` gives the `task` and the `key` as written.
+
 ## Capabilities
 
 `GET /v1/capabilities` returns `api_version`, `flow_version`, `dataeval_version`, `schema_fingerprint`,
 `max_active_runs`, `features`, `limits` and `steps`. `features` names each optional part of the API with its version, so
 a client checks for a feature rather than a Flow version: `items`, `profiles`, `selections`, `schema`,
-`builder_metadata`, `graph_resolution` and `step_activity`, each `1`. `limits.page_size` is the largest page the item
-and selection routes serve. `limits.max_document_bytes`, `limits.max_resolved_nodes` and `limits.activity_page_size` are
-the bounds in [Limits](#limits). `steps` is the step catalog `dataeval-flow steps` prints: every evaluator, transform,
-combine, check and workflow, with its ports and its settings' JSON Schema.
+`builder_metadata`, `graph_resolution`, `step_activity` and `preset_decomposition`, each `1`. `limits.page_size` is the
+largest page the item and selection routes serve. `limits.max_document_bytes`, `limits.max_resolved_nodes` and
+`limits.activity_page_size` are the bounds in [Limits](#limits). `steps` is the step catalog `dataeval-flow steps`
+prints: every evaluator, transform, combine, check and workflow, with its ports and its settings' JSON Schema.
 `GET /v1/schema` is the JSON Schema of the whole pipeline, which `pipeline` in a run request follows.
 
 `schema_fingerprint` is a SHA-256 over the pipeline schema and the step catalog, so it changes with the Flow and DataEval
@@ -465,7 +613,7 @@ standard error is logged as a warning.
 - A page holds at most 100 items or members.
 - Every `POST` body is at most `max_document_bytes` (1 MiB); a larger one is refused with `413` before it is read. The
   bound checks `Content-Length`, so a body sent without one is not bounded.
-- `POST /v1/resolve` resolves at most `max_resolved_nodes` (1000) nodes.
+- `POST /v1/resolve` and `POST /v1/presets/decompose` resolve at most `max_resolved_nodes` (1000) nodes.
 - The activity routes page at most `activity_page_size` (100) events.
 - `GET /v1/runs` returns the whole history in one response.
 - The service runs on Linux and macOS: it relies on POSIX process groups and file locks.

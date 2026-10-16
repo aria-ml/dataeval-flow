@@ -1,11 +1,25 @@
 """Presets: workflow types whose settings expand to a chain of steps, which Flow runs as a custom workflow's."""
 
-__all__ = ["NextSteps", "Preflight", "Preset", "PresetChain", "Record", "ReportGroup", "expand_preset", "preset_of"]
+__all__ = [
+    "NextSteps",
+    "Preflight",
+    "Preset",
+    "PresetChain",
+    "Record",
+    "ReportGroup",
+    "Structural",
+    "StructuralChoice",
+    "expand_preset",
+    "preset_of",
+    "structural_choices",
+]
 
 from abc import abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
+
+from pydantic import BaseModel
 
 from dataeval_flow._kind import is_abstract
 from dataeval_flow.steps._port import DataType, Port
@@ -42,6 +56,42 @@ class NextSteps:
 
     by_check: Mapping[str, str] = field(default_factory=dict)
     by_reason: Mapping[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Structural:
+    """A setting of a preset's that decides which steps its chain has, not only how they run (preset decomposition
+    spec §4). A decomposed copy keeps the steps the setting chose; this tells an editor what it chose and why."""
+
+    setting: str
+    """Its path in the entry, dotted, as a config file writes it: `ontology`, `coverage.method`, `factor-gaps`."""
+    rule: str
+    """What the setting decides, in a sentence: the steps its values add or leave out, any other setting it works
+    with, and any step whose type it switches."""
+    steps: tuple[str, ...] = ()
+    """The chain's steps a value of it adds or leaves out, by name. Empty where the steps follow from a collection,
+    such as one pair per detector, and `rule` explains them instead."""
+    unset: Any = None
+    """What leaving it unset stands for, where that differs from the `null` it reads as: `coverage.method` unset is
+    DataEval's `adaptive`."""
+
+
+@dataclass(frozen=True)
+class StructuralChoice:
+    """What one structural setting chose for one entry."""
+
+    setting: str
+    value: Any
+    """The setting's value as the entry serializes it, its default where the entry omits it."""
+    written: bool
+    """Whether the entry writes the setting, rather than taking its default."""
+    effective: Any
+    """What the value stands for: `Structural.unset` where the value is `null` and the preset names one."""
+    included: tuple[str, ...]
+    """The declaration's steps this entry's chain has."""
+    excluded: tuple[str, ...]
+    """The declaration's steps this entry's chain leaves out."""
+    rule: str
 
 
 @dataclass(frozen=True)
@@ -106,6 +156,8 @@ class Preset:
     - ``outputs``: the Datasets a custom workflow may read when it runs the preset as a step. Each is read where
       :meth:`chain`'s ``outputs`` maps it, or else from the step of the chain named after it, which has one output; it
       is a list where that address is one;
+    - ``structure``: the settings that decide which steps :meth:`chain` makes, each a :class:`Structural`; ``()``
+      when none does. Left unset, the preset can't be decomposed into a custom workflow;
     - :meth:`chain`: the steps an entry's settings expand to, and the evaluator entries they name.
 
     As a task, the result's ``type`` is the preset's type id and its steps are the chain's. As a step of a custom
@@ -115,6 +167,10 @@ class Preset:
 
     slots: ClassVar[tuple[str | InputSlot, ...]]
     outputs: ClassVar[tuple[Port, ...]] = ()
+    structure: ClassVar[tuple[Structural, ...] | None] = None
+    """The settings that decide which steps the chain has (preset decomposition spec §4): one :class:`Structural`
+    per such setting, or ``()`` where none does. ``None``, the default, means the preset hasn't declared it, and an
+    editor can't decompose it into a custom workflow until it does."""
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Require ``slots`` on a concrete preset, and outputs that are single Datasets."""
@@ -172,6 +228,53 @@ def preset_of(config: object) -> "type[Preset] | None":
     return implementation if issubclass(implementation, Preset) else None
 
 
+def structural_choices(config: Any, preset: type[Preset]) -> tuple[StructuralChoice, ...] | None:
+    """What each of `preset`'s structural settings chose for entry `config`; ``None`` where `preset` declares no
+    structure."""
+    if preset.structure is None:
+        return None
+    names = {_name_of(step) for step in preset.chain(config).steps}
+    dumped = config.model_dump(mode="json", by_alias=True)
+    choices: list[StructuralChoice] = []
+    for declared in preset.structure:
+        value, written = _setting(config, dumped, declared.setting)
+        effective = declared.unset if value is None and declared.unset is not None else value
+        choices.append(
+            StructuralChoice(
+                setting=declared.setting,
+                value=value,
+                written=written,
+                effective=effective,
+                included=tuple(step for step in declared.steps if step in names),
+                excluded=tuple(step for step in declared.steps if step not in names),
+                rule=declared.rule,
+            )
+        )
+    return tuple(choices)
+
+
+def _setting(config: Any, dumped: Mapping[str, Any], setting: str) -> tuple[Any, bool]:
+    """`setting`'s value in `dumped`, `config` serialized, and whether `config` writes it at every level of its path."""
+    model: Any = config
+    value: Any = dumped
+    written = True
+    for segment in setting.split("."):
+        value = value.get(segment) if isinstance(value, Mapping) else None
+        if not isinstance(model, BaseModel):
+            written, model = False, None
+            continue
+        fields = type(model).model_fields
+        name = next((name for name, info in fields.items() if segment in (name, info.alias)), None)
+        written = written and name in model.model_fields_set
+        model = getattr(model, name) if name is not None else None
+    return value, written
+
+
+def _name_of(step: StepEntry | Mapping[str, Any]) -> str:
+    """The name of `step`, written as a mapping or a ``StepEntry``."""
+    return step["name"] if isinstance(step, Mapping) else step.name
+
+
 def expand_preset(config: Any, preset: type[Preset]) -> tuple[CustomWorkflowConfig, tuple["EvaluatorConfig[Any]", ...]]:
     """`config`'s chain, as a custom workflow named after the entry that declares what the chain declares, and the
     evaluator entries its steps name. Report groups and next steps keep only the check types the steps run."""
@@ -201,7 +304,8 @@ def expand_preset(config: Any, preset: type[Preset]) -> tuple[CustomWorkflowConf
     workflow = CustomWorkflowConfig.model_validate(
         {"name": config.name, "inputs": list(preset.slots), "steps": list(chain.steps), **declared}
     )
-    return workflow, tuple(chain.evaluators)
+    named = {step.evaluator for step in workflow.steps}
+    return workflow, tuple(evaluator for evaluator in chain.evaluators if evaluator.name in named)
 
 
 def _check_of(step: StepEntry | Mapping[str, Any]) -> str | None:

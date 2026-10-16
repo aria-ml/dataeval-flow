@@ -1,0 +1,115 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev836+g4f5318838",
+  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+  "request": {
+    "method": "POST",
+    "path": "/v1/presets/decompose",
+    "body": {
+      "pipeline": {
+        "datasets": [
+          {
+            "name": "fixture",
+            "format": "coco",
+            "path": "fixture"
+          }
+        ],
+        "sources": [
+          {
+            "name": "data",
+            "dataset": "fixture"
+          }
+        ],
+        "evaluators": [
+          {
+            "name": "dupes",
+            "type": "duplicates"
+          }
+        ],
+        "workflows": [
+          {
+            "name": "review",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "dupes",
+                "evaluator": "dupes",
+                "input": "data"
+              },
+              {
+                "name": "judge",
+                "check": "image-duplicates",
+                "input": "dupes"
+              }
+            ]
+          },
+          {
+            "name": "q",
+            "type": "quality",
+            "outliers": {
+              "flags": [
+                "pixel"
+              ],
+              "outlier_threshold": "zscore"
+            }
+          },
+          {
+            "name": "outer",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "c",
+                "workflow": "q",
+                "input": "data"
+              }
+            ]
+          }
+        ],
+        "tasks": [
+          {
+            "name": "review",
+            "workflow": "review",
+            "sources": "data"
+          },
+          {
+            "name": "clean",
+            "workflow": "q",
+            "sources": "data"
+          }
+        ]
+      },
+      "operation": "inline_step",
+      "target_pointer": "/workflows/2/steps/0"
+    }
+  },
+  "status": 200,
+  "response": {
+    "schema": 1,
+    "schema_fingerprint": "sha256:a729b50e4670ffef3e43a7b174006d78f7ded85d34c87735be39e242289e87ea",
+    "operation": "inline_step",
+    "target_pointer": "/workflows/2/steps/0",
+    "supported_operations": [
+      "copy_definition"
+    ],
+    "status": "unsupported",
+    "reasons": [
+      {
+        "code": "operation_unavailable",
+        "category": "implementation_gap",
+        "message": "Inlining a preset step (`inline_step`) isn't available in this Flow version.",
+        "document_pointer": "/workflows/2/steps/0",
+        "preset": {
+          "name": "q",
+          "type": "quality"
+        },
+        "missing_capability": "inline_step",
+        "remediation": "Copy the preset's definition with `copy_definition`, or use a Flow version whose `supported_operations` lists `inline_step`.",
+        "details": {}
+      }
+    ]
+  }
+}

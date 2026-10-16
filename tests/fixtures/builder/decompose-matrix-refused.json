@@ -1,0 +1,115 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev836+g4f5318838",
+  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+  "request": {
+    "method": "POST",
+    "path": "/v1/presets/decompose",
+    "body": {
+      "pipeline": {
+        "datasets": [
+          {
+            "name": "fixture",
+            "format": "coco",
+            "path": "fixture"
+          }
+        ],
+        "sources": [
+          {
+            "name": "data",
+            "dataset": "fixture"
+          }
+        ],
+        "evaluators": [
+          {
+            "name": "dupes",
+            "type": "duplicates"
+          }
+        ],
+        "workflows": [
+          {
+            "name": "review",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "dupes",
+                "evaluator": "dupes",
+                "input": "data"
+              },
+              {
+                "name": "judge",
+                "check": "image-duplicates",
+                "input": "dupes"
+              }
+            ]
+          },
+          {
+            "name": "q",
+            "type": "quality",
+            "outliers": {
+              "flags": [
+                "pixel"
+              ],
+              "outlier_threshold": "zscore"
+            }
+          }
+        ],
+        "tasks": [
+          {
+            "name": "review",
+            "workflow": "review",
+            "sources": "data"
+          },
+          {
+            "name": "clean",
+            "workflow": "q",
+            "sources": "data",
+            "matrix": {
+              "outliers.outlier_threshold": [
+                "zscore",
+                "iqr"
+              ]
+            }
+          }
+        ]
+      },
+      "operation": "copy_definition",
+      "target_pointer": "/workflows/1",
+      "new_name": "qc",
+      "reassign_tasks": [
+        "clean"
+      ]
+    }
+  },
+  "status": 200,
+  "response": {
+    "schema": 1,
+    "schema_fingerprint": "sha256:a729b50e4670ffef3e43a7b174006d78f7ded85d34c87735be39e242289e87ea",
+    "operation": "copy_definition",
+    "target_pointer": "/workflows/1",
+    "supported_operations": [
+      "copy_definition"
+    ],
+    "status": "unsupported",
+    "reasons": [
+      {
+        "code": "unsupported_matrix_rewrite",
+        "category": "scope_limit",
+        "message": "Task 'clean' varies `outliers.outlier_threshold`, a setting of preset 'q'. The copy has no such setting, and Flow doesn't rewrite matrix keys onto the steps a preset expands to.",
+        "document_pointer": "/tasks/1/matrix/outliers.outlier_threshold",
+        "preset": {
+          "name": "q",
+          "type": "quality"
+        },
+        "missing_capability": null,
+        "remediation": "Keep task 'clean' on the preset, or take `outliers.outlier_threshold` out of its matrix before reassigning it.",
+        "details": {
+          "task": "clean",
+          "key": "outliers.outlier_threshold"
+        }
+      }
+    ]
+  }
+}

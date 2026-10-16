@@ -9,7 +9,7 @@ from dataeval_flow.evaluators.scope import CompletenessConfig, CoverageConfig, R
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
-from dataeval_flow.workflows._preset import Preset, PresetChain
+from dataeval_flow.workflows._preset import Preset, PresetChain, Structural
 from dataeval_flow.workflows.scope._config import ScopeConfig
 
 if TYPE_CHECKING:
@@ -90,6 +90,19 @@ class ScopeWorkflow(Preset, Workflow[ScopeConfig, ChainResult]):
         "first."
     )
     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
+    structure: ClassVar[tuple[Structural, ...] | None] = (
+        Structural(
+            "coverage.method",
+            "`naive` adds `uncovered-items`, judging the items outside the coverage radius; `adaptive` doesn't.",
+            ("uncovered-items",),
+            unset="adaptive",
+        ),
+        Structural(
+            "completeness",
+            "`false` leaves out the `completeness` evaluator and its `dimensional-completeness` check.",
+            ("completeness", "dimensional-completeness"),
+        ),
+    )
 
     @classmethod
     def chain(cls, config: ScopeConfig) -> PresetChain:

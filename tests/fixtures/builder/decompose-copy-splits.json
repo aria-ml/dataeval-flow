@@ -1,0 +1,381 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev836+g4f5318838",
+  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+  "request": {
+    "method": "POST",
+    "path": "/v1/presets/decompose",
+    "body": {
+      "pipeline": {
+        "datasets": [
+          {
+            "name": "fixture",
+            "format": "coco",
+            "path": "fixture"
+          }
+        ],
+        "sources": [
+          {
+            "name": "data",
+            "dataset": "fixture"
+          }
+        ],
+        "evaluators": [
+          {
+            "name": "dupes",
+            "type": "duplicates"
+          }
+        ],
+        "workflows": [
+          {
+            "name": "review",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "dupes",
+                "evaluator": "dupes",
+                "input": "data"
+              },
+              {
+                "name": "judge",
+                "check": "image-duplicates",
+                "input": "dupes"
+              }
+            ]
+          },
+          {
+            "name": "s",
+            "type": "splits",
+            "folds": 2
+          }
+        ],
+        "tasks": [
+          {
+            "name": "review",
+            "workflow": "review",
+            "sources": "data"
+          },
+          {
+            "name": "clean",
+            "workflow": "s",
+            "sources": "data"
+          }
+        ]
+      },
+      "operation": "copy_definition",
+      "target_pointer": "/workflows/1",
+      "new_name": "splits_copy"
+    }
+  },
+  "status": 200,
+  "response": {
+    "schema": 1,
+    "schema_fingerprint": "sha256:a729b50e4670ffef3e43a7b174006d78f7ded85d34c87735be39e242289e87ea",
+    "operation": "copy_definition",
+    "target_pointer": "/workflows/1",
+    "supported_operations": [
+      "copy_definition"
+    ],
+    "status": "ready",
+    "pipeline": {
+      "logging": null,
+      "result": {
+        "name": "result",
+        "formats": [
+          "json",
+          "text",
+          "html"
+        ],
+        "detail": "full",
+        "per_task": false,
+        "fail_on": "failure",
+        "require": null,
+        "width": 80,
+        "max_images": 200,
+        "max_rows": 500,
+        "preview_rows": 10
+      },
+      "seed": null,
+      "deterministic": false,
+      "max_processes": null,
+      "datasets": [
+        {
+          "format": "coco",
+          "name": "fixture",
+          "path": "fixture",
+          "value_range": null,
+          "channel_groups": null,
+          "provenance": null,
+          "annotations_file": null,
+          "images_dir": null
+        }
+      ],
+      "preprocessors": null,
+      "views": null,
+      "metadata": null,
+      "ontologies": null,
+      "stats": null,
+      "sources": [
+        {
+          "name": "data",
+          "dataset": "fixture",
+          "merge": null,
+          "view": null
+        }
+      ],
+      "extractors": null,
+      "exports": null,
+      "workflows": [
+        {
+          "name": "review",
+          "inputs": [
+            "data"
+          ],
+          "steps": [
+            {
+              "name": "dupes",
+              "evaluator": "dupes",
+              "input": "data"
+            },
+            {
+              "name": "judge",
+              "check": "image-duplicates",
+              "input": "dupes"
+            }
+          ]
+        },
+        {
+          "metadata": null,
+          "name": "s",
+          "type": "splits",
+          "ontology": null,
+          "folds": 2,
+          "test_frac": 0.2,
+          "val_frac": null,
+          "stratify": true,
+          "split_on": null,
+          "rebalance": null,
+          "checks": {
+            "class-stratification": {
+              "info": 2.0,
+              "warning": 10.0
+            }
+          }
+        },
+        {
+          "name": "splits_copy",
+          "inputs": [
+            "data"
+          ],
+          "steps": [
+            {
+              "name": "label-health",
+              "evaluator": "splits_copy-label-health",
+              "input": "data"
+            },
+            {
+              "name": "split",
+              "transform": "kfold",
+              "input": "data",
+              "test_frac": 0.2,
+              "stratify": true,
+              "split_on": null,
+              "metadata": null,
+              "folds": 2
+            },
+            {
+              "name": "label-health-train",
+              "evaluator": "splits_copy-label-health",
+              "input": "split.train"
+            },
+            {
+              "name": "label-health-val",
+              "evaluator": "splits_copy-label-health",
+              "input": "split.val"
+            },
+            {
+              "name": "label-health-test",
+              "evaluator": "splits_copy-label-health",
+              "input": "split.test"
+            },
+            {
+              "name": "class-stratification",
+              "check": "class-stratification",
+              "input": "label-health",
+              "parts": [
+                "label-health-train",
+                "label-health-val",
+                "label-health-test"
+              ],
+              "info": 2.0,
+              "warning": 10.0
+            }
+          ],
+          "derived_from": [
+            {
+              "type": "splits",
+              "entry": "s",
+              "settings": {
+                "metadata": null,
+                "name": "s",
+                "type": "splits",
+                "ontology": null,
+                "folds": 2,
+                "test_frac": 0.2,
+                "val_frac": null,
+                "stratify": true,
+                "split_on": null,
+                "rebalance": null,
+                "checks": {
+                  "class-stratification": {
+                    "info": 2.0,
+                    "warning": 10.0
+                  }
+                }
+              },
+              "flow_version": "0.2.3.dev836+g4f5318838"
+            }
+          ]
+        }
+      ],
+      "evaluators": [
+        {
+          "stats": null,
+          "name": "dupes",
+          "type": "duplicates",
+          "cluster_algorithm": null,
+          "n_clusters": null,
+          "per_image": null,
+          "per_target": null,
+          "flags": null,
+          "merge_near_duplicates": null,
+          "hash_radius": null,
+          "cluster_sensitivity": null,
+          "redundancy_radius": null,
+          "min_segment_frames": null,
+          "max_segment_gap": null,
+          "segment_offset_tolerance": null,
+          "verify_alignment": null,
+          "min_track_frames": null,
+          "frame_sample": null
+        },
+        {
+          "metadata": null,
+          "name": "splits_copy-label-health",
+          "type": "label-health"
+        }
+      ],
+      "tasks": [
+        {
+          "name": "review",
+          "workflow": "review",
+          "enabled": true,
+          "sources": "data",
+          "extractor": null
+        },
+        {
+          "name": "clean",
+          "workflow": "s",
+          "enabled": true,
+          "sources": "data",
+          "extractor": null
+        }
+      ]
+    },
+    "valid": true,
+    "diagnostics": [],
+    "names": {
+      "workflow": "splits_copy",
+      "steps": {
+        "label-health": "label-health",
+        "split": "split",
+        "label-health-train": "label-health-train",
+        "label-health-val": "label-health-val",
+        "label-health-test": "label-health-test",
+        "class-stratification": "class-stratification"
+      },
+      "evaluators": {
+        "label-health": "splits_copy-label-health"
+      }
+    },
+    "changes": [
+      {
+        "op": "add",
+        "pointer": "/workflows/2",
+        "summary": "Workflow 'splits_copy', copied from preset 's' (splits)."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/1",
+        "summary": "Evaluator 'splits_copy-label-health', the copy's own 'label-health'."
+      }
+    ],
+    "structure": [
+      {
+        "setting": "folds",
+        "pointer": "/workflows/1/folds",
+        "value": 2,
+        "written": true,
+        "effective_value": null,
+        "included_steps": [],
+        "excluded_steps": [],
+        "rule": "With `folds: 1`, step `split` runs the `split` transform and `train`, `val` and `test` are single Datasets; with 2 or more it runs `kfold`, `train` and `val` become lists keyed by fold, and `val_frac` is refused.",
+        "explanation": "`folds` is `2`. With `folds: 1`, step `split` runs the `split` transform and `train`, `val` and `test` are single Datasets; with 2 or more it runs `kfold`, `train` and `val` become lists keyed by fold, and `val_frac` is refused."
+      },
+      {
+        "setting": "val_frac",
+        "pointer": "/workflows/1/val_frac",
+        "value": null,
+        "written": false,
+        "effective_value": null,
+        "included_steps": [
+          "label-health-val"
+        ],
+        "excluded_steps": [],
+        "rule": "With `folds: 1`, `val_frac: 0` leaves `val` empty and drops `label-health-val`; unset, it holds out DataEval's default share. With 2 or more folds each fold's val is its 1/folds.",
+        "explanation": "`val_frac` is unset, so its default `null`: `label-health-val` included. With `folds: 1`, `val_frac: 0` leaves `val` empty and drops `label-health-val`; unset, it holds out DataEval's default share. With 2 or more folds each fold's val is its 1/folds."
+      },
+      {
+        "setting": "test_frac",
+        "pointer": "/workflows/1/test_frac",
+        "value": 0.2,
+        "written": false,
+        "effective_value": null,
+        "included_steps": [
+          "label-health-test"
+        ],
+        "excluded_steps": [],
+        "rule": "`test_frac: 0` leaves `test` empty and drops `label-health-test`.",
+        "explanation": "`test_frac` is unset, so its default `0.2`: `label-health-test` included. `test_frac: 0` leaves `test` empty and drops `label-health-test`."
+      },
+      {
+        "setting": "rebalance",
+        "pointer": "/workflows/1/rebalance",
+        "value": null,
+        "written": false,
+        "effective_value": null,
+        "included_steps": [],
+        "excluded_steps": [
+          "rebalanced",
+          "label-health-rebalanced"
+        ],
+        "rule": "Set, each train is rebalanced by a `view` step and the `train` output reads the rebalanced Dataset, judged by its own `label-health-rebalanced`; unset, `train` is the split's.",
+        "explanation": "`rebalance` is unset, so its default `null`: `rebalanced`, `label-health-rebalanced` not included. Set, each train is rebalanced by a `view` step and the `train` output reads the rebalanced Dataset, judged by its own `label-health-rebalanced`; unset, `train` is the split's."
+      }
+    ],
+    "representational_changes": [
+      {
+        "code": "result_type",
+        "pointer": "/workflows/2",
+        "message": "The copy's results carry type 'splits_copy', a custom workflow, where the preset's carry 'splits'."
+      },
+      {
+        "code": "outputs_not_carried",
+        "pointer": "/workflows/2",
+        "message": "Preset 's' hands `train`, `val`, `test` to a workflow running it as a step; a custom workflow can't run as a step, so the copy declares no outputs. Steps running the preset keep it."
+      }
+    ]
+  }
+}

@@ -18,7 +18,7 @@ from dataeval_flow.evaluators.shift import DivergenceConfig, OODKNeighborsConfig
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
-from dataeval_flow.workflows._preset import NextSteps, Preflight, Preset, PresetChain, Record, ReportGroup
+from dataeval_flow.workflows._preset import NextSteps, Preflight, Preset, PresetChain, Record, ReportGroup, Structural
 from dataeval_flow.workflows.audit._config import AuditConfig
 from dataeval_flow.workflows.bias._workflow import bias_evaluators, factor_steps, gap_steps
 from dataeval_flow.workflows.scope._workflow import coverage_evaluators, embedding_steps
@@ -139,6 +139,36 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
     slots: ClassVar[tuple[str | InputSlot, ...]] = (
         "train",
         InputSlot.model_validate({"name": "evals", "list": True, "empty": NO_EVALUATION_SPLIT}),
+    )
+    structure: ClassVar[tuple[Structural, ...] | None] = (
+        Structural(
+            "ontology",
+            "Set, each split's labels are reconciled with the ontology and judged by `label-conformance`; unset, "
+            "neither runs.",
+            (
+                "label-reconciliation-train",
+                "label-reconciliation-evals",
+                "label-conformance-train",
+                "label-conformance-evals",
+            ),
+        ),
+        Structural(
+            "factor-leakage",
+            "Set, factor leakage is measured between train and each evaluation split and between evaluation splits, "
+            "and `leakage` judges it beside the duplicates; unset, `leakage` judges the duplicates alone.",
+            ("factor-leakage-cross", "factor-leakage-pairs"),
+        ),
+        Structural(
+            "factor-gaps",
+            "`false` leaves out the factor-gap analysis on train and its check; settings run them.",
+            ("factor-gaps", "factor-coverage-gaps"),
+        ),
+        Structural(
+            "coverage.method",
+            "`naive` adds `uncovered-items`, judging the items outside train's coverage radius; `adaptive` doesn't.",
+            ("uncovered-items",),
+            unset="adaptive",
+        ),
     )
 
     @classmethod

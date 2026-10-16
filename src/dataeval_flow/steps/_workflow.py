@@ -269,6 +269,31 @@ class PreflightConfig(BaseModel):
     one_kind: bool = Field(default=False, description="Refuse inputs of different kinds of data.")
 
 
+class DerivationConfig(BaseModel):
+    """Where a custom workflow's steps came from: the preset entry they were decomposed from, as it stood then.
+
+    Historical only. Nothing reads it to run, it names no entry an editor must keep, and the preset may since have
+    changed or gone; decomposing again makes a new workflow rather than updating this one.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    type: str = Field(description="The preset's workflow type, such as `audit`.")
+    entry: str = Field(description="The preset entry's name when it was decomposed; not a reference to it.")
+    settings: dict[str, Any] = Field(
+        default_factory=dict, description="The entry's settings, defaults filled in, as it was decomposed."
+    )
+    steps: list[str] | None = Field(
+        default=None,
+        description="For steps inlined into a parent workflow, the names they were given; unset, the whole workflow.",
+    )
+    flow_version: str | None = Field(default=None, description="The Flow version that expanded the preset.")
+
+    @model_serializer(mode="wrap")
+    def _as_written(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return {key: value for key, value in handler(self).items() if value is not None}
+
+
 class CustomWorkflowConfig(BaseModel):
     """A workflow built from steps: its named inputs, and the steps that read them in order.
 
@@ -336,6 +361,13 @@ class CustomWorkflowConfig(BaseModel):
     )
     preflight: PreflightConfig | None = Field(
         default=None, description="What the workflow refuses before any step runs."
+    )
+    derived_from: list[DerivationConfig] = Field(
+        default_factory=list,
+        description=(
+            "The preset entries the steps were decomposed from, as they were then: historical, never a reference, and "
+            "ignored when the workflow runs."
+        ),
     )
 
     @field_validator("inputs", mode="before")
@@ -430,6 +462,8 @@ class CustomWorkflowConfig(BaseModel):
         for key in ("ontology", "reference", "record", "verdict", "next_steps", "preflight"):
             if getattr(self, key) is not None:
                 written[key] = data[key]
+        if self.derived_from:
+            written["derived_from"] = data["derived_from"]
         return written
 
     @property

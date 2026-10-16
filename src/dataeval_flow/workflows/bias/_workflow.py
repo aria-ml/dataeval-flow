@@ -9,7 +9,7 @@ from dataeval_flow.evaluators.quality import LabelHealthConfig
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
-from dataeval_flow.workflows._preset import Preset, PresetChain
+from dataeval_flow.workflows._preset import Preset, PresetChain, Structural
 from dataeval_flow.workflows.bias._config import BiasConfig
 
 if TYPE_CHECKING:
@@ -80,6 +80,13 @@ class BiasWorkflow(Preset, Workflow[BiasConfig, ChainResult]):
         "under-represented combinations."
     )
     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
+    structure: ClassVar[tuple[Structural, ...] | None] = (
+        Structural(
+            "factor-gaps",
+            "`false` leaves out the factor-gap analysis and its check; settings run them.",
+            ("factor-gaps", "factor-coverage-gaps"),
+        ),
+    )
 
     @classmethod
     def chain(cls, config: BiasConfig) -> PresetChain:

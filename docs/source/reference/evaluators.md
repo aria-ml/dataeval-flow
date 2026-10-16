@@ -753,6 +753,7 @@ better than `threshold` (AUROC). It runs `dataeval.shift.DriftDomainClassifier`.
 | --- | --- | --- |
 | `n_folds` | `n_folds` | DataEval's default (`5`) |
 | `threshold` | `threshold`: an AUROC, or with `chunking` a `[lower, upper]` pair | DataEval's default (`0.55`) |
+| `hyperparameters` | `hyperparameters`: LightGBM's, replacing DataEval's whole default | DataEval's |
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 
 - **Judged by:** [`drift`](checks.md#drift)

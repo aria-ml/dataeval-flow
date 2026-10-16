@@ -1,0 +1,97 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev836+g4f5318838",
+  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+  "request": {
+    "method": "POST",
+    "path": "/v1/presets/decompose",
+    "body": {
+      "pipeline": {
+        "datasets": [
+          {
+            "name": "fixture",
+            "format": "coco",
+            "path": "fixture"
+          }
+        ],
+        "sources": [
+          {
+            "name": "data",
+            "dataset": "fixture"
+          }
+        ],
+        "evaluators": [
+          {
+            "name": "dupes",
+            "type": "duplicates"
+          }
+        ],
+        "workflows": [
+          {
+            "name": "review",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "dupes",
+                "evaluator": "dupes",
+                "input": "data"
+              },
+              {
+                "name": "judge",
+                "check": "image-duplicates",
+                "input": "dupes"
+              }
+            ]
+          },
+          {
+            "name": "r",
+            "type": "example.refusing"
+          }
+        ],
+        "tasks": [
+          {
+            "name": "review",
+            "workflow": "review",
+            "sources": "data"
+          },
+          {
+            "name": "clean",
+            "workflow": "r",
+            "sources": "data"
+          }
+        ]
+      },
+      "operation": "copy_definition",
+      "target_pointer": "/workflows/1",
+      "new_name": "refusing_copy"
+    }
+  },
+  "status": 200,
+  "response": {
+    "schema": 1,
+    "schema_fingerprint": "sha256:a729b50e4670ffef3e43a7b174006d78f7ded85d34c87735be39e242289e87ea",
+    "operation": "copy_definition",
+    "target_pointer": "/workflows/1",
+    "supported_operations": [
+      "copy_definition"
+    ],
+    "status": "unsupported",
+    "reasons": [
+      {
+        "code": "unrepresentable_preflight",
+        "category": "plugin_contract_gap",
+        "message": "Preset type 'example.refusing' refuses runs in Python (`preflight`), which no custom workflow can carry.",
+        "document_pointer": "/workflows/1",
+        "preset": {
+          "name": "r",
+          "type": "example.refusing"
+        },
+        "missing_capability": "portable_workflow_preflight",
+        "remediation": "The preset's author declares its refusals in its chain's `preflight` rather than overriding `Preset.preflight`.",
+        "details": {}
+      }
+    ]
+  }
+}
