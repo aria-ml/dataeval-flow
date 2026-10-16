@@ -1,6 +1,6 @@
 """Presets: workflow types whose settings expand to a chain of steps, which Flow runs as a custom workflow's."""
 
-__all__ = ["NextSteps", "Preset", "PresetChain", "Record", "ReportGroup", "expand_preset", "preset_of"]
+__all__ = ["NextSteps", "Preflight", "Preset", "PresetChain", "Record", "ReportGroup", "expand_preset", "preset_of"]
 
 from abc import abstractmethod
 from collections.abc import Mapping, Sequence
@@ -45,6 +45,16 @@ class NextSteps:
 
 
 @dataclass(frozen=True)
+class Preflight:
+    """What a chain refuses before any step runs, judged on the Datasets bound to its inputs."""
+
+    nonempty: bool = False
+    """Refuse an input, or an element of a list input, that holds no items."""
+    one_kind: bool = False
+    """Refuse inputs of different kinds, such as classification beside object detection."""
+
+
+@dataclass(frozen=True)
 class PresetChain:
     """What one preset entry's settings expand to.
 
@@ -76,6 +86,9 @@ class PresetChain:
     unaccepted warning in the verdict, but an acceptance whose check warned leaves the verdict ready with caveats."""
     next_steps: NextSteps = field(default_factory=NextSteps)
     """What the report says to do about each warning and each check left unassessed."""
+    preflight: Preflight = field(default_factory=Preflight)
+    """What the chain refuses before any step runs. A refusal no field here declares belongs in
+    :meth:`Preset.preflight`, which no custom workflow can carry."""
 
 
 class Preset:
@@ -135,7 +148,9 @@ class Preset:
     @classmethod
     def preflight(cls, config: Any, inputs: "Mapping[str, Node | NodeList]") -> None:
         """Refuse `config`'s run over `inputs`, the Datasets bound to its slots, by raising ``GraphError``, before any
-        step runs. The default refuses nothing."""
+        step runs, after the chain's declared :class:`Preflight`. The default refuses nothing. Declare a refusal in
+        the chain's ``preflight`` where it can be: a preset overriding this hook cannot be decomposed into a custom
+        workflow."""
 
     @classmethod
     def output_ports(cls) -> tuple[Port, ...]:
@@ -158,9 +173,37 @@ def preset_of(config: object) -> "type[Preset] | None":
 
 
 def expand_preset(config: Any, preset: type[Preset]) -> tuple[CustomWorkflowConfig, tuple["EvaluatorConfig[Any]", ...]]:
-    """`config`'s chain, as a custom workflow named after the entry, and the evaluator entries its steps name."""
+    """`config`'s chain, as a custom workflow named after the entry that declares what the chain declares, and the
+    evaluator entries its steps name. Report groups and next steps keep only the check types the steps run."""
     chain = preset.chain(config)
+    ran = {check for step in chain.steps if (check := _check_of(step)) is not None}
+    declared: dict[str, Any] = {}
+    groups = [
+        {"heading": group.heading, "checks": checks, **({"evidence": list(group.evidence)} if group.evidence else {})}
+        for group in chain.groups
+        if (checks := [check for check in group.checks if check in ran])
+    ]
+    if groups:
+        declared["groups"] = groups
+    if chain.reference is not None:
+        declared["reference"] = chain.reference
+    if chain.record is not None:
+        declared["record"] = {"title": chain.record.title, "steps": list(chain.record.steps)}
+    if chain.blocking is not None:
+        declared["verdict"] = {"blocking": list(chain.blocking), "accepted": dict(chain.accepted)}
+    by_check = {check: text for check, text in chain.next_steps.by_check.items() if check in ran}
+    if by_check or chain.next_steps.by_reason:
+        declared["next_steps"] = {"by_check": by_check, "by_reason": dict(chain.next_steps.by_reason)}
+    if chain.preflight != Preflight():
+        declared["preflight"] = {"nonempty": chain.preflight.nonempty, "one_kind": chain.preflight.one_kind}
+    if getattr(config, "ontology", None) is not None:
+        declared["ontology"] = config.ontology
     workflow = CustomWorkflowConfig.model_validate(
-        {"name": config.name, "inputs": list(preset.slots), "steps": list(chain.steps)}
+        {"name": config.name, "inputs": list(preset.slots), "steps": list(chain.steps), **declared}
     )
     return workflow, tuple(chain.evaluators)
+
+
+def _check_of(step: StepEntry | Mapping[str, Any]) -> str | None:
+    """The check type `step` runs, written as a mapping or a ``StepEntry``; ``None`` for any other kind."""
+    return step.get("check") if isinstance(step, Mapping) else step.check

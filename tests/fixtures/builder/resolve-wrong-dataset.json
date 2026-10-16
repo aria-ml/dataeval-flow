@@ -1,7 +1,7 @@
 {
   "generated_by": "uv run python -m tests.service.builder_fixtures",
-  "flow_version": "0.2.3.dev786+gd8a82ecb9",
-  "dataeval_version": "1.1.1.dev148+gfaf9ff3ed",
+  "flow_version": "0.2.3.dev798+g03157bb1c",
+  "dataeval_version": "1.1.1.dev161+gaf8148b30",
   "request": {
     "method": "POST",
     "path": "/v1/resolve",
@@ -101,7 +101,7 @@
   "status": 200,
   "response": {
     "schema": 1,
-    "schema_fingerprint": "sha256:88658593e5e80300df4df2303dca4e14dce2a6af1183542590f0963e3fd4e4f7",
+    "schema_fingerprint": "sha256:e4e7831b2624e5a9dbd9ef1bb0b5ff16410152fc2bbbdd32ee586f227f8593b8",
     "valid": false,
     "pipeline": {
       "logging": null,

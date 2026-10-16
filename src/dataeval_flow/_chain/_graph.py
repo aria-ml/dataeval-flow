@@ -156,6 +156,37 @@ def build_graph(
     return graph
 
 
+def _beside_a_verdict(workflow: CustomWorkflowConfig, verdicts: list[str]) -> GraphError | None:
+    """The refusal of a workflow that runs a verdict step and declares a verdict, or what one reports, of its own."""
+    beside = [key for key in ("reference", "record", "next_steps") if getattr(workflow, key) is not None]
+    if verdicts and workflow.verdict is not None:
+        message = (
+            f"Workflow '{workflow.name}' declares `verdict:` and runs step `{verdicts[0]}`, which gives one; a "
+            "workflow gives one verdict."
+        )
+        return GraphError(message, code="too_many_verdicts", step=verdicts[0])
+    if verdicts and beside:
+        message = (
+            f"Workflow '{workflow.name}' runs step `{verdicts[0]}`, whose verdict reports its own reference, record "
+            f"and next steps: remove {', '.join(f'`{key}`' for key in beside)}."
+        )
+        return GraphError(message, code="too_many_verdicts", step=verdicts[0])
+    return None
+
+
+def _list_mismatch(workflow: CustomWorkflowConfig, specs: dict[str, StepSpec]) -> GraphError | None:
+    """The refusal of an `accepted` key naming an element of a step that runs once, not once per element."""
+    for key in workflow.verdict.accepted if workflow.verdict is not None else ():
+        step = key.split("[", 1)[0]
+        if key != step and step in specs and not specs[step].broadcast:
+            message = (
+                f"Workflow '{workflow.name}': `accepted` names `{key}`, but step `{step}` runs once, not once per "
+                f"element of a list: key it `{step}` alone."
+            )
+            return GraphError(message, code="list_mismatch", step=step)
+    return None
+
+
 def resolve_graph(
     workflow: CustomWorkflowConfig,
     pipeline: "PipelineConfig",
@@ -194,6 +225,8 @@ def resolve_graph(
             "workflow gives one verdict."
         )
         return graph(), GraphError(message, code="too_many_verdicts", step=verdicts[1])
+    if (refusal := _beside_a_verdict(workflow, verdicts)) is not None:
+        return graph(), refusal
     for entry in workflow.steps:
         later.discard(entry.name)
         try:
@@ -215,6 +248,8 @@ def resolve_graph(
             empty[entry.name] = spec.impl.empty_outputs(spec.config)
         for port in spec.outputs:
             types[spec.output_address(port)] = output_type(spec, port)
+    if (refusal := _list_mismatch(workflow, specs)) is not None:
+        return graph(), refusal
     return graph(), None
 
 

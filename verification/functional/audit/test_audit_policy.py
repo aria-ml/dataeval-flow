@@ -112,5 +112,8 @@ class TestAccepted:
 
     def test_a_split_the_task_does_not_have_is_refused_before_any_step_runs(self) -> None:
         config = audit_pipeline(three_splits(), {"accepted": {"image-outliers-evals[tset]": "x"}})
-        with pytest.raises(GraphError, match=r"`image-outliers-evals\[tset\]`, but this task has no evaluation split"):
+        with pytest.raises(
+            GraphError,
+            match=r"`image-outliers-evals\[tset\]`, but this task has no `evals` element `tset`",
+        ):
             run_tasks(config)

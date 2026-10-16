@@ -3,8 +3,7 @@ audited, and findings under five questions (audit spec §4, §5, §11)."""
 
 __all__ = ["NO_EVALUATION_SPLIT", "PER_EVALUATION_SPLIT", "AuditWorkflow"]
 
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 from dataeval_flow.evaluators.quality import (
     ContentDigestConfig,
@@ -19,13 +18,10 @@ from dataeval_flow.evaluators.shift import DivergenceConfig, OODKNeighborsConfig
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
-from dataeval_flow.workflows._preset import NextSteps, Preset, PresetChain, Record, ReportGroup
+from dataeval_flow.workflows._preset import NextSteps, Preflight, Preset, PresetChain, Record, ReportGroup
 from dataeval_flow.workflows.audit._config import AuditConfig
 from dataeval_flow.workflows.bias._workflow import bias_evaluators, factor_steps, gap_steps
 from dataeval_flow.workflows.scope._workflow import coverage_evaluators, embedding_steps
-
-if TYPE_CHECKING:
-    from dataeval_flow._chain._nodes import Node, NodeList
 
 NO_EVALUATION_SPLIT = "no evaluation split given"
 """Why a check over the evaluation splits judged nothing when the task names train alone."""
@@ -129,8 +125,9 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
       and ``diversity`` (optional) with ``shortcut-risk``; and ``factor-gaps`` (optional) with
       ``factor-coverage-gaps``, unless ``factor-gaps`` is false.
 
-    Every split's metadata is encoded like train's. The report gives the verdict, a record of what was audited, and
-    the findings under five questions, with next steps. It makes no Dataset, so it declares no outputs.
+    Every split's metadata is encoded like train's. A split with no items, and splits of different kinds, are refused
+    before any step runs. The report gives the verdict, a record of what was audited, and the findings under five
+    questions, with next steps. It makes no Dataset, so it declares no outputs.
     """
 
     name: ClassVar[str] = "audit"
@@ -143,35 +140,6 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
         "train",
         InputSlot.model_validate({"name": "evals", "list": True, "empty": NO_EVALUATION_SPLIT}),
     )
-
-    @classmethod
-    def preflight(cls, config: AuditConfig, inputs: "Mapping[str, Node | NodeList]") -> None:
-        """Refuse a split with no items, naming it by its source, or, for a Dataset a chain made, by its slot or
-        element key; and splits of different kinds (audit spec §4.1, §13; audit-as-a-step spec §4.2)."""
-        from dataeval_flow._chain._graph import GraphError
-        from dataeval_flow._chain._nodes import NodeList
-
-        named: list[tuple[str, Node]] = []
-        for slot, value in inputs.items():
-            if isinstance(value, NodeList):
-                named.extend(value.present.items())
-            else:
-                named.append((value.source or slot, value))
-        for name, node in named:
-            if len(node.value) == 0:
-                raise GraphError(f"Split `{name}` holds no items; an audit judges only splits with data.")
-        # A Dataset a chain made carries no kind; check_kinds has judged it already.
-        if len({node.kind for _, node in named if node.kind is not None}) > 1:
-            listing = ", ".join(f"{name}: {node.kind}" for name, node in named)
-            raise GraphError(f"An audit's splits must be one kind: {listing}.")
-        evals = inputs.get("evals")
-        names = list(evals.present) if isinstance(evals, NodeList) else []
-        for accepted in config.accepted:
-            if "[" in accepted and (element := accepted[accepted.index("[") + 1 : -1]) not in names:
-                raise GraphError(
-                    f"`accepted` names `{accepted}`, but this task has no evaluation split `{element}`. Its "
-                    f"evaluation splits: {', '.join(names)}."
-                )
 
     @classmethod
     def chain(cls, config: AuditConfig) -> PresetChain:
@@ -281,6 +249,7 @@ class AuditWorkflow(Preset, Workflow[AuditConfig, ChainResult]):
         ]
         return PresetChain(
             steps=steps,
+            preflight=Preflight(nonempty=True, one_kind=True),
             evaluators=evaluators,
             reference="train",
             groups=_GROUPS,

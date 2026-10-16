@@ -816,18 +816,8 @@ def _run_one_step(
 
 def _custom_groups(workflow: CustomWorkflowConfig) -> "tuple[ReportGroup, ...]":
     """A custom workflow's `groups:`, as report groups."""
-    from dataeval_flow.workflows._preset import ReportGroup
-
-    return tuple(ReportGroup(group.heading, tuple(group.checks)) for group in workflow.groups)
-
-
-def _groups_only_plan(workflow: CustomWorkflowConfig) -> "PresetChain | None":
-    """A custom workflow's headings, and nothing else a preset declares: its report reads them, with no verdict."""
-    if not workflow.groups:
-        return None
-    from dataeval_flow.workflows._preset import PresetChain
-
-    return PresetChain(steps=workflow.steps, groups=_custom_groups(workflow))
+    plan = workflow.declared_chain()
+    return tuple(plan.groups) if plan is not None else ()
 
 
 def _run_custom_task(
@@ -858,7 +848,7 @@ def _run_custom_task(
     and the verdict it declares.
     """
     from dataeval_flow._chain._graph import binding_problems, build_graph
-    from dataeval_flow._chain._preflight import check_kinds, step_contexts
+    from dataeval_flow._chain._preflight import check_declared, check_kinds, step_contexts
     from dataeval_flow._chain._run import RunSettings, _datasets, bind_inputs
     from dataeval_flow._sources import label_space_records
     from dataeval_flow._tables import limited_tables
@@ -868,6 +858,8 @@ def _run_custom_task(
     extractor_cfg = setup.config if setup is not None else None
     type_id = entry.type if entry is not None else workflow.name
     described = entry if entry is not None else workflow
+    # A preset task's chain, or what a custom workflow declares beyond its steps.
+    declared = preset_chain if entry is not None else workflow.declared_chain()
     # `PipelineConfig` checks only the tasks it holds; a task run directly gets the same checks here, as a failed
     # result, like a workflow-type task's.
     problem = workflow.binding_problem(len(names))
@@ -886,9 +878,12 @@ def _run_custom_task(
 
     if problems:
         return refuse(problems)
-    # A preset entry's ontology resolves up front, as a workflow-type task's does, for the envelope to record.
-    ontology = _resolve_ontology(entry, config, data_dir) if entry is not None else None
-    graph = build_graph(workflow, config, evaluators=evaluators)
+    # The entry's or the custom workflow's ontology resolves up front, for the envelope to record.
+    ontology = _resolve_ontology(entry if entry is not None else workflow, config, data_dir)
+    # The list input's keys bound, so each step's `keys` are those it runs over wherever the graph can tell them.
+    slot = workflow.list_slot
+    slot_keys = {slot.name: tuple(names[len(workflow.single_slots) :])} if slot is not None else None
+    graph = build_graph(workflow, config, slot_keys, evaluators=evaluators)
     inputs = bind_inputs(graph, names, dataset_contexts, {source.name: source for source in resolved_sources})
     slot_contexts: dict[str, list[DatasetContext]] = {}
     for index, slot in enumerate(graph.slots):
@@ -896,6 +891,8 @@ def _run_custom_task(
         slot_contexts[slot.name] = [dataset_contexts[name] for name in bound]
     contexts = step_contexts(graph, config, data_dir, slot_contexts)
     check_kinds(graph, inputs)
+    if declared is not None:
+        check_declared(declared, inputs, {spec.name: spec.keys for spec in graph.steps})
     if preset is not None:
         preset.preflight(entry, inputs)
     # Each step naming its own extractor embeds with it; every other step, with the task's.
@@ -914,7 +911,7 @@ def _run_custom_task(
     _logger.debug("Task '%s': executing", task.name)
     start = time.monotonic()
     with capture_diagnostics() as diagnostics, shared_extractor_scope(), limited_tables(limits):
-        chain = _run_on_reference(graph, inputs, run_settings, preset_chain.reference if preset_chain else None)
+        chain = _run_on_reference(graph, inputs, run_settings, declared.reference if declared else None)
     if isinstance(chain, str):
         return refuse([chain], diagnostics)
     elapsed = time.monotonic() - start
@@ -945,14 +942,14 @@ def _attach_declared(
     result: "ChainResult", workflow: CustomWorkflowConfig, graph: "ChainGraph", preset_chain: "PresetChain | None"
 ) -> None:
     """Attach what the task's preset chain declares; else, the splice's that gives a verdict, with the custom workflow's
-    own groups after it (D2 allows one); else the custom workflow's groups alone. The envelope records each spliced
+    own groups after it (D2 allows one); else what the custom workflow declares. The envelope records each spliced
     preset entry, by step name, so a verdict can be reproduced from its result (audit-as-a-step spec §4.4)."""
     judged = next((splice for splice in graph.splices if splice.gives_verdict), None)
     if preset_chain is not None:
         result.attach_preset(preset_chain)
     elif judged is not None:
         result.attach_preset(judged.chain, splice=judged.name, groups=_custom_groups(workflow))
-    elif (plan := _groups_only_plan(workflow)) is not None:
+    elif (plan := workflow.declared_chain()) is not None:
         result.attach_preset(plan)
     if graph.splices:
         result.metadata.resolved_config["presets"] = {

@@ -238,7 +238,7 @@ def begin_splice(
     preflight on them, and derive its steps' metadata policies from its reference slot's node. A slot holding nothing
     leaves it unstarted; a preflight refusal, or a reference with no Metadata, fails it (audit-as-a-step spec §4.2)."""
     from dataeval_flow._chain._graph import GraphError
-    from dataeval_flow._chain._preflight import derive_from_node
+    from dataeval_flow._chain._preflight import check_declared, derive_from_node
     from dataeval_flow._chain._presets import SpliceRun
 
     bound: dict[str, Node | NodeList] = {}
@@ -258,6 +258,8 @@ def begin_splice(
             columns[slot] = value.address
             owners[value.address] = owners[text] = slot
     try:
+        prefix = f"{splice.name}/"
+        check_declared(splice.chain, bound, {step.removeprefix(prefix): specs[step].keys for step in splice.steps})
         splice.preset.preflight(splice.entry, bound)
         reference = splice.chain.reference
         if reference is not None:

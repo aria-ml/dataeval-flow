@@ -616,8 +616,39 @@ workflows:
 ```
 
 Each heading's status line counts its checks' warnings, and the findings of check types no heading names follow the
-groups. A group that names a check type no step runs is refused when the config loads. Groups change only the report:
-a custom workflow gives a verdict only through an `audit` step (section 11).
+groups. A group that names a check type no step runs is refused when the config loads. Groups change only the report. A
+group's `evidence:` lists step types shown under it after its findings, such as `diversity`.
+
+A custom workflow can also declare what a preset's chain declares, so it reads and reports like `audit`:
+
+```yaml
+workflows:
+  - name: clean-check
+    inputs: [data]
+    steps:
+      - {name: dupes, evaluator: dupes, input: data}
+      - {name: labels, evaluator: labels, input: data}
+      - {name: duplicates, check: image-duplicates, input: dupes}
+      - {name: imbalance, check: class-imbalance, input: labels}
+    reference: data
+    record: {title: What was read, steps: [label-health]}
+    verdict:
+      blocking: [image-duplicates]
+      accepted: {class-imbalance: Rare classes by design.}
+    next_steps:
+      by_check: {image-duplicates: Remove them with a `remove` step.}
+    preflight: {nonempty: true, one_kind: true}
+```
+
+- `reference` encodes every Dataset's metadata like the named input's.
+- `record` adds a section recording what the run read.
+- `verdict` gives a verdict: an unaccepted warning of a `blocking` check type makes it not ready.
+- `next_steps` says what to do about each warning, by check type, and each check left unassessed, by reason. Advice
+  by check type needs a `verdict`, whose warnings it advises on.
+- `preflight` refuses an input with no items, or inputs of different kinds, before any step runs.
+
+A workflow with an `audit` step (section 11) takes its verdict, reference, record and next steps from that step, so it
+declares none of them itself.
 
 ## See also
 

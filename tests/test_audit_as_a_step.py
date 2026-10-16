@@ -114,7 +114,7 @@ def test_an_empty_part_fails_the_splice_through_the_preset_s_preflight() -> None
     assert result.steps["first"].status == "ok"
     first_audit = next(name for name in result.steps if name.startswith("audit/"))
     assert result.steps[first_audit].status == "failed"
-    assert "Step 'audit': Split `val` holds no items" in result.steps[first_audit].errors[0]
+    assert "Step 'audit': Input `val` holds no items" in result.steps[first_audit].errors[0]
     later = [record for name, record in result.steps.items() if name.startswith("audit/") and name != first_audit]
     assert later
     assert all(record.status == "skipped" for record in later)
@@ -141,7 +141,7 @@ def test_a_chain_made_train_with_no_items_is_named_by_its_slot() -> None:
     )
     result = _run(config)
     first_audit = next(name for name in result.steps if name.startswith("audit/"))
-    assert "Split `train` holds no items" in result.steps[first_audit].errors[0]
+    assert "Input `train` holds no items" in result.steps[first_audit].errors[0]
 
 
 def test_a_fold_list_bound_to_a_single_slot_is_refused_at_load() -> None:
