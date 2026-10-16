@@ -1,5 +1,6 @@
 """A plugin written against the public API alone: one workflow type over its own combine and check, one evaluator, one
-extractor and one transform."""
+extractor and one transform; and a second workflow type that refuses runs in Python, which no decomposed copy can
+carry."""
 
 from collections.abc import Mapping, Sequence
 from typing import Any, ClassVar
@@ -32,7 +33,7 @@ from dataeval_flow.steps import (
     InputSlot,
     Port,
 )
-from dataeval_flow.workflows import Preset, PresetChain, Workflow, WorkflowConfig
+from dataeval_flow.workflows import Preset, PresetChain, Structural, Workflow, WorkflowConfig
 
 
 class ItemCount(BaseModel):
@@ -102,6 +103,29 @@ class CountWorkflow(Preset, Workflow[CountConfig, ChainResult]):
                 {"name": "at-least", "check": "example.at-least", "input": "items", "minimum": config.minimum},
             ]
         )
+
+
+class RefusingConfig(CountConfig):
+    """Settings for `example.refusing`."""
+
+    type: str = "example.refusing"
+
+
+class RefusingWorkflow(Preset, Workflow[RefusingConfig, ChainResult]):
+    """Counts the source's items as `example.count` does, declaring its (empty) structure but refusing in Python."""
+
+    name: ClassVar[str] = "example.refusing"
+    description: ClassVar[str] = "Counts items, refusing in Python."
+    slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
+    structure: ClassVar[tuple[Structural, ...] | None] = ()
+
+    @classmethod
+    def chain(cls, config: RefusingConfig) -> PresetChain:
+        return CountWorkflow.chain(config)
+
+    @classmethod
+    def preflight(cls, config: Any, inputs: Any) -> None:
+        """Refuses nothing, but in Python."""
 
 
 class BrightnessResult(EvaluatorResult[OutliersOutput[Any]]):

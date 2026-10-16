@@ -4,6 +4,12 @@
 
 ### Added
 
+- Preset decomposition for editors (preset decomposition, increments 2–3)
+  - `POST /v1/presets/decompose` prepares a whole candidate pipeline copying a preset entry into a custom workflow,
+    or answers `unsupported` with located reasons; `features.preset_decomposition: 1`
+  - Each preset declares which settings decide its steps (`Preset.structure`); a plugin preset that doesn't is
+    reported as a plugin contract gap
+  - A custom workflow records the preset entry it was decomposed from in `derived_from`, which is historical only
 - `max_processes` setting, `--max-processes` option and `DATAEVAL_MAX_PROCESSES` variable bound DataEval's processes
   - The value is recorded in each result's `resolved_config`
 - `dataeval-flow serve` (new `service` extra, in every image): an HTTP service that queues pipelines and runs them
@@ -261,6 +267,8 @@
     no population of the images or boxes they count, such as `Outliers judged no population: below 20 rows`
   - `audit`'s next steps say Outliers needs at least 20 items in a split
   - An `outliers` result's JSON records which populations were judged, and why not, under `extras.populations`
+- DataEval main is tracked at `e8244ff5`: `drift-domain-classifier` takes `hyperparameters`, LightGBM's settings for
+  its classifier, as `ood-domain-classifier` already does
 - The `dataeval-flow` command writes each task's result files as soon as the task finishes, so a killed run keeps them
   - Each file is replaced whole, so a reader never sees a half-written one
 - Every check's description opens with what it judges, such as "Judges `balance`'s output: …"

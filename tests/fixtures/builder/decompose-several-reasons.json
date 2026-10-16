@@ -1,0 +1,122 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev836+g4f5318838",
+  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+  "request": {
+    "method": "POST",
+    "path": "/v1/presets/decompose",
+    "body": {
+      "pipeline": {
+        "datasets": [
+          {
+            "name": "fixture",
+            "format": "coco",
+            "path": "fixture"
+          }
+        ],
+        "sources": [
+          {
+            "name": "data",
+            "dataset": "fixture"
+          }
+        ],
+        "evaluators": [
+          {
+            "name": "dupes",
+            "type": "duplicates"
+          }
+        ],
+        "workflows": [
+          {
+            "name": "review",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "dupes",
+                "evaluator": "dupes",
+                "input": "data"
+              },
+              {
+                "name": "judge",
+                "check": "image-duplicates",
+                "input": "dupes"
+              }
+            ]
+          },
+          {
+            "name": "c",
+            "type": "example.count"
+          }
+        ],
+        "tasks": [
+          {
+            "name": "review",
+            "workflow": "review",
+            "sources": "data"
+          },
+          {
+            "name": "clean",
+            "workflow": "c",
+            "sources": "data",
+            "matrix": {
+              "minimum": [
+                1,
+                2
+              ]
+            }
+          }
+        ]
+      },
+      "operation": "copy_definition",
+      "target_pointer": "/workflows/1",
+      "new_name": "count_copy",
+      "reassign_tasks": [
+        "clean"
+      ]
+    }
+  },
+  "status": 200,
+  "response": {
+    "schema": 1,
+    "schema_fingerprint": "sha256:a729b50e4670ffef3e43a7b174006d78f7ded85d34c87735be39e242289e87ea",
+    "operation": "copy_definition",
+    "target_pointer": "/workflows/1",
+    "supported_operations": [
+      "copy_definition"
+    ],
+    "status": "unsupported",
+    "reasons": [
+      {
+        "code": "undeclared_structure",
+        "category": "plugin_contract_gap",
+        "message": "Preset type 'example.count' declares no `structure`, so Flow can't say which of its settings decide its steps.",
+        "document_pointer": "/workflows/1",
+        "preset": {
+          "name": "c",
+          "type": "example.count"
+        },
+        "missing_capability": "preset_structure_declaration",
+        "remediation": "The preset's author declares `structure` on its class: a `dataeval_flow.workflows.Structural` per setting that adds or removes steps, or `()` where none does.",
+        "details": {}
+      },
+      {
+        "code": "unsupported_matrix_rewrite",
+        "category": "scope_limit",
+        "message": "Task 'clean' varies `minimum`, a setting of preset 'c'. The copy has no such setting, and Flow doesn't rewrite matrix keys onto the steps a preset expands to.",
+        "document_pointer": "/tasks/1/matrix/minimum",
+        "preset": {
+          "name": "c",
+          "type": "example.count"
+        },
+        "missing_capability": null,
+        "remediation": "Keep task 'clean' on the preset, or take `minimum` out of its matrix before reassigning it.",
+        "details": {
+          "task": "clean",
+          "key": "minimum"
+        }
+      }
+    ]
+  }
+}

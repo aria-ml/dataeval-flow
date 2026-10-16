@@ -9,7 +9,7 @@ from dataeval_flow.evaluators.quality import FactorTriageConfig
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
-from dataeval_flow.workflows._preset import Preset, PresetChain
+from dataeval_flow.workflows._preset import Preset, PresetChain, Structural
 from dataeval_flow.workflows.triage._config import TriageConfig
 
 
@@ -30,6 +30,8 @@ class TriageWorkflow(Preset, Workflow[TriageConfig, ChainResult]):
     title: ClassVar[str] = "Triage"
     description: ClassVar[str] = "Reports unreadable and unpinned metadata factors, with suggested corrections."
     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
+    # No setting decides which steps run.
+    structure: ClassVar[tuple[Structural, ...] | None] = ()
 
     @classmethod
     def chain(cls, config: TriageConfig) -> PresetChain:

@@ -1,0 +1,457 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev836+g4f5318838",
+  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+  "request": {
+    "method": "POST",
+    "path": "/v1/presets/decompose",
+    "body": {
+      "pipeline": {
+        "datasets": [
+          {
+            "name": "fixture",
+            "format": "coco",
+            "path": "fixture"
+          }
+        ],
+        "sources": [
+          {
+            "name": "data",
+            "dataset": "fixture"
+          }
+        ],
+        "evaluators": [
+          {
+            "name": "dupes",
+            "type": "duplicates"
+          }
+        ],
+        "workflows": [
+          {
+            "name": "review",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "dupes",
+                "evaluator": "dupes",
+                "input": "data"
+              },
+              {
+                "name": "judge",
+                "check": "image-duplicates",
+                "input": "dupes"
+              }
+            ]
+          },
+          {
+            "name": "q",
+            "type": "quality",
+            "outliers": {
+              "flags": [
+                "pixel"
+              ],
+              "outlier_threshold": "zscore"
+            }
+          }
+        ],
+        "tasks": [
+          {
+            "name": "review",
+            "workflow": "review",
+            "sources": "data"
+          },
+          {
+            "name": "clean",
+            "workflow": "q",
+            "sources": "data",
+            "matrix": {
+              "outliers.outlier_threshold": [
+                "zscore",
+                "iqr"
+              ]
+            }
+          }
+        ]
+      },
+      "operation": "copy_definition",
+      "target_pointer": "/workflows/1",
+      "new_name": "qc"
+    }
+  },
+  "status": 200,
+  "response": {
+    "schema": 1,
+    "schema_fingerprint": "sha256:a729b50e4670ffef3e43a7b174006d78f7ded85d34c87735be39e242289e87ea",
+    "operation": "copy_definition",
+    "target_pointer": "/workflows/1",
+    "supported_operations": [
+      "copy_definition"
+    ],
+    "status": "ready",
+    "pipeline": {
+      "logging": null,
+      "result": {
+        "name": "result",
+        "formats": [
+          "json",
+          "text",
+          "html"
+        ],
+        "detail": "full",
+        "per_task": false,
+        "fail_on": "failure",
+        "require": null,
+        "width": 80,
+        "max_images": 200,
+        "max_rows": 500,
+        "preview_rows": 10
+      },
+      "seed": null,
+      "deterministic": false,
+      "max_processes": null,
+      "datasets": [
+        {
+          "format": "coco",
+          "name": "fixture",
+          "path": "fixture",
+          "value_range": null,
+          "channel_groups": null,
+          "provenance": null,
+          "annotations_file": null,
+          "images_dir": null
+        }
+      ],
+      "preprocessors": null,
+      "views": null,
+      "metadata": null,
+      "ontologies": null,
+      "stats": null,
+      "sources": [
+        {
+          "name": "data",
+          "dataset": "fixture",
+          "merge": null,
+          "view": null
+        }
+      ],
+      "extractors": null,
+      "exports": null,
+      "workflows": [
+        {
+          "name": "review",
+          "inputs": [
+            "data"
+          ],
+          "steps": [
+            {
+              "name": "dupes",
+              "evaluator": "dupes",
+              "input": "data"
+            },
+            {
+              "name": "judge",
+              "check": "image-duplicates",
+              "input": "dupes"
+            }
+          ]
+        },
+        {
+          "stats": null,
+          "metadata": null,
+          "name": "q",
+          "type": "quality",
+          "ontology": null,
+          "outliers": {
+            "flags": [
+              "pixel"
+            ],
+            "outlier_threshold": "zscore",
+            "cluster_threshold": null,
+            "cluster_algorithm": null,
+            "n_clusters": null
+          },
+          "duplicates": {
+            "flags": null,
+            "merge_near_duplicates": null,
+            "cluster_sensitivity": null,
+            "cluster_algorithm": null,
+            "n_clusters": null
+          },
+          "checks": {
+            "image-outliers": {
+              "warning": 3.0
+            },
+            "target-outliers": {
+              "warning": 3.0
+            },
+            "class-outliers": {
+              "warning": 3.0
+            },
+            "image-duplicates": {
+              "exact": 0.0,
+              "near": 5.0
+            }
+          }
+        },
+        {
+          "name": "qc",
+          "inputs": [
+            "data"
+          ],
+          "steps": [
+            {
+              "name": "outliers",
+              "evaluator": "qc-outliers",
+              "input": "data"
+            },
+            {
+              "name": "label-health",
+              "evaluator": "qc-label-health",
+              "input": "data"
+            },
+            {
+              "name": "outliers-by-class",
+              "combine": "outliers-by-class",
+              "input": "data",
+              "outliers": "outliers"
+            },
+            {
+              "name": "duplicates",
+              "evaluator": "qc-duplicates",
+              "input": "data"
+            },
+            {
+              "name": "image-outliers",
+              "check": "image-outliers",
+              "input": "outliers",
+              "warning": 3.0
+            },
+            {
+              "name": "target-outliers",
+              "check": "target-outliers",
+              "input": "outliers",
+              "labels": "label-health",
+              "warning": 3.0
+            },
+            {
+              "name": "class-outliers",
+              "check": "class-outliers",
+              "input": "outliers-by-class",
+              "warning": 3.0
+            },
+            {
+              "name": "image-duplicates",
+              "check": "image-duplicates",
+              "input": "duplicates",
+              "exact": 0.0,
+              "near": 5.0
+            },
+            {
+              "name": "clean",
+              "transform": "remove",
+              "input": "data",
+              "plans": {
+                "duplicates": {
+                  "dup_types": [
+                    "exact",
+                    "near"
+                  ],
+                  "keep": "first"
+                },
+                "outliers": {
+                  "min_flags": 1
+                }
+              }
+            }
+          ],
+          "derived_from": [
+            {
+              "type": "quality",
+              "entry": "q",
+              "settings": {
+                "stats": null,
+                "metadata": null,
+                "name": "q",
+                "type": "quality",
+                "ontology": null,
+                "outliers": {
+                  "flags": [
+                    "pixel"
+                  ],
+                  "outlier_threshold": "zscore",
+                  "cluster_threshold": null,
+                  "cluster_algorithm": null,
+                  "n_clusters": null
+                },
+                "duplicates": {
+                  "flags": null,
+                  "merge_near_duplicates": null,
+                  "cluster_sensitivity": null,
+                  "cluster_algorithm": null,
+                  "n_clusters": null
+                },
+                "checks": {
+                  "image-outliers": {
+                    "warning": 3.0
+                  },
+                  "target-outliers": {
+                    "warning": 3.0
+                  },
+                  "class-outliers": {
+                    "warning": 3.0
+                  },
+                  "image-duplicates": {
+                    "exact": 0.0,
+                    "near": 5.0
+                  }
+                }
+              },
+              "flow_version": "0.2.3.dev836+g4f5318838"
+            }
+          ]
+        }
+      ],
+      "evaluators": [
+        {
+          "stats": null,
+          "name": "dupes",
+          "type": "duplicates",
+          "cluster_algorithm": null,
+          "n_clusters": null,
+          "per_image": null,
+          "per_target": null,
+          "flags": null,
+          "merge_near_duplicates": null,
+          "hash_radius": null,
+          "cluster_sensitivity": null,
+          "redundancy_radius": null,
+          "min_segment_frames": null,
+          "max_segment_gap": null,
+          "segment_offset_tolerance": null,
+          "verify_alignment": null,
+          "min_track_frames": null,
+          "frame_sample": null
+        },
+        {
+          "stats": null,
+          "name": "qc-outliers",
+          "type": "outliers",
+          "cluster_algorithm": null,
+          "n_clusters": null,
+          "per_image": null,
+          "per_target": true,
+          "flags": [
+            "pixel"
+          ],
+          "outlier_threshold": "zscore",
+          "cluster_threshold": null
+        },
+        {
+          "stats": null,
+          "name": "qc-duplicates",
+          "type": "duplicates",
+          "cluster_algorithm": null,
+          "n_clusters": null,
+          "per_image": null,
+          "per_target": null,
+          "flags": null,
+          "merge_near_duplicates": null,
+          "hash_radius": null,
+          "cluster_sensitivity": null,
+          "redundancy_radius": null,
+          "min_segment_frames": null,
+          "max_segment_gap": null,
+          "segment_offset_tolerance": null,
+          "verify_alignment": null,
+          "min_track_frames": null,
+          "frame_sample": null
+        },
+        {
+          "metadata": null,
+          "name": "qc-label-health",
+          "type": "label-health"
+        }
+      ],
+      "tasks": [
+        {
+          "name": "review",
+          "workflow": "review",
+          "enabled": true,
+          "sources": "data",
+          "extractor": null
+        },
+        {
+          "name": "clean",
+          "workflow": "q",
+          "enabled": true,
+          "sources": "data",
+          "extractor": null,
+          "matrix": {
+            "outliers.outlier_threshold": [
+              "zscore",
+              "iqr"
+            ]
+          }
+        }
+      ]
+    },
+    "valid": true,
+    "diagnostics": [],
+    "names": {
+      "workflow": "qc",
+      "steps": {
+        "outliers": "outliers",
+        "label-health": "label-health",
+        "outliers-by-class": "outliers-by-class",
+        "duplicates": "duplicates",
+        "image-outliers": "image-outliers",
+        "target-outliers": "target-outliers",
+        "class-outliers": "class-outliers",
+        "image-duplicates": "image-duplicates",
+        "clean": "clean"
+      },
+      "evaluators": {
+        "outliers": "qc-outliers",
+        "duplicates": "qc-duplicates",
+        "label-health": "qc-label-health"
+      }
+    },
+    "changes": [
+      {
+        "op": "add",
+        "pointer": "/workflows/2",
+        "summary": "Workflow 'qc', copied from preset 'q' (quality)."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/1",
+        "summary": "Evaluator 'qc-outliers', the copy's own 'outliers'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/2",
+        "summary": "Evaluator 'qc-duplicates', the copy's own 'duplicates'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/3",
+        "summary": "Evaluator 'qc-label-health', the copy's own 'label-health'."
+      }
+    ],
+    "structure": [],
+    "representational_changes": [
+      {
+        "code": "result_type",
+        "pointer": "/workflows/2",
+        "message": "The copy's results carry type 'qc', a custom workflow, where the preset's carry 'quality'."
+      },
+      {
+        "code": "outputs_not_carried",
+        "pointer": "/workflows/2",
+        "message": "Preset 'q' hands `clean` to a workflow running it as a step; a custom workflow can't run as a step, so the copy declares no outputs. Steps running the preset keep it."
+      }
+    ]
+  }
+}

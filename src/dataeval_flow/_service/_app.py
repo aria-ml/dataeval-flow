@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -21,6 +21,7 @@ from dataeval_flow._activity import ACTIVITY_FILE, page, read_events, snapshot
 from dataeval_flow._orchestrator import select_tasks
 from dataeval_flow._runner import _requirement
 from dataeval_flow._service import _contract
+from dataeval_flow._service._decompose import DecomposeAnswer, DecomposeError, DecomposeRequest, prepare
 from dataeval_flow._service._evidence import PAGE_SIZE, Evidence, UnknownItemError
 from dataeval_flow._service._manager import RunManager
 from dataeval_flow._service._resolve import Resolution, resolve
@@ -60,15 +61,14 @@ class RunRequest(BaseModel):
     )
 
 
-def _refused(loc: list[str], message: str) -> HTTPException:
+def _refused(loc: Sequence[str | int], message: str) -> HTTPException:
     """A 422 shaped as FastAPI shapes a model's: where in the request it failed, and why."""
     return HTTPException(422, [{"type": "value_error", "loc": loc, "msg": message}])
 
 
-def _pinned(request: RunRequest) -> None:
+def _pinned(expected: str | None) -> None:
     """Refuse a request pinned to another schema than this service's, before reading its pipeline under this one."""
     actual = _contract.schema_fingerprint()
-    expected = request.expected_schema_fingerprint
     if expected is not None and expected != actual:
         raise _contract.ContractError(
             409,
@@ -79,13 +79,13 @@ def _pinned(request: RunRequest) -> None:
         )
 
 
-def _parsed(request: RunRequest) -> PipelineConfig:
-    """`request`'s pipeline, checked as a config file is; a 422 locates what it refuses as FastAPI does.
+def _parsed(document: dict[str, Any]) -> PipelineConfig:
+    """A request's `pipeline`, checked as a config file is; a 422 locates what it refuses as FastAPI does.
 
     Whether its workflows connect is left for the caller to check and locate (builder spec §5.1).
     """
     try:
-        return PipelineConfig.model_validate(request.pipeline, context={"graphs": False})
+        return PipelineConfig.model_validate(document, context={"graphs": False})
     except ValidationError as error:
         problems = [
             {**problem, "loc": ("body", "pipeline", *problem["loc"])} for problem in error.errors(include_url=False)
@@ -113,8 +113,8 @@ def _selected(request: RunRequest, pipeline: PipelineConfig) -> list[TaskConfig]
 def _resolved(request: RunRequest) -> tuple[PipelineConfig, list[TaskConfig], Resolution]:
     """A request's pipeline, its tasks, and its graphs resolved: what `/validate`, `/resolve` and `/runs` share
     (builder spec §5.1). Its graphs are checked here rather than as it loads, so each problem is located."""
-    _pinned(request)
-    pipeline = _parsed(request)
+    _pinned(request.expected_schema_fingerprint)
+    pipeline = _parsed(request.pipeline)
     tasks = _selected(request, pipeline)
     return pipeline, tasks, resolve(pipeline, tasks)
 
@@ -253,6 +253,7 @@ def create_app(  # noqa: C901 - one nested route per endpoint
                 "builder_metadata": 1,
                 "graph_resolution": 1,
                 "step_activity": 1,
+                "preset_decomposition": 1,
             },
             "limits": {
                 "page_size": PAGE_SIZE,
@@ -296,6 +297,17 @@ def create_app(  # noqa: C901 - one nested route per endpoint
             "workflows": resolution.workflows,
             "diagnostics": resolution.diagnostics,
         }
+
+    @app.post("/v1/presets/decompose", tags=["builder"])
+    def decompose(request: DecomposeRequest) -> DecomposeAnswer:
+        """Prepare a preset's decomposition without reading data, storing or queueing anything: the whole candidate
+        pipeline to apply as one edit, or every reason there can't be one (preset decomposition spec §5)."""
+        _pinned(request.expected_schema_fingerprint)
+        pipeline = _parsed(request.pipeline)
+        try:
+            return prepare(pipeline, request)
+        except DecomposeError as error:
+            raise _refused(error.loc, str(error)) from None
 
     @app.post("/v1/runs", status_code=202, tags=["runs"])
     def submit(request: RunRequest) -> dict[str, Any]:

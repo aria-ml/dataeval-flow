@@ -10,7 +10,7 @@ from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
-from dataeval_flow.workflows._preset import Preset, PresetChain
+from dataeval_flow.workflows._preset import Preset, PresetChain, Structural
 from dataeval_flow.workflows.prioritization._config import PrioritizationWorkflowConfig
 
 
@@ -34,6 +34,8 @@ class PrioritizationWorkflow(Preset, Workflow[PrioritizationWorkflowConfig, Chai
         "reference",
         InputSlot.model_validate({"name": "pools", "list": True}),
     )
+    # No setting decides which steps run.
+    structure: ClassVar[tuple[Structural, ...] | None] = ()
     outputs: ClassVar[tuple[Port, ...]] = (Port("selected", DataType.DATASET),)
 
     @classmethod

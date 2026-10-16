@@ -104,3 +104,15 @@ def test_checks_hold_the_drift_check_s_fields() -> None:
 def test_load_refuses(settings: dict[str, Any], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         _config(**settings)
+
+
+def test_the_domain_classifier_s_hyperparameters_reach_dataeval() -> None:
+    from dataeval.shift import DriftDomainClassifier
+
+    from dataeval_flow.evaluators._fields import dataeval_arguments
+
+    settings = {"num_leaves": 4, "max_depth": 2}
+    config = DriftDomainClassifierConfig(name="dc", hyperparameters=settings)
+    detector = DriftDomainClassifier(**dataeval_arguments(config))
+    assert detector.config.hyperparameters == settings
+    assert "hyperparameters" not in dataeval_arguments(DriftDomainClassifierConfig(name="dc"))

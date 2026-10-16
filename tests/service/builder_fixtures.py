@@ -8,7 +8,8 @@ import json
 import re
 import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -211,6 +212,130 @@ def _validate_located_422(client: Any) -> dict[str, Any]:
     return exchange(client, "POST", "/v1/validate", {"pipeline": _unknown_address()})
 
 
+_QUALITY_ENTRY = {"name": "q", "type": "quality", "outliers": {"flags": ["pixel"], "outlier_threshold": "zscore"}}
+_PLUGIN_ENTRIES = {
+    "dataeval_flow.workflows": [
+        ("example.count", "tests.example_plugin:CountWorkflow"),
+        ("example.refusing", "tests.example_plugin:RefusingWorkflow"),
+    ],
+    "dataeval_flow.combines": [("example.items", "tests.example_plugin:ItemsCombine")],
+    "dataeval_flow.checks": [("example.at-least", "tests.example_plugin:AtLeastCheck")],
+    "dataeval_flow.evaluators": [("example.brightness", "tests.example_plugin:BrightnessEvaluator")],
+    "dataeval_flow.extractors": [("example.mean", "tests.example_plugin:MeanExtractor")],
+    "dataeval_flow.image_transforms": [("example.Invert", "tests.example_plugin:Invert")],
+}  # as tests/test_example_plugin.py::EXAMPLES
+
+
+@contextmanager
+def _example_plugin() -> Iterator[None]:
+    """Serve the example plugin's entry points for one exchange (as tests/conftest.py::plugins does)."""
+    from importlib.metadata import EntryPoint
+
+    import dataeval_flow._registry as registry_module
+    from dataeval_flow.config.extractors._registry import EXTRACTORS
+    from dataeval_flow.config.image_transforms._registry import IMAGE_TRANSFORMS
+    from dataeval_flow.evaluators._registry import EVALUATORS
+    from dataeval_flow.steps._registry import CHECKS, COMBINES, TRANSFORMS
+    from dataeval_flow.workflows._registry import WORKFLOWS
+
+    registries = [WORKFLOWS, EVALUATORS, EXTRACTORS, IMAGE_TRANSFORMS, TRANSFORMS, COMBINES, CHECKS]
+
+    def entry_points(*, group: str) -> list[EntryPoint]:
+        return [EntryPoint(name=name, value=value, group=group) for name, value in _PLUGIN_ENTRIES.get(group, [])]
+
+    original = registry_module.entry_points
+    registry_module.entry_points = entry_points
+    for registry in registries:
+        registry._reset()
+    try:
+        yield
+    finally:
+        registry_module.entry_points = original
+        for registry in registries:
+            registry._reset()
+
+
+def _with_preset(entry: dict[str, Any], *, evaluators: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """`fixture_pipeline()` plus a preset entry run by a task named `clean`."""
+    pipeline = fixture_pipeline()
+    pipeline["evaluators"].extend(evaluators or [])
+    pipeline["workflows"].append(entry)
+    pipeline["tasks"].append({"name": "clean", "workflow": entry["name"], "sources": "data"})
+    return pipeline
+
+
+def _decompose(client: Any, pipeline: dict[str, Any], **request: Any) -> dict[str, Any]:
+    body = {"pipeline": pipeline, "operation": "copy_definition", "target_pointer": "/workflows/1", **request}
+    return exchange(client, "POST", "/v1/presets/decompose", body)
+
+
+def _decompose_copy_quality(client: Any) -> dict[str, Any]:
+    pipeline = _with_preset(
+        _QUALITY_ENTRY, evaluators=[{"name": "qc-outliers", "type": "outliers", "flags": ["visual"]}]
+    )
+    return _decompose(client, pipeline, new_name="qc", reassign_tasks=["clean"])
+
+
+def _decompose_copy_audit(client: Any) -> dict[str, Any]:
+    audit = {"name": "a", "type": "audit", "outliers": _QUALITY_ENTRY["outliers"]}
+    return _decompose(client, _with_preset(audit), new_name="audit_copy")
+
+
+def _decompose_copy_splits(client: Any) -> dict[str, Any]:
+    return _decompose(client, _with_preset({"name": "s", "type": "splits", "folds": 2}), new_name="splits_copy")
+
+
+def _sweeping() -> dict[str, Any]:
+    pipeline = _with_preset(_QUALITY_ENTRY)
+    pipeline["tasks"][1]["matrix"] = {"outliers.outlier_threshold": ["zscore", "iqr"]}
+    return pipeline
+
+
+def _decompose_copy_keeps_matrix(client: Any) -> dict[str, Any]:
+    return _decompose(client, _sweeping(), new_name="qc")
+
+
+def _decompose_matrix_refused(client: Any) -> dict[str, Any]:
+    return _decompose(client, _sweeping(), new_name="qc", reassign_tasks=["clean"])
+
+
+def _decompose_inline_unavailable(client: Any) -> dict[str, Any]:
+    pipeline = _with_preset(_QUALITY_ENTRY)
+    pipeline["workflows"].append(
+        {"name": "outer", "inputs": ["data"], "steps": [{"name": "c", "workflow": "q", "input": "data"}]}
+    )
+    return _decompose(client, pipeline, operation="inline_step", target_pointer="/workflows/2/steps/0")
+
+
+def _decompose_not_a_preset(client: Any) -> dict[str, Any]:
+    return _decompose(client, fixture_pipeline(), target_pointer="/workflows/0", new_name="qc")
+
+
+def _decompose_name_taken(client: Any) -> dict[str, Any]:
+    return _decompose(client, _with_preset(_QUALITY_ENTRY), new_name="review")
+
+
+def _decompose_plugin_gap(client: Any) -> dict[str, Any]:
+    with _example_plugin():
+        return _decompose(client, _with_preset({"name": "c", "type": "example.count"}), new_name="count_copy")
+
+
+def _decompose_plugin_preflight(client: Any) -> dict[str, Any]:
+    with _example_plugin():
+        return _decompose(client, _with_preset({"name": "r", "type": "example.refusing"}), new_name="refusing_copy")
+
+
+def _decompose_several_reasons(client: Any) -> dict[str, Any]:
+    pipeline = _with_preset({"name": "c", "type": "example.count"})
+    pipeline["tasks"][1]["matrix"] = {"minimum": [1, 2]}
+    with _example_plugin():
+        return _decompose(client, pipeline, new_name="count_copy", reassign_tasks=["clean"])
+
+
+def _decompose_reassign_unknown_task(client: Any) -> dict[str, Any]:
+    return _decompose(client, _with_preset(_QUALITY_ENTRY), new_name="qc", reassign_tasks=["clean", "nope"])
+
+
 GENERATORS: dict[str, Callable[[Any], dict[str, Any]]] = {
     "capabilities-sample": _capabilities,
     "schema-changed": _schema_changed,
@@ -228,6 +353,18 @@ GENERATORS: dict[str, Callable[[Any], dict[str, Any]]] = {
     "resolve-unattached-workflow": _resolve_unattached_workflow,
     "resolve-too-many-nodes": _resolve_too_many_nodes,
     "validate-located-422": _validate_located_422,
+    "decompose-copy-quality": _decompose_copy_quality,
+    "decompose-copy-audit": _decompose_copy_audit,
+    "decompose-copy-splits": _decompose_copy_splits,
+    "decompose-copy-keeps-matrix": _decompose_copy_keeps_matrix,
+    "decompose-matrix-refused": _decompose_matrix_refused,
+    "decompose-inline-unavailable": _decompose_inline_unavailable,
+    "decompose-not-a-preset": _decompose_not_a_preset,
+    "decompose-name-taken": _decompose_name_taken,
+    "decompose-plugin-gap": _decompose_plugin_gap,
+    "decompose-plugin-preflight": _decompose_plugin_preflight,
+    "decompose-several-reasons": _decompose_several_reasons,
+    "decompose-reassign-unknown-task": _decompose_reassign_unknown_task,
 }
 
 

@@ -1,17 +1,17 @@
 {
   "generated_by": "uv run python -m tests.service.builder_fixtures",
-  "flow_version": "0.2.3.dev798+g03157bb1c",
-  "dataeval_version": "1.1.1.dev161+gaf8148b30",
+  "flow_version": "0.2.3.dev836+g4f5318838",
+  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
   "request": {
     "method": "GET",
-    "path": "/v1/runs/ee74f0f0-f2bc-42e6-9ec9-a5be460f9f71/activity",
+    "path": "/v1/runs/be30ab3d-5bb2-4a09-800c-cb1f6f4e6e0a/activity",
     "body": null
   },
   "status": 200,
   "response": {
     "schema": 1,
-    "run_id": "ee74f0f0-f2bc-42e6-9ec9-a5be460f9f71",
-    "schema_fingerprint": "sha256:e4e7831b2624e5a9dbd9ef1bb0b5ff16410152fc2bbbdd32ee586f227f8593b8",
+    "run_id": "be30ab3d-5bb2-4a09-800c-cb1f6f4e6e0a",
+    "schema_fingerprint": "sha256:a729b50e4670ffef3e43a7b174006d78f7ded85d34c87735be39e242289e87ea",
     "sequence": 12,
     "first_available_sequence": 1,
     "run_status": "succeeded",
@@ -19,8 +19,8 @@
       {
         "task": "review",
         "status": "ok",
-        "started_at": 1792046508.7439806,
-        "finished_at": 1792046509.0654242,
+        "started_at": 1792161035.2700365,
+        "finished_at": 1792161035.6010783,
         "reason": null
       }
     ],
@@ -35,11 +35,11 @@
         ],
         "instances": [],
         "status": "ok",
-        "started_at": 1792046509.0096905,
-        "finished_at": 1792046509.0453775,
+        "started_at": 1792161035.5424569,
+        "finished_at": 1792161035.579691,
         "reason": null,
         "not_assessed": null,
-        "elapsed_s": 0.036,
+        "elapsed_s": 0.037,
         "elements": null
       },
       {
@@ -52,8 +52,8 @@
         ],
         "instances": [],
         "status": "ok",
-        "started_at": 1792046509.0454452,
-        "finished_at": 1792046509.0457344,
+        "started_at": 1792161035.5798154,
+        "finished_at": 1792161035.5801504,
         "reason": null,
         "not_assessed": null,
         "elapsed_s": 0.0,

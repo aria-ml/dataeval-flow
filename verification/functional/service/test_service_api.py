@@ -105,6 +105,7 @@ class TestInterfaceDescription:
             "schema": 1,
             "builder_metadata": 1,
             "graph_resolution": 1,
+            "preset_decomposition": 1,
             "step_activity": 1,
         }
         assert capabilities["limits"] == {

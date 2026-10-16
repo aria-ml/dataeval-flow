@@ -1,7 +1,7 @@
 {
   "generated_by": "uv run python -m tests.service.builder_fixtures",
-  "flow_version": "0.2.3.dev798+g03157bb1c",
-  "dataeval_version": "1.1.1.dev161+gaf8148b30",
+  "flow_version": "0.2.3.dev836+g4f5318838",
+  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
   "request": {
     "method": "GET",
     "path": "/v1/capabilities",
@@ -10,9 +10,9 @@
   "status": 200,
   "response": {
     "api_version": 1,
-    "flow_version": "0.2.3.dev798+g03157bb1c",
-    "dataeval_version": "1.1.1.dev161+gaf8148b30",
-    "schema_fingerprint": "sha256:e4e7831b2624e5a9dbd9ef1bb0b5ff16410152fc2bbbdd32ee586f227f8593b8",
+    "flow_version": "0.2.3.dev836+g4f5318838",
+    "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+    "schema_fingerprint": "sha256:a729b50e4670ffef3e43a7b174006d78f7ded85d34c87735be39e242289e87ea",
     "max_active_runs": 1,
     "features": {
       "items": 1,
@@ -21,7 +21,8 @@
       "schema": 1,
       "builder_metadata": 1,
       "graph_resolution": 1,
-      "step_activity": 1
+      "step_activity": 1,
+      "preset_decomposition": 1
     },
     "limits": {
       "page_size": 100,
@@ -31,8 +32,8 @@
     },
     "steps": {
       "format": 1,
-      "flow_version": "0.2.3.dev798+g03157bb1c",
-      "dataeval_version": "1.1.1.dev161+gaf8148b30",
+      "flow_version": "0.2.3.dev836+g4f5318838",
+      "dataeval_version": "1.1.1.dev185+ge8244ff5b",
       "data_types": [
         "dataset",
         "output",

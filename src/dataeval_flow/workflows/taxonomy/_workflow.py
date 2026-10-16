@@ -13,7 +13,7 @@ from dataeval_flow.evaluators.scope import (
 from dataeval_flow.steps._result import ChainResult
 from dataeval_flow.steps._workflow import InputSlot
 from dataeval_flow.workflows._base import Workflow
-from dataeval_flow.workflows._preset import Preset, PresetChain
+from dataeval_flow.workflows._preset import Preset, PresetChain, Structural
 from dataeval_flow.workflows.taxonomy._config import TaxonomyConfig
 
 
@@ -41,6 +41,8 @@ class TaxonomyWorkflow(Preset, Workflow[TaxonomyConfig, ChainResult]):
         "Judges a Dataset's labels against a declared ontology: leaf coverage, conformance, alignment and structure."
     )
     slots: ClassVar[tuple[str | InputSlot, ...]] = ("data",)
+    # No setting decides which steps run.
+    structure: ClassVar[tuple[Structural, ...] | None] = ()
 
     @classmethod
     def chain(cls, config: TaxonomyConfig) -> PresetChain:
