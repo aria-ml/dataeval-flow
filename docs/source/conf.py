@@ -53,6 +53,8 @@ exclude_patterns = [
     "data",
     "models",
     "conf.py",
+    # Utility script that downloads the notebook datasets, not a notebook
+    "data.py",
 ]
 
 suppress_warnings = ["ref.python", "autoapi.python_import_resolution"]

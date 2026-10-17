@@ -293,6 +293,16 @@ def docsync(session: nox.Session) -> None:
 
 
 @nox_uv.session(uv_groups=["docs"], uv_extras=UV_EXTRAS_WITH_ONNX_AND_OPENCV)
+def docs_data(session: nox.Session) -> None:
+    """Download the datasets the docs notebooks use, without building the docs.
+
+    The docs CI jobs run this to fill the Harbor dataset cache (docs/harbor-datasets-cache.sh).
+    The list of datasets is docs/source/data.py.
+    """
+    session.run("python", "docs/source/data.py")
+
+
+@nox_uv.session(uv_groups=["docs"], uv_extras=UV_EXTRAS_WITH_ONNX_AND_OPENCV)
 def docs(session: nox.Session) -> None:
     """Build Sphinx documentation.
 
