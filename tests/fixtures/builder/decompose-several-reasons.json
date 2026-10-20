@@ -1,6 +1,6 @@
 {
   "generated_by": "uv run python -m tests.service.builder_fixtures",
-  "flow_version": "0.2.3.dev836+g4f5318838",
+  "flow_version": "0.2.3.dev827+g28c774971",
   "dataeval_version": "1.1.1.dev185+ge8244ff5b",
   "request": {
     "method": "POST",
@@ -80,11 +80,12 @@
   "status": 200,
   "response": {
     "schema": 1,
-    "schema_fingerprint": "sha256:a729b50e4670ffef3e43a7b174006d78f7ded85d34c87735be39e242289e87ea",
+    "schema_fingerprint": "sha256:8ace26058ee05c889e077d31e0978a84104c6febe7e56140324cb7c18586c042",
     "operation": "copy_definition",
     "target_pointer": "/workflows/1",
     "supported_operations": [
-      "copy_definition"
+      "copy_definition",
+      "inline_step"
     ],
     "status": "unsupported",
     "reasons": [

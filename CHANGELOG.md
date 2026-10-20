@@ -10,6 +10,10 @@
   - Each preset declares which settings decide its steps (`Preset.structure`); a plugin preset that doesn't is
     reported as a plugin contract gap
   - A custom workflow records the preset entry it was decomposed from in `derived_from`, which is historical only
+  - `inline_step` replaces one preset step with that preset's steps, as ordinary steps of the workflow running it;
+    downstream reads of the step's outputs follow, and the preset entry and its other uses stay
+  - A custom workflow's `scopes:` judge some of its steps together, on their own bound inputs, as a preset run as a
+    step judged its own: an inlined audit keeps its verdict, preflight and record that way
 - `max_processes` setting, `--max-processes` option and `DATAEVAL_MAX_PROCESSES` variable bound DataEval's processes
   - The value is recorded in each result's `resolved_config`
 - `dataeval-flow serve` (new `service` extra, in every image): an HTTP service that queues pipelines and runs them

@@ -1,0 +1,1443 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev827+g28c774971",
+  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+  "request": {
+    "method": "POST",
+    "path": "/v1/presets/decompose",
+    "body": {
+      "pipeline": {
+        "datasets": [
+          {
+            "name": "fixture",
+            "format": "coco",
+            "path": "fixture"
+          }
+        ],
+        "sources": [
+          {
+            "name": "data",
+            "dataset": "fixture"
+          }
+        ],
+        "evaluators": [
+          {
+            "name": "dupes",
+            "type": "duplicates"
+          }
+        ],
+        "workflows": [
+          {
+            "name": "review",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "dupes",
+                "evaluator": "dupes",
+                "input": "data"
+              },
+              {
+                "name": "judge",
+                "check": "image-duplicates",
+                "input": "dupes"
+              }
+            ]
+          },
+          {
+            "name": "splitting",
+            "type": "splits"
+          },
+          {
+            "name": "release",
+            "type": "audit",
+            "outliers": {
+              "flags": [
+                "pixel"
+              ],
+              "outlier_threshold": "zscore"
+            }
+          },
+          {
+            "name": "outer",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "splits",
+                "workflow": "splitting",
+                "input": "data"
+              },
+              {
+                "name": "evals",
+                "transform": "collect",
+                "input": [
+                  "splits.val",
+                  "splits.test"
+                ]
+              },
+              {
+                "name": "audit",
+                "workflow": "release",
+                "input": [
+                  "splits.train",
+                  "evals"
+                ]
+              }
+            ]
+          }
+        ],
+        "tasks": [
+          {
+            "name": "review",
+            "workflow": "review",
+            "sources": "data"
+          },
+          {
+            "name": "clean",
+            "workflow": "splitting",
+            "sources": "data"
+          }
+        ]
+      },
+      "operation": "inline_step",
+      "target_pointer": "/workflows/3/steps/2"
+    }
+  },
+  "status": 200,
+  "response": {
+    "schema": 1,
+    "schema_fingerprint": "sha256:8ace26058ee05c889e077d31e0978a84104c6febe7e56140324cb7c18586c042",
+    "operation": "inline_step",
+    "target_pointer": "/workflows/3/steps/2",
+    "supported_operations": [
+      "copy_definition",
+      "inline_step"
+    ],
+    "status": "ready",
+    "pipeline": {
+      "logging": null,
+      "result": {
+        "name": "result",
+        "formats": [
+          "json",
+          "text",
+          "html"
+        ],
+        "detail": "full",
+        "per_task": false,
+        "fail_on": "failure",
+        "require": null,
+        "width": 80,
+        "max_images": 200,
+        "max_rows": 500,
+        "preview_rows": 10
+      },
+      "seed": null,
+      "deterministic": false,
+      "max_processes": null,
+      "datasets": [
+        {
+          "format": "coco",
+          "name": "fixture",
+          "path": "fixture",
+          "value_range": null,
+          "channel_groups": null,
+          "provenance": null,
+          "annotations_file": null,
+          "images_dir": null
+        }
+      ],
+      "preprocessors": null,
+      "views": null,
+      "metadata": null,
+      "ontologies": null,
+      "stats": null,
+      "sources": [
+        {
+          "name": "data",
+          "dataset": "fixture",
+          "merge": null,
+          "view": null
+        }
+      ],
+      "extractors": null,
+      "exports": null,
+      "workflows": [
+        {
+          "name": "review",
+          "inputs": [
+            "data"
+          ],
+          "steps": [
+            {
+              "name": "dupes",
+              "evaluator": "dupes",
+              "input": "data"
+            },
+            {
+              "name": "judge",
+              "check": "image-duplicates",
+              "input": "dupes"
+            }
+          ]
+        },
+        {
+          "metadata": null,
+          "name": "splitting",
+          "type": "splits",
+          "ontology": null,
+          "folds": 1,
+          "test_frac": 0.2,
+          "val_frac": null,
+          "stratify": true,
+          "split_on": null,
+          "rebalance": null,
+          "checks": {
+            "class-stratification": {
+              "info": 2.0,
+              "warning": 10.0
+            }
+          }
+        },
+        {
+          "stats": null,
+          "metadata": null,
+          "name": "release",
+          "type": "audit",
+          "ontology": null,
+          "outliers": {
+            "flags": [
+              "pixel"
+            ],
+            "outlier_threshold": "zscore",
+            "cluster_threshold": null,
+            "cluster_algorithm": null,
+            "n_clusters": null
+          },
+          "coverage": {
+            "method": null,
+            "percent": null,
+            "num_observations": null,
+            "min_class_samples": null,
+            "isotropy_min_samples": null,
+            "near_duplicate_factor": null
+          },
+          "wrap": {
+            "params": {
+              "padding": 0.0,
+              "min_size": 1
+            }
+          },
+          "factor-gaps": {
+            "mi_threshold": 0.1,
+            "min_representation": 5
+          },
+          "factor-leakage": null,
+          "diversity": {
+            "method": null
+          },
+          "divergence": {
+            "method": "mst"
+          },
+          "ood-kneighbors": {
+            "k": null,
+            "distance_metric": null,
+            "threshold_perc": null
+          },
+          "blocking": [
+            "leakage",
+            "untrained-classes"
+          ],
+          "accepted": {},
+          "checks": {
+            "image-outliers": {
+              "warning": 3.0
+            },
+            "image-duplicates": {
+              "exact": 0.0,
+              "near": 5.0
+            },
+            "factor-issues": {
+              "max_examples": 20
+            },
+            "class-imbalance": {
+              "warning": 5.0,
+              "info": null,
+              "empty": true
+            },
+            "class-sufficiency": {
+              "train": 20,
+              "eval": 30
+            },
+            "untrained-classes": {
+              "declared": false
+            },
+            "label-conformance": {
+              "warning": 0
+            },
+            "class-coverage": {
+              "dispersion": 0.5,
+              "isotropy": 0.5,
+              "near_duplicates": 0.1
+            },
+            "uncovered-items": {
+              "warning": 10.0
+            },
+            "dimensional-completeness": {
+              "warning": 0.5,
+              "info": 0.8
+            },
+            "factor-coverage-gaps": {
+              "warning": 2
+            },
+            "shortcut-risk": {
+              "warning": 0.1
+            },
+            "leakage": {
+              "exact": 0,
+              "near": 0,
+              "groups": 0
+            },
+            "eval-coverage": {
+              "warning": 9.0,
+              "info": 1.0
+            },
+            "class-stratification": {
+              "info": 2.0,
+              "warning": 10.0
+            },
+            "embedding-divergence": {
+              "warning": 0.5,
+              "info": 0.2
+            }
+          }
+        },
+        {
+          "name": "outer",
+          "inputs": [
+            "data"
+          ],
+          "steps": [
+            {
+              "name": "splits",
+              "workflow": "splitting",
+              "input": "data"
+            },
+            {
+              "name": "evals",
+              "transform": "collect",
+              "input": [
+                "splits.val",
+                "splits.test"
+              ]
+            },
+            {
+              "name": "audit-label-health-train",
+              "evaluator": "outer-audit-label-health",
+              "input": "splits.train"
+            },
+            {
+              "name": "audit-label-health-evals",
+              "evaluator": "outer-audit-label-health",
+              "input": "evals"
+            },
+            {
+              "name": "audit-class-imbalance-train",
+              "check": "class-imbalance",
+              "input": "audit-label-health-train",
+              "warning": 5.0,
+              "info": null,
+              "empty": true
+            },
+            {
+              "name": "audit-class-imbalance-evals",
+              "check": "class-imbalance",
+              "input": "audit-label-health-evals",
+              "warning": 5.0,
+              "info": null,
+              "empty": true
+            },
+            {
+              "name": "audit-outliers-train",
+              "evaluator": "outer-audit-outliers",
+              "input": "splits.train"
+            },
+            {
+              "name": "audit-outliers-evals",
+              "evaluator": "outer-audit-outliers",
+              "input": "evals"
+            },
+            {
+              "name": "audit-image-outliers-train",
+              "check": "image-outliers",
+              "input": "audit-outliers-train",
+              "warning": 3.0
+            },
+            {
+              "name": "audit-image-outliers-evals",
+              "check": "image-outliers",
+              "input": "audit-outliers-evals",
+              "warning": 3.0
+            },
+            {
+              "name": "audit-duplicates-train",
+              "evaluator": "outer-audit-duplicates",
+              "input": "splits.train"
+            },
+            {
+              "name": "audit-duplicates-evals",
+              "evaluator": "outer-audit-duplicates",
+              "input": "evals"
+            },
+            {
+              "name": "audit-image-duplicates-train",
+              "check": "image-duplicates",
+              "input": "audit-duplicates-train",
+              "exact": 0.0,
+              "near": 5.0
+            },
+            {
+              "name": "audit-image-duplicates-evals",
+              "check": "image-duplicates",
+              "input": "audit-duplicates-evals",
+              "exact": 0.0,
+              "near": 5.0
+            },
+            {
+              "name": "audit-factor-triage-train",
+              "evaluator": "outer-audit-factor-triage",
+              "input": "splits.train"
+            },
+            {
+              "name": "audit-factor-triage-evals",
+              "evaluator": "outer-audit-factor-triage",
+              "input": "evals"
+            },
+            {
+              "name": "audit-factor-issues-train",
+              "check": "factor-issues",
+              "input": "audit-factor-triage-train",
+              "max_examples": 20
+            },
+            {
+              "name": "audit-factor-issues-evals",
+              "check": "factor-issues",
+              "input": "audit-factor-triage-evals",
+              "max_examples": 20
+            },
+            {
+              "name": "audit-content-digest-train",
+              "evaluator": "outer-audit-content-digest",
+              "input": "splits.train"
+            },
+            {
+              "name": "audit-content-digest-evals",
+              "evaluator": "outer-audit-content-digest",
+              "input": "evals"
+            },
+            {
+              "name": "audit-ood-kneighbors",
+              "evaluator": "outer-audit-ood-kneighbors",
+              "input": [
+                "splits.train",
+                "evals"
+              ],
+              "optional": true
+            },
+            {
+              "name": "audit-eval-coverage",
+              "check": "eval-coverage",
+              "input": "audit-ood-kneighbors",
+              "warning": 9.0,
+              "info": 1.0
+            },
+            {
+              "name": "audit-divergence",
+              "evaluator": "outer-audit-divergence",
+              "input": [
+                "splits.train",
+                "evals"
+              ],
+              "optional": true
+            },
+            {
+              "name": "audit-embedding-divergence",
+              "check": "embedding-divergence",
+              "input": "audit-divergence",
+              "warning": 0.5,
+              "info": 0.2
+            },
+            {
+              "name": "audit-duplicates-cross",
+              "evaluator": "outer-audit-duplicates",
+              "input": [
+                "splits.train",
+                "evals"
+              ]
+            },
+            {
+              "name": "audit-duplicates-pairs",
+              "evaluator": "outer-audit-duplicates",
+              "input": "evals",
+              "pairs": true
+            },
+            {
+              "name": "audit-leakage",
+              "check": "leakage",
+              "duplicates": [
+                "audit-duplicates-cross",
+                "audit-duplicates-pairs"
+              ],
+              "exact": 0,
+              "near": 0,
+              "groups": 0
+            },
+            {
+              "name": "audit-class-sufficiency",
+              "check": "class-sufficiency",
+              "input": "audit-label-health-train",
+              "evals": "audit-label-health-evals",
+              "train": 20,
+              "eval": 30
+            },
+            {
+              "name": "audit-untrained-classes",
+              "check": "untrained-classes",
+              "input": "audit-label-health-train",
+              "evals": "audit-label-health-evals",
+              "declared": false
+            },
+            {
+              "name": "audit-class-stratification",
+              "check": "class-stratification",
+              "input": "audit-label-health-train",
+              "parts": "audit-label-health-evals",
+              "info": 2.0,
+              "warning": 10.0
+            },
+            {
+              "name": "audit-crops",
+              "transform": "wrap",
+              "input": "splits.train",
+              "wrapper": "DetectionCrops",
+              "params": {
+                "padding": 0.0,
+                "min_size": 1
+              },
+              "other_kinds": "pass"
+            },
+            {
+              "name": "audit-coverage",
+              "evaluator": "outer-audit-coverage",
+              "input": "audit-crops",
+              "optional": true
+            },
+            {
+              "name": "audit-class-coverage",
+              "check": "class-coverage",
+              "input": "audit-coverage",
+              "dispersion": 0.5,
+              "isotropy": 0.5,
+              "near_duplicates": 0.1
+            },
+            {
+              "name": "audit-completeness",
+              "evaluator": "outer-audit-completeness",
+              "input": "audit-crops",
+              "optional": true
+            },
+            {
+              "name": "audit-dimensional-completeness",
+              "check": "dimensional-completeness",
+              "input": "audit-completeness",
+              "warning": 0.5,
+              "info": 0.8
+            },
+            {
+              "name": "audit-factor-summary",
+              "evaluator": "outer-audit-factor-summary",
+              "input": "splits.train"
+            },
+            {
+              "name": "audit-balance",
+              "evaluator": "outer-audit-balance",
+              "input": "splits.train",
+              "optional": true
+            },
+            {
+              "name": "audit-diversity",
+              "evaluator": "outer-audit-diversity",
+              "input": "splits.train",
+              "optional": true
+            },
+            {
+              "name": "audit-shortcut-risk",
+              "check": "shortcut-risk",
+              "input": "audit-balance",
+              "warning": 0.1
+            },
+            {
+              "name": "audit-factor-gaps",
+              "combine": "factor-gaps",
+              "input": "splits.train",
+              "optional": true,
+              "balance": "audit-balance",
+              "metadata": null,
+              "mi_threshold": 0.1,
+              "min_representation": 5
+            },
+            {
+              "name": "audit-factor-coverage-gaps",
+              "check": "factor-coverage-gaps",
+              "input": "audit-factor-gaps",
+              "warning": 2
+            }
+          ],
+          "scopes": [
+            {
+              "name": "audit",
+              "inputs": {
+                "train": "splits.train",
+                "evals": "evals"
+              },
+              "steps": [
+                "audit-label-health-train",
+                "audit-label-health-evals",
+                "audit-class-imbalance-train",
+                "audit-class-imbalance-evals",
+                "audit-outliers-train",
+                "audit-outliers-evals",
+                "audit-image-outliers-train",
+                "audit-image-outliers-evals",
+                "audit-duplicates-train",
+                "audit-duplicates-evals",
+                "audit-image-duplicates-train",
+                "audit-image-duplicates-evals",
+                "audit-factor-triage-train",
+                "audit-factor-triage-evals",
+                "audit-factor-issues-train",
+                "audit-factor-issues-evals",
+                "audit-content-digest-train",
+                "audit-content-digest-evals",
+                "audit-ood-kneighbors",
+                "audit-eval-coverage",
+                "audit-divergence",
+                "audit-embedding-divergence",
+                "audit-duplicates-cross",
+                "audit-duplicates-pairs",
+                "audit-leakage",
+                "audit-class-sufficiency",
+                "audit-untrained-classes",
+                "audit-class-stratification",
+                "audit-crops",
+                "audit-coverage",
+                "audit-class-coverage",
+                "audit-completeness",
+                "audit-dimensional-completeness",
+                "audit-factor-summary",
+                "audit-balance",
+                "audit-diversity",
+                "audit-shortcut-risk",
+                "audit-factor-gaps",
+                "audit-factor-coverage-gaps"
+              ],
+              "groups": [
+                {
+                  "heading": "Is the data clean?",
+                  "checks": [
+                    "image-outliers",
+                    "image-duplicates",
+                    "factor-issues"
+                  ]
+                },
+                {
+                  "heading": "Are the labels sound?",
+                  "checks": [
+                    "class-imbalance",
+                    "class-sufficiency",
+                    "untrained-classes"
+                  ]
+                },
+                {
+                  "heading": "Does the data cover what the model must handle?",
+                  "checks": [
+                    "class-coverage",
+                    "dimensional-completeness",
+                    "factor-coverage-gaps"
+                  ],
+                  "evidence": [
+                    "factor-summary",
+                    "diversity"
+                  ]
+                },
+                {
+                  "heading": "Could the model learn a shortcut?",
+                  "checks": [
+                    "shortcut-risk"
+                  ]
+                },
+                {
+                  "heading": "Are the splits fit to evaluate on?",
+                  "checks": [
+                    "leakage",
+                    "eval-coverage",
+                    "class-stratification",
+                    "embedding-divergence"
+                  ]
+                }
+              ],
+              "reference": "train",
+              "record": {
+                "title": "What was audited",
+                "steps": [
+                  "label-health",
+                  "content-digest"
+                ]
+              },
+              "verdict": {
+                "blocking": [
+                  "leakage",
+                  "untrained-classes"
+                ],
+                "accepted": {}
+              },
+              "next_steps": {
+                "by_check": {
+                  "image-outliers": "Run `quality` to list and remove them.",
+                  "image-duplicates": "Run `quality` to list and remove them.",
+                  "factor-issues": "Run `triage` for a policy that repairs them.",
+                  "class-imbalance": "Collect more of the named classes, or rebalance train with a `view` step and `ClassBalance`.",
+                  "class-sufficiency": "Collect more of the named classes, or rebalance train with a `view` step and `ClassBalance`.",
+                  "untrained-classes": "Add the named classes to train, or remove them from the evaluation splits.",
+                  "class-coverage": "Run `scope` for the uncovered items; collect data for them.",
+                  "factor-coverage-gaps": "Run `bias` for the gaps; collect data for them.",
+                  "dimensional-completeness": "Run `scope` for the uncovered items; collect data for them.",
+                  "shortcut-risk": "Balance the named factors across classes, or confirm they are causal.",
+                  "leakage": "Re-split with `split`'s `split_on` on the leaking factor, or remove the cross-split duplicates.",
+                  "eval-coverage": "Re-split so evaluation draws from train's distribution, or document the shift as intended.",
+                  "embedding-divergence": "Re-split so evaluation draws from train's distribution, or document the shift as intended.",
+                  "class-stratification": "Re-split so evaluation draws from train's distribution, or document the shift as intended."
+                },
+                "by_reason": {
+                  "no evaluation split given": "Give an evaluation split, or make one with the `splits` preset.",
+                  "requires an extractor": "Name an extractor to assess these checks.",
+                  "No factors found in provided metadata": "Name a metadata policy, or add metadata factors, to assess these checks.",
+                  "below 20 rows": "Outliers needs at least 20 items in a split to judge it.",
+                  "failed": "See why each listed step stopped in the Steps table."
+                }
+              },
+              "preflight": {
+                "nonempty": true,
+                "one_kind": true
+              }
+            }
+          ],
+          "derived_from": [
+            {
+              "type": "audit",
+              "entry": "release",
+              "settings": {
+                "stats": null,
+                "metadata": null,
+                "name": "release",
+                "type": "audit",
+                "ontology": null,
+                "outliers": {
+                  "flags": [
+                    "pixel"
+                  ],
+                  "outlier_threshold": "zscore",
+                  "cluster_threshold": null,
+                  "cluster_algorithm": null,
+                  "n_clusters": null
+                },
+                "coverage": {
+                  "method": null,
+                  "percent": null,
+                  "num_observations": null,
+                  "min_class_samples": null,
+                  "isotropy_min_samples": null,
+                  "near_duplicate_factor": null
+                },
+                "wrap": {
+                  "params": {
+                    "padding": 0.0,
+                    "min_size": 1
+                  }
+                },
+                "factor-gaps": {
+                  "mi_threshold": 0.1,
+                  "min_representation": 5
+                },
+                "factor-leakage": null,
+                "diversity": {
+                  "method": null
+                },
+                "divergence": {
+                  "method": "mst"
+                },
+                "ood-kneighbors": {
+                  "k": null,
+                  "distance_metric": null,
+                  "threshold_perc": null
+                },
+                "blocking": [
+                  "leakage",
+                  "untrained-classes"
+                ],
+                "accepted": {},
+                "checks": {
+                  "image-outliers": {
+                    "warning": 3.0
+                  },
+                  "image-duplicates": {
+                    "exact": 0.0,
+                    "near": 5.0
+                  },
+                  "factor-issues": {
+                    "max_examples": 20
+                  },
+                  "class-imbalance": {
+                    "warning": 5.0,
+                    "info": null,
+                    "empty": true
+                  },
+                  "class-sufficiency": {
+                    "train": 20,
+                    "eval": 30
+                  },
+                  "untrained-classes": {
+                    "declared": false
+                  },
+                  "label-conformance": {
+                    "warning": 0
+                  },
+                  "class-coverage": {
+                    "dispersion": 0.5,
+                    "isotropy": 0.5,
+                    "near_duplicates": 0.1
+                  },
+                  "uncovered-items": {
+                    "warning": 10.0
+                  },
+                  "dimensional-completeness": {
+                    "warning": 0.5,
+                    "info": 0.8
+                  },
+                  "factor-coverage-gaps": {
+                    "warning": 2
+                  },
+                  "shortcut-risk": {
+                    "warning": 0.1
+                  },
+                  "leakage": {
+                    "exact": 0,
+                    "near": 0,
+                    "groups": 0
+                  },
+                  "eval-coverage": {
+                    "warning": 9.0,
+                    "info": 1.0
+                  },
+                  "class-stratification": {
+                    "info": 2.0,
+                    "warning": 10.0
+                  },
+                  "embedding-divergence": {
+                    "warning": 0.5,
+                    "info": 0.2
+                  }
+                }
+              },
+              "steps": [
+                "audit-label-health-train",
+                "audit-label-health-evals",
+                "audit-class-imbalance-train",
+                "audit-class-imbalance-evals",
+                "audit-outliers-train",
+                "audit-outliers-evals",
+                "audit-image-outliers-train",
+                "audit-image-outliers-evals",
+                "audit-duplicates-train",
+                "audit-duplicates-evals",
+                "audit-image-duplicates-train",
+                "audit-image-duplicates-evals",
+                "audit-factor-triage-train",
+                "audit-factor-triage-evals",
+                "audit-factor-issues-train",
+                "audit-factor-issues-evals",
+                "audit-content-digest-train",
+                "audit-content-digest-evals",
+                "audit-ood-kneighbors",
+                "audit-eval-coverage",
+                "audit-divergence",
+                "audit-embedding-divergence",
+                "audit-duplicates-cross",
+                "audit-duplicates-pairs",
+                "audit-leakage",
+                "audit-class-sufficiency",
+                "audit-untrained-classes",
+                "audit-class-stratification",
+                "audit-crops",
+                "audit-coverage",
+                "audit-class-coverage",
+                "audit-completeness",
+                "audit-dimensional-completeness",
+                "audit-factor-summary",
+                "audit-balance",
+                "audit-diversity",
+                "audit-shortcut-risk",
+                "audit-factor-gaps",
+                "audit-factor-coverage-gaps"
+              ],
+              "flow_version": "0.2.3.dev827+g28c774971"
+            }
+          ]
+        }
+      ],
+      "evaluators": [
+        {
+          "stats": null,
+          "name": "dupes",
+          "type": "duplicates",
+          "cluster_algorithm": null,
+          "n_clusters": null,
+          "per_image": null,
+          "per_target": null,
+          "flags": null,
+          "merge_near_duplicates": null,
+          "hash_radius": null,
+          "cluster_sensitivity": null,
+          "redundancy_radius": null,
+          "min_segment_frames": null,
+          "max_segment_gap": null,
+          "segment_offset_tolerance": null,
+          "verify_alignment": null,
+          "min_track_frames": null,
+          "frame_sample": null
+        },
+        {
+          "metadata": null,
+          "name": "outer-audit-label-health",
+          "type": "label-health"
+        },
+        {
+          "stats": null,
+          "name": "outer-audit-outliers",
+          "type": "outliers",
+          "cluster_algorithm": null,
+          "n_clusters": null,
+          "per_image": null,
+          "per_target": false,
+          "flags": [
+            "pixel"
+          ],
+          "outlier_threshold": "zscore",
+          "cluster_threshold": null
+        },
+        {
+          "stats": null,
+          "name": "outer-audit-duplicates",
+          "type": "duplicates",
+          "cluster_algorithm": null,
+          "n_clusters": null,
+          "per_image": null,
+          "per_target": null,
+          "flags": null,
+          "merge_near_duplicates": null,
+          "hash_radius": null,
+          "cluster_sensitivity": null,
+          "redundancy_radius": null,
+          "min_segment_frames": null,
+          "max_segment_gap": null,
+          "segment_offset_tolerance": null,
+          "verify_alignment": null,
+          "min_track_frames": null,
+          "frame_sample": null
+        },
+        {
+          "metadata": null,
+          "name": "outer-audit-factor-triage",
+          "type": "factor-triage",
+          "verify": true,
+          "default_bins": 10,
+          "min_missing_fraction": 0.2
+        },
+        {
+          "name": "outer-audit-content-digest",
+          "type": "content-digest"
+        },
+        {
+          "name": "outer-audit-ood-kneighbors",
+          "type": "ood-kneighbors",
+          "k": null,
+          "distance_metric": null,
+          "threshold_perc": null
+        },
+        {
+          "name": "outer-audit-divergence",
+          "type": "divergence",
+          "method": "mst"
+        },
+        {
+          "name": "outer-audit-coverage",
+          "type": "coverage",
+          "method": null,
+          "num_observations": null,
+          "percent": null,
+          "min_class_samples": null,
+          "isotropy_min_samples": null,
+          "near_duplicate_factor": null
+        },
+        {
+          "name": "outer-audit-completeness",
+          "type": "completeness"
+        },
+        {
+          "metadata": null,
+          "name": "outer-audit-factor-summary",
+          "type": "factor-summary"
+        },
+        {
+          "metadata": null,
+          "name": "outer-audit-balance",
+          "type": "balance",
+          "num_neighbors": null,
+          "class_imbalance_threshold": null,
+          "factor_correlation_threshold": null,
+          "label": null,
+          "factor_source": null
+        },
+        {
+          "metadata": null,
+          "name": "outer-audit-diversity",
+          "type": "diversity",
+          "method": null,
+          "threshold": null,
+          "label": null
+        }
+      ],
+      "tasks": [
+        {
+          "name": "review",
+          "workflow": "review",
+          "enabled": true,
+          "sources": "data",
+          "extractor": null
+        },
+        {
+          "name": "clean",
+          "workflow": "splitting",
+          "enabled": true,
+          "sources": "data",
+          "extractor": null
+        }
+      ]
+    },
+    "valid": true,
+    "diagnostics": [],
+    "names": {
+      "workflow": "outer",
+      "steps": {
+        "label-health-train": "audit-label-health-train",
+        "label-health-evals": "audit-label-health-evals",
+        "class-imbalance-train": "audit-class-imbalance-train",
+        "class-imbalance-evals": "audit-class-imbalance-evals",
+        "outliers-train": "audit-outliers-train",
+        "outliers-evals": "audit-outliers-evals",
+        "image-outliers-train": "audit-image-outliers-train",
+        "image-outliers-evals": "audit-image-outliers-evals",
+        "duplicates-train": "audit-duplicates-train",
+        "duplicates-evals": "audit-duplicates-evals",
+        "image-duplicates-train": "audit-image-duplicates-train",
+        "image-duplicates-evals": "audit-image-duplicates-evals",
+        "factor-triage-train": "audit-factor-triage-train",
+        "factor-triage-evals": "audit-factor-triage-evals",
+        "factor-issues-train": "audit-factor-issues-train",
+        "factor-issues-evals": "audit-factor-issues-evals",
+        "content-digest-train": "audit-content-digest-train",
+        "content-digest-evals": "audit-content-digest-evals",
+        "ood-kneighbors": "audit-ood-kneighbors",
+        "eval-coverage": "audit-eval-coverage",
+        "divergence": "audit-divergence",
+        "embedding-divergence": "audit-embedding-divergence",
+        "duplicates-cross": "audit-duplicates-cross",
+        "duplicates-pairs": "audit-duplicates-pairs",
+        "leakage": "audit-leakage",
+        "class-sufficiency": "audit-class-sufficiency",
+        "untrained-classes": "audit-untrained-classes",
+        "class-stratification": "audit-class-stratification",
+        "crops": "audit-crops",
+        "coverage": "audit-coverage",
+        "class-coverage": "audit-class-coverage",
+        "completeness": "audit-completeness",
+        "dimensional-completeness": "audit-dimensional-completeness",
+        "factor-summary": "audit-factor-summary",
+        "balance": "audit-balance",
+        "diversity": "audit-diversity",
+        "shortcut-risk": "audit-shortcut-risk",
+        "factor-gaps": "audit-factor-gaps",
+        "factor-coverage-gaps": "audit-factor-coverage-gaps"
+      },
+      "evaluators": {
+        "label-health": "outer-audit-label-health",
+        "outliers": "outer-audit-outliers",
+        "duplicates": "outer-audit-duplicates",
+        "factor-triage": "outer-audit-factor-triage",
+        "content-digest": "outer-audit-content-digest",
+        "ood-kneighbors": "outer-audit-ood-kneighbors",
+        "divergence": "outer-audit-divergence",
+        "coverage": "outer-audit-coverage",
+        "completeness": "outer-audit-completeness",
+        "factor-summary": "outer-audit-factor-summary",
+        "balance": "outer-audit-balance",
+        "diversity": "outer-audit-diversity"
+      },
+      "addresses": {}
+    },
+    "changes": [
+      {
+        "op": "replace",
+        "pointer": "/workflows/3/steps/2",
+        "summary": "Step 'audit-label-health-train', preset 'release''s `label-health-train`, in place of step 'audit'."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/3",
+        "summary": "Step 'audit-label-health-evals', preset 'release''s `label-health-evals`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/4",
+        "summary": "Step 'audit-class-imbalance-train', preset 'release''s `class-imbalance-train`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/5",
+        "summary": "Step 'audit-class-imbalance-evals', preset 'release''s `class-imbalance-evals`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/6",
+        "summary": "Step 'audit-outliers-train', preset 'release''s `outliers-train`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/7",
+        "summary": "Step 'audit-outliers-evals', preset 'release''s `outliers-evals`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/8",
+        "summary": "Step 'audit-image-outliers-train', preset 'release''s `image-outliers-train`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/9",
+        "summary": "Step 'audit-image-outliers-evals', preset 'release''s `image-outliers-evals`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/10",
+        "summary": "Step 'audit-duplicates-train', preset 'release''s `duplicates-train`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/11",
+        "summary": "Step 'audit-duplicates-evals', preset 'release''s `duplicates-evals`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/12",
+        "summary": "Step 'audit-image-duplicates-train', preset 'release''s `image-duplicates-train`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/13",
+        "summary": "Step 'audit-image-duplicates-evals', preset 'release''s `image-duplicates-evals`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/14",
+        "summary": "Step 'audit-factor-triage-train', preset 'release''s `factor-triage-train`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/15",
+        "summary": "Step 'audit-factor-triage-evals', preset 'release''s `factor-triage-evals`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/16",
+        "summary": "Step 'audit-factor-issues-train', preset 'release''s `factor-issues-train`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/17",
+        "summary": "Step 'audit-factor-issues-evals', preset 'release''s `factor-issues-evals`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/18",
+        "summary": "Step 'audit-content-digest-train', preset 'release''s `content-digest-train`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/19",
+        "summary": "Step 'audit-content-digest-evals', preset 'release''s `content-digest-evals`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/20",
+        "summary": "Step 'audit-ood-kneighbors', preset 'release''s `ood-kneighbors`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/21",
+        "summary": "Step 'audit-eval-coverage', preset 'release''s `eval-coverage`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/22",
+        "summary": "Step 'audit-divergence', preset 'release''s `divergence`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/23",
+        "summary": "Step 'audit-embedding-divergence', preset 'release''s `embedding-divergence`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/24",
+        "summary": "Step 'audit-duplicates-cross', preset 'release''s `duplicates-cross`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/25",
+        "summary": "Step 'audit-duplicates-pairs', preset 'release''s `duplicates-pairs`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/26",
+        "summary": "Step 'audit-leakage', preset 'release''s `leakage`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/27",
+        "summary": "Step 'audit-class-sufficiency', preset 'release''s `class-sufficiency`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/28",
+        "summary": "Step 'audit-untrained-classes', preset 'release''s `untrained-classes`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/29",
+        "summary": "Step 'audit-class-stratification', preset 'release''s `class-stratification`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/30",
+        "summary": "Step 'audit-crops', preset 'release''s `crops`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/31",
+        "summary": "Step 'audit-coverage', preset 'release''s `coverage`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/32",
+        "summary": "Step 'audit-class-coverage', preset 'release''s `class-coverage`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/33",
+        "summary": "Step 'audit-completeness', preset 'release''s `completeness`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/34",
+        "summary": "Step 'audit-dimensional-completeness', preset 'release''s `dimensional-completeness`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/35",
+        "summary": "Step 'audit-factor-summary', preset 'release''s `factor-summary`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/36",
+        "summary": "Step 'audit-balance', preset 'release''s `balance`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/37",
+        "summary": "Step 'audit-diversity', preset 'release''s `diversity`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/38",
+        "summary": "Step 'audit-shortcut-risk', preset 'release''s `shortcut-risk`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/39",
+        "summary": "Step 'audit-factor-gaps', preset 'release''s `factor-gaps`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/steps/40",
+        "summary": "Step 'audit-factor-coverage-gaps', preset 'release''s `factor-coverage-gaps`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/scopes/0",
+        "summary": "Scope 'audit', judging the inlined steps on step 'audit''s inputs as preset 'release' (audit) judged them."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/3/derived_from/0",
+        "summary": "Where the inlined steps came from: preset 'release' (audit), as it stood."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/1",
+        "summary": "Evaluator 'outer-audit-label-health', the inlined steps' own 'label-health'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/2",
+        "summary": "Evaluator 'outer-audit-outliers', the inlined steps' own 'outliers'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/3",
+        "summary": "Evaluator 'outer-audit-duplicates', the inlined steps' own 'duplicates'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/4",
+        "summary": "Evaluator 'outer-audit-factor-triage', the inlined steps' own 'factor-triage'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/5",
+        "summary": "Evaluator 'outer-audit-content-digest', the inlined steps' own 'content-digest'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/6",
+        "summary": "Evaluator 'outer-audit-ood-kneighbors', the inlined steps' own 'ood-kneighbors'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/7",
+        "summary": "Evaluator 'outer-audit-divergence', the inlined steps' own 'divergence'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/8",
+        "summary": "Evaluator 'outer-audit-coverage', the inlined steps' own 'coverage'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/9",
+        "summary": "Evaluator 'outer-audit-completeness', the inlined steps' own 'completeness'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/10",
+        "summary": "Evaluator 'outer-audit-factor-summary', the inlined steps' own 'factor-summary'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/11",
+        "summary": "Evaluator 'outer-audit-balance', the inlined steps' own 'balance'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/12",
+        "summary": "Evaluator 'outer-audit-diversity', the inlined steps' own 'diversity'."
+      }
+    ],
+    "structure": [
+      {
+        "setting": "ontology",
+        "pointer": "/workflows/2/ontology",
+        "value": null,
+        "written": false,
+        "effective_value": null,
+        "included_steps": [],
+        "excluded_steps": [
+          "label-reconciliation-train",
+          "label-reconciliation-evals",
+          "label-conformance-train",
+          "label-conformance-evals"
+        ],
+        "rule": "Set, each split's labels are reconciled with the ontology and judged by `label-conformance`; unset, neither runs.",
+        "explanation": "`ontology` is unset, so its default `null`: `label-reconciliation-train`, `label-reconciliation-evals`, `label-conformance-train`, `label-conformance-evals` not included. Set, each split's labels are reconciled with the ontology and judged by `label-conformance`; unset, neither runs."
+      },
+      {
+        "setting": "factor-leakage",
+        "pointer": "/workflows/2/factor-leakage",
+        "value": null,
+        "written": false,
+        "effective_value": null,
+        "included_steps": [],
+        "excluded_steps": [
+          "factor-leakage-cross",
+          "factor-leakage-pairs"
+        ],
+        "rule": "Set, factor leakage is measured between train and each evaluation split and between evaluation splits, and `leakage` judges it beside the duplicates; unset, `leakage` judges the duplicates alone.",
+        "explanation": "`factor-leakage` is unset, so its default `null`: `factor-leakage-cross`, `factor-leakage-pairs` not included. Set, factor leakage is measured between train and each evaluation split and between evaluation splits, and `leakage` judges it beside the duplicates; unset, `leakage` judges the duplicates alone."
+      },
+      {
+        "setting": "factor-gaps",
+        "pointer": "/workflows/2/factor-gaps",
+        "value": {
+          "mi_threshold": 0.1,
+          "min_representation": 5
+        },
+        "written": false,
+        "effective_value": null,
+        "included_steps": [
+          "factor-gaps",
+          "factor-coverage-gaps"
+        ],
+        "excluded_steps": [],
+        "rule": "`false` leaves out the factor-gap analysis on train and its check; settings run them.",
+        "explanation": "`factor-gaps` is unset, so it takes its default: `factor-gaps`, `factor-coverage-gaps` included. `false` leaves out the factor-gap analysis on train and its check; settings run them."
+      },
+      {
+        "setting": "coverage.method",
+        "pointer": "/workflows/2/coverage/method",
+        "value": null,
+        "written": false,
+        "effective_value": "adaptive",
+        "included_steps": [],
+        "excluded_steps": [
+          "uncovered-items"
+        ],
+        "rule": "`naive` adds `uncovered-items`, judging the items outside train's coverage radius; `adaptive` doesn't.",
+        "explanation": "`coverage.method` is unset, so `adaptive`: `uncovered-items` not included. `naive` adds `uncovered-items`, judging the items outside train's coverage radius; `adaptive` doesn't."
+      }
+    ],
+    "representational_changes": [
+      {
+        "code": "step_names",
+        "pointer": "/workflows/3",
+        "message": "Results name step 'audit''s steps `audit-\u2026`, where they named them `audit/\u2026`, and the envelope no longer records preset 'release' under `presets`."
+      },
+      {
+        "code": "record_criteria",
+        "pointer": "/workflows/3/scopes/0",
+        "message": "Scope 'audit''s record lists its blocking and accepted checks, where preset 'release''s also listed each check's settings; the inlined steps carry those."
+      }
+    ]
+  }
+}

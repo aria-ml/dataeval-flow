@@ -234,9 +234,10 @@ def begin_splice(
     steps: Mapping[str, StepResult],
     specs: Mapping[str, StepSpec],
 ) -> "tuple[RunSettings, SpliceRun]":
-    """Start `splice` as its first step is reached: resolve its slots to the Datasets now made, run its preset's
-    preflight on them, and derive its steps' metadata policies from its reference slot's node. A slot holding nothing
-    leaves it unstarted; a preflight refusal, or a reference with no Metadata, fails it (audit-as-a-step spec §4.2)."""
+    """Start `splice` as its first step is reached: resolve its slots to the Datasets now made, run its declared and
+    its preset's preflight on them, and derive its steps' metadata policies from its reference slot's node. A slot
+    holding nothing leaves it unstarted; a preflight refusal, or a reference with no Metadata, fails it (audit-as-a-step
+    spec §4.2). A scope has no preset, so only its declared preflight runs."""
     from dataeval_flow._chain._graph import GraphError
     from dataeval_flow._chain._preflight import check_declared, derive_from_node
     from dataeval_flow._chain._presets import SpliceRun
@@ -258,9 +259,10 @@ def begin_splice(
             columns[slot] = value.address
             owners[value.address] = owners[text] = slot
     try:
-        prefix = f"{splice.name}/"
-        check_declared(splice.chain, bound, {step.removeprefix(prefix): specs[step].keys for step in splice.steps})
-        splice.preset.preflight(splice.entry, bound)
+        runs_over = {step.removeprefix(splice.prefix): specs[step].keys for step in splice.steps}
+        check_declared(splice.chain, bound, runs_over)
+        if splice.preset is not None:
+            splice.preset.preflight(splice.entry, bound)
         reference = splice.chain.reference
         if reference is not None:
             node = bound[reference]
@@ -268,14 +270,15 @@ def begin_splice(
             contexts = derive_from_node([specs[name] for name in splice.steps], settings.step_contexts, node)
             settings = replace(settings, step_contexts=contexts)
     except (GraphError, RuntimeError) as error:
-        return settings, SpliceRun(columns, owners, failed=f"Step '{splice.name}': {error}")
+        return settings, SpliceRun(columns, owners, failed=f"{splice.noun.capitalize()} '{splice.name}': {error}")
     return settings, SpliceRun(columns, owners)
 
 
 def _halted(spec: StepSpec, splice: "Splice", outcome: "SpliceRun") -> tuple[StepResult, dict[str, _Value]] | None:
     """`spec`'s record and outputs where its splice did not start: every step is skipped for the missing input where
     a slot held nothing; where it failed as it started, the first step fails with the message and every later step is
-    skipped, naming the step that failed, so the task's errors hold the message once. ``None`` where it started."""
+    skipped, naming the step or scope that failed, so the task's errors hold the message once. ``None`` where it
+    started."""
     inputs_text = [str(address) for binding in spec.bindings for address in binding.addresses]
     if outcome.skipped is not None:
         return _skipped(spec, inputs_text, outcome.skipped), _by_address(spec, _missing_outputs(spec, "was skipped"))
@@ -284,7 +287,7 @@ def _halted(spec: StepSpec, splice: "Splice", outcome: "SpliceRun") -> tuple[Ste
     if spec.name == splice.steps[0]:
         record = _failed(spec, inputs_text, [outcome.failed], time.monotonic(), None)
     else:
-        record = _skipped(spec, inputs_text, f"step `{splice.name}` failed as it started")
+        record = _skipped(spec, inputs_text, f"{splice.noun} `{splice.name}` failed as it started")
     return record, _by_address(spec, _missing_outputs(spec, "failed"))
 
 

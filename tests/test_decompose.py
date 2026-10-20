@@ -201,19 +201,6 @@ def test_a_copy_names_what_it_represents_differently() -> None:
     assert {c.code for c in answer.representational_changes} == {"result_type", "outputs_not_carried"}
 
 
-def test_inlining_is_reported_unavailable() -> None:
-    outer = {"name": "outer", "inputs": ["data"], "steps": [{"name": "cleaning", "workflow": "q", "input": "data"}]}
-    body = {"pipeline": {}, "operation": "inline_step", "target_pointer": "/workflows/1/steps/0"}
-    answer = prepare(_pipeline(workflows=[_QUALITY, outer]), DecomposeRequest.model_validate(body))
-    assert isinstance(answer, DecomposeUnsupported)
-    ((code, category),) = {(r.code, r.category) for r in answer.reasons}
-    assert (code, category, answer.supported_operations) == (
-        "operation_unavailable",
-        "implementation_gap",
-        ["copy_definition"],
-    )
-
-
 @pytest.mark.parametrize(
     ("request_", "loc", "message"),
     [

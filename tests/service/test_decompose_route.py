@@ -47,19 +47,23 @@ def test_a_copy_is_prepared_without_queueing_anything(client) -> None:
     assert response.status_code == 200
     body = response.json()
     assert (body["schema"], body["status"], body["valid"]) == (1, "ready", True)
-    assert body["supported_operations"] == ["copy_definition"]
+    assert body["supported_operations"] == ["copy_definition", "inline_step"]
     assert body["pipeline"]["tasks"][1]["workflow"] == "qc"
     assert client.get("/v1/runs").json() == []
 
 
-def test_inlining_answers_unavailable(client) -> None:
+def test_a_step_is_inlined_without_queueing_anything(client) -> None:
     pipeline = _with_quality()
     pipeline["workflows"].append(
         {"name": "outer", "inputs": ["data"], "steps": [{"name": "c", "workflow": "q", "input": "data"}]}
     )
     body = {"pipeline": pipeline, "operation": "inline_step", "target_pointer": "/workflows/2/steps/0"}
-    answer = client.post("/v1/presets/decompose", json=body).json()
-    assert (answer["status"], answer["reasons"][0]["code"]) == ("unsupported", "operation_unavailable")
+    response = client.post("/v1/presets/decompose", json=body)
+    assert response.status_code == 200
+    answer = response.json()
+    assert (answer["status"], answer["supported_operations"]) == ("ready", ["copy_definition", "inline_step"])
+    assert answer["names"]["steps"]["outliers"] == "c-outliers"
+    assert client.get("/v1/runs").json() == []
 
 
 def test_a_stale_pin_is_refused_before_preparing(client) -> None:
@@ -107,5 +111,11 @@ def test_openapi_tells_the_answers_apart_by_status_and_requires_what_is_always_s
         "unsupported_matrix_rewrite",
         "undeclared_structure",
         "unrepresentable_preflight",
-        "operation_unavailable",
     }
+    assert set(components["DecomposeRepresentationalChange"]["properties"]["code"]["enum"]) == {
+        "result_type",
+        "outputs_not_carried",
+        "step_names",
+        "record_criteria",
+    }
+    assert "addresses" in components["DecomposeNames"]["required"]

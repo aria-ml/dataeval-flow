@@ -160,7 +160,13 @@ A diagnostic's `document_pointer` points at the port when it has one, else at th
 `task` is `null` for a workflow no selected task runs. Its `node_id` names the step the problem is on, which may not be
 among `nodes`: the graph stops before it, or it is a preset step whose nodes are `<step>/<inner>`. Locate it by
 `document_pointer`. A `task_problem` can name a task that isn't in the selected `tasks[]`, because every task's bindings
-are checked, as `/v1/validate` checks them. Each `code` is one of:
+are checked, as `/v1/validate` checks them.
+
+A problem with a scope of a custom workflow (see [Inline](#inline)) points at the scope, `/workflows/<i>/scopes/<k>`, or
+at one of its inputs, `/workflows/<i>/scopes/<k>/inputs/<slot>`. Its `node_id` is `null`, as no one step has the
+problem, and its `port` holds the scope's input name, `<slot>`, where an input is the problem.
+
+Each `code` is one of:
 
 | Code                 | Raised when                                                                                                                |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -188,29 +194,31 @@ outputs a step leaves empty, or which keys a list holds, is not reflected in the
 
 ## Preset decomposition
 
-`POST /v1/presets/decompose` prepares the copy of a preset entry as a custom workflow: the whole candidate pipeline an
-editor shows and, once the user accepts it, applies as one edit. It reads no data, stores nothing and queues nothing.
+`POST /v1/presets/decompose` prepares the copy of a preset entry as a custom workflow, or the inlining of a preset step
+into the workflow running it: the whole candidate pipeline an editor shows and, once the user accepts it, applies as one
+edit. It reads no data, stores nothing and queues nothing.
 It checks the pin and parses the draft as `/v1/resolve` does, so a stale pin is the same `409 schema_changed` and a
 malformed draft the same `422`, located under `["body", "pipeline", ...]`. A candidate resolving to more than
 `limits.max_resolved_nodes` nodes is a `413` `too_many_nodes`. Clients check `features.preset_decomposition`.
 
 The body is:
 
-| Field                         | Type                 | Default  | Meaning                                                                                               |
-| ----------------------------- | -------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| `pipeline`                    | Pipeline             | Required | The whole draft pipeline, as `/v1/resolve` takes it                                                   |
-| `operation`                   | Text                 | Required | `copy_definition`, or `inline_step`, which answers `operation_unavailable` for now                    |
-| `target_pointer`              | JSON Pointer         | Required | `/workflows/<i>`, a preset entry, for `copy_definition`; `/workflows/<i>/steps/<j>` for `inline_step` |
-| `new_name`                    | Step name            | None     | The copy's name, required by `copy_definition`; no workflow may already have it                       |
-| `reassign_tasks`              | List of task names   | `[]`     | Tasks running the target entry to run the copy instead; every other task is left alone                |
-| `expected_schema_fingerprint` | `schema_fingerprint` | None     | As in the [run request](#run-request)                                                                 |
+| Field                         | Type                 | Default  | Meaning                                                                                                       |
+| ----------------------------- | -------------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
+| `pipeline`                    | Pipeline             | Required | The whole draft pipeline, as `/v1/resolve` takes it                                                           |
+| `operation`                   | Text                 | Required | `copy_definition`, which copies a preset entry, or `inline_step`, which replaces a preset step with its steps |
+| `target_pointer`              | JSON Pointer         | Required | `/workflows/<i>`, a preset entry, for `copy_definition`; `/workflows/<i>/steps/<j>` for `inline_step`         |
+| `new_name`                    | Step name            | None     | The copy's name, required by `copy_definition`; no workflow may already have it                               |
+| `reassign_tasks`              | List of task names   | `[]`     | Tasks running the target entry to run the copy instead; every other task is left alone                        |
+| `expected_schema_fingerprint` | `schema_fingerprint` | None     | As in the [run request](#run-request)                                                                         |
 
 A request that names nothing to decompose is a `422` located at the field. For `copy_definition`: a `target_pointer`
 that isn't `/workflows/<i>`, or names no workflow or one that is no preset; a missing or taken `new_name`; or a
 `reassign_tasks` entry that is unknown, repeated or runs another workflow, located at its index, such as
 `["body", "reassign_tasks", 1]`. For `inline_step`: a `new_name` or `reassign_tasks` given, which it doesn't take; a
-`target_pointer` that isn't `/workflows/<i>/steps/<j>`, or names no step of a custom workflow; or a step that runs no
-preset. An index in a pointer is written as JSON Pointer writes one, so `/workflows/01` is refused.
+`target_pointer` that isn't `/workflows/<i>/steps/<j>`, or names no step of a custom workflow; a step that runs no
+preset; or a step that doesn't resolve, whose bindings are then unknown (see [Inline](#inline)). An index in a pointer
+is written as JSON Pointer writes one, so `/workflows/01` is refused.
 
 Both answers carry `schema`, `schema_fingerprint`, `operation`, `target_pointer`, `supported_operations` and `status`;
 tell them apart by `status`.
@@ -225,7 +233,7 @@ A copy that can be prepared answers `200` with `status: "ready"`, the OpenAPI co
   "schema_fingerprint": "sha256:...",
   "operation": "copy_definition",
   "target_pointer": "/workflows/1",
-  "supported_operations": ["copy_definition"],
+  "supported_operations": ["copy_definition", "inline_step"],
   "status": "ready",
   "valid": true,
   "diagnostics": [],
@@ -233,7 +241,8 @@ A copy that can be prepared answers `200` with `status: "ready"`, the OpenAPI co
   "names": {
     "workflow": "audit_copy",
     "steps": {"label-health-train": "label-health-train", "...": "..."},
-    "evaluators": {"label-health": "audit_copy-label-health", "...": "..."}
+    "evaluators": {"label-health": "audit_copy-label-health", "...": "..."},
+    "addresses": {}
   },
   "changes": [
     {"op": "add", "pointer": "/workflows/2", "summary": "Workflow 'audit_copy', copied from preset 'a' (audit)."},
@@ -290,9 +299,102 @@ The copy records where it came from in `derived_from`, a list with one entry of 
 entry's settings in full, with every default filled in) and `flow_version`. It is historical only: nothing reads it back
 to change the workflow.
 
+### Inline
+
+`inline_step` replaces one preset step of a custom workflow with the preset's steps, as ordinary steps of that workflow.
+`target_pointer` is `/workflows/<i>/steps/<j>`; the request takes no `new_name` or `reassign_tasks`. The preset entry
+and the workflow's other uses of it stay as they were. The answer is `ready` or `unsupported`, as for a copy, and
+`supported_operations` is `["copy_definition", "inline_step"]`.
+
+A target that is no step of a custom workflow, or runs no preset, is a `422` at `["body", "target_pointer"]`, as is a
+step that doesn't resolve: the workflow's graph stops at or before it, so its bindings are unknown, and the message
+says why. This is checked before any reason is looked for. A trimmed answer, from inlining step `c`, which runs preset
+`q` (`quality`), of workflow `outer`:
+
+```json
+{
+  "schema": 1,
+  "schema_fingerprint": "sha256:...",
+  "operation": "inline_step",
+  "target_pointer": "/workflows/2/steps/0",
+  "supported_operations": ["copy_definition", "inline_step"],
+  "status": "ready",
+  "valid": true,
+  "diagnostics": [],
+  "pipeline": {"workflows": ["..."], "evaluators": ["..."], "tasks": ["..."]},
+  "names": {
+    "workflow": "outer",
+    "steps": {"outliers": "c-outliers", "clean": "c-clean", "...": "..."},
+    "evaluators": {"outliers": "outer-c-outliers", "...": "..."},
+    "addresses": {"c.clean": "c-clean"}
+  },
+  "changes": [
+    {
+      "op": "replace",
+      "pointer": "/workflows/2/steps/0",
+      "summary": "Step 'c-outliers', preset 'q''s `outliers`, in place of step 'c'."
+    },
+    {
+      "op": "replace",
+      "pointer": "/workflows/2/steps/9/input",
+      "summary": "Step 'dupes-clean''s `input` reads the inlined steps where it read step 'c'."
+    },
+    {
+      "op": "add",
+      "pointer": "/workflows/2/derived_from/0",
+      "summary": "Where the inlined steps came from: preset 'q' (quality), as it stood."
+    }
+  ],
+  "structure": [],
+  "representational_changes": [
+    {
+      "code": "step_names",
+      "pointer": "/workflows/2",
+      "message": "Results name step 'c''s steps `c-...`, where they named them `c/...`, and the envelope no longer records preset 'q' under `presets`."
+    }
+  ]
+}
+```
+
+What the candidate holds:
+
+- Each of the preset's steps is written as `<step>-<inner>` (`c-clean`), reading what the run reads: the step's inputs
+  where the preset read its own, its other steps under their new names. `names.steps` maps the preset's step names to
+  them.
+- Each evaluator the preset expands to is copied into the pool as `<workflow>-<step>-<evaluator>`
+  (`outer-c-outliers`), with `-2`, `-3` and so on added where the pool already has that name; `names.evaluators` maps
+  the preset's evaluator names to the copies'. A step name that is taken gets the same suffix.
+- Every later read of one of the step's outputs, `c.clean`, becomes the address that holds it, and `names.addresses`
+  lists each: `c.clean` to `c-clean`, or `s.val` to `s-split.val`, an output of an inlined step. A `collect` step whose
+  keys came from the addresses it read keeps them: it gains `keys:` where moving the addresses changed them.
+- `derived_from` gains an entry as for a copy, with `steps` listing the inlined steps by their new names.
+
+A scope named after the step (an entry of the workflow's `scopes:`, see
+[Judge some steps together](../how_to/write_a_custom_workflow.md#13-judge-some-steps-together)) is written over the
+inlined steps in two cases. Where the preset declares any of a verdict, reference, record, report groups, next steps
+and preflight, the scope holds each of those the preset declares, on the step's inputs; as with a nested preset, the
+record, groups and next steps reach the result only where the scope gives a verdict. Otherwise, where an input of the
+step reads the output of another step rather than an input of the workflow, the scope holds only its `name`, `inputs`
+and `steps`, so the inlined steps still skip together when that input held nothing. The scope is named `<step>`, with
+`-2`, `-3` and so on where that name is taken. The scope is a change of its own in `changes`.
+
+`representational_changes` has `step_names` always: results name the steps `<step>-<inner>` where they named them
+`<step>/<inner>`, and the envelope no longer records the preset under `presets`. It has `record_criteria` too where the
+scope has a record: the scope's record lists its blocking and accepted checks, where the preset's also listed each
+check's settings; the inlined steps carry those.
+
+A task running the workflow that varies the preset entry's settings, or an address field of a step the inlining rewrites,
+makes the answer `unsupported`, with an `unsupported_matrix_rewrite` reason for each such key (see
+[Unsupported](#unsupported)).
+
+For editors, a scope's `steps` name steps of the workflow, and its `inputs` values are addresses, as the keys of
+`verdict.accepted` name check steps; renaming a step, or moving an address, updates them too. `/v1/resolve` locates a
+scope's problem at `/workflows/<i>/scopes/<k>`, or at `/workflows/<i>/scopes/<k>/inputs/<slot>` where one input is the
+problem.
+
 ### Unsupported
 
-A copy that can't be prepared answers `200` with `status: "unsupported"`, the OpenAPI component
+A copy or inlining that can't be prepared answers `200` with `status: "unsupported"`, the OpenAPI component
 `DecomposeUnsupported`: every reason found and no `pipeline` to apply.
 
 ```json
@@ -301,7 +403,7 @@ A copy that can't be prepared answers `200` with `status: "unsupported"`, the Op
   "schema_fingerprint": "sha256:...",
   "operation": "copy_definition",
   "target_pointer": "/workflows/1",
-  "supported_operations": ["copy_definition"],
+  "supported_operations": ["copy_definition", "inline_step"],
   "status": "unsupported",
   "reasons": [
     {
@@ -325,13 +427,18 @@ Branch on `code`; `category` says whose gap it is:
 | `unsupported_matrix_rewrite` | `scope_limit`         | A reassigned task's matrix varies a setting of the preset entry, which the copy doesn't have      |
 | `undeclared_structure`       | `plugin_contract_gap` | A plugin preset declares no `structure`, so Flow can't say which settings decide its steps        |
 | `unrepresentable_preflight`  | `plugin_contract_gap` | A plugin preset refuses runs by overriding `Preset.preflight`, which no custom workflow can carry |
-| `operation_unavailable`      | `implementation_gap`  | The operation is `inline_step`, which this Flow version doesn't offer; see `supported_operations` |
 
-The categories are `implementation_gap` (Flow doesn't do it yet), `plugin_contract_gap` (the preset's author has to
-declare something) and `scope_limit` (Flow doesn't do it by design). `missing_capability` names what is missing, where
-one is, and `remediation` says what would change the answer. An `unsupported_matrix_rewrite` reason's `document_pointer`
-is the matrix key itself, `/tasks/<i>/matrix/<key>`, or `/tasks/<i>/matrix/<grid>/<key>` in a list of grids, with `/`
-and `~` in the key escaped as JSON Pointer escapes them; `details` gives the `task` and the `key` as written.
+For `inline_step`, `unsupported_matrix_rewrite` is raised for a key of a task running the workflow with the step that
+varies a setting of the preset entry, or an address field of a step the inlining rewrites; its `remediation` says to keep
+the step running the preset or take the key out of the matrix. `undeclared_structure` and `unrepresentable_preflight`
+are raised as for a copy.
+
+The categories are `implementation_gap` (Flow doesn't do it yet; no reason has it today), `plugin_contract_gap` (the
+preset's author has to declare something) and `scope_limit` (Flow doesn't do it by design). `missing_capability` names
+what is missing, where one is, and `remediation` says what would change the answer. An `unsupported_matrix_rewrite`
+reason's `document_pointer` is the matrix key itself, `/tasks/<i>/matrix/<key>`, or `/tasks/<i>/matrix/<grid>/<key>` in
+a list of grids, with `/` and `~` in the key escaped as JSON Pointer escapes them; `details` gives the `task` and the
+`key` as written.
 
 ## Capabilities
 

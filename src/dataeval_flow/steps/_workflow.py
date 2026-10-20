@@ -1,7 +1,8 @@
 """A custom workflow: named inputs, and the steps that read them, as a config file writes them."""
 
-__all__ = ["KIND_KEYS", "CustomWorkflowConfig", "InputSlot", "StepEntry"]
+__all__ = ["KIND_KEYS", "CustomWorkflowConfig", "InputSlot", "StepScopeConfig", "StepEntry"]
 
+import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, cast
@@ -20,7 +21,7 @@ from pydantic import (
 )
 
 from dataeval_flow.config._schemas._refs import pool_ref
-from dataeval_flow.steps._address import STEP_NAME_PATTERN
+from dataeval_flow.steps._address import STEP_NAME_PATTERN, parse_address
 from dataeval_flow.steps._by import ByConfig
 from dataeval_flow.steps._step import StepConfig, StepKind
 
@@ -294,6 +295,133 @@ class DerivationConfig(BaseModel):
         return {key: value for key, value in handler(self).items() if value is not None}
 
 
+class StepScopeConfig(BaseModel):
+    """Steps of a custom workflow judged together on inputs of their own, with what a preset run as a step declared:
+    a verdict, preflight, reference, record, report groups and next steps."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    name: str = Field(pattern=STEP_NAME_PATTERN, description="The scope's name, which the report shows it under.")
+    inputs: dict[str, str] = Field(
+        description="Each input of the scope, by name, as the address in the workflow it binds. The scope's steps read "
+        "the workflow's addresses; an input's name is what `reference` names and what preflight messages and the "
+        "record's columns call it."
+    )
+    steps: list[str] = Field(min_length=1, description="The names of the workflow's steps the scope holds.")
+    groups: list[ReportGroupConfig] = Field(
+        default_factory=list, description="The scope's report headings, each holding the check types it names."
+    )
+    reference: str | None = Field(
+        default=None,
+        description="An input of the scope whose Dataset every other Dataset's metadata is encoded like.",
+    )
+    record: RecordConfig | None = Field(default=None, description="A report section recording what the scope read.")
+    verdict: VerdictConfig | None = Field(
+        default=None, description="Give a verdict over the scope's checks. Unset, the scope gives none of its own."
+    )
+    next_steps: NextStepsConfig | None = Field(
+        default=None, description="What the report says to do about each warning and each check left unassessed."
+    )
+    preflight: PreflightConfig | None = Field(
+        default=None, description="What the scope refuses before any of its steps run."
+    )
+
+    @field_validator("inputs")
+    @classmethod
+    def _inputs_are_names_and_addresses(cls, value: dict[str, str]) -> dict[str, str]:
+        for name, address in value.items():
+            if not re.match(STEP_NAME_PATTERN, name):
+                raise ValueError(f"Input {name!r} is not a name a step can read: use letters, digits, `_` and `-`.")
+            parse_address(address)
+        return value
+
+    @model_serializer(mode="wrap")
+    def _as_written(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data = handler(self)
+        written = {key: data[key] for key in ("name", "inputs", "steps")}
+        if self.groups:
+            written["groups"] = data["groups"]
+        for key in ("reference", "record", "verdict", "next_steps", "preflight"):
+            if getattr(self, key) is not None:
+                written[key] = data[key]
+        return written
+
+    def declared_chain(self) -> "PresetChain":
+        """What this scope declares, as a preset's chain declares it. Its steps are the workflow's, so the chain holds
+        none."""
+        return _chain_of((), self.groups, self.reference, self.record, self.verdict, self.next_steps, self.preflight)
+
+
+def _check_declarations(
+    owner: str,
+    steps: Sequence[StepEntry],
+    groups: Sequence[ReportGroupConfig],
+    verdict: VerdictConfig | None,
+    next_steps: NextStepsConfig | None,
+) -> None:
+    """Refuse a group, verdict or next step naming a check `steps` do not run, and next steps by check without a verdict
+    to list the warnings they advise on. `owner` opens each message."""
+    entries = [step for step in steps if step.check is not None]
+    checks = {cast(str, step.check) for step in entries}
+    check_steps = {step.name for step in entries}
+    listed = ", ".join(sorted(checks)) or "none"
+    for group, check in ((g, c) for g in groups for c in g.checks):
+        if check not in checks:
+            raise ValueError(
+                f"{owner}: group '{group.heading}' names check `{check}`, which no step runs. "
+                f"Its steps' checks: {listed}."
+            )
+    declared = verdict or VerdictConfig()
+    for key in declared.blocking:
+        if key not in checks:
+            raise ValueError(f"{owner}: `blocking` names `{key}`, which no step runs. Its steps' checks: {listed}.")
+    for key in declared.accepted:
+        step = key.split("[", 1)[0]
+        if key in checks or (step in check_steps and (key == step or key.endswith("]"))):
+            continue
+        raise ValueError(
+            f"{owner}: `accepted` names `{key}`, which is no check type or check step of it. Its checks: {listed}. "
+            f"Its check steps: {', '.join(sorted(check_steps)) or 'none'}."
+        )
+    for key in next_steps.by_check if next_steps is not None else ():
+        if key not in checks:
+            raise ValueError(
+                f"{owner}: `next_steps` names check `{key}`, which no step runs. Its steps' checks: {listed}."
+            )
+    if next_steps is not None and next_steps.by_check and verdict is None:
+        raise ValueError(
+            f"{owner}: `next_steps.by_check` advises on the warnings a verdict lists, so it needs `verdict:`; add "
+            "`verdict: {}` to give one that blocks on nothing."
+        )
+
+
+def _chain_of(
+    steps: Sequence[StepEntry],
+    groups: Sequence[ReportGroupConfig],
+    reference: str | None,
+    record: RecordConfig | None,
+    verdict: VerdictConfig | None,
+    next_steps: NextStepsConfig | None,
+    preflight: PreflightConfig | None,
+) -> "PresetChain":
+    """The chain a workflow or scope declares: `steps` with its report's headings, reference, record, verdict, next
+    steps and preflight, as a preset's chain declares them."""
+    from dataeval_flow.workflows._preset import NextSteps, Preflight, PresetChain, Record, ReportGroup
+
+    return PresetChain(
+        steps=steps,
+        groups=tuple(ReportGroup(g.heading, tuple(g.checks), tuple(g.evidence)) for g in groups),
+        reference=reference,
+        record=Record(record.title, tuple(record.steps)) if record is not None else None,
+        blocking=tuple(verdict.blocking) if verdict is not None else None,
+        accepted=dict(verdict.accepted) if verdict is not None else {},
+        next_steps=NextSteps(dict(next_steps.by_check), dict(next_steps.by_reason))
+        if next_steps is not None
+        else NextSteps(),
+        preflight=Preflight(preflight.nonempty, preflight.one_kind) if preflight is not None else Preflight(),
+    )
+
+
 class CustomWorkflowConfig(BaseModel):
     """A workflow built from steps: its named inputs, and the steps that read them in order.
 
@@ -362,6 +490,13 @@ class CustomWorkflowConfig(BaseModel):
     preflight: PreflightConfig | None = Field(
         default=None, description="What the workflow refuses before any step runs."
     )
+    scopes: list[StepScopeConfig] = Field(
+        default_factory=list,
+        description=(
+            "Named sets of the steps, each judged together on inputs of its own, as a preset run as a step was: its "
+            "own verdict, preflight, reference, record, groups and next steps."
+        ),
+    )
     derived_from: list[DerivationConfig] = Field(
         default_factory=list,
         description=(
@@ -395,57 +530,55 @@ class CustomWorkflowConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _groups_name_checks(self) -> "CustomWorkflowConfig":
-        """Refuse a group naming a check type no step runs, listing the ones the steps run."""
-        ran = {step.check for step in self.steps if step.check is not None}
-        for group in self.groups:
-            for check in group.checks:
-                if check not in ran:
-                    raise ValueError(
-                        f"Workflow '{self.name}': group '{group.heading}' names check `{check}`, which no step runs. "
-                        f"Its steps' checks: {', '.join(sorted(ran)) or 'none'}."
-                    )
-        return self
-
-    @model_validator(mode="after")
     def _declarations_name_what_runs(self) -> "CustomWorkflowConfig":
-        """Refuse a `reference` naming no input taking one source, a verdict or next step naming a check the steps
-        do not run, and next steps by check without a verdict to list the warnings they advise on."""
+        """Refuse a `reference` naming no input taking one source, and declarations naming what no step runs."""
         singles = [slot.name for slot in self.single_slots]
         if self.reference is not None and self.reference not in singles:
             raise ValueError(
                 f"Workflow '{self.name}': `reference` names `{self.reference}`, which is no input taking one source. "
                 f"Its inputs taking one source: {', '.join(singles) or 'none'}."
             )
-        entries = [step for step in self.steps if step.check is not None]
-        checks = {cast(str, step.check) for step in entries}
-        check_steps = {step.name for step in entries}
-        listed = ", ".join(sorted(checks)) or "none"
-        verdict = self.verdict or VerdictConfig()
-        for key in verdict.blocking:
-            if key not in checks:
+        _check_declarations(f"Workflow '{self.name}'", self.steps, self.groups, self.verdict, self.next_steps)
+        return self
+
+    @model_validator(mode="after")
+    def _scopes_name_what_they_hold(self) -> "CustomWorkflowConfig":
+        """Refuse a scope that repeats a name, is named like a step, holds a step the workflow lacks, a preset step or a
+        step another scope holds, or declares what its own steps do not."""
+        steps = {step.name: step for step in self.steps}
+        held: dict[str, str] = {}
+        seen: set[str] = set()
+        for scope in self.scopes:
+            if scope.name in seen:
+                raise ValueError(f"Workflow '{self.name}' has more than one scope named '{scope.name}'.")
+            seen.add(scope.name)
+            if scope.name in steps:
+                raise ValueError(f"Workflow '{self.name}': scope '{scope.name}' shares its name with a step.")
+            for name in scope.steps:
+                if name not in steps:
+                    raise ValueError(
+                        f"Workflow '{self.name}': scope '{scope.name}' names step '{name}', which workflow "
+                        f"'{self.name}' has no step called. Its steps: {', '.join(steps)}."
+                    )
+                if steps[name].kind == "workflow":
+                    raise ValueError(
+                        f"Workflow '{self.name}': scope '{scope.name}' holds step '{name}', but step '{name}' runs a "
+                        "preset, whose steps are its own: inline it first."
+                    )
+                if name in held:
+                    raise ValueError(
+                        f"Workflow '{self.name}': step '{name}' is in more than one scope: '{held[name]}' and "
+                        f"'{scope.name}'."
+                    )
+                held[name] = scope.name
+            owner = f"Workflow '{self.name}', scope '{scope.name}'"
+            if scope.reference is not None and scope.reference not in scope.inputs:
                 raise ValueError(
-                    f"Workflow '{self.name}': `blocking` names `{key}`, which no step runs. Its steps' "
-                    f"checks: {listed}."
+                    f"{owner}: `reference` names `{scope.reference}`, which is none of its inputs. "
+                    f"Its inputs: {', '.join(scope.inputs)}."
                 )
-        for key in verdict.accepted:
-            step = key.split("[", 1)[0]
-            if key in checks or (step in check_steps and (key == step or key.endswith("]"))):
-                continue
-            raise ValueError(
-                f"Workflow '{self.name}': `accepted` names `{key}`, which is no check type or check step of it. Its "
-                f"checks: {listed}. Its check steps: {', '.join(sorted(check_steps)) or 'none'}."
-            )
-        for key in self.next_steps.by_check if self.next_steps is not None else ():
-            if key not in checks:
-                raise ValueError(
-                    f"Workflow '{self.name}': `next_steps` names check `{key}`, which no step runs. Its "
-                    f"steps' checks: {listed}."
-                )
-        if self.next_steps is not None and self.next_steps.by_check and self.verdict is None:
-            raise ValueError(
-                f"Workflow '{self.name}': `next_steps.by_check` advises on the warnings a verdict lists, so it needs "
-                "`verdict:`; add `verdict: {}` to give one that blocks on nothing."
+            _check_declarations(
+                owner, [steps[name] for name in scope.steps], scope.groups, scope.verdict, scope.next_steps
             )
         return self
 
@@ -462,6 +595,8 @@ class CustomWorkflowConfig(BaseModel):
         for key in ("ontology", "reference", "record", "verdict", "next_steps", "preflight"):
             if getattr(self, key) is not None:
                 written[key] = data[key]
+        if self.scopes:
+            written["scopes"] = data["scopes"]
         if self.derived_from:
             written["derived_from"] = data["derived_from"]
         return written
@@ -481,18 +616,8 @@ class CustomWorkflowConfig(BaseModel):
         reference, record, verdict, next steps and preflight. ``None`` where it declares none of them."""
         if not (self.groups or self.reference or self.record or self.verdict or self.next_steps or self.preflight):
             return None
-        from dataeval_flow.workflows._preset import NextSteps, Preflight, PresetChain, Record, ReportGroup
-
-        steps, preflight = self.next_steps, self.preflight
-        return PresetChain(
-            steps=self.steps,
-            groups=tuple(ReportGroup(g.heading, tuple(g.checks), tuple(g.evidence)) for g in self.groups),
-            reference=self.reference,
-            record=Record(self.record.title, tuple(self.record.steps)) if self.record is not None else None,
-            blocking=tuple(self.verdict.blocking) if self.verdict is not None else None,
-            accepted=dict(self.verdict.accepted) if self.verdict is not None else {},
-            next_steps=NextSteps(dict(steps.by_check), dict(steps.by_reason)) if steps is not None else NextSteps(),
-            preflight=Preflight(preflight.nonempty, preflight.one_kind) if preflight is not None else Preflight(),
+        return _chain_of(
+            self.steps, self.groups, self.reference, self.record, self.verdict, self.next_steps, self.preflight
         )
 
     def binding_problem(self, source_count: int) -> str | None:

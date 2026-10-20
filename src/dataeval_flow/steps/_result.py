@@ -16,7 +16,7 @@ from dataeval_flow.workflows._base import Finding
 from dataeval_flow.workflows._result import element_key
 
 if TYPE_CHECKING:
-    from dataeval_flow._chain._presets import SpliceRun
+    from dataeval_flow._chain._presets import Splice, SpliceRun
     from dataeval_flow._chain._run import ChainRun
     from dataeval_flow._chain._verdict import Verdict
     from dataeval_flow.workflows._preset import PresetChain, ReportGroup
@@ -161,7 +161,9 @@ class ChainResult(Result[ChainMetadata, ChainOutput]):
         self.verdict: Verdict | None = None
         """Whether the data is ready, for a preset chain that declares `blocking` and succeeded; ``None`` otherwise."""
         self.splice: str | None = None
-        """The spliced step whose chain `preset_chain` is, as `audit`; ``None`` where it is the task's own."""
+        """The spliced step or scope whose chain `preset_chain` is, as `audit`; ``None`` where it is the task's own."""
+        self.splice_steps: tuple[str, ...] = ()
+        """The steps of :attr:`splice`, in run order; ``()`` where there is none."""
         self.custom_groups: tuple[ReportGroup, ...] = ()
         """The custom workflow's own groups, reported after a splice's questions."""
         self.splice_runs: dict[str, SpliceRun] = {}
@@ -203,27 +205,27 @@ class ChainResult(Result[ChainMetadata, ChainOutput]):
         """The steps preset_chain's verdict, record and questions read; its splice's alone, or every step."""
         if self.splice is None:
             return self.steps
-        prefix = f"{self.splice}/"
-        return {name: record for name, record in self.steps.items() if name.startswith(prefix)}
+        return {name: record for name, record in self.steps.items() if name in self.splice_steps}
 
     def attach_preset(
-        self, chain: "PresetChain", *, splice: str | None = None, groups: "Sequence[ReportGroup]" = ()
+        self, chain: "PresetChain", *, splice: "Splice | None" = None, groups: "Sequence[ReportGroup]" = ()
     ) -> None:
-        """Keep `chain`, the preset entry's expansion or a spliced step's, and judge the verdict it declares over its
-        steps, if the task succeeded and the splice started."""
+        """Keep `chain`, the preset entry's expansion, a spliced step's or a scope's, and judge the verdict it declares
+        over its steps, if the task succeeded and the splice started."""
         from dataeval_flow._chain._verdict import judge
 
-        self.preset_chain, self.splice, self.custom_groups = chain, splice, tuple(groups)
+        self.preset_chain, self.custom_groups = chain, tuple(groups)
+        self.splice, self.splice_steps = (splice.name, splice.steps) if splice is not None else (None, ())
         if chain.blocking is None or not self.success:
             return
-        started = self.splice_runs.get(splice) if splice is not None else None
-        if started is not None and started.skipped is not None:
-            self.no_verdict = f"step `{splice}` did not run: {started.skipped}"
-            return
-        if started is not None and started.failed is not None:
-            self.no_verdict = f"step `{splice}` failed as it started: {started.failed}"
-            return
-        prefix = f"{splice}/" if splice is not None else ""
+        if splice is not None and (started := self.splice_runs.get(splice.name)) is not None:
+            if started.skipped is not None:
+                self.no_verdict = f"{splice.noun} `{splice.name}` did not run: {started.skipped}"
+                return
+            if started.failed is not None:
+                self.no_verdict = f"{splice.noun} `{splice.name}` failed as it started: {started.failed}"
+                return
+        prefix = splice.prefix if splice is not None else ""
         self.verdict = judge(self.declared_steps, blocking=chain.blocking, accepted=chain.accepted, prefix=prefix)
 
     @property

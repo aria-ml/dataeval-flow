@@ -1,0 +1,552 @@
+{
+  "generated_by": "uv run python -m tests.service.builder_fixtures",
+  "flow_version": "0.2.3.dev827+g28c774971",
+  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+  "request": {
+    "method": "POST",
+    "path": "/v1/presets/decompose",
+    "body": {
+      "pipeline": {
+        "datasets": [
+          {
+            "name": "fixture",
+            "format": "coco",
+            "path": "fixture"
+          }
+        ],
+        "sources": [
+          {
+            "name": "data",
+            "dataset": "fixture"
+          }
+        ],
+        "evaluators": [
+          {
+            "name": "dupes",
+            "type": "duplicates"
+          }
+        ],
+        "workflows": [
+          {
+            "name": "review",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "dupes",
+                "evaluator": "dupes",
+                "input": "data"
+              },
+              {
+                "name": "judge",
+                "check": "image-duplicates",
+                "input": "dupes"
+              }
+            ]
+          },
+          {
+            "name": "q",
+            "type": "quality",
+            "outliers": {
+              "flags": [
+                "pixel"
+              ],
+              "outlier_threshold": "zscore"
+            }
+          },
+          {
+            "name": "outer",
+            "inputs": [
+              "data"
+            ],
+            "steps": [
+              {
+                "name": "c",
+                "workflow": "q",
+                "input": "data"
+              },
+              {
+                "name": "dupes-clean",
+                "evaluator": "dupes",
+                "input": "c.clean"
+              },
+              {
+                "name": "judge-clean",
+                "check": "image-duplicates",
+                "input": "dupes-clean"
+              },
+              {
+                "name": "again",
+                "workflow": "q",
+                "input": "c.clean"
+              }
+            ]
+          }
+        ],
+        "tasks": [
+          {
+            "name": "review",
+            "workflow": "review",
+            "sources": "data"
+          },
+          {
+            "name": "clean",
+            "workflow": "q",
+            "sources": "data"
+          }
+        ]
+      },
+      "operation": "inline_step",
+      "target_pointer": "/workflows/2/steps/0"
+    }
+  },
+  "status": 200,
+  "response": {
+    "schema": 1,
+    "schema_fingerprint": "sha256:8ace26058ee05c889e077d31e0978a84104c6febe7e56140324cb7c18586c042",
+    "operation": "inline_step",
+    "target_pointer": "/workflows/2/steps/0",
+    "supported_operations": [
+      "copy_definition",
+      "inline_step"
+    ],
+    "status": "ready",
+    "pipeline": {
+      "logging": null,
+      "result": {
+        "name": "result",
+        "formats": [
+          "json",
+          "text",
+          "html"
+        ],
+        "detail": "full",
+        "per_task": false,
+        "fail_on": "failure",
+        "require": null,
+        "width": 80,
+        "max_images": 200,
+        "max_rows": 500,
+        "preview_rows": 10
+      },
+      "seed": null,
+      "deterministic": false,
+      "max_processes": null,
+      "datasets": [
+        {
+          "format": "coco",
+          "name": "fixture",
+          "path": "fixture",
+          "value_range": null,
+          "channel_groups": null,
+          "provenance": null,
+          "annotations_file": null,
+          "images_dir": null
+        }
+      ],
+      "preprocessors": null,
+      "views": null,
+      "metadata": null,
+      "ontologies": null,
+      "stats": null,
+      "sources": [
+        {
+          "name": "data",
+          "dataset": "fixture",
+          "merge": null,
+          "view": null
+        }
+      ],
+      "extractors": null,
+      "exports": null,
+      "workflows": [
+        {
+          "name": "review",
+          "inputs": [
+            "data"
+          ],
+          "steps": [
+            {
+              "name": "dupes",
+              "evaluator": "dupes",
+              "input": "data"
+            },
+            {
+              "name": "judge",
+              "check": "image-duplicates",
+              "input": "dupes"
+            }
+          ]
+        },
+        {
+          "stats": null,
+          "metadata": null,
+          "name": "q",
+          "type": "quality",
+          "ontology": null,
+          "outliers": {
+            "flags": [
+              "pixel"
+            ],
+            "outlier_threshold": "zscore",
+            "cluster_threshold": null,
+            "cluster_algorithm": null,
+            "n_clusters": null
+          },
+          "duplicates": {
+            "flags": null,
+            "merge_near_duplicates": null,
+            "cluster_sensitivity": null,
+            "cluster_algorithm": null,
+            "n_clusters": null
+          },
+          "checks": {
+            "image-outliers": {
+              "warning": 3.0
+            },
+            "target-outliers": {
+              "warning": 3.0
+            },
+            "class-outliers": {
+              "warning": 3.0
+            },
+            "image-duplicates": {
+              "exact": 0.0,
+              "near": 5.0
+            }
+          }
+        },
+        {
+          "name": "outer",
+          "inputs": [
+            "data"
+          ],
+          "steps": [
+            {
+              "name": "c-outliers",
+              "evaluator": "outer-c-outliers",
+              "input": "data"
+            },
+            {
+              "name": "c-label-health",
+              "evaluator": "outer-c-label-health",
+              "input": "data"
+            },
+            {
+              "name": "c-outliers-by-class",
+              "combine": "outliers-by-class",
+              "input": "data",
+              "outliers": "c-outliers"
+            },
+            {
+              "name": "c-duplicates",
+              "evaluator": "outer-c-duplicates",
+              "input": "data"
+            },
+            {
+              "name": "c-image-outliers",
+              "check": "image-outliers",
+              "input": "c-outliers",
+              "warning": 3.0
+            },
+            {
+              "name": "c-target-outliers",
+              "check": "target-outliers",
+              "input": "c-outliers",
+              "labels": "c-label-health",
+              "warning": 3.0
+            },
+            {
+              "name": "c-class-outliers",
+              "check": "class-outliers",
+              "input": "c-outliers-by-class",
+              "warning": 3.0
+            },
+            {
+              "name": "c-image-duplicates",
+              "check": "image-duplicates",
+              "input": "c-duplicates",
+              "exact": 0.0,
+              "near": 5.0
+            },
+            {
+              "name": "c-clean",
+              "transform": "remove",
+              "input": "data",
+              "plans": {
+                "c-duplicates": {
+                  "dup_types": [
+                    "exact",
+                    "near"
+                  ],
+                  "keep": "first"
+                },
+                "c-outliers": {
+                  "min_flags": 1
+                }
+              }
+            },
+            {
+              "name": "dupes-clean",
+              "evaluator": "dupes",
+              "input": "c-clean"
+            },
+            {
+              "name": "judge-clean",
+              "check": "image-duplicates",
+              "input": "dupes-clean"
+            },
+            {
+              "name": "again",
+              "workflow": "q",
+              "input": "c-clean"
+            }
+          ],
+          "derived_from": [
+            {
+              "type": "quality",
+              "entry": "q",
+              "settings": {
+                "stats": null,
+                "metadata": null,
+                "name": "q",
+                "type": "quality",
+                "ontology": null,
+                "outliers": {
+                  "flags": [
+                    "pixel"
+                  ],
+                  "outlier_threshold": "zscore",
+                  "cluster_threshold": null,
+                  "cluster_algorithm": null,
+                  "n_clusters": null
+                },
+                "duplicates": {
+                  "flags": null,
+                  "merge_near_duplicates": null,
+                  "cluster_sensitivity": null,
+                  "cluster_algorithm": null,
+                  "n_clusters": null
+                },
+                "checks": {
+                  "image-outliers": {
+                    "warning": 3.0
+                  },
+                  "target-outliers": {
+                    "warning": 3.0
+                  },
+                  "class-outliers": {
+                    "warning": 3.0
+                  },
+                  "image-duplicates": {
+                    "exact": 0.0,
+                    "near": 5.0
+                  }
+                }
+              },
+              "steps": [
+                "c-outliers",
+                "c-label-health",
+                "c-outliers-by-class",
+                "c-duplicates",
+                "c-image-outliers",
+                "c-target-outliers",
+                "c-class-outliers",
+                "c-image-duplicates",
+                "c-clean"
+              ],
+              "flow_version": "0.2.3.dev827+g28c774971"
+            }
+          ]
+        }
+      ],
+      "evaluators": [
+        {
+          "stats": null,
+          "name": "dupes",
+          "type": "duplicates",
+          "cluster_algorithm": null,
+          "n_clusters": null,
+          "per_image": null,
+          "per_target": null,
+          "flags": null,
+          "merge_near_duplicates": null,
+          "hash_radius": null,
+          "cluster_sensitivity": null,
+          "redundancy_radius": null,
+          "min_segment_frames": null,
+          "max_segment_gap": null,
+          "segment_offset_tolerance": null,
+          "verify_alignment": null,
+          "min_track_frames": null,
+          "frame_sample": null
+        },
+        {
+          "stats": null,
+          "name": "outer-c-outliers",
+          "type": "outliers",
+          "cluster_algorithm": null,
+          "n_clusters": null,
+          "per_image": null,
+          "per_target": true,
+          "flags": [
+            "pixel"
+          ],
+          "outlier_threshold": "zscore",
+          "cluster_threshold": null
+        },
+        {
+          "stats": null,
+          "name": "outer-c-duplicates",
+          "type": "duplicates",
+          "cluster_algorithm": null,
+          "n_clusters": null,
+          "per_image": null,
+          "per_target": null,
+          "flags": null,
+          "merge_near_duplicates": null,
+          "hash_radius": null,
+          "cluster_sensitivity": null,
+          "redundancy_radius": null,
+          "min_segment_frames": null,
+          "max_segment_gap": null,
+          "segment_offset_tolerance": null,
+          "verify_alignment": null,
+          "min_track_frames": null,
+          "frame_sample": null
+        },
+        {
+          "metadata": null,
+          "name": "outer-c-label-health",
+          "type": "label-health"
+        }
+      ],
+      "tasks": [
+        {
+          "name": "review",
+          "workflow": "review",
+          "enabled": true,
+          "sources": "data",
+          "extractor": null
+        },
+        {
+          "name": "clean",
+          "workflow": "q",
+          "enabled": true,
+          "sources": "data",
+          "extractor": null
+        }
+      ]
+    },
+    "valid": true,
+    "diagnostics": [],
+    "names": {
+      "workflow": "outer",
+      "steps": {
+        "outliers": "c-outliers",
+        "label-health": "c-label-health",
+        "outliers-by-class": "c-outliers-by-class",
+        "duplicates": "c-duplicates",
+        "image-outliers": "c-image-outliers",
+        "target-outliers": "c-target-outliers",
+        "class-outliers": "c-class-outliers",
+        "image-duplicates": "c-image-duplicates",
+        "clean": "c-clean"
+      },
+      "evaluators": {
+        "outliers": "outer-c-outliers",
+        "duplicates": "outer-c-duplicates",
+        "label-health": "outer-c-label-health"
+      },
+      "addresses": {
+        "c.clean": "c-clean"
+      }
+    },
+    "changes": [
+      {
+        "op": "replace",
+        "pointer": "/workflows/2/steps/0",
+        "summary": "Step 'c-outliers', preset 'q''s `outliers`, in place of step 'c'."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/2/steps/1",
+        "summary": "Step 'c-label-health', preset 'q''s `label-health`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/2/steps/2",
+        "summary": "Step 'c-outliers-by-class', preset 'q''s `outliers-by-class`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/2/steps/3",
+        "summary": "Step 'c-duplicates', preset 'q''s `duplicates`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/2/steps/4",
+        "summary": "Step 'c-image-outliers', preset 'q''s `image-outliers`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/2/steps/5",
+        "summary": "Step 'c-target-outliers', preset 'q''s `target-outliers`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/2/steps/6",
+        "summary": "Step 'c-class-outliers', preset 'q''s `class-outliers`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/2/steps/7",
+        "summary": "Step 'c-image-duplicates', preset 'q''s `image-duplicates`."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/2/steps/8",
+        "summary": "Step 'c-clean', preset 'q''s `clean`."
+      },
+      {
+        "op": "replace",
+        "pointer": "/workflows/2/steps/9/input",
+        "summary": "Step 'dupes-clean''s `input` reads the inlined steps where it read step 'c'."
+      },
+      {
+        "op": "replace",
+        "pointer": "/workflows/2/steps/11/input",
+        "summary": "Step 'again''s `input` reads the inlined steps where it read step 'c'."
+      },
+      {
+        "op": "add",
+        "pointer": "/workflows/2/derived_from/0",
+        "summary": "Where the inlined steps came from: preset 'q' (quality), as it stood."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/1",
+        "summary": "Evaluator 'outer-c-outliers', the inlined steps' own 'outliers'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/2",
+        "summary": "Evaluator 'outer-c-duplicates', the inlined steps' own 'duplicates'."
+      },
+      {
+        "op": "add",
+        "pointer": "/evaluators/3",
+        "summary": "Evaluator 'outer-c-label-health', the inlined steps' own 'label-health'."
+      }
+    ],
+    "structure": [],
+    "representational_changes": [
+      {
+        "code": "step_names",
+        "pointer": "/workflows/2",
+        "message": "Results name step 'c''s steps `c-\u2026`, where they named them `c/\u2026`, and the envelope no longer records preset 'q' under `presets`."
+      }
+    ]
+  }
+}

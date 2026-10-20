@@ -14,6 +14,9 @@ from dataeval_flow._service import _contract
 from dataeval_flow.steps._address import STEP_NAME_PATTERN
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
+
+    from dataeval_flow._service._resolve import Resolution
     from dataeval_flow.config import PipelineConfig
     from dataeval_flow.config._schemas import TaskConfig
     from dataeval_flow.workflows._preset import Preset, StructuralChoice
@@ -29,7 +32,7 @@ __all__ = [
     "prepare",
 ]
 
-SUPPORTED_OPERATIONS: tuple[str, ...] = ("copy_definition",)
+SUPPORTED_OPERATIONS: tuple[str, ...] = ("copy_definition", "inline_step")
 _INDEX = r"(0|[1-9]\d*)"  # an array index as RFC 6901 writes it: no leading zeros
 _DEFINITION = re.compile(rf"/workflows/{_INDEX}")
 _STEP = re.compile(rf"/workflows/{_INDEX}/steps/{_INDEX}")
@@ -88,9 +91,9 @@ class DecomposeReason(BaseModel):
 
     model_config = _ALWAYS_SENT
 
-    code: Literal[
-        "unsupported_matrix_rewrite", "undeclared_structure", "unrepresentable_preflight", "operation_unavailable"
-    ] = Field(description="What the reason is; branch on it.")
+    code: Literal["unsupported_matrix_rewrite", "undeclared_structure", "unrepresentable_preflight"] = Field(
+        description="What the reason is; branch on it."
+    )
     category: Literal["implementation_gap", "plugin_contract_gap", "scope_limit"]
     message: str
     document_pointer: str = Field(description="Where in the draft the reason is, as a JSON Pointer.")
@@ -111,7 +114,7 @@ class DecomposeChange(BaseModel):
 class DecomposeRepresentationalChange(BaseModel):
     """Something the candidate represents differently from the preset, though its results mean the same."""
 
-    code: Literal["result_type", "outputs_not_carried"]
+    code: Literal["result_type", "outputs_not_carried", "step_names", "record_criteria"]
     pointer: str
     message: str
 
@@ -119,9 +122,16 @@ class DecomposeRepresentationalChange(BaseModel):
 class DecomposeNames(BaseModel):
     """What the candidate calls what the preset expanded to."""
 
+    model_config = _ALWAYS_SENT
+
     workflow: str
     steps: dict[str, str] = Field(description="Each preset-local step name to its name in the candidate.")
     evaluators: dict[str, str] = Field(description="Each of the preset's evaluator names to its copy's.")
+    addresses: dict[str, str] = Field(
+        default_factory=dict,
+        description="Each address that read the inlined step's output, such as `c.clean`, to the address that reads "
+        "it now; empty for a copy.",
+    )
 
 
 class DecomposeStructuralDecision(BaseModel):
@@ -189,13 +199,13 @@ def prepare(pipeline: PipelineConfig, request: DecomposeRequest) -> DecomposeRea
         ``too_many_nodes`` where the candidate resolves to more nodes than the service resolves.
     """
     if request.operation == "inline_step":
-        return _inline_unavailable(pipeline, request)
+        from dataeval_flow._service._inline import inline
+
+        return inline(pipeline, request)
     return _copy(pipeline, request)
 
 
 def _copy(pipeline: PipelineConfig, request: DecomposeRequest) -> DecomposeReady | DecomposeUnsupported:
-    from dataeval_flow._service._resolve import resolve
-    from dataeval_flow.config import PipelineConfig
     from dataeval_flow.workflows._preset import expand_preset, structural_choices
 
     pointer = request.target_pointer
@@ -262,21 +272,7 @@ def _copy(pipeline: PipelineConfig, request: DecomposeRequest) -> DecomposeReady
             )
         )
 
-    candidate = PipelineConfig.model_validate(document, context={"graphs": False})
-    # The enabled tasks, as `/v1/resolve` selects them, and the reassigned ones: any may be none, and `resolve` still
-    # diagnoses every workflow.
-    reassigned = {index for index, _ in tasks}
-    selected = [task for index, task in enumerate(candidate.tasks or ()) if task.enabled or index in reassigned]
-    resolution = resolve(candidate, selected)
-    limit = _contract.MAX_RESOLVED_NODES
-    if resolution.node_count > limit:
-        raise _contract.ContractError(
-            413,
-            "too_many_nodes",
-            f"The candidate resolves to {resolution.node_count} nodes; the service resolves at most {limit}.",
-            limit=limit,
-            count=resolution.node_count,
-        )
+    candidate, resolution = _resolve_candidate(document, {index for index, _ in tasks})
     copy_pointer = f"/workflows/{len(workflows) - 1}"
     return DecomposeReady(
         operation=request.operation,
@@ -291,6 +287,29 @@ def _copy(pipeline: PipelineConfig, request: DecomposeRequest) -> DecomposeReady
         structure=[_decision(choice, pointer) for choice in structural_choices(entry, preset) or ()],
         representational_changes=_representational(preset, entry, new_name, copy_pointer),
     )
+
+
+def _resolve_candidate(document: dict[str, Any], also: set[int]) -> tuple[PipelineConfig, Resolution]:
+    """`document` loaded and resolved as `/v1/resolve` resolves a draft, running its enabled tasks and those at the
+    indices `also` names; refused with ``too_many_nodes`` past the service's bound."""
+    from dataeval_flow._service._resolve import resolve
+    from dataeval_flow.config import PipelineConfig
+
+    candidate = PipelineConfig.model_validate(document, context={"graphs": False})
+    # The enabled tasks, as `/v1/resolve` selects them, and `also`: any may be none, and `resolve` still diagnoses every
+    # workflow.
+    selected = [task for index, task in enumerate(candidate.tasks or ()) if task.enabled or index in also]
+    resolution = resolve(candidate, selected)
+    limit = _contract.MAX_RESOLVED_NODES
+    if resolution.node_count > limit:
+        raise _contract.ContractError(
+            413,
+            "too_many_nodes",
+            f"The candidate resolves to {resolution.node_count} nodes; the service resolves at most {limit}.",
+            limit=limit,
+            count=resolution.node_count,
+        )
+    return candidate, resolution
 
 
 def _preset_entry(
@@ -373,10 +392,17 @@ def _plugin_gaps(preset: type[Preset], pointer: str, ref: DecomposePresetRef) ->
 
 
 def _matrix_gaps(
-    pipeline: PipelineConfig, workflow: str, tasks: list[tuple[int, TaskConfig]], ref: DecomposePresetRef
+    pipeline: PipelineConfig,
+    workflow: str,
+    tasks: list[tuple[int, TaskConfig]],
+    ref: DecomposePresetRef,
+    *,
+    inlined: str | None = None,
+    moved: Collection[str] = (),
 ) -> list[DecomposeReason]:
-    """A reason per matrix key of a reassigned task that varies the preset entry's settings, at the key in its grid
-    (spec §5.3)."""
+    """A reason per matrix key of `tasks` that varies preset entry `workflow`'s settings, or is among `moved`, at the
+    key in its grid (spec §5.3, §6.2). Inlining step `inlined`, the reasons speak of inlining it rather than of
+    reassigning a task, and `moved` names the keys that sweep an address the inlining moves."""
     from dataeval_flow._matrix._keys import canonical
 
     reasons: list[DecomposeReason] = []
@@ -391,62 +417,44 @@ def _matrix_gaps(
         for grid_pointer, grid in grids:
             for key in grid:
                 target = canonical(key, task, pipeline)
-                if target.pool != "workflows" or target.entry != workflow:
+                of_preset = target.pool == "workflows" and target.entry == workflow
+                if not of_preset and key not in moved:
                     continue
+                if inlined is None:
+                    message = (
+                        f"Task '{task.name}' varies `{key}`, a setting of preset '{workflow}'. The copy has no such "
+                        "setting, and Flow doesn't rewrite matrix keys onto the steps a preset expands to."
+                    )
+                    remediation = (
+                        f"Keep task '{task.name}' on the preset, or take `{key}` out of its matrix before reassigning "
+                        "it."
+                    )
+                else:
+                    message = (
+                        f"Task '{task.name}' varies `{key}`, a setting of preset '{workflow}'. The inlined steps have "
+                        "no such setting, and Flow doesn't rewrite matrix keys onto the steps a preset expands to."
+                        if of_preset
+                        else f"Task '{task.name}' varies `{key}`, which reads an output of step '{inlined}'. Inlining "
+                        "moves that output to the inlined steps, and Flow doesn't rewrite the addresses a matrix "
+                        "sweeps."
+                    )
+                    remediation = (
+                        f"Keep step '{inlined}' running the preset, or take `{key}` out of task '{task.name}''s matrix "
+                        "before inlining the step."
+                    )
                 escaped = key.replace("~", "~0").replace("/", "~1")
                 reasons.append(
                     DecomposeReason(
                         code="unsupported_matrix_rewrite",
                         category="scope_limit",
-                        message=f"Task '{task.name}' varies `{key}`, a setting of preset '{workflow}'. The copy has no "
-                        "such setting, and Flow doesn't rewrite matrix keys onto the steps a preset expands to.",
+                        message=message,
                         document_pointer=f"/tasks/{index}/matrix{grid_pointer}/{escaped}",
                         preset=ref,
-                        remediation=f"Keep task '{task.name}' on the preset, or take `{key}` out of its matrix before "
-                        "reassigning it.",
+                        remediation=remediation,
                         details={"task": task.name, "key": key},
                     )
                 )
     return reasons
-
-
-def _inline_unavailable(pipeline: PipelineConfig, request: DecomposeRequest) -> DecomposeUnsupported:
-    """`inline_step`'s answer until it is implemented, after checking the request names a preset step."""
-    from dataeval_flow.steps._workflow import CustomWorkflowConfig
-    from dataeval_flow.workflows._preset import preset_of
-
-    pointer = request.target_pointer
-    for field in ("new_name", "reassign_tasks"):
-        if getattr(request, field):
-            raise DecomposeError(["body", field], f"`inline_step` takes no `{field}`.")
-    match = _STEP.fullmatch(pointer)
-    if match is None:
-        raise DecomposeError(["body", "target_pointer"], f"`{pointer}` isn't `/workflows/<index>/steps/<index>`.")
-    workflows = list(pipeline.workflows or ())
-    index, position = int(match.group(1)), int(match.group(2))
-    parent = workflows[index] if index < len(workflows) else None
-    if not isinstance(parent, CustomWorkflowConfig) or position >= len(parent.steps):
-        raise DecomposeError(["body", "target_pointer"], f"`{pointer}` names no step of a custom workflow.")
-    step = parent.steps[position]
-    entry = next((item for item in workflows if step.kind == "workflow" and item.name == step.target), None)
-    if entry is None or isinstance(entry, CustomWorkflowConfig) or preset_of(entry) is None:
-        raise DecomposeError(["body", "target_pointer"], f"Step '{step.name}' runs no preset.")
-    return DecomposeUnsupported(
-        operation=request.operation,
-        target_pointer=pointer,
-        reasons=[
-            DecomposeReason(
-                code="operation_unavailable",
-                category="implementation_gap",
-                message="Inlining a preset step (`inline_step`) isn't available in this Flow version.",
-                document_pointer=pointer,
-                preset=DecomposePresetRef(name=entry.name, type=entry.type),
-                missing_capability="inline_step",
-                remediation="Copy the preset's definition with `copy_definition`, or use a Flow version whose "
-                "`supported_operations` lists `inline_step`.",
-            )
-        ],
-    )
 
 
 def _unique(name: str, taken: set[str]) -> str:

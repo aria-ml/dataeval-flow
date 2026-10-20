@@ -4460,6 +4460,14 @@
           "default": null,
           "description": "What the workflow refuses before any step runs."
         },
+        "scopes": {
+          "description": "Named sets of the steps, each judged together on inputs of its own, as a preset run as a step was: its own verdict, preflight, reference, record, groups and next steps.",
+          "items": {
+            "$ref": "#/$defs/StepScopeConfig"
+          },
+          "title": "Scopes",
+          "type": "array"
+        },
         "derived_from": {
           "description": "The preset entries the steps were decomposed from, as they were then: historical, never a reference, and ignored when the workflow runs.",
           "items": {
@@ -11796,6 +11804,111 @@
         "measure"
       ],
       "title": "StatsPolicyConfig",
+      "type": "object"
+    },
+    "StepScopeConfig": {
+      "additionalProperties": false,
+      "description": "Steps of a custom workflow judged together on inputs of their own, with what a preset run as a step declared:\na verdict, preflight, reference, record, report groups and next steps.",
+      "properties": {
+        "name": {
+          "description": "The scope's name, which the report shows it under.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "inputs": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Each input of the scope, by name, as the address in the workflow it binds. The scope's steps read the workflow's addresses; an input's name is what `reference` names and what preflight messages and the record's columns call it.",
+          "title": "Inputs",
+          "type": "object"
+        },
+        "steps": {
+          "description": "The names of the workflow's steps the scope holds.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "groups": {
+          "description": "The scope's report headings, each holding the check types it names.",
+          "items": {
+            "$ref": "#/$defs/ReportGroupConfig"
+          },
+          "title": "Groups",
+          "type": "array"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An input of the scope whose Dataset every other Dataset's metadata is encoded like.",
+          "title": "Reference"
+        },
+        "record": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RecordConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A report section recording what the scope read."
+        },
+        "verdict": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VerdictConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Give a verdict over the scope's checks. Unset, the scope gives none of its own."
+        },
+        "next_steps": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NextStepsConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the report says to do about each warning and each check left unassessed."
+        },
+        "preflight": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PreflightConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the scope refuses before any of its steps run."
+        }
+      },
+      "required": [
+        "name",
+        "inputs",
+        "steps"
+      ],
+      "title": "StepScopeConfig",
       "type": "object"
     },
     "TargetOutliersSettings": {

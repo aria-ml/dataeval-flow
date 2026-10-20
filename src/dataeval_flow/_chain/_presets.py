@@ -19,25 +19,33 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Splice:
-    """A preset run as a step of a custom workflow, as the config loads it (audit-as-a-step spec §4.1): what the run
-    needs to start it, and the result to judge and record it."""
+    """A preset run as a step of a custom workflow, or a scope of one, as the config loads it (audit-as-a-step spec
+    §4.1, preset decomposition spec §6.1): what the run needs to start it, and the result to judge and record it."""
 
     name: str
-    """The step's name in the custom workflow, such as `audit`."""
-    preset: "type[Preset]"
+    """The step's name in the custom workflow, such as `audit`, or the scope's."""
+    preset: "type[Preset] | None"
+    """The preset the step runs; ``None`` for a scope."""
     entry: Any
-    """The preset entry: its workflow config."""
+    """The preset entry: its workflow config; ``None`` for a scope."""
     chain: "PresetChain"
-    """What the entry expanded to."""
+    """What the entry expanded to, or what the scope declares."""
     slots: Mapping[str, str]
     """By slot name, the address the step binds it to, as written: `splits.train`."""
     steps: tuple[str, ...]
-    """The spliced step names, in run order: `audit/label-health-train`, ..."""
+    """The spliced step names, in run order: `audit/label-health-train`, ..., or the scope's steps."""
+    prefix: str
+    """What the spliced step names carry before the chain's own: `audit/`; ``""`` for a scope."""
 
     @property
     def gives_verdict(self) -> bool:
         """Whether its chain declares a verdict."""
         return self.chain.blocking is not None
+
+    @property
+    def noun(self) -> str:
+        """What its messages call it: a `step`, or a `scope`."""
+        return "step" if self.preset is not None else "scope"
 
 
 @dataclass(frozen=True)
@@ -149,6 +157,7 @@ def splice_preset(
         chain=preset_chain,
         slots={slot: str(address) for slot, (address, _) in bound.items()},
         steps=tuple(spec.name for spec in steps),
+        prefix=f"{entry.name}/",
     )
     return Spliced(steps, aliases, types, frozenset(empty), splice)
 

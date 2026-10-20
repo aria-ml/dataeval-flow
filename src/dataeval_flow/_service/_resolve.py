@@ -113,6 +113,14 @@ class _Pointers:
         index = next((index for index, step in enumerate(entry.steps) if step.name == name), None)
         return None if index is None else f"/workflows/{self.workflows[workflow]}/steps/{index}"
 
+    def scope(self, workflow: str, name: str | None) -> str | None:
+        """Scope `name` of custom workflow `workflow`; ``None`` where the document holds no such scope."""
+        entry = self.entries.get(workflow)
+        if name is None or not isinstance(entry, CustomWorkflowConfig):
+            return None
+        index = next((index for index, scope in enumerate(entry.scopes) if scope.name == name), None)
+        return None if index is None else f"/workflows/{self.workflows[workflow]}/scopes/{index}"
+
     def evaluator(self, name: str) -> str | None:
         index = self.evaluators.get(name)
         return None if index is None else f"/evaluators/{index}"
@@ -145,6 +153,8 @@ class _Pointers:
 def _diagnostic(error: GraphError, workflow: str, owner: str | None, pointers: _Pointers) -> dict[str, Any]:
     step = pointers.step(workflow, error.step)
     document = f"{step}/{error.port}" if step is not None and error.port is not None else step
+    if (scope := pointers.scope(workflow, error.scope)) is not None:
+        document = f"{scope}/inputs/{error.port}" if error.port is not None else scope
     return {
         "code": error.code,
         "severity": "error",

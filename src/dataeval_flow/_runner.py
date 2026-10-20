@@ -190,7 +190,7 @@ _SUCCEEDED_ONLY = ("json", "text", "html")
 
 def _judged_tasks(config: PipelineConfig, tasks: str | Sequence[str] | None) -> list[str]:
     """The tasks this run runs whose workflow declares a verdict: a preset whose chain names `blocking` checks, or a
-    custom workflow declaring `verdict:` or with a step running one."""
+    custom workflow declaring `verdict:`, with a step running one, or with a scope giving one."""
     from dataeval_flow._chain._graph import verdict_steps
     from dataeval_flow._orchestrator import _resolve_workflow, select_tasks
     from dataeval_flow.steps._workflow import CustomWorkflowConfig
@@ -204,7 +204,8 @@ def _judged_tasks(config: PipelineConfig, tasks: str | Sequence[str] | None) -> 
             continue
         entry = _resolve_workflow(task.workflow, config)
         if isinstance(entry, CustomWorkflowConfig):
-            if entry.verdict is not None or verdict_steps(entry, config):
+            scoped = any(scope.verdict is not None for scope in entry.scopes)
+            if entry.verdict is not None or scoped or verdict_steps(entry, config):
                 judged.append(task.name)
             continue
         if not isinstance(entry, WorkflowConfig):

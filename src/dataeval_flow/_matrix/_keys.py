@@ -31,6 +31,8 @@ _WIRING = (
     "pairs",
     "extractor",
 )
+# A custom workflow scope's name and the steps and inputs it holds, which every run of a matrix shares.
+_SCOPE_WIRING = ("name", "inputs", "steps")
 _ITEM_IDS = ("name", "type", "model")
 
 
@@ -110,6 +112,14 @@ def _refuse_structural(key: str, target: Target, pipeline: "PipelineConfig") -> 
                 "writes under `datasets/<to>/run-<n>/`"
             )
         return
+    # A whole scope, or the `scopes` list, holds that wiring too.
+    if (
+        isinstance(entry, CustomWorkflowConfig)
+        and head == "scopes"
+        and (len(target.path) < 3 or target.path[2] in _SCOPE_WIRING)
+    ):
+        what = f"a scope's `{target.path[2]}`" if len(target.path) > 2 else "a scope"
+        raise ValueError(f"`{key}` varies {what}, which wires the chain every run shares")
     if head in _IDENTITY[target.pool]:
         raise ValueError(
             f"`{key}` varies `{head}`, which says which entry this is: a matrix varies settings, not identities"

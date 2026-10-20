@@ -299,12 +299,77 @@ def _decompose_matrix_refused(client: Any) -> dict[str, Any]:
     return _decompose(client, _sweeping(), new_name="qc", reassign_tasks=["clean"])
 
 
-def _decompose_inline_unavailable(client: Any) -> dict[str, Any]:
+def _inlining_quality() -> dict[str, Any]:
+    """`_with_preset(_QUALITY_ENTRY)` plus `outer`, running it as step `c`, reading `c.clean` downstream and running it
+    again on `c.clean`."""
     pipeline = _with_preset(_QUALITY_ENTRY)
     pipeline["workflows"].append(
-        {"name": "outer", "inputs": ["data"], "steps": [{"name": "c", "workflow": "q", "input": "data"}]}
+        {
+            "name": "outer",
+            "inputs": ["data"],
+            "steps": [
+                {"name": "c", "workflow": "q", "input": "data"},
+                {"name": "dupes-clean", "evaluator": "dupes", "input": "c.clean"},
+                {"name": "judge-clean", "check": "image-duplicates", "input": "dupes-clean"},
+                {"name": "again", "workflow": "q", "input": "c.clean"},
+            ],
+        }
     )
-    return _decompose(client, pipeline, operation="inline_step", target_pointer="/workflows/2/steps/0")
+    return pipeline
+
+
+def _inline(client: Any, pipeline: dict[str, Any], target_pointer: str) -> dict[str, Any]:
+    return _decompose(client, pipeline, operation="inline_step", target_pointer=target_pointer)
+
+
+def _decompose_inline_quality(client: Any) -> dict[str, Any]:
+    return _inline(client, _inlining_quality(), "/workflows/2/steps/0")
+
+
+def _decompose_inline_audit(client: Any) -> dict[str, Any]:
+    pipeline = _with_preset({"name": "splitting", "type": "splits"})
+    pipeline["workflows"] += [
+        {"name": "release", "type": "audit", "outliers": _QUALITY_ENTRY["outliers"]},
+        {
+            "name": "outer",
+            "inputs": ["data"],
+            "steps": [
+                {"name": "splits", "workflow": "splitting", "input": "data"},
+                {"name": "evals", "transform": "collect", "input": ["splits.val", "splits.test"]},
+                {"name": "audit", "workflow": "release", "input": ["splits.train", "evals"]},
+            ],
+        },
+    ]
+    return _inline(client, pipeline, "/workflows/3/steps/2")
+
+
+def _decompose_inline_splits(client: Any) -> dict[str, Any]:
+    pipeline = _with_preset({"name": "s", "type": "splits", "rebalance": "global"})
+    pipeline["workflows"].append(
+        {
+            "name": "outer",
+            "inputs": ["data"],
+            "steps": [
+                {"name": "s", "workflow": "s", "input": "data"},
+                {"name": "parts", "transform": "collect", "input": ["s.train", "s.test"]},
+                {"name": "dupes-val", "evaluator": "dupes", "input": "s.val"},
+            ],
+        }
+    )
+    return _inline(client, pipeline, "/workflows/2/steps/0")
+
+
+def _decompose_inline_bare_scope(client: Any) -> dict[str, Any]:
+    pipeline = _inlining_quality()
+    pipeline["workflows"][2]["steps"][3]["optional"] = True  # `again`, which reads `c.clean`, a step's output
+    return _inline(client, pipeline, "/workflows/2/steps/3")
+
+
+def _decompose_inline_matrix_refused(client: Any) -> dict[str, Any]:
+    pipeline = _inlining_quality()
+    matrix = {"workflows.q.outliers.outlier_threshold": ["zscore", "iqr"]}
+    pipeline["tasks"].append({"name": "sweep", "workflow": "outer", "sources": "data", "matrix": matrix})
+    return _inline(client, pipeline, "/workflows/2/steps/0")
 
 
 def _decompose_not_a_preset(client: Any) -> dict[str, Any]:
@@ -358,7 +423,11 @@ GENERATORS: dict[str, Callable[[Any], dict[str, Any]]] = {
     "decompose-copy-splits": _decompose_copy_splits,
     "decompose-copy-keeps-matrix": _decompose_copy_keeps_matrix,
     "decompose-matrix-refused": _decompose_matrix_refused,
-    "decompose-inline-unavailable": _decompose_inline_unavailable,
+    "decompose-inline-quality": _decompose_inline_quality,
+    "decompose-inline-audit": _decompose_inline_audit,
+    "decompose-inline-splits": _decompose_inline_splits,
+    "decompose-inline-bare-scope": _decompose_inline_bare_scope,
+    "decompose-inline-matrix-refused": _decompose_inline_matrix_refused,
     "decompose-not-a-preset": _decompose_not_a_preset,
     "decompose-name-taken": _decompose_name_taken,
     "decompose-plugin-gap": _decompose_plugin_gap,

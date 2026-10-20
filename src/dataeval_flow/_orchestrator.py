@@ -943,18 +943,20 @@ def _attach_declared(
 ) -> None:
     """Attach what the task's preset chain declares; else, the splice's that gives a verdict, with the custom workflow's
     own groups after it (D2 allows one); else what the custom workflow declares. The envelope records each spliced
-    preset entry, by step name, so a verdict can be reproduced from its result (audit-as-a-step spec §4.4)."""
+    preset entry, by step name, so a verdict can be reproduced from its result (audit-as-a-step spec §4.4); a scope is
+    the workflow's own, recorded with it."""
     judged = next((splice for splice in graph.splices if splice.gives_verdict), None)
     if preset_chain is not None:
         result.attach_preset(preset_chain)
     elif judged is not None:
-        result.attach_preset(judged.chain, splice=judged.name, groups=_custom_groups(workflow))
+        result.attach_preset(judged.chain, splice=judged, groups=_custom_groups(workflow))
     elif (plan := workflow.declared_chain()) is not None:
         result.attach_preset(plan)
-    if graph.splices:
-        result.metadata.resolved_config["presets"] = {
-            splice.name: splice.entry.model_dump(mode="json") for splice in graph.splices
-        }
+    presets = {
+        splice.name: splice.entry.model_dump(mode="json") for splice in graph.splices if splice.entry is not None
+    }
+    if presets:
+        result.metadata.resolved_config["presets"] = presets
 
 
 def _run_on_reference(
