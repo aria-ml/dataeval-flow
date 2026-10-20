@@ -12,11 +12,12 @@ from pydantic import ValidationError
 from dataeval_flow import run_tasks
 from dataeval_flow._blocks import Fields, Paragraph, Table
 from dataeval_flow._cache import DatasetCache
+from dataeval_flow._chain._graph import build_graph
 from dataeval_flow._chain._presets import SpliceRun
 from dataeval_flow._runner import run
 from dataeval_flow.config import PipelineConfig
 from dataeval_flow.evaluators.quality import DuplicatesConfig
-from dataeval_flow.steps import ChainResult
+from dataeval_flow.steps import ChainResult, CustomWorkflowConfig
 from tests.chain_toys import chain_pipeline
 from tests.evaluator_toys import Items, ToyFactors, ToyImages
 from tests.golden.splitting import SplitImages
@@ -446,11 +447,14 @@ def test_a_missing_verdict_says_why_in_the_json_and_the_report_head() -> None:
 
 
 def test_a_splice_that_failed_as_it_started_gives_no_verdict_even_when_its_first_step_is_optional() -> None:
-    result = _run(_never_started())
+    config = _never_started()
+    result = _run(config)
     result.splice_runs["audit"] = SpliceRun(failed="could not be encoded")
     result.verdict = result.no_verdict = None
     assert result.preset_chain is not None
-    result.attach_preset(result.preset_chain, splice="audit")
+    (outer,) = [w for w in config.workflows or () if isinstance(w, CustomWorkflowConfig) and w.name == "outer"]
+    splice = next(splice for splice in build_graph(outer, config).splices if splice.name == "audit")
+    result.attach_preset(result.preset_chain, splice=splice)
     assert result.verdict is None
     assert result.no_verdict == "step `audit` failed as it started: could not be encoded"
 

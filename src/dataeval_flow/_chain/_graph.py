@@ -48,16 +48,24 @@ class GraphError(ValueError):
     """A custom workflow whose steps do not connect, found before any data is read.
 
     `code` says what kind of problem it is, `step` and `port` where (builder spec §5.2). Each is set where it is known;
-    a caller resolving a step fills in the step, and binding a port fills in the port.
+    a caller resolving a step fills in the step, and binding a port fills in the port. A scope's problem names the
+    `scope` instead of a step, and `port` the scope's input it is in, if any.
     """
 
     def __init__(
-        self, message: str, *, code: str = "graph_error", step: str | None = None, port: str | None = None
+        self,
+        message: str,
+        *,
+        code: str = "graph_error",
+        step: str | None = None,
+        port: str | None = None,
+        scope: str | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.step = step
         self.port = port
+        self.scope = scope
 
 
 @dataclass(frozen=True)
@@ -123,7 +131,7 @@ class ChainGraph:
     """Each declared output of a preset step, such as `cleaning.clean`, to the output address in the spliced
     chain that holds it, `cleaning/clean` or `splits/split.train`."""
     splices: tuple["Splice", ...] = ()
-    """Each preset step's splice, in run order (audit-as-a-step spec §4.1)."""
+    """Each preset step's splice and each scope's, in the order their first steps run (audit-as-a-step spec §4.1)."""
 
     def aliases_of(self, address: str) -> tuple[str, ...]:
         """The addresses that read what `address` holds: each declared output of a preset step made there."""
@@ -156,34 +164,70 @@ def build_graph(
     return graph
 
 
-def _beside_a_verdict(workflow: CustomWorkflowConfig, verdicts: list[str]) -> GraphError | None:
-    """The refusal of a workflow that runs a verdict step and declares a verdict, or what one reports, of its own."""
+def _too_many_verdicts(message: str, kind: str, name: str) -> GraphError:
+    """A `too_many_verdicts` refusal, located at step or scope `name`, as `kind` says."""
+    return GraphError(
+        message,
+        code="too_many_verdicts",
+        step=name if kind == "step" else None,
+        scope=name if kind == "scope" else None,
+    )
+
+
+def _verdict_refusal(workflow: CustomWorkflowConfig, pipeline: "PipelineConfig") -> GraphError | None:
+    """The refusal of a workflow giving more than one verdict: its own, its verdict-giving preset steps' and its verdict
+    scopes'; or of what one reports, declared beside it."""
+    givers = [("step", name) for name in verdict_steps(workflow, pipeline)]
+    givers += [("scope", scope.name) for scope in workflow.scopes if scope.verdict is not None]
+    if len(givers) > 1:
+        steps_only = all(kind == "step" for kind, _ in givers)
+        labels = [f"`{name}`" if steps_only else f"{kind} `{name}`" for kind, name in givers]
+        named = ", ".join(labels[:-1]) + f" and {labels[-1]}"
+        count = _count_word(len(givers))
+        lead = f"runs {count} steps that give a verdict," if steps_only else f"gives {count} verdicts, from"
+        message = f"Workflow '{workflow.name}' {lead} {named}; a workflow gives one verdict."
+        return _too_many_verdicts(message, *givers[1])
+    return _beside_a_verdict(workflow, givers)
+
+
+def _beside_a_verdict(workflow: CustomWorkflowConfig, givers: list[tuple[str, str]]) -> GraphError | None:
+    """The refusal of a workflow that runs a verdict step, or has a verdict scope, and declares a verdict, or what one
+    reports, of its own. `givers` holds each, as (`step` or `scope`, name)."""
+    if not givers:
+        return None
+    kind, name = givers[0]
+    has = f"runs step `{name}`" if kind == "step" else f"has scope `{name}`"
     beside = [key for key in ("reference", "record", "next_steps") if getattr(workflow, key) is not None]
-    if verdicts and workflow.verdict is not None:
+    if workflow.verdict is not None:
         message = (
-            f"Workflow '{workflow.name}' declares `verdict:` and runs step `{verdicts[0]}`, which gives one; a "
-            "workflow gives one verdict."
+            f"Workflow '{workflow.name}' declares `verdict:` and {has}, which gives one; a workflow gives one verdict."
         )
-        return GraphError(message, code="too_many_verdicts", step=verdicts[0])
-    if verdicts and beside:
+        return _too_many_verdicts(message, kind, name)
+    if beside:
         message = (
-            f"Workflow '{workflow.name}' runs step `{verdicts[0]}`, whose verdict reports its own reference, record "
-            f"and next steps: remove {', '.join(f'`{key}`' for key in beside)}."
+            f"Workflow '{workflow.name}' {has}, whose verdict reports its own reference, record and next steps: "
+            f"remove {', '.join(f'`{key}`' for key in beside)}."
         )
-        return GraphError(message, code="too_many_verdicts", step=verdicts[0])
+        return _too_many_verdicts(message, kind, name)
     return None
 
 
 def _list_mismatch(workflow: CustomWorkflowConfig, specs: dict[str, StepSpec]) -> GraphError | None:
-    """The refusal of an `accepted` key naming an element of a step that runs once, not once per element."""
-    for key in workflow.verdict.accepted if workflow.verdict is not None else ():
-        step = key.split("[", 1)[0]
-        if key != step and step in specs and not specs[step].broadcast:
-            message = (
-                f"Workflow '{workflow.name}': `accepted` names `{key}`, but step `{step}` runs once, not once per "
-                f"element of a list: key it `{step}` alone."
-            )
-            return GraphError(message, code="list_mismatch", step=step)
+    """The refusal of an `accepted` key, the workflow's or a scope's, naming an element of a step that runs once, not
+    once per element."""
+    owners = [
+        (f"Workflow '{workflow.name}'", workflow.verdict, None),
+        *((f"Scope '{scope.name}'", scope.verdict, scope.name) for scope in workflow.scopes),
+    ]
+    for owner, verdict, scope in owners:
+        for key in verdict.accepted if verdict is not None else ():
+            step = key.split("[", 1)[0]
+            if key != step and step in specs and not specs[step].broadcast:
+                message = (
+                    f"{owner}: `accepted` names `{key}`, but step `{step}` runs once, not once per element of a list: "
+                    f"key it `{step}` alone."
+                )
+                return GraphError(message, code="list_mismatch", step=step if scope is None else None, scope=scope)
     return None
 
 
@@ -200,6 +244,8 @@ def resolve_graph(
 
     The arguments are :func:`build_graph`'s.
     """
+    from dataeval_flow._chain._scopes import scope_splice
+
     keys = slot_keys or {}
     given = slot_types or {}
     types: dict[str, ValueType] = {
@@ -217,19 +263,17 @@ def resolve_graph(
             workflow.name, tuple(workflow.inputs), tuple(specs.values()), aliases=aliases, splices=tuple(splices)
         )
 
-    verdicts = verdict_steps(workflow, pipeline)
-    if len(verdicts) > 1:
-        named = ", ".join(f"`{name}`" for name in verdicts[:-1]) + f" and `{verdicts[-1]}`"
-        message = (
-            f"Workflow '{workflow.name}' runs {_count_word(len(verdicts))} steps that give a verdict, {named}; a "
-            "workflow gives one verdict."
-        )
-        return graph(), GraphError(message, code="too_many_verdicts", step=verdicts[1])
-    if (refusal := _beside_a_verdict(workflow, verdicts)) is not None:
+    if (refusal := _verdict_refusal(workflow, pipeline)) is not None:
         return graph(), refusal
+    # Each scope starts as the graph reaches its first step.
+    firsts = {
+        next(entry.name for entry in workflow.steps if entry.name in scope.steps): scope for scope in workflow.scopes
+    }
     for entry in workflow.steps:
         later.discard(entry.name)
         try:
+            if (scope := firsts.get(entry.name)) is not None:
+                splices.append(scope_splice(scope, workflow, pipeline, types, later, empty))
             preset = _preset_step(entry, pipeline)
             if preset is not None:
                 spliced = _splice(entry, *preset, workflow, pipeline, types, later, empty)
@@ -241,7 +285,8 @@ def resolve_graph(
                 continue
             spec = _resolve(entry, workflow, pipeline, types, later, specs, empty, evaluators)
         except GraphError as error:
-            error.step = error.step or entry.name
+            # A scope's refusal is the scope's, not the step's it was found at.
+            error.step = error.step or (entry.name if error.scope is None else None)
             return graph(), error
         specs[entry.name] = spec
         if issubclass(spec.impl, Transform):

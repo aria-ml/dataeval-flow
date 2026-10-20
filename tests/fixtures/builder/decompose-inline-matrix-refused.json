@@ -1,6 +1,6 @@
 {
   "generated_by": "uv run python -m tests.service.builder_fixtures",
-  "flow_version": "0.2.3.dev836+g4f5318838",
+  "flow_version": "0.2.3.dev827+g28c774971",
   "dataeval_version": "1.1.1.dev185+ge8244ff5b",
   "request": {
     "method": "POST",
@@ -65,6 +65,21 @@
                 "name": "c",
                 "workflow": "q",
                 "input": "data"
+              },
+              {
+                "name": "dupes-clean",
+                "evaluator": "dupes",
+                "input": "c.clean"
+              },
+              {
+                "name": "judge-clean",
+                "check": "image-duplicates",
+                "input": "dupes-clean"
+              },
+              {
+                "name": "again",
+                "workflow": "q",
+                "input": "c.clean"
               }
             ]
           }
@@ -79,6 +94,17 @@
             "name": "clean",
             "workflow": "q",
             "sources": "data"
+          },
+          {
+            "name": "sweep",
+            "workflow": "outer",
+            "sources": "data",
+            "matrix": {
+              "workflows.q.outliers.outlier_threshold": [
+                "zscore",
+                "iqr"
+              ]
+            }
           }
         ]
       },
@@ -89,26 +115,30 @@
   "status": 200,
   "response": {
     "schema": 1,
-    "schema_fingerprint": "sha256:a729b50e4670ffef3e43a7b174006d78f7ded85d34c87735be39e242289e87ea",
+    "schema_fingerprint": "sha256:8ace26058ee05c889e077d31e0978a84104c6febe7e56140324cb7c18586c042",
     "operation": "inline_step",
     "target_pointer": "/workflows/2/steps/0",
     "supported_operations": [
-      "copy_definition"
+      "copy_definition",
+      "inline_step"
     ],
     "status": "unsupported",
     "reasons": [
       {
-        "code": "operation_unavailable",
-        "category": "implementation_gap",
-        "message": "Inlining a preset step (`inline_step`) isn't available in this Flow version.",
-        "document_pointer": "/workflows/2/steps/0",
+        "code": "unsupported_matrix_rewrite",
+        "category": "scope_limit",
+        "message": "Task 'sweep' varies `workflows.q.outliers.outlier_threshold`, a setting of preset 'q'. The inlined steps have no such setting, and Flow doesn't rewrite matrix keys onto the steps a preset expands to.",
+        "document_pointer": "/tasks/2/matrix/workflows.q.outliers.outlier_threshold",
         "preset": {
           "name": "q",
           "type": "quality"
         },
-        "missing_capability": "inline_step",
-        "remediation": "Copy the preset's definition with `copy_definition`, or use a Flow version whose `supported_operations` lists `inline_step`.",
-        "details": {}
+        "missing_capability": null,
+        "remediation": "Keep step 'c' running the preset, or take `workflows.q.outliers.outlier_threshold` out of task 'sweep''s matrix before inlining the step.",
+        "details": {
+          "task": "sweep",
+          "key": "workflows.q.outliers.outlier_threshold"
+        }
       }
     ]
   }

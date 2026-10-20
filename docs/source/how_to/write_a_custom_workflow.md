@@ -650,6 +650,55 @@ workflows:
 A workflow with an `audit` step (section 11) takes its verdict, reference, record and next steps from that step, so it
 declares none of them itself.
 
+## 13. Judge some steps together
+
+A workflow's `verdict`, `preflight`, `reference`, `record`, `groups` and `next_steps` cover all its steps. A `scopes:`
+entry holds some of them instead, judged on inputs of its own, as a [preset run as a step](#11-check-a-set-of-splits)
+is judged on its own:
+
+```yaml
+workflows:
+  - name: split_and_check
+    inputs: [data]
+    steps:
+      - {name: splits, workflow: splitting, input: data}
+      - {name: dupes, evaluator: dupes, input: splits.train}
+      - {name: labels, evaluator: labels, input: splits.train}
+      - {name: duplicates, check: image-duplicates, input: dupes}
+      - {name: imbalance, check: class-imbalance, input: labels}
+    scopes:
+      - name: train-checks
+        inputs: {train: splits.train}
+        steps: [dupes, labels, duplicates, imbalance]
+        reference: train
+        record: {title: What was read, steps: [label-health]}
+        verdict:
+          blocking: [image-duplicates]
+          accepted: {class-imbalance: Rare classes by design.}
+        next_steps:
+          by_check: {image-duplicates: Remove them with a `remove` step.}
+        preflight: {nonempty: true}
+```
+
+- `inputs` names each input of the scope and binds it to an address of the workflow, which must hold a Dataset made
+  before the scope's first step. The scope's steps still read the workflow's addresses: an input's name is what
+  `reference` names, and what preflight messages and the record's columns call it. `steps` names steps of the
+  workflow, each in one scope at most, and no preset step: inline it first. `groups`, `reference`, `record`,
+  `verdict`, `next_steps` and `preflight` are declared as in section 12, over the scope's steps and inputs; `reference`
+  names one of the scope's inputs.
+- The scope starts as a preset step does, before its first step runs: it binds its inputs, and its `preflight` and
+  `reference` can fail it there. If an input held nothing, because a step before it failed or was skipped, every step
+  of the scope is skipped and the scope gives no verdict, which the report and the JSON's `no_verdict` say.
+- Only a scope that gives a `verdict` has its verdict, record, groups and next steps reported, as a nested preset's are.
+  A workflow gives one verdict, so it may not declare `verdict:` itself, or its own `reference`, `record` or
+  `next_steps`, beside a verdict scope.
+- A matrix can't vary a scope's `name`, `inputs` or `steps`: they wire the chain every run shares.
+
+The service's `inline_step` writes a scope when it inlines a preset step whose preset declares more than its steps (a
+verdict, preflight, reference, record, groups or next steps), so the inlined steps keep what it declared. It writes one
+holding only `inputs` and `steps` when the step reads another step's output, so the inlined steps still skip together
+when that output held nothing. See [Preset decomposition](../reference/service.md#inline).
+
 ## See also
 
 - [Monitor drift with steps](monitor_drift.md) — merge test sources, compare classes or groups, and drift on crops
