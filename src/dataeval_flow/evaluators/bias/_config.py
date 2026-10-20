@@ -131,8 +131,9 @@ class DiversityConfig(EvaluatorConfig[DiversityResult], MetadataConfigMixin):
 class ParityConfig(EvaluatorConfig[ParityResult], MetadataConfigMixin):
     """Config for ``parity``, DataEval's Parity.
 
-    Tests each metadata factor for association with the class labels (chi-squared, reported as Cramér's V). A factor
-    significantly associated with the class is a shortcut a model can learn.
+    Tests each metadata factor for association with the class labels, reported as Cramér's V, and each combination
+    of a factor's level and a class for a surplus or shortfall of items. A factor significantly associated with the
+    class is a shortcut a model can learn; a shortfall is a combination to collect.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
     (``reference/evaluators``), and ``dataeval-flow evaluators parity`` prints the JSON Schema.
@@ -153,7 +154,7 @@ class ParityConfig(EvaluatorConfig[ParityResult], MetadataConfigMixin):
         ge=0.0,
         le=1.0,
         description=(
-            "Cramér's V above which a factor significant under `p_value_threshold` counts as highly correlated with "
+            "Cramér's V at or above which a factor significant under `p_value_threshold` counts as associated with "
             "the class labels. Unset uses DataEval's default (0.3)."
         ),
     )
@@ -161,7 +162,19 @@ class ParityConfig(EvaluatorConfig[ParityResult], MetadataConfigMixin):
         default=None,
         gt=0.0,
         lt=1.0,
-        description="p-value below which a factor's association is significant. Unset uses DataEval's default (0.05).",
+        description=(
+            "Adjusted p-value (Benjamini-Hochberg) at or below which a factor's association, or a cell's surplus or "
+            "shortfall, is significant. Unset uses DataEval's default (0.05)."
+        ),
+    )
+    lift_threshold: float | None = Field(
+        default=None,
+        ge=1.0,
+        description=(
+            "Smallest multiplicative deviation that makes a significant cell actionable: observed over expected at or "
+            "above it (over-represented), or at or below its inverse (under-represented). 1 disables the band. Unset "
+            "uses DataEval's default (1.25)."
+        ),
     )
     label: str | list[str] | None = Field(
         default=None,

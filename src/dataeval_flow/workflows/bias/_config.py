@@ -113,7 +113,10 @@ class FactorParitySettings(BaseModel):
         default=0.05,
         gt=0.0,
         le=1.0,
-        description="The chi-square p-value at or under which a factor's association counts as significant.",
+        description=(
+            "The adjusted p-value (Benjamini-Hochberg, across the factors) at or under which a factor's association "
+            "counts as significant."
+        ),
     )
 
 

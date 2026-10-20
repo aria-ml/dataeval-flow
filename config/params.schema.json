@@ -1814,7 +1814,7 @@
         },
         "p_value": {
           "default": 0.05,
-          "description": "The chi-square p-value at or under which a factor's association counts as significant.",
+          "description": "The adjusted p-value (Benjamini-Hochberg, across the factors) at or under which a factor's association counts as significant.",
           "exclusiveMinimum": 0.0,
           "maximum": 1.0,
           "title": "P Value",
@@ -1822,7 +1822,7 @@
         },
         "check": {
           "const": "factor-parity",
-          "description": "`factor-parity`: Judges `parity`'s output: warns when a metadata factor is significantly associated with the class.",
+          "description": "`factor-parity`: Judges `parity`'s output: warns when a metadata factor is significantly associated with the class, and lists the cells to collect.",
           "title": "Check",
           "type": "string"
         },
@@ -6514,7 +6514,7 @@
         },
         "p_value": {
           "default": 0.05,
-          "description": "The chi-square p-value at or under which a factor's association counts as significant.",
+          "description": "The adjusted p-value (Benjamini-Hochberg, across the factors) at or under which a factor's association counts as significant.",
           "exclusiveMinimum": 0.0,
           "maximum": 1.0,
           "title": "P Value",
@@ -9640,7 +9640,7 @@
     },
     "ParityConfig": {
       "additionalProperties": false,
-      "description": "Config for ``parity``, DataEval's Parity.\n\nTests each metadata factor for association with the class labels (chi-squared, reported as Cram\u00e9r's V). A factor\nsignificantly associated with the class is a shortcut a model can learn.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators parity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: parity\n        type: parity\n        p_value_threshold: 0.01",
+      "description": "Config for ``parity``, DataEval's Parity.\n\nTests each metadata factor for association with the class labels, reported as Cram\u00e9r's V, and each combination\nof a factor's level and a class for a surplus or shortfall of items. A factor significantly associated with the\nclass is a shortcut a model can learn; a shortfall is a combination to collect.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators parity`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: parity\n        type: parity\n        p_value_threshold: 0.01",
       "properties": {
         "metadata": {
           "anyOf": [
@@ -9682,7 +9682,7 @@
             }
           ],
           "default": null,
-          "description": "Cram\u00e9r's V above which a factor significant under `p_value_threshold` counts as highly correlated with the class labels. Unset uses DataEval's default (0.3).",
+          "description": "Cram\u00e9r's V at or above which a factor significant under `p_value_threshold` counts as associated with the class labels. Unset uses DataEval's default (0.3).",
           "title": "Score Threshold"
         },
         "p_value_threshold": {
@@ -9697,8 +9697,22 @@
             }
           ],
           "default": null,
-          "description": "p-value below which a factor's association is significant. Unset uses DataEval's default (0.05).",
+          "description": "Adjusted p-value (Benjamini-Hochberg) at or below which a factor's association, or a cell's surplus or shortfall, is significant. Unset uses DataEval's default (0.05).",
           "title": "P Value Threshold"
+        },
+        "lift_threshold": {
+          "anyOf": [
+            {
+              "minimum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Smallest multiplicative deviation that makes a significant cell actionable: observed over expected at or above it (over-represented), or at or below its inverse (under-represented). 1 disables the band. Unset uses DataEval's default (1.25).",
+          "title": "Lift Threshold"
         },
         "label": {
           "anyOf": [

@@ -13,7 +13,8 @@ from verification.functional.workflows._synthetic import Images, by_title, run_p
 pytestmark = pytest.mark.required
 
 BIAS = {"type": "bias"}
-TITLES = ["Class Imbalance", "Shortcut Risk", "Factor Parity", "Factor Coverage Gaps"]
+TITLES = ["Class Imbalance", "Shortcut Risk", "Factor Parity", "Parity Collection Gaps", "Factor Coverage Gaps"]
+JUDGED = ["Shortcut Risk", "Factor Parity", "Factor Coverage Gaps"]  # Parity Collection Gaps informs, it never warns
 
 
 def shortcut_data() -> Images:
@@ -31,8 +32,9 @@ class TestBiasPreset:
         found = by_title(result)
         assert found["Class Imbalance"].brief == "3 classes, 90 items, imbalance 2.5:1"
         assert found["Class Imbalance"].severity == "info"  # 2.5:1 is under the warning ratio of 5.0
-        for title in TITLES[1:]:
+        for title in JUDGED:
             assert found[title].severity == "warning", title
+        assert found["Parity Collection Gaps"].severity == "info"
         assert result.report().strip()
 
     def test_only_the_factor_that_follows_the_class_is_named(self) -> None:
@@ -76,7 +78,7 @@ class TestBiasPreset:
         result = run_preset({**BIAS, "checks": lenient}, shortcut_data())
 
         found = by_title(result)
-        assert "warning" not in {found[title].severity for title in TITLES[1:]}
+        assert "warning" not in {found[title].severity for title in JUDGED}
         assert result.health["status"] == "ok"
 
     def test_a_dataset_with_no_metadata_factors_still_judges_its_class_balance(self) -> None:
@@ -85,14 +87,14 @@ class TestBiasPreset:
         assert result.success, result.errors
         found = by_title(result)
         assert found["Class Imbalance"].brief != "not assessed"
-        for title in TITLES[1:]:
+        for title in JUDGED:
             assert found[title].brief == "not assessed", title
             assert found[title].severity == "info"
 
     def test_factor_gaps_false_leaves_out_the_gap_analysis_and_its_check(self) -> None:
         result = run_preset({**BIAS, "factor-gaps": False}, shortcut_data())
 
-        assert [f.title for f in result.findings] == TITLES[:3]
+        assert [f.title for f in result.findings] == TITLES[:4]
         assert "factor-gaps" not in result.steps
         assert "factor-coverage-gaps" not in result.steps
 

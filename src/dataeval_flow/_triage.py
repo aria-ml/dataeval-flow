@@ -378,7 +378,7 @@ def _degenerate(record: Mapping[str, Any], min_missing_fraction: float) -> Itera
     """Factors read successfully that carry no usable signal.
 
     A *wide* vocabulary is not one of these: thin levels are reported by
-    ``ParityOutput.insufficient_data`` rather than removed.  What is reported here is a
+    ``ParityOutput.cells``, as ``too_thin``, rather than removed.  What is reported here is a
     factor with one populated bucket — which groups nothing — one losing most of its rows to
     no recorded value, and one holding a different value on nearly every row.
     """

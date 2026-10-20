@@ -1740,8 +1740,9 @@ test_cases:
   - In-memory images in three classes (5:3:2) whose `site` factor follows the class except on every tenth item
   steps:
   - do: Run `bias` on the dataset.
-    expect: Class Imbalance (3 classes, 90 items, 2.5:1, information), Shortcut Risk, Factor Parity and Factor Coverage Gaps
-      are reported, the last three as warnings.
+    expect: Class Imbalance (3 classes, 90 items, 2.5:1, information), Shortcut Risk, Factor Parity, Parity Collection Gaps
+      and Factor Coverage Gaps are reported; Shortcut Risk, Factor Parity and Factor Coverage Gaps are warnings, and Parity
+      Collection Gaps is information.
     tests:
     - f7_bias::test_balance_shortcuts_parity_and_gaps_are_judged_without_an_extractor
   - do: Read which factors the findings name.

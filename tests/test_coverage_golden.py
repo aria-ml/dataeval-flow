@@ -31,7 +31,7 @@ Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), e
 - **Class balance and the metadata factors are bias's:** each case runs scope and bias on the same
   source, and legacy's Class Imbalance and Factor Coverage Gaps, with the label counts, factor summary and gaps they
   read, come from bias. Each preset's findings follow legacy's order among themselves, and bias's Shortcut
-  Risk and Factor Parity, which legacy did not make, are left out of the comparison.
+  Risk, Factor Parity and Parity Collection Gaps, which legacy did not make, are left out of the comparison.
 """
 
 import json
@@ -55,7 +55,7 @@ def test_every_case_is_recorded() -> None:
 
 
 _BIAS = ("Class Imbalance", "Factor Coverage Gaps")
-_NEW = ("Shortcut Risk", "Factor Parity")
+_NEW = ("Shortcut Risk", "Factor Parity", "Parity Collection Gaps")
 
 
 def _run(name: str) -> tuple[ChainResult, ChainResult]:

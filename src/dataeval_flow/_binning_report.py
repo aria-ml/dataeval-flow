@@ -62,7 +62,7 @@ def _bin_names(info: Mapping[str, Any], declared: int) -> dict[int, str]:
     whole cut, picked by magnitude and by distinctness, so that no two bins print the same
     label.  Rendering them here would collapse distinct bins onto one label (seven
     epoch-millisecond bins onto three) and disagree with the labels
-    ``ParityOutput.insufficient_data`` reports for the same bin.
+    ``ParityOutput.cells`` reports as the ``level`` of the same bin.
 
     Falls back to the bare code where the record carries no name, as a release without the
     accessor leaves it.

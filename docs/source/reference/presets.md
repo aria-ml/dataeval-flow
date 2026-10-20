@@ -434,11 +434,12 @@ under-represented combinations.
 
 Bias asks whether something other than the task tells the classes apart. The preset judges how far the largest class
 outnumbers the smallest, then, for each metadata factor, how much it tells about the class (`shortcut-risk`, by mutual
-information) and whether that association is significant (`factor-parity`, by Cramér's V and a chi-square test). Among
-the factors tied to the class, `factor-coverage-gaps` lists the class-factor-value combinations held too rarely, which
-collecting more data can close. Diversity and the factor summary are report sections. It reads labels and metadata
-only, so it needs no extractor; a source with no metadata factors still judges its class balance, and its factor checks
-are not assessed. Run it beside [`scope`](#scope) on the same source: each judges what the other
+information) and whether that association is significant (`factor-parity`, by Cramér's V and a significance test, and
+with the factor-level combinations it finds under-represented or too thin to judge). A factor it could not test never
+reads as passing. Among the factors tied to the class, `factor-coverage-gaps` lists the class-factor-value combinations
+held too rarely, which collecting more data can close. Diversity and the factor summary are report sections. It reads
+labels and metadata only, so it needs no extractor; a source with no metadata factors still judges its class balance,
+and its factor checks are not assessed. Run it beside [`scope`](#scope) on the same source: each judges what the other
 leaves out. See DataEval's [Dataset Bias
 explanation](https://dataeval.readthedocs.io/en/latest/concepts/DatasetBias.html).
 
