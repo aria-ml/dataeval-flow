@@ -102,8 +102,14 @@ _ECHOES: dict[str, frozenset[str]] = {
 }
 
 
+# What DataEval's base `Output` can carry: the Dataset the evaluator ran over and the Metadata built for it, echoes of
+# the input that are never serialized. Releases before they were attached have no such attributes, which is harmless.
+_EVERY_OUTPUT: frozenset[str] = frozenset({"dataset", "metadata"})
+
+
 def _public_attributes(output: Any) -> set[str]:
-    return {name for name in dir(output) if not name.startswith("_") and not callable(getattr(output, name))}
+    names = {name for name in dir(output) if not name.startswith("_") and not callable(getattr(output, name))}
+    return names - _EVERY_OUTPUT
 
 
 def test_every_builtin_is_accounted_for():

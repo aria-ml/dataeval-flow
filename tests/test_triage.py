@@ -164,7 +164,7 @@ def test_high_missing_is_degenerate():
 
 
 def test_a_wide_vocabulary_is_not_degenerate():
-    # Thin levels are reported by ParityOutput.insufficient_data, not removed. Many
+    # Thin levels are reported by ParityOutput.cells as too_thin, not removed. Many
     # sparsely-populated levels is a normal factor, not a finding.
     record = _record(
         factors={

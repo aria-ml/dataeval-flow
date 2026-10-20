@@ -68,12 +68,12 @@ exactly the shortcut the toy data plants.
   "data": {
     "factors": {
       "shape": "table",
-      "columns": ["factor_name", "score", "p_value", "is_significant", "has_insufficient_data"],
+      "columns": ["factor_name", "status", "score", "p_value_adjusted", "is_associated", "has_insufficient_data"],
       "rows": [
-        {"factor_name": "angle", "score": 0.0, "p_value": 0.9999971962630967, "is_significant": false,
-         "has_insufficient_data": true},
-        {"factor_name": "site", "score": 0.9999999999999999, "p_value": 5.341471565244922e-25,
-         "is_significant": true, "has_insufficient_data": false}
+        {"factor_name": "angle", "status": "inconclusive", "score": 0.0, "p_value_adjusted": 0.9999971962630967,
+         "is_associated": false, "has_insufficient_data": true},
+        {"factor_name": "site", "status": "associated", "score": 0.9999999999999999,
+         "p_value_adjusted": 1.0682943130489845e-24, "is_associated": true, "has_insufficient_data": false}
       ]
     }
   }
@@ -81,7 +81,9 @@ exactly the shortcut the toy data plants.
 ```
 
 `site`'s association with the class is significant at any reasonable threshold; `angle`'s is not, and its cell
-counts are too small to trust either way.
+counts are too small to trust either way, which its `inconclusive` status says rather than calling it independent. A
+second table, `cells`, has one row per `site` or `angle` level and class, with a status such as `underrepresented`
+for a combination the data holds less of than the rest predicts.
 
 From Python:
 

@@ -27,7 +27,9 @@ _WIRING: dict[str, frozenset[str]] = {
     "outliers": frozenset({"extractor", "batch_size"}),
     "balance": frozenset(),
     "diversity": frozenset(),
-    "parity": frozenset(),
+    # `assume_independent` declares each row its own item, for a container that records no sampling unit. Flow builds
+    # a `Metadata` from the Dataset, which always records one.
+    "parity": frozenset({"assume_independent"}),
     "representation": frozenset(),
     "coverage": frozenset({"extractor", "batch_size"}),
     "prioritization": frozenset({"extractor", "batch_size"}),

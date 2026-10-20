@@ -75,9 +75,16 @@ def test_a_run_judges_balance_and_each_factor_without_an_extractor() -> None:
     result = _run({}, CoverageImages())  # `site` follows the class except every tenth item
     assert result.success, result.errors
     by_title = {finding.title: finding for finding in result.findings}
-    assert list(by_title) == ["Class Imbalance", "Shortcut Risk", "Factor Parity", "Factor Coverage Gaps"]
+    assert list(by_title) == [
+        "Class Imbalance",
+        "Shortcut Risk",
+        "Factor Parity",
+        "Parity Collection Gaps",
+        "Factor Coverage Gaps",
+    ]
     assert by_title["Shortcut Risk"].severity == "warning"
     assert by_title["Factor Parity"].severity == "warning"
+    assert by_title["Parity Collection Gaps"].severity == "info"
     assert "factors associated with the class: site (V=" in (by_title["Factor Parity"].brief or "")
 
 

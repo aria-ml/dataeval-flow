@@ -90,8 +90,8 @@ class TestDescribeBinning:
     def test_records_the_names_dataeval_gives_each_code(self):
         """Names travel with the record so an archived result re-renders identically.
 
-        They are the strings DataEval's own outputs use — `ParityOutput.insufficient_data`
-        keys and `label=` axis groups — and a second renderer would disagree with them.
+        They are the strings DataEval's own outputs use — `ParityOutput.cells` levels and
+        `label=` axis groups — and a second renderer would disagree with them.
         """
         record = describe_binning(_metadata(continuous_factor_bins={"elevation": [-np.inf, 0.0, np.inf]}))
         assert record["factors"]["elevation"]["names"] == {"1": "< 0", "2": ">= 0"}

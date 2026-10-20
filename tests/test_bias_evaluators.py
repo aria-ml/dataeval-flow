@@ -3,11 +3,13 @@
 from typing import Any
 
 import pytest
+from dataeval.bias import Parity
 from pydantic import ValidationError
 
 from dataeval_flow import Result, run
 from dataeval_flow._policy import ResolvedPolicy
 from dataeval_flow.config import MetadataPolicyConfig
+from dataeval_flow.evaluators._fields import dataeval_arguments
 from dataeval_flow.evaluators.bias import (
     BalanceConfig,
     BalanceResult,
@@ -23,6 +25,11 @@ from tests.evaluator_toys import ToyFactors, output_json
 def _by_factor(result: "Result[Any, Any]", table: str) -> dict[str, dict[str, Any]]:
     """One table of a mapping output, keyed by factor name."""
     return {row["factor_name"]: row for row in output_json(result)["data"][table]["rows"]}
+
+
+def _cells(result: "Result[Any, Any]") -> list[dict[str, Any]]:
+    """The rows of a `parity` output's `cells` table."""
+    return output_json(result)["data"]["cells"]["rows"]
 
 
 class TestBalance:
@@ -83,10 +90,36 @@ class TestDiversity:
 
 
 class TestParity:
-    def test_the_factor_that_follows_the_class_is_significant(self):
+    def test_the_factor_that_follows_the_class_is_associated(self):
         result = run(ParityConfig(), ToyFactors())
         assert isinstance(result, ParityResult)
         assert result.success, result.errors
         factors = _by_factor(result, "factors")
-        assert factors["site"]["is_significant"]
-        assert not factors["angle"]["is_significant"]
+        assert factors["site"]["is_associated"]
+        assert not factors["angle"]["is_associated"]
+
+    def test_the_cells_say_which_combinations_are_short(self):
+        result = run(ParityConfig(), ToyFactors())
+        assert isinstance(result, ParityResult)
+        assert result.success, result.errors
+        site = {(r["level"], r["class_name"]): r["status"] for r in _cells(result) if r["factor_name"] == "site"}
+        assert site[("east", "cat")] == "underrepresented"
+        assert site[("east", "bird")] == "overrepresented"
+
+    def test_the_lift_threshold_reaches_dataeval(self):
+        arguments = dataeval_arguments(ParityConfig(lift_threshold=1.5))
+        assert arguments == {"lift_threshold": 1.5}
+        assert Parity(**arguments).lift_threshold == 1.5
+
+    def test_a_lift_threshold_past_the_lift_leaves_no_cell_overrepresented(self):
+        default = run(ParityConfig(), ToyFactors())
+        loose = run(ParityConfig(lift_threshold=3.5), ToyFactors())  # the site cells' lifts are 0 and 3
+        assert isinstance(default, ParityResult)
+        assert isinstance(loose, ParityResult)
+        assert loose.success, loose.errors
+        assert any(row["status"] == "overrepresented" for row in _cells(default))
+        assert not any(row["status"] == "overrepresented" for row in _cells(loose))
+
+    def test_a_lift_threshold_under_one_is_refused(self):
+        with pytest.raises(ValidationError):
+            ParityConfig(lift_threshold=0.9)

@@ -75,8 +75,9 @@ class ParityResult(EvaluatorResult[ParityOutput]):
     Fields
     ------
     output
-        DataEval's ``ParityOutput``: ``factors``, each factor's Cramér's V against the class labels with its p-value
-        and whether it is significant, and ``insufficient_data``, the factor values with too few samples per class.
+        DataEval's ``ParityOutput``: ``factors``, each factor's status, Cramér's V against the class labels and
+        adjusted p-value, and ``cells``, each factor level and class with its status, the items observed and expected
+        and the deficit. A factor or cell that cannot be tested, or has too little data, says so in its status.
         ``to_dict()`` writes them under ``data``.
     metadata.evaluator
         The evaluator type, e.g. ``duplicates``.

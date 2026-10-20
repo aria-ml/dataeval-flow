@@ -441,8 +441,11 @@ Association between metadata factors and class labels (DataEval Parity).
 It runs `dataeval.bias.Parity` on the Dataset's metadata.
 
 - **Reads:** `input`: one Dataset; Flow derives its metadata under the `metadata:` policy the evaluator names.
-- **Makes:** a `parity` Output: a mapping. `factors` is a table of each factor's Cramér's V, p-value and significance,
-  and `insufficient_data` lists the factor values with too few samples per class.
+- **Makes:** a `parity` Output: a mapping of two tables. `factors` has each factor's status (`associated`, `weak`,
+  `inconclusive`, `not_detected` or `untestable`), Cramér's V, p-value and adjusted p-value, and whether its table is
+  too thin to trust. `cells` has one row per factor level and class, with its status (`underrepresented`,
+  `overrepresented`, `too_thin`, `no_finding` or `untestable`), the items observed and expected, the deficit and the
+  lift. A factor or cell that cannot be tested says so in its status rather than reading as independent.
 
 **Settings** ({py:class}`~dataeval_flow.evaluators.bias.ParityConfig`):
 
@@ -450,7 +453,8 @@ It runs `dataeval.bias.Parity` on the Dataset's metadata.
 | --- | --- | --- |
 | `metadata` | (DataEval Flow) the name of a `metadata:` policy | DataEval's default encoding |
 | `score_threshold` | `score_threshold` | DataEval's default (`0.3`) |
-| `p_value_threshold` | `p_value_threshold` | DataEval's default (`0.05`) |
+| `p_value_threshold` | `p_value_threshold`: an adjusted p-value | DataEval's default (`0.05`) |
+| `lift_threshold` | `lift_threshold`: observed over expected, at least 1, that makes a significant cell actionable | DataEval's default (`1.25`) |
 | `label` | `label`: a factor, or a list of factors, to condition on | the class labels |
 
 - **Judged by:** [`factor-parity`](checks.md#factor-parity)

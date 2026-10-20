@@ -39,7 +39,7 @@ example assumes the pipeline defines
 | `factor-coverage-gaps` | `input`: a `factor-gaps` Output | Factor Coverage Gaps |
 | `class-shortfall` | `input`: a `representation` Output with no ontology | Class Shortfall |
 | `shortcut-risk` | `input`: a `balance` Output | Shortcut Risk |
-| `factor-parity` | `input`: a `parity` Output | Factor Parity |
+| `factor-parity` | `input`: a `parity` Output | Factor Parity, and Parity Collection Gaps where a cell is short or thin |
 | `class-stratification` | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Class Stratification |
 | `leakage` | `duplicates`: `duplicates` Outputs over two splits; `factors`: `factor-leakage` Outputs | Leakage |
 | `embedding-divergence` | `input`: a `divergence` Output | Embedding Divergence |
@@ -688,17 +688,31 @@ workflows:
 
 ### `factor-parity`
 
-Judges `parity`'s output: warns when a metadata factor is significantly associated with the class.
+Judges `parity`'s output: warns when a metadata factor is significantly associated with the class, and lists the cells to
+collect.
 
 Where `shortcut-risk` measures how much a factor tells about the class, this tests whether the association is real. A
-factor warns where its bias-corrected Cramér's V with the class is past `warning` and its chi-square p-value is at or
-under `p_value`. A factor whose contingency table has a cell expected to hold fewer than 5 items is named in the
-description, since its p-value is unreliable. Where the `parity` Output scores no factor it is not assessed (`no factor
-to score`). With `warning: null` the finding is `info`.
+factor warns where its bias-corrected Cramér's V with the class is past `warning` and its adjusted p-value is at or
+under `p_value`. A factor `parity` could not test (`untestable`), or tested without enough data to call a negative
+(`inconclusive`), is listed as not assessed and never reads as passing: the finding is `info` rather than `ok`. Where
+no factor was assessed, every one being `untestable` or `inconclusive`, the check is not assessed (`no factor could be
+assessed`, with each factor and why), and a verdict that includes it is ready with caveats. Where at least one factor was
+assessed, a skip cannot express that, and a finding does not move a verdict: with nothing else warning, the verdict
+stays `ready`, so read the `N not assessed` in the brief as well as the verdict. A factor whose contingency table is too
+thin to trust is named in the description, since its p-value is unreliable. Where the `parity` Output scores no factor
+it is not assessed (`no factor to score`). With `warning: null` the finding is `info`.
+
+A second finding, `info` and never a warning, follows when any cell is under-represented or too thin: the
+under-represented cells, and the too-thin cells that hold fewer items than expected, each the largest deficit first. The
+thin cells need more data before they can be judged, and a thin cell holding its expected share or more is left out,
+since it cannot fall short. It is left out when there is neither. Where the check is not assessed it is left out too,
+since a skip replaces every finding; the reason then ends with the number of thin cells that hold fewer items than
+expected and the three with the largest deficits, as `factor: level × class (deficit d)`.
 
 - **Reads:** `input`, a `parity` Output.
-- **Makes:** one finding, titled Factor Parity, which lists the three most associated factors; a table gives every
-  factor's Cramér's V and p-value, and marks the sparse ones.
+- **Makes:** a finding titled Factor Parity, which lists the three most associated factors; a table gives every
+  factor's status, Cramér's V and adjusted p-value, and marks the sparse ones. A second finding, titled Parity
+  Collection Gaps, lists the under-represented cells and the thin ones, each as a table, the first ten rows shown.
 
 **Settings** ({py:class}`~dataeval_flow.steps.checks.FactorParityConfig`):
 
@@ -706,7 +720,7 @@ to score`). With `warning: null` the finding is `info`.
 | --- | --- | --- | --- |
 | `input` | an address | required | A `parity` Output |
 | `warning` | 0 to 1, or `null` | `0.3` | The Cramér's V with the class past which a significant factor warns; `null` judges nothing |
-| `p_value` | a number in (0, 1] | `0.05` | The p-value at or under which a factor's association counts as significant |
+| `p_value` | a number in (0, 1] | `0.05` | The adjusted p-value at or under which a factor's association counts as significant |
 
 - **Judges:** [`parity`](evaluators.md#parity)
 - **Used in:** [`bias`](presets.md#bias)

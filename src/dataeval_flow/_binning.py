@@ -172,7 +172,7 @@ def _code_names(metadata: "Metadata") -> dict[str, dict[str, str]]:
     recomputing.
 
     Taken from DataEval, not derived from the edges, because the two must agree: these
-    are the strings :attr:`ParityOutput.insufficient_data` reports and the ``label=``
+    are the strings :attr:`ParityOutput.cells` reports as ``level`` and the ``label=``
     axis groups carry.  Precision matters: six significant figures collapses seven
     epoch-millisecond bins onto three labels.
 
