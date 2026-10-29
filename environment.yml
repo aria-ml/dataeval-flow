@@ -18,5 +18,5 @@ dependencies:
   - pyyaml>=6.0
   - pip
   - pip:
-      - dataeval @ git+https://github.com/aria-ml/dataeval.git@main
+      - dataeval>=1.2.0rc0
       - datamaite[ic,od]>=0.4.1

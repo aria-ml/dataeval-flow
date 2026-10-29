@@ -21,7 +21,7 @@ dependencies = [
     # TEMPORARY: tracking dataeval `main` (github.com/aria-ml/dataeval mirrors
     # gitlab.jatic.net/jatic/aria/dataeval) while the metadata aggregation and
     # corrections work lands. Restore a released `dataeval>=X.Y.Z` pin before shipping.
-    "dataeval @ git+https://github.com/aria-ml/dataeval.git@main",
+    "dataeval>=1.2.0rc0",
     "datamaite[ic,od]>=0.4.1",
     "maite>=0.9.4,<0.10.0",
     "numpy>=1.24.2",
@@ -55,7 +55,7 @@ onnx-cu130 = [
 opencv = ["opencv-python-headless>=4.8.0,<4.13.0"]  # OpenCV 4.13 and higher are not FIPS compliant
 app = ["textual>=3.0"]
 service = ["fastapi>=0.116", "uvicorn>=0.35"]
-ontology = ["dataeval[ontology] @ git+https://github.com/aria-ml/dataeval.git@main"]  # TEMPORARY: see [project].dependencies
+ontology = ["dataeval[ontology]>=1.2.0rc0"]  # TEMPORARY: see [project].dependencies
 
 [project.urls]
 Homepage = "https://github.com/aria-ml/dataeval-flow"
@@ -140,12 +140,6 @@ dev = [
 ]
 
 [tool.uv]
-# hatch-vcs derives the version from git and writes src/dataeval_flow/_version.py
-# during the build. Without a git cache key, uv reuses a cached build whenever
-# pyproject.toml is unchanged, so the version-file hook never re-runs and a fresh
-# checkout ends up with no _version.py (__version__ == "unknown").
-cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true } }]
-
 # Pin minimum versions for transitive deps with known CVEs
 constraint-dependencies = [
     "pillow>=13.0.0",
@@ -203,11 +197,6 @@ dataeval = { pip = true }  # TEMPORARY: git reference has no conda-forge equival
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
-
-[tool.hatch.metadata]
-# Required because `dataeval` is pinned to a direct git reference (see
-# [project].dependencies) rather than a PyPI version.
-allow-direct-references = true
 
 [tool.hatch.version]
 source = "vcs"
