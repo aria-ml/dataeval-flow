@@ -18,9 +18,6 @@ classifiers = [
 ]
 dependencies = [
     "click>=8.0",
-    # TEMPORARY: tracking dataeval `main` (github.com/aria-ml/dataeval mirrors
-    # gitlab.jatic.net/jatic/aria/dataeval) while the metadata aggregation and
-    # corrections work lands. Restore a released `dataeval>=X.Y.Z` pin before shipping.
     "dataeval>=1.2.0rc0",
     "datamaite[ic,od]>=0.4.1",
     "maite>=0.9.4,<0.10.0",
@@ -55,7 +52,7 @@ onnx-cu130 = [
 opencv = ["opencv-python-headless>=4.8.0,<4.13.0"]  # OpenCV 4.13 and higher are not FIPS compliant
 app = ["textual>=3.0"]
 service = ["fastapi>=0.116", "uvicorn>=0.35"]
-ontology = ["dataeval[ontology]>=1.2.0rc0"]  # TEMPORARY: see [project].dependencies
+ontology = ["dataeval[ontology]>=1.2.0rc0"]
 
 [project.urls]
 Homepage = "https://github.com/aria-ml/dataeval-flow"
@@ -140,6 +137,12 @@ dev = [
 ]
 
 [tool.uv]
+# hatch-vcs derives the version from git and writes src/dataeval_flow/_version.py
+# during the build. Without a git cache key, uv reuses a cached build whenever
+# pyproject.toml is unchanged, so the version-file hook never re-runs and a fresh
+# checkout ends up with no _version.py (__version__ == "unknown").
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true } }]
+
 # Pin minimum versions for transitive deps with known CVEs
 constraint-dependencies = [
     "pillow>=13.0.0",
@@ -190,7 +193,7 @@ torchvision = [
 
 [tool.pyproject2conda.dependencies]
 datamaite = { pip = true }
-dataeval = { pip = true }  # TEMPORARY: git reference has no conda-forge equivalent
+dataeval = { pip = true }  # conda-forge has no DataEval 1.2 prerelease
 
 # --- Build System ---
 
