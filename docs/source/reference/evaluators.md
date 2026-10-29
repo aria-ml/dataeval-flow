@@ -24,7 +24,7 @@ chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md). Each
 | `coverage` | `dataeval.scope.Coverage` | embeddings; labels where there is one per item | 1 | required |
 | `completeness` | `dataeval.core.completeness` | embeddings | 1 | required |
 | `balance` | `dataeval.bias.Balance` | metadata | 1 | refused |
-| `parity` | `dataeval.bias.Parity` | metadata | 1 | refused |
+| `parity` (experimental) | `dataeval.bias.Parity` | metadata | 1 | refused |
 | `diversity` | `dataeval.bias.Diversity` | metadata | 1 | refused |
 | `factor-summary` | `dataeval.Metadata` | metadata | 1 | refused |
 | `factor-leakage` | `dataeval.Metadata` | metadata | 2 | refused |
@@ -436,6 +436,11 @@ tasks:
 ### `parity`
 
 Association between metadata factors and class labels (DataEval Parity).
+
+:::{note}
+`parity` is experimental: it may change or be removed in any release without a deprecation cycle, as DataEval's `Parity`
+may. The first run in a process to use it warns with `ExperimentalWarning`.
+:::
 
 It runs `dataeval.bias.Parity` on the Dataset's metadata.
 

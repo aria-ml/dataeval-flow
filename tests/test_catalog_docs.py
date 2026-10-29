@@ -132,7 +132,13 @@ def test_every_setting_is_listed_in_its_entry(entry: StepCatalogEntry) -> None:
 @pytest.mark.parametrize("entry", _CATALOG, ids=_id)
 def test_every_step_is_in_its_pages_table_at_a_glance(entry: StepCatalogEntry) -> None:
     glance = _page(_PAGES[entry.kind]).split("## At a glance", 1)[1].split("\n## ", 1)[0]
-    assert f"| `{entry.type}` |" in glance, f"{_PAGES[entry.kind]}'s table at a glance lacks `{entry.type}`"
+    cell = f"| `{entry.type}` (experimental) |" if entry.experimental else f"| `{entry.type}` |"
+    assert cell in glance, f"{_PAGES[entry.kind]}'s table at a glance lacks {cell!r}"
+
+
+@pytest.mark.parametrize("entry", _CATALOG, ids=_id)
+def test_an_entry_says_its_step_is_experimental_exactly_when_it_is(entry: StepCatalogEntry) -> None:
+    assert (f"`{entry.type}` is experimental:" in _entry(entry)) == entry.experimental
 
 
 @pytest.mark.parametrize("entry", _CATALOG, ids=_id)

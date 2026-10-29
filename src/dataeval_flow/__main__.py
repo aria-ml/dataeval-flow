@@ -519,7 +519,8 @@ def _list_steps(name: str | None, *, as_json: bool) -> int:
     width = max(len(e.type) for e, _ in rows)
     flow_width = max(len(flow) for _, flow in rows)
     for e, flow in rows:
-        print(f"  {e.kind:<10} {e.type:<{width}}  {flow:<{flow_width}}  {e.description}")
+        marker = "(experimental) " if e.experimental else ""
+        print(f"  {e.kind:<10} {e.type:<{width}}  {flow:<{flow_width}}  {marker}{e.description}")
     return 0
 
 

@@ -46,6 +46,10 @@
 - Run activity: each task's and step's state as it runs, kept with the run
   - `GET /v1/runs/{id}/activity` gives a snapshot, `GET /v1/runs/{id}/events?after=` the changes since
   - A cancelled, failed or interrupted run closes what was running before its record turns final
+- `ExperimentalWarning`: a run warns with it once per process, the first time it uses an experimental step type
+  - `parity` and `factor-parity` are experimental, as DataEval's `Parity` is
+  - `experimental = True` marks a step class experimental, a plugin's too; `dataeval-flow steps` and the catalog show it
+  - It subclasses DataEval's `ExperimentalWarning`, so one filter covers both
 - `run_tasks(..., on_result=...)`, called with each task's name and result as soon as the task finishes
 - `judges` and `judged_by` in the step catalog link each check to the Outputs it judges
   - `dataeval-flow steps <type>` shows both

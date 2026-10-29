@@ -12,7 +12,7 @@
     "api_version": 1,
     "flow_version": "0.2.3.dev824+g902f85161",
     "dataeval_version": "1.2.0rc0",
-    "schema_fingerprint": "sha256:afd661fc2aa79ae8a88c361e89da2588ca4a08e7ebb45f9eb1741412e9332a89",
+    "schema_fingerprint": "sha256:671ff7169b6251b3819406c10bcb3e6a803477a941c0bce84259ee999ed55423",
     "max_active_runs": 1,
     "features": {
       "items": 1,
@@ -54,6 +54,7 @@
           "title": "Duplicates",
           "description": "Exact and near duplicate groups (DataEval Duplicates).",
           "origin": "dataeval-flow",
+          "experimental": false,
           "inputs": [
             {
               "port": "input",
@@ -336,6 +337,7 @@
           "title": "Conform",
           "description": "Relabels a Dataset onto an ontology by its label alignment, refusing loss beyond `allow`.",
           "origin": "dataeval-flow",
+          "experimental": false,
           "inputs": [
             {
               "port": "input",
@@ -433,6 +435,7 @@
           "title": "Remove",
           "description": "Removes the items, detections or tracks that Duplicates and Outliers plans name.",
           "origin": "dataeval-flow",
+          "experimental": false,
           "inputs": [
             {
               "port": "input",
@@ -517,6 +520,7 @@
           "title": "Image Duplicates",
           "description": "Judges `duplicates`'s output: warns when more than `exact` or `near` percent of the images are duplicates.",
           "origin": "dataeval-flow",
+          "experimental": false,
           "inputs": [
             {
               "port": "input",

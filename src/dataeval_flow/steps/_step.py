@@ -49,6 +49,9 @@ class Step:
     description: ClassVar[str]
     kind: ClassVar[StepKind]
     config_type: ClassVar[type[BaseModel]]
+    experimental: ClassVar[bool] = False
+    """Whether the type may change or be removed in any release without a deprecation cycle. An experimental type
+    warns with :class:`~dataeval_flow.ExperimentalWarning` once per process, when a chain first runs it."""
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Fall back to the ``name`` as the ``title`` where a class declares a name and no title. A check must declare
