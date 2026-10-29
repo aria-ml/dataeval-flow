@@ -353,10 +353,11 @@ def _build_parser() -> argparse.ArgumentParser:
     # --- serve (long-running HTTP service) ---
     serve_parser = subparsers.add_parser(
         "serve",
-        help="Run a long-lived HTTP service that queues pipelines (requires the 'service' extra)",
+        help="Run a long-lived HTTP service that queues pipelines (preview; requires the 'service' extra)",
         description=(
             "Serve an HTTP API that queues pipelines and runs each as the headless command would, one at a time, "
-            "in a process of its own. Requires: pip install dataeval-flow[service]"
+            "in a process of its own. The service is a preview: its API may change or be removed in any release "
+            "without a deprecation cycle. Requires: pip install dataeval-flow[service]"
         ),
         epilog=_SERVE_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,

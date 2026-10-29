@@ -69,9 +69,9 @@ compose with other MAITE-conforming JATIC tools.
   precomputed embeddings.
 - **Drift and OOD need a representative reference.** Detection baselines are only
   as good as the reference dataset they are fit on.
-- **Batch container, not a service.** The container runs a pipeline to
-  completion and exits; it is not a long-running web service (no health-check
-  endpoint).
+- **The service is a preview.** The container runs a pipeline to completion and
+  exits by default; `dataeval-flow serve` keeps it running behind an HTTP API
+  whose endpoints may change in any release without a deprecation cycle.
 
 ## System Requirements
 
@@ -355,7 +355,7 @@ DataEval Flow has nine modes:
 | Command                    | Purpose                                                              |
 | -------------------------- | -------------------------------------------------------------------- |
 | `dataeval-flow [opts]`     | Headless execution — for automation and CI/CD pipelines              |
-| `dataeval-flow serve`      | Long-running HTTP service that queues pipelines (`service` extra)    |
+| `dataeval-flow serve`      | Preview: long-running HTTP service that queues pipelines (`service`) |
 | `dataeval-flow app`        | Interactive TUI dashboard — configure, execute, and view results     |
 | `dataeval-flow config`     | Simple CLI config builder — create/edit configs without the TUI      |
 | `dataeval-flow encoding`   | Write the metadata encoding descriptor a result was computed under   |
@@ -402,7 +402,8 @@ dataeval-flow serve --data /path/to/data --output /path/to/service-output
 The service listens on `127.0.0.1:8001` (`--host`/`--port`, or `DATAEVAL_SERVICE_HOST`/`DATAEVAL_SERVICE_PORT`).
 `POST /v1/runs` queues a pipeline; each run executes as the headless command would, one at a time, and keeps its
 snapshot, logs and result files under `<output>/runs/<id>/`. `/healthz`, `/livez` and `/readyz` report its health, and
-`/openapi.json` describes the API. It has no authentication: expose it on a trusted network only. See
+`/openapi.json` describes the API. It has no authentication: expose it on a trusted network only. The service is a
+preview: its HTTP API may change or be removed in any release without a deprecation cycle. See
 [Run Flow as a service](https://dataeval-flow.readthedocs.io/en/latest/how_to/run_flow_as_a_service.html) and the
 [Service Reference](https://dataeval-flow.readthedocs.io/en/latest/reference/service.html).
 

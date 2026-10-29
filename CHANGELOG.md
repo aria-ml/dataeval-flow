@@ -17,6 +17,7 @@
 - `max_processes` setting, `--max-processes` option and `DATAEVAL_MAX_PROCESSES` variable bound DataEval's processes
   - The value is recorded in each result's `resolved_config`
 - `dataeval-flow serve` (new `service` extra, in every image): an HTTP service that queues pipelines and runs them
+  - A preview: its API may change or be removed in any release without a deprecation cycle
   - `POST /v1/runs` takes a pipeline and its tasks; each run is a separate headless `dataeval-flow` process
   - Runs execute one at a time, each keeping its snapshot, logs and result files under `<output>/runs/<id>/`
   - `/v1/runs/{id}/results` shows each task's result as soon as the task finishes
