@@ -584,7 +584,7 @@ def missing_views(
     missing whole. Only what a view can carry is checked — a band group has no geometry
     and the background no hashes, so asking for those names a column never produced.
 
-    Returns a mapping in the shape ``compute_stats`` takes, naming only uncovered views, so
+    Returns a mapping in the shape ``image_stats`` takes, naming only uncovered views, so
     a partial recomputation asks for exactly what is missing.
     """
     from dataeval_flow._stats import measurable_in
@@ -641,9 +641,9 @@ def _do_compute_stats(
     channels is identical to ``flags``, so this does not change the call a config without a
     stats policy issues.
     """
-    from dataeval.core import compute_stats
+    from dataeval.core import image_stats
 
-    return compute_stats(
+    return image_stats(
         dataset,
         stats=policy.request,
         channels=policy.channel_map,
@@ -729,7 +729,7 @@ def get_or_compute_stats(
         )
     else:
         _logger.info("Computing stats (no cache)")
-        # Narrow to the policy's own request, as the cached path does. `compute_stats` requires
+        # Narrow to the policy's own request, as the cached path does. `image_stats` requires
         # the `stats` mapping's keys to be exactly the `channels` names, in both directions — a
         # policy whose `channels` names a group `measure` does not would otherwise raise here,
         # working only when a cache hit narrows it away first.
@@ -1549,7 +1549,7 @@ class DatasetCache:
 
             # The third slot was a channel index before dataeval v1.2 and is the
             # level name now.  Entries this cache wrote under the old spelling always
-            # held ``None`` there — flow never asks compute_stats for per-channel rows
+            # held ``None`` there — flow never asks image_stats for per-channel rows
             # — so they still read back correctly.  One that somehow holds an int
             # makes SourceIndex raise, which the handler below turns into a recompute.
             source_index = [SourceIndex(item=s[0], key=s[1], level=s[2]) for s in aux["source_index"]]
@@ -1672,9 +1672,9 @@ class DatasetCache:
         policy : ResolvedStatsPolicy
             What the caller needs, by view.
         dataset
-            The dataset to pass to ``compute_stats()`` on miss.
+            The dataset to pass to ``image_stats()`` on miss.
         per_image, per_target
-            Scope settings for ``compute_stats()``.
+            Scope settings for ``image_stats()``.
 
         Returns
         -------

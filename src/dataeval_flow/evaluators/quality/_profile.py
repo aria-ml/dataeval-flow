@@ -1,7 +1,7 @@
 """The ``profile`` evaluator: how each statistic and metadata field of a Dataset is distributed, scope by scope.
 
 A scope is what a row describes: ``image``, one row per item, and on detection data ``target``, one row per box.
-Statistics come from DataEval's ``compute_stats`` under the stats policy, metadata fields from DataEval's ``Metadata``
+Statistics come from DataEval's ``image_stats`` under the stats policy, metadata fields from DataEval's ``Metadata``
 at each field's own level. The summaries go in the result; every row's value goes beside it, so that a selection over a
 bin or a category reads the rows themselves rather than re-measuring anything.
 """

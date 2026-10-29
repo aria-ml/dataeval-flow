@@ -1,7 +1,7 @@
 {
   "generated_by": "uv run python -m tests.service.builder_fixtures",
-  "flow_version": "0.2.3.dev827+g28c774971",
-  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+  "flow_version": "0.2.3.dev824+g902f85161",
+  "dataeval_version": "1.2.0rc0",
   "request": {
     "method": "POST",
     "path": "/v1/resolve",
@@ -59,7 +59,7 @@
   "status": 200,
   "response": {
     "schema": 1,
-    "schema_fingerprint": "sha256:8ace26058ee05c889e077d31e0978a84104c6febe7e56140324cb7c18586c042",
+    "schema_fingerprint": "sha256:afd661fc2aa79ae8a88c361e89da2588ca4a08e7ebb45f9eb1741412e9332a89",
     "valid": false,
     "pipeline": {
       "logging": null,
@@ -147,8 +147,7 @@
           "max_segment_gap": null,
           "segment_offset_tolerance": null,
           "verify_alignment": null,
-          "min_track_frames": null,
-          "frame_sample": null
+          "min_track_frames": null
         }
       ],
       "tasks": [
@@ -209,8 +208,7 @@
               "max_segment_gap": null,
               "segment_offset_tolerance": null,
               "verify_alignment": null,
-              "min_track_frames": null,
-              "frame_sample": null
+              "min_track_frames": null
             },
             "inputs": [
               {

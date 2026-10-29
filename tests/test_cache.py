@@ -884,9 +884,9 @@ class TestStatsCache:
 
 
 class TestComputeStatsArguments:
-    """The arguments flow pins on every ``compute_stats`` call."""
+    """The arguments flow pins on every ``image_stats`` call."""
 
-    _CALC_STATS_PATH = "dataeval.core.compute_stats"
+    _CALC_STATS_PATH = "dataeval.core.image_stats"
 
     def _call(self) -> Any:
         from dataeval.flags import ImageStats
@@ -912,7 +912,7 @@ class TestComputeStatsArguments:
 
 
 class TestLoadOrComputeStats:
-    _CALC_STATS_PATH = "dataeval.core.compute_stats"
+    _CALC_STATS_PATH = "dataeval.core.image_stats"
 
     def test_full_miss_computes_and_saves(self, tmp_path: Path):
         from dataeval.flags import ImageStats
@@ -944,7 +944,7 @@ class TestLoadOrComputeStats:
 
         with patch(self._CALC_STATS_PATH) as mock_calc:
             result = cache.load_or_compute_stats("sel:all", "img+tgt", policy, MagicMock(), True, True)
-            # Should NOT call compute_stats — full cache hit
+            # Should NOT call image_stats — full cache hit
             mock_calc.assert_not_called()
 
         assert "mean" in result["stats"]
@@ -1007,7 +1007,7 @@ class TestLoadOrComputeStats:
 class TestGetOrComputeStats:
     """Tests for the centralized get_or_compute_stats() entry point."""
 
-    _CALC_STATS_PATH = "dataeval.core.compute_stats"
+    _CALC_STATS_PATH = "dataeval.core.image_stats"
 
     def test_without_cache_computes_directly(self):
         from dataeval.flags import ImageStats
@@ -2405,7 +2405,7 @@ class TestOneEntryGrowsAcrossPolicies:
 
     @pytest.fixture
     def computed(self, monkeypatch):
-        """Each request `compute_stats` is sent, with whether it measured the background."""
+        """Each request `image_stats` is sent, with whether it measured the background."""
         import dataeval_flow._cache as cache_mod
 
         calls = []
@@ -2516,7 +2516,7 @@ class TestOneEntryGrowsAcrossPolicies:
 
 @pytest.mark.required
 class TestBandAwareCompute:
-    """A policy naming groups reaches compute_stats as channels and a mapping."""
+    """A policy naming groups reaches image_stats as channels and a mapping."""
 
     def test_a_group_produces_its_prefixed_columns(self, toy_multiband_dataset):
         from dataeval.flags import ImageStats
@@ -2561,7 +2561,7 @@ class TestBandAwareCompute:
         assert "background_fraction" in result["stats"]
 
     def test_the_derived_policy_issues_the_call_it_issued_before(self, toy_multiband_dataset, monkeypatch):
-        """A config with no stats policy must not change what compute_stats is asked."""
+        """A config with no stats policy must not change what image_stats is asked."""
         from dataeval.flags import ImageStats
 
         import dataeval_flow._cache as cache_mod
@@ -2579,7 +2579,7 @@ class TestBandAwareCompute:
                 "stats": {},
             }
 
-        monkeypatch.setattr("dataeval.core.compute_stats", _spy)
+        monkeypatch.setattr("dataeval.core.image_stats", _spy)
         cache_mod._do_compute_stats(
             toy_multiband_dataset, ResolvedStatsPolicy.of_flags(ImageStats.VISUAL), True, True, None
         )
@@ -2650,7 +2650,7 @@ class TestPrefixedFactorsSplitByLevel:
 class TestPartialHitNarrowsChannelsToMatch:
     """A partial recompute narrows `channels` along with `measure`, in either direction.
 
-    `compute_stats` requires a stats mapping's keys to be exactly the channel group names, in
+    `image_stats` requires a stats mapping's keys to be exactly the channel group names, in
     both directions. Narrowing `measure` to the coverage gap without narrowing `channels` to
     match names a group nothing is being asked for, or asks for a group nothing declares.
     """
@@ -2708,7 +2708,7 @@ class TestPartialHitNarrowsChannelsToMatch:
 class TestUncachedNarrowsChannelsToMatch:
     """The uncached branch enforces the same invariant as the cached one.
 
-    `compute_stats` requires the `stats` mapping's keys to be exactly the `channels` names,
+    `image_stats` requires the `stats` mapping's keys to be exactly the `channels` names,
     in both directions. The cached branch always narrows through `policy.narrowed_to(...)`
     before calling it — even on a full miss — so a policy whose `channels` names a group
     `measure` does not used to work only when a cache happened to narrow it away first, and

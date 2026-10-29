@@ -39,7 +39,7 @@ chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md). Each
 | `prioritization` | `dataeval.scope.Prioritize` | embeddings; labels where there is one per item | 1, or 2: the data, then a reference | required |
 | `factor-triage` | `dataeval.Metadata` | metadata | 1 | refused |
 | `content-digest` | `dataeval_flow.dataset_digest` | the Dataset itself, every item | 1 | refused |
-| `profile` | `dataeval.core.compute_stats`, `dataeval.Metadata` | stats; metadata | 1 | refused |
+| `profile` | `dataeval.core.image_stats`, `dataeval.Metadata` | stats; metadata | 1 | refused |
 
 A task's `extractor:` still lands in the result envelope's `model_id`, whether or not that run's mode actually reads it.
 
@@ -113,7 +113,7 @@ It runs `dataeval.quality.Duplicates` across every source the task names.
 | `stats` | (DataEval Flow) the name of a `stats:` policy | the whole image is measured |
 | `flags` | `flags`: `hash_basic`, `hash_d4` | DataEval's default hash families |
 | `merge_near_duplicates` | `merge_near_duplicates` | DataEval's default |
-| `hash_radius` | `hash_radius` | DataEval's default (`0`, documented to change in a future major release) |
+| `hash_radius` | `hash_radius` | DataEval's default: `0` for images, documented to change in v2.0, and `6` for video |
 | `cluster_sensitivity` | `cluster_sensitivity`; setting it turns on cluster mode | cluster mode is off |
 | `redundancy_radius` | `redundancy_radius` (video) | DataEval's default (`4`) |
 | `min_segment_frames` | `min_segment_frames` (video) | DataEval's default (`30`) |
@@ -121,7 +121,6 @@ It runs `dataeval.quality.Duplicates` across every source the task names.
 | `segment_offset_tolerance` | `segment_offset_tolerance` (video) | DataEval's default (`0`) |
 | `verify_alignment` | `verify_alignment` (video) | warped matching is off |
 | `min_track_frames` | `min_track_frames` (video, with `per_target`) | DataEval's default (`5`) |
-| `frame_sample` | `frame_sample` (video): a stride in frames, or a rate in frames per second | every frame is read |
 | `cluster_algorithm` | `cluster_algorithm`: `kmeans` or `hdbscan` | DataEval's default |
 | `n_clusters` | `n_clusters` | DataEval chooses |
 | `per_image` | `from_stats(per_image=...)` | DataEval's default |

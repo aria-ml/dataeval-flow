@@ -71,16 +71,10 @@ class TestDuplicatesConfig:
             ("segment_offset_tolerance", 1),
             ("verify_alignment", 8),
             ("min_track_frames", 3),
-            ("frame_sample", 5),
-            ("frame_sample", 2.0),
         ],
     )
     def test_video_parameters_reach_dataeval(self, field: str, value: float):
         assert DuplicatesConfig.model_validate({field: value}).constructor_kwargs()[field] == value
-
-    def test_a_frame_sample_of_zero_is_refused(self):
-        with pytest.raises(ValidationError):
-            DuplicatesConfig(frame_sample=0)
 
 
 class TestOutliersConfig:

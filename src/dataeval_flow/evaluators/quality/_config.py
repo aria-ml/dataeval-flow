@@ -19,7 +19,7 @@ import functools
 import operator
 from abc import abstractmethod
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Generic, Literal, Self, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, Self, TypeVar
 
 from pydantic import Field, model_validator
 
@@ -158,7 +158,7 @@ class DuplicatesConfig(_QualityConfig[DuplicatesResult]):
         ge=0,
         description=(
             "Maximum Hamming distance, in bits, for two perceptual hashes to be treated as near duplicates. "
-            "Unset uses DataEval's default (0, documented to change in a future major release)."
+            "Unset uses DataEval's default: 0 for images, documented to change in v2.0, and 6 for video."
         ),
     )
     cluster_sensitivity: float | None = Field(
@@ -218,13 +218,6 @@ class DuplicatesConfig(_QualityConfig[DuplicatesResult]):
             "with `per_target: true`. No effect on image datasets. Unset uses DataEval's default (5)."
         ),
     )
-    frame_sample: Annotated[int, Field(ge=1)] | Annotated[float, Field(gt=0)] | None = Field(
-        default=None,
-        description=(
-            "How much of each video to read: an integer is a stride in frames (`5` keeps every fifth), a float a "
-            "target rate in frames per second. No effect on image datasets. Unset reads every frame."
-        ),
-    )
 
     def cluster_mode(self) -> bool:
         """Whether ``cluster_sensitivity`` is set."""
@@ -259,7 +252,6 @@ class DuplicatesConfig(_QualityConfig[DuplicatesResult]):
             "segment_offset_tolerance": self.segment_offset_tolerance,
             "verify_alignment": self.verify_alignment,
             "min_track_frames": self.min_track_frames,
-            "frame_sample": self.frame_sample,
         }
         return {key: value for key, value in values.items() if value is not None}
 
