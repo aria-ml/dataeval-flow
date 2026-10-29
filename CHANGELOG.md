@@ -4,7 +4,7 @@
 
 ### Added
 
-- Preset decomposition for editors (preset decomposition, increments 2–3)
+- Preset decomposition: a preset entry copied, or one of its steps inlined, into a custom workflow an editor can change
   - `POST /v1/presets/decompose` prepares a whole candidate pipeline copying a preset entry into a custom workflow,
     or answers `unsupported` with located reasons; `features.preset_decomposition: 1`
   - Each preset declares which settings decide its steps (`Preset.structure`); a plugin preset that doesn't is
@@ -14,8 +14,6 @@
     downstream reads of the step's outputs follow, and the preset entry and its other uses stay
   - A custom workflow's `scopes:` judge some of its steps together, on their own bound inputs, as a preset run as a
     step judged its own: an inlined audit keeps its verdict, preflight and record that way
-- `max_processes` setting, `--max-processes` option and `DATAEVAL_MAX_PROCESSES` variable bound DataEval's processes
-  - The value is recorded in each result's `resolved_config`
 - `dataeval-flow serve` (new `service` extra, in every image): an HTTP service that queues pipelines and runs them
   - A preview: its API may change or be removed in any release without a deprecation cycle
   - `POST /v1/runs` takes a pipeline and its tasks; each run is a separate headless `dataeval-flow` process
@@ -33,7 +31,7 @@
   - A selection's members are exact and paged, its ID is stable, and `.../view` turns its images into a source
   - `/v1/capabilities` lists the service's `features` and `limits`, and `/v1/schema` gives the pipeline's JSON Schema
   - A `422` names where in the request it failed, as `loc`
-- Builder metadata in the service (Studio builder contracts, FLOW-BUILDER-001)
+- Builder metadata in the service, for editors that compose pipelines
   - The step catalog gives each input's address `shape`, `same_dataset` rules, an `address_grammar`, where each kind's
     settings live (`step_settings`), and each Output class's ancestors (`classes`)
   - `/v1/schema` marks every field naming another pool's entry with `x-flow-ref`
@@ -43,9 +41,9 @@
   - An unknown run is a JSON `404`, a `POST` body over 1 MiB a `413`, and `/results` of a run that finished without
     one says so
 - `POST /v1/resolve` gives each task's resolved graph without reading data: steps, ports, bindings, origins, which
-  outputs the settings leave empty, and each problem with its code, step and port (FLOW-BUILDER-002)
+  outputs the settings leave empty, and each problem with its code, step and port
   - `/validate` and `/runs` locate a workflow that doesn't connect at the step and port, one 422 entry per problem
-- Run activity (FLOW-BUILDER-003): each task's and step's state as it runs, kept with the run
+- Run activity: each task's and step's state as it runs, kept with the run
   - `GET /v1/runs/{id}/activity` gives a snapshot, `GET /v1/runs/{id}/events?after=` the changes since
   - A cancelled, failed or interrupted run closes what was running before its record turns final
 - `run_tasks(..., on_result=...)`, called with each task's name and result as soon as the task finishes
@@ -151,12 +149,6 @@
   - In `measure` only: `hash_basic` and `hash_d4`
 - `format: demo` dataset loader resolving tutorial datasets from a fixed table, with no arbitrary imports
 - `wrap:` on `scope`, with `padding` and `min_size` on `DetectionCrops`; the `crops` step counts dropped detections
-- `DATAEVAL_*` environment variables for CLI parameters; CLI arguments take precedence
-- `--no-fail-on-warning` overrides `DATAEVAL_FAIL_ON_WARNING` for one run
-- `--log-format {structured,plain}` picks structured or plain log output
-- `scripts/release.py` cuts and tags releases from the current branch
-- Published images carry their vulnerability scan report and CycloneDX SBOM in `/usr/share/dataeval-flow/security/`
-- `nox -s verify` writes `output/metarepo/test-results.log`, a per-test-case log for metarepo assessments
 - Plug-in workflows and evaluators through the `dataeval_flow.workflows` and `dataeval_flow.evaluators` entry points
 - Plug-in extractors and image transforms through `dataeval_flow.extractors` and `dataeval_flow.image_transforms`
 - Every workflow declares its inputs, and each task is checked against its workflow or evaluator at load
@@ -261,19 +253,20 @@
 - `factor-gaps` combine: each factor's mutual information with the class, read from a `balance` Output
   - Names under-represented class-factor combinations among the factors at or over `mi_threshold`
 - `other_kinds: pass` on `wrap` passes other kinds of Dataset through unchanged, reading their cached embeddings
-- Custom workflows declare what a preset's chain declares (preset decomposition, increment 1)
+- Custom workflows declare what a preset's chain declares
   - `reference`, `record`, `verdict`, `next_steps`, `preflight`, `ontology`, and `evidence` on each of `groups`
 
 ### Changed
 
-- Metadata from DataEval main (`faf9ff3e`) keeps missing values null and drops boolean-mixed factors as `mixed_types`
-- DataEval main is tracked at `8514871c`: Outliers fits a statistical threshold only to populations of at least 20
+- Requires DataEval 1.2; the lock files and container images resolve DataEval 1.2.0rc0
+- Metadata keeps missing values null, and drops factors mixing booleans with numbers or text as `mixed_types`
+- Outliers fits a statistical threshold only to populations of at least 20
   - `image-outliers`, `target-outliers` and `class-outliers` are not assessed, with DataEval's reason, where it judged
     no population of the images or boxes they count, such as `Outliers judged no population: below 20 rows`
   - `audit`'s next steps say Outliers needs at least 20 items in a split
   - An `outliers` result's JSON records which populations were judged, and why not, under `extras.populations`
-- DataEval main is tracked at `e8244ff5`: `drift-domain-classifier` takes `hyperparameters`, LightGBM's settings for
-  its classifier, as `ood-domain-classifier` already does
+- `drift-domain-classifier` takes `hyperparameters`, LightGBM's settings for its classifier, as
+  `ood-domain-classifier` already does
 - The `dataeval-flow` command writes each task's result files as soon as the task finishes, so a killed run keeps them
   - Each file is replaced whole, so a reader never sees a half-written one
 - Every check's description opens with what it judges, such as "Judges `balance`'s output: …"
@@ -356,13 +349,9 @@
 - `run_task` returns a `Result`, a workflow's or an evaluator's; `isinstance` narrows it to the type's `<X>Result`
 - A failed workflow's report shows `FAILED` and its errors, as a failed evaluator's does
 - `WorkflowResult` takes every argument by keyword only
-- Containers publish to `harbor.jatic.net/aria/dataeval-flow` instead of `harbor.jatic.net/aria/dataeval`
 - The metadata cache key includes the stats policy's `factor_identity()`, so metadata archives recompute on upgrade
 - Stats cache keys are unchanged; each dataset keeps one entry that grows with every stats policy asked of it
   - The entry covers band groups and background, records each group's bands and range, and remeasures changed groups
-- Console logs include ISO-8601 UTC timestamps and levels; `--log-format plain` gives bare messages
-- `main-<variant>` tracks the default branch; `latest-<variant>` retags the newest stable release
-- Images are scanned before publication; a HIGH or CRITICAL finding fails the build before anything is pushed
 - Internal modules (`cache`, `stats`, `policy`, …) are private; import config types from `dataeval_flow.config`
 - `dataeval_flow.workflow` and `dataeval_flow.evaluator` merge into `dataeval_flow.workflows` and `.evaluators`
 - Workflow packages are named after their type: `workflows.data_cleaning`, `workflows.drift_monitoring`, …
@@ -583,11 +572,6 @@
 - Cross-split label parity is limited to shared classes, avoiding chi-square errors on gapped label spaces
 - Single-split classes are left out of the parity test and reported in `label_overlap` instead
 - Cross-split duplicate detection is limited to common columns, avoiding crashes on divergent stat caches
-- The container entrypoint honors `DATAEVAL_OUTPUT` and `DATAEVAL_CACHE` instead of hardcoded paths
-- The container image creates `/cache/.not_mounted`, so an unmounted `/cache` is no longer exported as `DATAEVAL_CACHE`
-- Object-detection datasets are recognized consistently on Python 3.10 and 3.11, avoiding misclassification or crashes
-- The GitHub release body carries the changelog section instead of falling back to `Release vX.Y.Z`
-- Container images no longer ship the standalone interpreter's bundled `pip`, which nothing used
 - A task naming one source twice is refused at load; the repeat used to be dropped, leaving the task a source short
 - A key no config section defines is refused at load instead of dropped
   - A misspelled top-level key is named with the section it most resembles
@@ -656,7 +640,6 @@
   - `attach_binning`, and the outlier report's `limits_sentence` and `warn_if_unrecorded`, which had no callers
 - The `torch` and `uncertainty` extractors' `device`, and shift MMD's; Flow chooses the device for every tool
 - Poetry packaging support; install with uv, pip or conda
-- Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`
 - Python 3.10 support; the minimum is now 3.11
 - `dataeval_flow.config.schemas`; most of its types import from `dataeval_flow.config`
 - Deprecated `SelectionConfig`, `SelectionStep`, `build_selection` and `DatasetContext(selection_steps=)`
@@ -691,6 +674,64 @@
 - `DataSplittingResult` and its output and metadata types; a splits result is a `ChainResult`
 - `DataCoverageResult`, its output and metadata types, and `DataCoverageHealthThresholds`
   - A scope result is a `ChainResult`, and its thresholds are `DataCoverageChecks`
+
+## v0.2.5
+
+### Added
+
+- `max_processes` config setting, `--max-processes` CLI option, and `DATAEVAL_MAX_PROCESSES` environment variable bound
+  the worker processes and the value is recorded in each result's `resolved_config`
+- `nox -s verify` writes `output/metarepo/test-results.log`, a per-test-case log for metarepo assessments
+
+### Changed
+
+- Requires `dataeval>=1.1.4`; the lock files and container images resolve DataEval 1.1.4
+
+### Fixed
+
+- Container images no longer ship the standalone interpreter's bundled `pip`, which nothing used
+
+## v0.2.4
+
+### Added
+
+- Published images carry their own vulnerability scan report and CycloneDX SBOM at `/usr/share/dataeval-flow/security/`
+
+### Changed
+
+- Containers now publish to `harbor.jatic.net/aria/dataeval-flow` instead of `harbor.jatic.net/aria/dataeval`
+- `main-<variant>` tracks the default branch; `latest-<variant>` is a retag of the newest stable release
+- Images are scanned before publication, and HIGH or CRITICAL findings fail the build instead of being reported after
+- All variants build on `ubuntu:24.04` and the CUDA runtime and cuDNN install from Python wheels
+
+### Fixed
+
+- Prerelease tags (`vX.Y.Z-rcN`) publish as GitHub prereleases instead of replacing the latest stable release
+
+### Removed
+
+- Floating `<variant>` and `<major>.<minor>-<variant>` image tags; pull `latest-<variant>` or pin `<version>-<variant>`
+
+## v0.2.3
+
+### Added
+
+- `DATAEVAL_*` environment variables to configure CLI parameters; CLI arguments take precedence
+- `--no-fail-on-warning` flag to disable `DATAEVAL_FAIL_ON_WARNING` for a single run
+- `--log-format {structured,plain}` flag selecting structured or plain log output
+- `scripts/release.py` script to cut and tag releases from the current branch
+
+### Changed
+
+- Console logs now include ISO-8601 UTC timestamps and levels; use `--log-format plain` for bare messages
+- Requires DataEval 1.1.1 or newer
+
+### Fixed
+
+- Container entrypoint honors `DATAEVAL_OUTPUT` and `DATAEVAL_CACHE` instead of hardcoded paths
+- Container image creates `/cache/.not_mounted`; unmounted `/cache` is no longer exported as `DATAEVAL_CACHE`
+- Consistently recognize object-detection datasets on Python 3.10 and 3.11, preventing misclassification or crashes
+- GitHub release body now carries the changelog section instead of falling back to `Release vX.Y.Z`
 
 ## v0.2.2
 
