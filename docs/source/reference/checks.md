@@ -39,7 +39,7 @@ example assumes the pipeline defines
 | `factor-coverage-gaps` | `input`: a `factor-gaps` Output | Factor Coverage Gaps |
 | `class-shortfall` | `input`: a `representation` Output with no ontology | Class Shortfall |
 | `shortcut-risk` | `input`: a `balance` Output | Shortcut Risk |
-| `factor-parity` | `input`: a `parity` Output | Factor Parity, and Parity Collection Gaps where a cell is short or thin |
+| `factor-parity` (experimental) | `input`: a `parity` Output | Factor Parity, and Parity Collection Gaps where a cell is short or thin |
 | `class-stratification` | `input`: a `label-health` Output over the whole; `parts`: the parts'; `shown`: more, not judged | Class Stratification |
 | `leakage` | `duplicates`: `duplicates` Outputs over two splits; `factors`: `factor-leakage` Outputs | Leakage |
 | `embedding-divergence` | `input`: a `divergence` Output | Embedding Divergence |
@@ -690,6 +690,11 @@ workflows:
 
 Judges `parity`'s output: warns when a metadata factor is significantly associated with the class, and lists the cells to
 collect.
+
+:::{note}
+`factor-parity` is experimental: it may change or be removed in any release without a deprecation cycle, as the `parity`
+Output it judges may. The first run in a process to use it warns with `ExperimentalWarning`.
+:::
 
 Where `shortcut-risk` measures how much a factor tells about the class, this tests whether the association is real. A
 factor warns where its bias-corrected Cramér's V with the class is past `warning` and its adjusted p-value is at or

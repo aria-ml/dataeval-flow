@@ -168,6 +168,14 @@ def _announce(graph: ChainGraph, settings: RunSettings) -> None:
         _activity.step_state(settings.task, settings.run, spec.name, "pending")
 
 
+def _warn_experimental(graph: ChainGraph) -> None:
+    """Warn for each experimental step type `graph` runs, and each experimental preset spliced into it."""
+    from dataeval_flow._experimental import warn_if_experimental
+
+    for step in [spec.impl for spec in graph.steps] + [s.preset for s in graph.splices if s.preset is not None]:
+        warn_if_experimental(step)
+
+
 def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings: RunSettings) -> ChainRun:
     """Run each step in order. Never raises for a step's failure: it becomes the step's status.
 
@@ -186,6 +194,7 @@ def run_chain(graph: ChainGraph, inputs: Mapping[str, Node | NodeList], settings
     splice_runs: dict[str, SpliceRun] = {}
     made_from_reference: dict[str, set[str]] = {}
     read_by: dict[str, list[MetadataRead]] = {}
+    _warn_experimental(graph)
     _announce(graph, settings)
     with noting_reads() as reads:
         for spec in graph.steps:

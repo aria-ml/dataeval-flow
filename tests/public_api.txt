@@ -1,5 +1,6 @@
 dataeval_flow:DatasetDigest
 dataeval_flow:DatasetManifest
+dataeval_flow:ExperimentalWarning
 dataeval_flow:InputKind
 dataeval_flow:InputSpec
 dataeval_flow:ManifestDiff

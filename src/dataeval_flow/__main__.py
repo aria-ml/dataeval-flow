@@ -353,10 +353,11 @@ def _build_parser() -> argparse.ArgumentParser:
     # --- serve (long-running HTTP service) ---
     serve_parser = subparsers.add_parser(
         "serve",
-        help="Run a long-lived HTTP service that queues pipelines (requires the 'service' extra)",
+        help="Run a long-lived HTTP service that queues pipelines (preview; requires the 'service' extra)",
         description=(
             "Serve an HTTP API that queues pipelines and runs each as the headless command would, one at a time, "
-            "in a process of its own. Requires: pip install dataeval-flow[service]"
+            "in a process of its own. The service is a preview: its API may change or be removed in any release "
+            "without a deprecation cycle. Requires: pip install dataeval-flow[service]"
         ),
         epilog=_SERVE_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -518,7 +519,8 @@ def _list_steps(name: str | None, *, as_json: bool) -> int:
     width = max(len(e.type) for e, _ in rows)
     flow_width = max(len(flow) for _, flow in rows)
     for e, flow in rows:
-        print(f"  {e.kind:<10} {e.type:<{width}}  {flow:<{flow_width}}  {e.description}")
+        marker = "(experimental) " if e.experimental else ""
+        print(f"  {e.kind:<10} {e.type:<{width}}  {flow:<{flow_width}}  {marker}{e.description}")
     return 0
 
 

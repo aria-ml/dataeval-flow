@@ -40,7 +40,6 @@
         "cluster_algorithm": null,
         "cluster_sensitivity": null,
         "flags": null,
-        "frame_sample": null,
         "hash_radius": null,
         "max_segment_gap": null,
         "merge_near_duplicates": null,

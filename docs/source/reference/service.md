@@ -7,6 +7,10 @@ and use it, see {doc}`../how_to/run_flow_as_a_service`. For why it runs each pip
 The service publishes every request and response schema at `/openapi.json`. If this page and a running service's
 `/openapi.json` disagree, trust the service.
 
+:::{note}
+The service is a preview: its HTTP API may change or be removed in any release without a deprecation cycle.
+:::
+
 ## Starting the service
 
 `dataeval-flow serve` needs the `service` extra (`pip install "dataeval-flow[service]"`). Every container image ships

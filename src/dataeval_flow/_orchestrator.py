@@ -850,6 +850,7 @@ def _run_custom_task(
     from dataeval_flow._chain._graph import binding_problems, build_graph
     from dataeval_flow._chain._preflight import check_declared, check_kinds, step_contexts
     from dataeval_flow._chain._run import RunSettings, _datasets, bind_inputs
+    from dataeval_flow._experimental import warn_if_experimental
     from dataeval_flow._sources import label_space_records
     from dataeval_flow._tables import limited_tables
     from dataeval_flow.steps._result import ChainMetadata, ChainResult
@@ -894,6 +895,7 @@ def _run_custom_task(
     if declared is not None:
         check_declared(declared, inputs, {spec.name: spec.keys for spec in graph.steps})
     if preset is not None:
+        warn_if_experimental(preset)
         preset.preflight(entry, inputs)
     # Each step naming its own extractor embeds with it; every other step, with the task's.
     named = {spec.extractor for spec in graph.steps if spec.extractor}

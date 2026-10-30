@@ -149,7 +149,7 @@ def inject_intrinsic_factors(metadata: Metadata, calc_result: Mapping[str, Any])
     :func:`expand_declared_bins` needs to know what those became.
 
     The only arrays withheld are the hashes.  They travel in the same result — one
-    ``compute_stats`` pass serves both outlier and duplicate detection — and are
+    ``image_stats`` pass serves both outlier and duplicate detection — and are
     near-unique per image, so digitizing them would yield a category per item.
 
     Everything else is handed over as it comes, including the vector-valued statistics

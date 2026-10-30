@@ -120,7 +120,7 @@ loading for the object-detection formats.
 - [x] SBOM published with releases: per-image CycloneDX cosign attestation (CS-2-H-4)
 - [x] Link checking gates merges (DR-3.3-H-4). README's links to this project's docs are checked against
       the page sources, and a 502-504 or 429 response does not fail it
-- [x] `dataeval-flow serve`: a long-running HTTP service, in every image behind the `service` extra,
+- [x] `dataeval-flow serve` (preview): a long-running HTTP service, in every image behind the `service` extra,
       that queues pipelines and runs each as the batch command. IR-2.3-H-2, IR-2.3-S-1 and IR-2.4-S-1
       now apply, and its health, liveness and readiness endpoints and OpenAPI description meet them
 

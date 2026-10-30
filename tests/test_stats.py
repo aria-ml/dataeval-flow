@@ -163,7 +163,7 @@ class TestResolvedStatsPolicy:
 
 @pytest.mark.required
 class TestNarrowedTo:
-    """Narrowing a request narrows the bands to match, so `compute_stats` never sees a mismatch."""
+    """Narrowing a request narrows the bands to match, so `image_stats` never sees a mismatch."""
 
     def test_narrowing_to_the_bare_view_drops_every_group(self):
         policy = _policy(channels=(("ir", ((3,), None)),))

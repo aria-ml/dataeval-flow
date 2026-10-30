@@ -1,7 +1,7 @@
 {
   "generated_by": "uv run python -m tests.service.builder_fixtures",
-  "flow_version": "0.2.3.dev827+g28c774971",
-  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+  "flow_version": "0.2.3.dev824+g902f85161",
+  "dataeval_version": "1.2.0rc0",
   "request": {
     "method": "POST",
     "path": "/v1/validate",

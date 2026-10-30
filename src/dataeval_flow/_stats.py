@@ -135,7 +135,7 @@ class ResolvedStatsPolicy:
     """The band groups `measure` names, with the bands and range the dataset gave them.
 
     Only the named ones. A dataset may declare groups a policy does not measure, and
-    `compute_stats` refuses a `stats` mapping whose keys are not exactly `channels`'.
+    `image_stats` refuses a `stats` mapping whose keys are not exactly `channels`'.
     """
     background: bool = False
     outliers_from: tuple[str | None, ...] = (None,)
@@ -145,19 +145,19 @@ class ResolvedStatsPolicy:
     def of_flags(cls, flags: ImageStats) -> "ResolvedStatsPolicy":
         """The policy a config declaring none implies: *flags* over the whole image.
 
-        `compute_stats` treats `{None: flags}` with no channels as identical to `flags`, so
+        `image_stats` treats `{None: flags}` with no channels as identical to `flags`, so
         this is the same call flow issues without a policy.
         """
         return cls(measure=((None, flags),))
 
     @property
     def request(self) -> dict[str | None, ImageStats]:
-        """What to ask `compute_stats` for, keyed by view."""
+        """What to ask `image_stats` for, keyed by view."""
         return dict(self.measure)
 
     @property
     def channel_map(self) -> "dict[str, ChannelGroup] | None":
-        """What to pass `compute_stats` as `channels`, or None where no group is measured."""
+        """What to pass `image_stats` as `channels`, or None where no group is measured."""
         from dataeval.utils.preprocessing import ChannelGroup
 
         return {
@@ -173,7 +173,7 @@ class ResolvedStatsPolicy:
         return {name: _group_record(group) for name, group in self.channels}
 
     def columns(self) -> set[str]:
-        """Every column this policy's `compute_stats` call returns that a consumer can read."""
+        """Every column this policy's `image_stats` call returns that a consumer can read."""
         columns: set[str] = set()
         for view, flags in self.measure:
             columns |= columns_for([view], measurable_in(view, flags))
@@ -190,7 +190,7 @@ class ResolvedStatsPolicy:
         Read this rather than `request` directly. A view cannot carry every family
         `measure` names it: geometry does not vary with a band subset, and the background
         is measured for pixel and visual only. Reporting a family the view cannot carry
-        would name a column `compute_stats` never produces.
+        would name a column `image_stats` never produces.
         """
         base = view
         if _is_background(view):
@@ -200,7 +200,7 @@ class ResolvedStatsPolicy:
     def narrowed_to(self, request: "Mapping[str | None, ImageStats]") -> "ResolvedStatsPolicy":
         """Return this policy asking only for *request*, with its bands narrowed to match.
 
-        Use this to recompute part of a policy. `compute_stats` requires a stats mapping's
+        Use this to recompute part of a policy. `image_stats` requires a stats mapping's
         named keys to be exactly the channel group names, in both directions, so narrowing
         the request without narrowing the groups raises.
         """

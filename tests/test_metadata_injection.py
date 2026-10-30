@@ -90,19 +90,19 @@ class TestStatNames:
 
 @pytest.mark.required
 class TestStatNamesForMatchesComputeStats:
-    """`stat_names_for` derives names from the enum; `compute_stats` derives columns from it.
+    """`stat_names_for` derives names from the enum; `image_stats` derives columns from it.
 
     `stat_names_for` is a filter gate at every consumer: `columns_for` calls it to decide
     what a view is allowed to carry. A `dataeval` column that breaks the
     `<FAMILY>_<STATISTIC>` naming vanishes from every consumer silently, with no error
-    naming the mismatch. Pinning the two against a real `compute_stats` call makes an
+    naming the mismatch. Pinning the two against a real `image_stats` call makes an
     upstream rename, or a new statistic that breaks the naming, fail here.
     """
 
     def test_every_column_compute_stats_emits_is_named(self, toy_images):
-        from dataeval.core import compute_stats
+        from dataeval.core import image_stats
 
-        result = compute_stats(
+        result = image_stats(
             toy_images,
             stats={None: ImageStats.ALL},
             channels=None,
@@ -315,11 +315,11 @@ class TestBuildMetadataInjects:
         assert metadata.continuous_factor_bins == {"brightnes": 4}
 
     def test_declared_value_range_reaches_compute_stats(self):
-        """``value_range`` must reach ``compute_stats``, not just sit on the policy.
+        """``value_range`` must reach ``image_stats``, not just sit on the policy.
 
         ``_WideRangeDataset``'s values fall outside any range dataeval can infer. A
         ``VISUAL`` statistic comes back NaN unless the declared ``value_range`` is what
-        ``compute_stats`` receives.
+        ``image_stats`` receives.
         """
         policy = ResolvedPolicy(intrinsic_factors=("visual",), value_range=(0.0, 4000.0))
         metadata = build_metadata(_WideRangeDataset(), policy)
@@ -329,7 +329,7 @@ class TestBuildMetadataInjects:
     def test_per_target_is_false_on_classification_data(self):
         """``per_target`` must come from ``metadata.multi_target``, not be hardcoded.
 
-        Classification data has no boxes, so ``compute_stats``' own output cannot tell
+        Classification data has no boxes, so ``image_stats``' own output cannot tell
         ``per_target=True`` from ``per_target=False`` on it. Spying on the call pins the
         wire.
         """
@@ -426,12 +426,12 @@ class TestInjectImageStatsRoundTrip:
 
     def test_od_stats_split_by_level(self):
         from dataeval import Metadata
-        from dataeval.core import compute_stats
+        from dataeval.core import image_stats
         from dataeval.flags import ImageStats
 
         dataset = _ODDataset(6)
         metadata = Metadata(dataset)  # type: ignore[arg-type]  # a duck-typed target, not DatumMetadata
-        calc_result = compute_stats(
+        calc_result = image_stats(
             dataset,
             stats=ImageStats.VISUAL_BRIGHTNESS,
             per_image=True,
@@ -457,12 +457,12 @@ class TestInjectImageStatsRoundTrip:
         the instance rows would score it on a doubled population.
         """
         from dataeval import Metadata
-        from dataeval.core import compute_stats
+        from dataeval.core import image_stats
         from dataeval.flags import ImageStats
 
         dataset = _ODDataset(6)
         metadata = Metadata(dataset)  # type: ignore[arg-type]  # a duck-typed target, not DatumMetadata
-        calc_result = compute_stats(
+        calc_result = image_stats(
             dataset,
             stats=ImageStats.VISUAL_BRIGHTNESS,
             per_image=True,
@@ -483,12 +483,12 @@ class TestInjectImageStatsRoundTrip:
 
     def test_hashes_never_reach_factors(self):
         from dataeval import Metadata
-        from dataeval.core import compute_stats
+        from dataeval.core import image_stats
         from dataeval.flags import ImageStats
 
         dataset = _ODDataset(6)
         metadata = Metadata(dataset)  # type: ignore[arg-type]  # a duck-typed target, not DatumMetadata
-        calc_result = compute_stats(
+        calc_result = image_stats(
             dataset,
             stats=ImageStats.VISUAL_BRIGHTNESS | ImageStats.HASH,
             per_image=True,
@@ -506,12 +506,12 @@ class TestInjectImageStatsRoundTrip:
     def test_vector_stats_reach_the_summary_as_dropped(self):
         """End to end: a vector stat is recorded and surfaces in the summary."""
         from dataeval import Metadata
-        from dataeval.core import compute_stats
+        from dataeval.core import image_stats
         from dataeval.flags import ImageStats
 
         dataset = _ODDataset(6)
         metadata = Metadata(dataset)  # type: ignore[arg-type]  # a duck-typed target, not DatumMetadata
-        calc_result = compute_stats(
+        calc_result = image_stats(
             dataset,
             stats=ImageStats.DIMENSION_CENTER,
             per_image=True,

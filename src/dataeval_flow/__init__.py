@@ -46,6 +46,7 @@ from dataeval_flow._digest import (
     dataset_digest,
     dataset_manifest,
 )
+from dataeval_flow._experimental import ExperimentalWarning
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow._matrix._result import MatrixResult, MatrixRun
 from dataeval_flow._orchestrator import run_task, run_tasks, set_device
@@ -65,6 +66,7 @@ __all__ = [
     "run_tasks",
     "set_device",
     "DatasetDigest",
+    "ExperimentalWarning",
     "DatasetManifest",
     "ManifestDiff",
     "ManifestEntry",

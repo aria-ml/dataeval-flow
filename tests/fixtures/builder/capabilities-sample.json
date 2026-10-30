@@ -1,7 +1,7 @@
 {
   "generated_by": "uv run python -m tests.service.builder_fixtures",
-  "flow_version": "0.2.3.dev827+g28c774971",
-  "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+  "flow_version": "0.2.3.dev824+g902f85161",
+  "dataeval_version": "1.2.0rc0",
   "request": {
     "method": "GET",
     "path": "/v1/capabilities",
@@ -10,9 +10,9 @@
   "status": 200,
   "response": {
     "api_version": 1,
-    "flow_version": "0.2.3.dev827+g28c774971",
-    "dataeval_version": "1.1.1.dev185+ge8244ff5b",
-    "schema_fingerprint": "sha256:8ace26058ee05c889e077d31e0978a84104c6febe7e56140324cb7c18586c042",
+    "flow_version": "0.2.3.dev824+g902f85161",
+    "dataeval_version": "1.2.0rc0",
+    "schema_fingerprint": "sha256:671ff7169b6251b3819406c10bcb3e6a803477a941c0bce84259ee999ed55423",
     "max_active_runs": 1,
     "features": {
       "items": 1,
@@ -32,8 +32,8 @@
     },
     "steps": {
       "format": 1,
-      "flow_version": "0.2.3.dev827+g28c774971",
-      "dataeval_version": "1.1.1.dev185+ge8244ff5b",
+      "flow_version": "0.2.3.dev824+g902f85161",
+      "dataeval_version": "1.2.0rc0",
       "data_types": [
         "dataset",
         "output",
@@ -54,6 +54,7 @@
           "title": "Duplicates",
           "description": "Exact and near duplicate groups (DataEval Duplicates).",
           "origin": "dataeval-flow",
+          "experimental": false,
           "inputs": [
             {
               "port": "input",
@@ -225,7 +226,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Maximum Hamming distance, in bits, for two perceptual hashes to be treated as near duplicates. Unset uses DataEval's default (0, documented to change in a future major release).",
+                "description": "Maximum Hamming distance, in bits, for two perceptual hashes to be treated as near duplicates. Unset uses DataEval's default: 0 for images, documented to change in v2.0, and 6 for video.",
                 "title": "Hash Radius"
               },
               "cluster_sensitivity": {
@@ -324,24 +325,6 @@
                 "default": null,
                 "description": "Shortest stretch, in detections, two tracks may share and still be reported at `level: track`. Read only with `per_target: true`. No effect on image datasets. Unset uses DataEval's default (5).",
                 "title": "Min Track Frames"
-              },
-              "frame_sample": {
-                "anyOf": [
-                  {
-                    "minimum": 1,
-                    "type": "integer"
-                  },
-                  {
-                    "exclusiveMinimum": 0,
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "description": "How much of each video to read: an integer is a stride in frames (`5` keeps every fifth), a float a target rate in frames per second. No effect on image datasets. Unset reads every frame.",
-                "title": "Frame Sample"
               }
             },
             "title": "DuplicatesConfig",
@@ -354,6 +337,7 @@
           "title": "Conform",
           "description": "Relabels a Dataset onto an ontology by its label alignment, refusing loss beyond `allow`.",
           "origin": "dataeval-flow",
+          "experimental": false,
           "inputs": [
             {
               "port": "input",
@@ -451,6 +435,7 @@
           "title": "Remove",
           "description": "Removes the items, detections or tracks that Duplicates and Outliers plans name.",
           "origin": "dataeval-flow",
+          "experimental": false,
           "inputs": [
             {
               "port": "input",
@@ -535,6 +520,7 @@
           "title": "Image Duplicates",
           "description": "Judges `duplicates`'s output: warns when more than `exact` or `near` percent of the images are duplicates.",
           "origin": "dataeval-flow",
+          "experimental": false,
           "inputs": [
             {
               "port": "input",

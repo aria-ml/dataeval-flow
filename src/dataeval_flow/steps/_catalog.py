@@ -80,6 +80,10 @@ class StepCatalogEntry(BaseModel):
     title: str = Field(description="Its friendly name, such as `K-Fold`; its `type` where it declares none.")
     description: str = Field(description="One line on what it does.")
     origin: str = Field(description="The distribution that registered it: `dataeval-flow` for a built-in.")
+    experimental: bool = Field(
+        default=False,
+        description="Whether it may change or be removed in any release without a deprecation cycle.",
+    )
     inputs: list[PortEntry] = Field(description="Its input ports.")
     outputs: list[PortEntry] = Field(description="Its output ports.")
     judges: list[str] = Field(
@@ -263,6 +267,7 @@ def list_steps(*, plugins: bool = True) -> StepCatalog:
             title=cls.title,
             description=cls.description,
             origin=registry.origin(cls.name),
+            experimental=cls.experimental,
             inputs=[port_entry(port, input_shape(cls, port)) for port in cls.input_ports()],
             outputs=[port_entry(port) for port in cls.output_ports()],
             same_dataset=[

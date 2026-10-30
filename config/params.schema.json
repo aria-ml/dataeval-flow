@@ -5929,7 +5929,7 @@
             }
           ],
           "default": null,
-          "description": "Maximum Hamming distance, in bits, for two perceptual hashes to be treated as near duplicates. Unset uses DataEval's default (0, documented to change in a future major release).",
+          "description": "Maximum Hamming distance, in bits, for two perceptual hashes to be treated as near duplicates. Unset uses DataEval's default: 0 for images, documented to change in v2.0, and 6 for video.",
           "title": "Hash Radius"
         },
         "cluster_sensitivity": {
@@ -6028,24 +6028,6 @@
           "default": null,
           "description": "Shortest stretch, in detections, two tracks may share and still be reported at `level: track`. Read only with `per_target: true`. No effect on image datasets. Unset uses DataEval's default (5).",
           "title": "Min Track Frames"
-        },
-        "frame_sample": {
-          "anyOf": [
-            {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "exclusiveMinimum": 0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "How much of each video to read: an integer is a stride in frames (`5` keeps every fifth), a float a target rate in frames per second. No effect on image datasets. Unset reads every frame.",
-          "title": "Frame Sample"
         }
       },
       "title": "DuplicatesConfig",

@@ -5,6 +5,10 @@ check on the run later. The service runs each pipeline as a separate batch `data
 caller shouldn't wait for a run, as with a user interface. For CI and scripted runs, use the batch command.
 {doc}`../concepts/ExecutionModes` explains the difference.
 
+:::{note}
+The service is a preview: its HTTP API may change or be removed in any release without a deprecation cycle.
+:::
+
 ## Used in these tutorials
 
 - {doc}`Run a full evaluation pipeline end to end <../notebooks/end_to_end>`, whose pipeline you can submit to the

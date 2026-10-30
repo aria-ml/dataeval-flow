@@ -81,6 +81,7 @@ class ParityEvaluator(Evaluator[ParityConfig, ParityOutput]):
     name: ClassVar[str] = "parity"
     title: ClassVar[str] = "Parity"
     description: ClassVar[str] = "Association between metadata factors and class labels (DataEval Parity)."
+    experimental: ClassVar[bool] = True  # DataEval's Parity is experimental
     dataeval_class: ClassVar[type] = Parity
     dataeval_methods: ClassVar[Mapping[InputKind, str]] = _EVALUATE
 

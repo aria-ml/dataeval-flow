@@ -192,6 +192,7 @@ class FactorParityCheck(Check[FactorParityConfig]):
         "Judges `parity`'s output: warns when a metadata factor is significantly associated with the class, and lists "
         "the cells to collect."
     )
+    experimental: ClassVar[bool] = True  # judges `parity`, which is experimental
     title: ClassVar[str] = "Factor Parity"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(ParityOutput,)),)
 

@@ -178,6 +178,7 @@ def create_app(  # noqa: C901 - one nested route per endpoint
         title="DataEval Flow service",
         version=__version__,
         summary="Queue DataEval Flow pipelines, follow their runs, and read their results.",
+        description="A preview: this API may change or be removed in any release without a deprecation cycle.",
         lifespan=lifespan,
     )
     app.state.manager = manager
@@ -468,5 +469,9 @@ def serve(data_root: Path, output_root: Path, cache_root: Path | None, host: str
 
     setup_logging(verbosity=2, log_format=log_format)
     logging.captureWarnings(True)
+    logging.getLogger(__name__).warning(
+        "dataeval-flow serve is a preview: its HTTP API may change or be removed in any release without a "
+        "deprecation cycle."
+    )
     logging.getLogger("uvicorn").setLevel(logging.INFO)
     uvicorn.run(create_app(data_root, output_root, cache_root), host=host, port=port, log_config=None)
