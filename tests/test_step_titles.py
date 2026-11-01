@@ -46,6 +46,7 @@ _TITLES = {
     "ood-domain-classifier": "OOD (Domain Classifier)",
     "ood-kneighbors": "OOD (K-Neighbors)",
     "divergence": "Divergence",
+    "sufficiency": "Sufficiency",
     "conform": "Conform",
     "export": "Export",
     "kfold": "K-Fold",

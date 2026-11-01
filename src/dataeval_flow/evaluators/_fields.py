@@ -8,9 +8,10 @@ from pydantic import BaseModel
 
 T = TypeVar("T")
 
-# Fields a built-in evaluator config holds for Flow: the entry's identity, the policies and ontology it names, and
-# the chunking it asks for. Every other field is a DataEval argument, spelled as DataEval spells it.
-FLOW_FIELDS: frozenset[str] = frozenset({"name", "type", "stats", "metadata", "ontology", "chunking"})
+# Fields a built-in evaluator config holds for Flow: the entry's identity, the policies and ontology it names, the
+# chunking it asks for, and the trainer that builds a model. Every other field is a DataEval argument, spelled as
+# DataEval spells it.
+FLOW_FIELDS: frozenset[str] = frozenset({"name", "type", "stats", "metadata", "ontology", "chunking", "trainer"})
 
 
 def dataeval_arguments(config: BaseModel) -> dict[str, Any]:

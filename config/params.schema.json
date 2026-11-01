@@ -2650,6 +2650,74 @@
       "title": "CheckStep_shortcut-risk",
       "type": "object"
     },
+    "CheckStep_sufficiency-target": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `sufficiency` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "targets": {
+          "description": "Each metric's target, as `{metric, value}`; higher is better. A metric the run did not measure is an error, and a per-class metric is not assessed.",
+          "items": {
+            "$ref": "#/$defs/SufficiencyTarget"
+          },
+          "minItems": 1,
+          "title": "Targets",
+          "type": "array"
+        },
+        "check": {
+          "const": "sufficiency-target",
+          "description": "`sufficiency-target`: Judges `sufficiency`'s output: warns when a metric's target is not reached at the largest size measured and the fitted curve needs more data than the training set holds, or never reaches it.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "targets",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_sufficiency-target",
+      "type": "object"
+    },
     "CheckStep_target-outliers": {
       "additionalProperties": false,
       "properties": {
@@ -4346,6 +4414,9 @@
               },
               {
                 "$ref": "#/$defs/CheckStep_shortcut-risk"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_sufficiency-target"
               },
               {
                 "$ref": "#/$defs/CheckStep_target-outliers"
@@ -11881,6 +11952,112 @@
       "title": "StepScopeConfig",
       "type": "object"
     },
+    "SufficiencyConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``sufficiency``, DataEval's Sufficiency.\n\nTrains the trainer's model on growing subsets of the first source, the training set, evaluates it on the second,\nthe test set, and fits a power law to each metric, from which it projects how much data a metric's target takes.\nThe sources are told apart by position alone: the task's first source is the training set. A size is a number of\nitems drawn with replacement, not of distinct items.\n\nEvery parameter, its DataEval argument and its unset behavior is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators sufficiency`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: sufficiency\n        type: sufficiency\n        schedule: [100, 200, 400, 800]\n        trainer:\n          path: trainers/centroids.py\n          class: CentroidTrainer",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "sufficiency",
+          "default": "sufficiency",
+          "description": "The evaluator type this entry configures: `sufficiency`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "trainer": {
+          "$ref": "#/$defs/TrainerConfig",
+          "description": "(DataEval Flow) The trainer that supplies the model and the training, evaluation and reset strategies: a `Trainer` subclass in a file under the data root's `trainers/` folder, loaded when the run starts."
+        },
+        "runs": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Independent training runs, each from a reset model, averaged. Unset uses DataEval's default (1).",
+          "title": "Runs"
+        },
+        "substeps": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sizes the default schedule measures, spaced geometrically from 1% of the training set to all of it. Unset uses DataEval's default (5). Not with `schedule`, which DataEval would let override it silently.",
+          "title": "Substeps"
+        },
+        "unit_interval": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the metrics lie on [0, 1], such as accuracy, which bounds the fitted curve. Unset uses DataEval's default (true).",
+          "title": "Unit Interval"
+        },
+        "schedule": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The training-set sizes to measure, strictly increasing positive integers, none larger than the training set. Each is a number of items drawn with replacement. Unset uses the default schedule, which needs a training set of at least 100 items.",
+          "title": "Schedule"
+        }
+      },
+      "required": [
+        "trainer"
+      ],
+      "title": "SufficiencyConfig",
+      "type": "object"
+    },
+    "SufficiencyTarget": {
+      "additionalProperties": false,
+      "description": "One metric's target: the value the model should reach, where higher is better.",
+      "properties": {
+        "metric": {
+          "description": "A scalar metric the trainer's evaluation strategy returns, named as it names it.",
+          "title": "Metric",
+          "type": "string"
+        },
+        "value": {
+          "description": "The value the metric should reach or pass; higher is better.",
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "metric",
+        "value"
+      ],
+      "title": "SufficiencyTarget",
+      "type": "object"
+    },
     "TargetOutliersSettings": {
       "additionalProperties": false,
       "description": "The `target-outliers` check's settings in quality.",
@@ -12176,6 +12353,34 @@
         "model_path"
       ],
       "title": "TorchExtractorConfig",
+      "type": "object"
+    },
+    "TrainerConfig": {
+      "additionalProperties": false,
+      "description": "Which :class:`~dataeval_flow.evaluators.performance.Trainer` a ``sufficiency`` run builds, and with what.\n\n``class`` is a Python keyword, so the field is ``class_`` in Python and ``class`` in a config file; either name\nis accepted, and ``class`` is written back. The path is checked when the config loads, without reading the file;\nthe file is read and run only when the run starts.\n\nExample YAML::\n\n    trainer:\n      path: trainers/centroids.py\n      class: CentroidTrainer\n      params: {size: 32}",
+      "properties": {
+        "path": {
+          "description": "The trainer's Python file, relative to the data root and inside its `trainers/` folder, such as `trainers/centroids.py`. One file: importing a sibling file is not supported.",
+          "title": "Path",
+          "type": "string"
+        },
+        "class": {
+          "description": "The `Trainer` subclass in the file to build.",
+          "title": "Class",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "description": "Keyword arguments the class is constructed with. Free-form here: the trainer's own code checks them when the run starts.",
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "path",
+        "class"
+      ],
+      "title": "TrainerConfig",
       "type": "object"
     },
     "TransformStep_collect": {
@@ -13854,6 +14059,9 @@
               },
               {
                 "$ref": "#/$defs/RepresentationConfig"
+              },
+              {
+                "$ref": "#/$defs/SufficiencyConfig"
               }
             ]
           },

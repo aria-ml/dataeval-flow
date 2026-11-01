@@ -48,7 +48,8 @@ VOLUME MOUNTS
 ================================================================================
 
 REQUIRED:
-  $DATA_DIR          Data directory — datasets, models, configs (read-only)
+  $DATA_DIR          Data directory — datasets, models, configs (read-only),
+                     and trainers/, the trainer files 'sufficiency' loads
 
 OPTIONAL:
   $OUTPUT_DIR        Results and output files (read-write)
@@ -62,7 +63,8 @@ ENVIRONMENT VARIABLES
 ================================================================================
 
   DATAEVAL_DATA      Input data root inside the container (default: $DATA_DIR).
-                     Datasets, models, and configs resolve relative to it.
+                     Datasets, models, trainers, and configs resolve
+                     relative to it.
   DATAEVAL_OUTPUT    Output directory for results/reports (default: $OUTPUT_DIR).
   DATAEVAL_CACHE     Computation cache directory (default: $CACHE_DIR when that
                      volume is mounted and writable).

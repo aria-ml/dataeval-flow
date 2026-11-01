@@ -33,6 +33,11 @@ run queue in the same output directory.
 The service reads no secrets and has **no authentication**. Anyone who can reach its port can queue, cancel and read
 runs. Bind it to a trusted network only.
 
+A pipeline may run the `sufficiency` evaluator, which runs a trainer: Python code. Its `trainer.path` must name a file
+in the `trainers/` folder of the service's data root, and a path elsewhere is refused, symlinks followed, so a posted
+pipeline runs only trainers the operator put there. The service checks the path when it validates a pipeline, and never
+imports a trainer then: a run loads it in its own process when it starts.
+
 ## Endpoints
 
 | Method and path                                  | Success                           | Errors          | Does                                                                                                                 |

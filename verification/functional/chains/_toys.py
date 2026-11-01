@@ -163,6 +163,7 @@ EVALUATOR_DATA: dict[str, tuple[Any, bool]] = {
     "prioritization": (Images(40), True),
     "profile": (Factors(), False),
     "representation": (Images(40), False),
+    "sufficiency": ({"train": Images(40), "test": Images(40)}, False),
 }
 
 # Settings a bare config cannot supply because the field has no default.
@@ -172,7 +173,38 @@ EVALUATOR_SETTINGS: dict[str, dict[str, Any]] = {
     "label-reconciliation": {"ontology": {"a": None, "b": None}},
     "ontology-validation": {"ontology": {"a": None, "b": None}},
     "representation": {"ontology": {"a": None, "b": None}},
+    # Under 100 training items the default schedule starts at 0 items, so the 40-item toy names its own.
+    "sufficiency": {"trainer": {"path": "trainers/majority.py", "class": "MajorityTrainer"}, "schedule": [10, 20, 40]},
 }
+
+# The trainer `sufficiency` loads from `trainers/majority.py` under the data root: it always predicts the class most
+# common in the training subset and reads no image, so a run costs nothing.
+SUFFICIENCY_TRAINER = """
+from collections import Counter
+
+from dataeval_flow.evaluators.performance import Trainer, TrainerKit
+
+
+class Majority:
+    label = 0
+
+
+class Fit:
+    def train(self, model, dataset, indices):
+        counts = Counter(int(dataset[i][1].argmax()) for i in indices)
+        model.label = counts.most_common(1)[0][0] if counts else 0
+
+
+class Score:
+    def evaluate(self, model, dataset):
+        hits = sum(int(dataset[i][1].argmax()) == model.label for i in range(len(dataset)))
+        return {"accuracy": hits / len(dataset)}
+
+
+class MajorityTrainer(Trainer):
+    def build(self):
+        return TrainerKit(model=Majority(), training_strategy=Fit(), evaluation_strategy=Score())
+"""
 
 
 class _Detection:

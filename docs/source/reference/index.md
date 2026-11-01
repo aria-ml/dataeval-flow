@@ -134,6 +134,17 @@ keeps the top.
   [`duplicates`](evaluators.md#duplicates)
 - **Transforms:** [`select`](transforms.md#select), [`remove`](transforms.md#remove)
 
+## How much training data does the model need?
+
+Trains your model on growing subsets of a training set, scores it on a test set, and judges from the fitted curve
+whether each metric reaches its target and how much data it would take. The training code is a trainer file under the
+data root's `trainers/` folder.
+
+- **Preset:** none; chain the steps in a [workflow of your own](../how_to/write_a_custom_workflow.md), as
+  [Measure how much training data a model needs](../how_to/measure_data_sufficiency.md) does
+- **Evaluators:** [`sufficiency`](evaluators.md#sufficiency)
+- **Checks:** [`sufficiency-target`](checks.md#sufficiency-target)
+
 ## Is the metadata readable?
 
 Reports the metadata factors a run could not read as configured, and a policy that repairs them.

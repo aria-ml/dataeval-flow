@@ -1,7 +1,7 @@
 {
   "generated_by": "uv run python -m tests.service.builder_fixtures",
-  "flow_version": "0.2.3.dev824+g902f85161",
-  "dataeval_version": "1.2.0rc0",
+  "flow_version": "0.2.3.dev835+gbc1e3b244",
+  "dataeval_version": "1.2.0rc2",
   "request": {
     "method": "GET",
     "path": "/v1/capabilities",
@@ -10,9 +10,9 @@
   "status": 200,
   "response": {
     "api_version": 1,
-    "flow_version": "0.2.3.dev824+g902f85161",
-    "dataeval_version": "1.2.0rc0",
-    "schema_fingerprint": "sha256:671ff7169b6251b3819406c10bcb3e6a803477a941c0bce84259ee999ed55423",
+    "flow_version": "0.2.3.dev835+gbc1e3b244",
+    "dataeval_version": "1.2.0rc2",
+    "schema_fingerprint": "sha256:16f616f0c189c051d1e34aa28a61ec86f032b5b43919c662d94cb34f80f5fca8",
     "max_active_runs": 1,
     "features": {
       "items": 1,
@@ -32,8 +32,8 @@
     },
     "steps": {
       "format": 1,
-      "flow_version": "0.2.3.dev824+g902f85161",
-      "dataeval_version": "1.2.0rc0",
+      "flow_version": "0.2.3.dev835+gbc1e3b244",
+      "dataeval_version": "1.2.0rc2",
       "data_types": [
         "dataset",
         "output",
@@ -624,6 +624,7 @@
         "dataeval.bias.BalanceOutput": [],
         "dataeval.bias.DiversityOutput": [],
         "dataeval.bias.ParityOutput": [],
+        "dataeval.performance.SufficiencyOutput": [],
         "dataeval.quality.DuplicatesOutput": [],
         "dataeval.quality.OutliersOutput": [],
         "dataeval.scope.CoverageOutput": [],

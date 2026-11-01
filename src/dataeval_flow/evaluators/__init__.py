@@ -2,7 +2,7 @@
 
 An evaluator runs one DataEval evaluator and reports its determinations under DataEval's thresholds. It makes
 no verdict: health, readiness and ``--fail-on-warning`` belong to workflows. Built-ins live in subpackages named
-for DataEval's modules: ``bias``, ``quality``, ``scope`` and ``shift``.
+for DataEval's modules: ``bias``, ``performance``, ``quality``, ``scope`` and ``shift``.
 """
 
 from dataeval_flow.evaluators._base import EvaluatorConfig

@@ -901,10 +901,12 @@ def _pooled(spec: StepSpec, inputs: Mapping[str, Any], settings: RunSettings, el
         policy_name=_policy_name(spec),
         reads_factors=getattr(runner, "reads_factors", True),
     )
+    from dataeval_flow.config._loader import using_data_dir
     from dataeval_flow.evaluators._execute import execute
 
     unions = {node.address: union for node in nodes if (union := _stats_union(step, node, element)) is not None}
-    return execute(runner, context, spec.config, stats_unions=unions or None, by=spec.by)  # type: ignore[arg-type]
+    with using_data_dir(settings.data_dir):  # an evaluator that reads a file of its own resolves it there
+        return execute(runner, context, spec.config, stats_unions=unions or None, by=spec.by)  # type: ignore[arg-type]
 
 
 def _stats_union(step: StepContext, node: Node, element: str | None) -> "ResolvedStatsPolicy | None":

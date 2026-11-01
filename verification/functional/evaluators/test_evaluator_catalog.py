@@ -28,7 +28,7 @@ class TestEvaluatorCatalog:
     def test_list_evaluators_returns_every_type_with_a_description(self) -> None:
         listed = list_evaluators()
         assert {cls.name for cls in listed} == set(EVALUATOR_DATA)
-        assert len(listed) == len(EVALUATOR_DATA) == 26
+        assert len(listed) == len(EVALUATOR_DATA) == 27
         assert all(cls.description.strip() for cls in listed)
 
     def test_get_evaluator_returns_the_class_named_and_refuses_an_unknown_type(self) -> None:

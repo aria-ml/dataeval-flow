@@ -3,6 +3,9 @@
 import json
 import logging
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 from dataeval_flow.config._models import PipelineConfig
@@ -13,6 +16,8 @@ __all__ = [
     "load_config",
     "relativize_to_data_dir",
     "resolve_path",
+    "running_data_dir",
+    "using_data_dir",
     "validate_config_path",
 ]
 
@@ -20,6 +25,10 @@ _logger: logging.Logger = logging.getLogger(__name__)
 
 DEFAULT_DATA_DIR = Path(".")
 _DATAEVAL_DATA_ENV = "DATAEVAL_DATA"
+
+# The data root the evaluator step running in this context was given, for one that reads a file of its own under it
+# (a `sufficiency` trainer). `None` outside a step, or where its runner was given none.
+_STEP_DATA_DIR: ContextVar[Path | None] = ContextVar("dataeval_flow_step_data_dir", default=None)
 
 
 def get_data_dir(data_dir: Path | None = None) -> Path:
@@ -30,6 +39,21 @@ def get_data_dir(data_dir: Path | None = None) -> Path:
     if data_dir is not None:
         return data_dir
     return Path(os.environ.get(_DATAEVAL_DATA_ENV, str(DEFAULT_DATA_DIR)))
+
+
+@contextmanager
+def using_data_dir(data_dir: Path | None) -> Iterator[None]:
+    """Make `data_dir` the data root :func:`running_data_dir` gives inside the block: the runner's ``--data``."""
+    token = _STEP_DATA_DIR.set(data_dir)
+    try:
+        yield
+    finally:
+        _STEP_DATA_DIR.reset(token)
+
+
+def running_data_dir() -> Path:
+    """The data root of the step running now: the one its runner was given, else :func:`get_data_dir`'s."""
+    return get_data_dir(_STEP_DATA_DIR.get())
 
 
 def resolve_path(relative: str | Path, data_dir: Path | None = None, *, default_subdir: str | None = None) -> Path:

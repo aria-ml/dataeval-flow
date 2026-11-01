@@ -53,6 +53,7 @@ EVALUATORS = [
     "prioritization",
     "profile",
     "representation",
+    "sufficiency",
 ]
 
 

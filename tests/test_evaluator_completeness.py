@@ -99,6 +99,7 @@ _ECHOES: dict[str, frozenset[str]] = {
     "completeness": frozenset(),
     "label-reconciliation": frozenset(),
     "ontology-validation": frozenset(),
+    "sufficiency": frozenset({"plot_type"}),
 }
 
 
