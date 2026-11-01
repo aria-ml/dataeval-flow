@@ -9,7 +9,7 @@ __all__ = [
     "UncoveredItemsConfig",
 ]
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any, ClassVar, Self
 
 from dataeval.scope import CoverageOutput
@@ -134,30 +134,15 @@ class DimensionalCompletenessCheck(Check[DimensionalCompletenessConfig]):
 
 
 class ClassCoverageConfig(CheckConfig):
-    """A `class-coverage` step's input, and how clustered, flat or padded an assessable class may be."""
+    """A `class-coverage` step's input. The cutoffs that flag a class are the `coverage` evaluator's settings."""
 
     input: str = Field(description="A `coverage` Output.")
-    dispersion: float | None = Field(
-        default=0.5,
-        ge=0.0,
-        description="A class's dispersion under which it is clustered; `null` turns it off.",
-    )
-    isotropy: float | None = Field(
-        default=0.5,
-        ge=0.0,
-        description="A class's isotropy under which it is one-dimensional; `null` turns it off.",
-    )
-    near_duplicates: float | None = Field(
-        default=0.1,
-        ge=0.0,
-        le=1.0,
-        description=("A class's near-duplicate share over which it is duplicate-padded; `null` turns it off."),
-    )
 
 
 class ClassCoverageCheck(Check[ClassCoverageConfig]):
-    """``class-coverage``: legacy data-coverage's Embedding Coverage finding. Warns where an assessable class is
-    clustered, one-dimensional or duplicate-padded; informs where any item is uncovered. The uncovered rate itself is
+    """``class-coverage``: legacy data-coverage's Embedding Coverage finding. Warns where DataEval flags a class
+    clustered, one-dimensional or duplicate-padded (its ``is_clustered``, ``is_one_dimensional`` and
+    ``has_near_duplicates``, a null being no flag); informs where any item is uncovered. The uncovered rate itself is
     `uncovered-items`'s (coverage spec §6.2)."""
 
     name: ClassVar[str] = "class-coverage"
@@ -172,10 +157,11 @@ class ClassCoverageCheck(Check[ClassCoverageConfig]):
         from dataeval.data import DetectionCrops
 
         node = inputs["input"]
-        rows = [row for row in node.value.data().to_dicts() if row["assessable"]]
-        clustered = _flagged(rows, "dispersion", config.dispersion, under=True)
-        flat = _flagged(rows, "isotropy", config.isotropy, under=True)
-        padded = _flagged(rows, "near_duplicate_fraction", config.near_duplicates, under=False)
+        rows = node.value.data().to_dicts()
+        clustered, flat, padded = (
+            [str(row["class"]) for row in rows if row[flag]]
+            for flag in ("is_clustered", "is_one_dimensional", "has_near_duplicates")
+        )
         uncovered = len(node.value.uncovered_indices)
         total = node.items or 0
         pct = round(uncovered / total * 100, 1) if total else 0.0
@@ -220,14 +206,3 @@ class ClassCoverageCheck(Check[ClassCoverageConfig]):
                 blocks=[Paragraph(text=note) for note in notes],
             )
         ]
-
-
-def _flagged(rows: Sequence[Mapping[str, Any]], column: str, limit: float | None, *, under: bool) -> list[str]:
-    """The classes whose `column` is under (or over) `limit`; none where the limit is ``None``."""
-    if limit is None:
-        return []
-    return [
-        str(row["class"])
-        for row in rows
-        if row[column] is not None and (row[column] < limit if under else row[column] > limit)
-    ]

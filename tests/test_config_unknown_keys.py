@@ -31,7 +31,6 @@ from dataeval_flow.workflows.bias._config import (
 from dataeval_flow.workflows.quality import QualityConfig
 from dataeval_flow.workflows.quality._config import QualityChecks
 from dataeval_flow.workflows.scope._config import (
-    ClassCoverageSettings,
     CoverageSettings,
     CropParams,
     DimensionalCompletenessSettings,
@@ -101,7 +100,6 @@ _NESTED = [
     pytest.param(BiasChecks, {}, id="bias-checks"),
     pytest.param(BiasConfig, {"name": "w"}, id="bias-config"),
     pytest.param(FactorCoverageGapsSettings, {}, id="factor-coverage-gaps"),
-    pytest.param(ClassCoverageSettings, {}, id="coverage-class-coverage"),
     pytest.param(UncoveredItemsSettings, {}, id="coverage-uncovered-rate"),
     pytest.param(DimensionalCompletenessSettings, {}, id="coverage-completeness-score"),
     pytest.param(CoverageSettings, {}, id="coverage-settings"),

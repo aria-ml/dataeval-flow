@@ -34,11 +34,7 @@ from dataeval_flow.workflows.bias import (
 from dataeval_flow.workflows.bias._config import FactorCoverageGapsSettings
 from dataeval_flow.workflows.quality import ImageDuplicatesSettings, ImageOutliersSettings, OutliersSettings
 from dataeval_flow.workflows.scope import CoverageSettings, WrapSettings
-from dataeval_flow.workflows.scope._config import (
-    ClassCoverageSettings,
-    DimensionalCompletenessSettings,
-    UncoveredItemsSettings,
-)
+from dataeval_flow.workflows.scope._config import DimensionalCompletenessSettings, UncoveredItemsSettings
 from dataeval_flow.workflows.taxonomy import LabelConformanceSettings
 from dataeval_flow.workflows.triage import FactorIssuesSettings
 
@@ -243,11 +239,6 @@ class AuditChecks(BaseModel):
         default_factory=LabelConformanceSettings,
         alias="label-conformance",
         description="The `label-conformance` check's settings, read where `ontology` is set.",
-    )
-    class_coverage: ClassCoverageSettings = Field(
-        default_factory=ClassCoverageSettings,
-        alias="class-coverage",
-        description="The `class-coverage` check's settings.",
     )
     uncovered_items: UncoveredItemsSettings = Field(
         default_factory=UncoveredItemsSettings,

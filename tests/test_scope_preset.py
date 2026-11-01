@@ -156,7 +156,7 @@ def test_a_matrix_varies_a_hyphenated_threshold() -> None:
                 "workflow": "w",
                 "sources": ["src"],
                 "extractor": "flat",
-                "matrix": {"checks.class-coverage.dispersion": [0.5, 1.5]},
+                "matrix": {"checks.dimensional-completeness.warning": [0.3, 0.5]},
             }
         ],
         datasets={"src": CoverageImages()},
@@ -167,5 +167,5 @@ def test_a_matrix_varies_a_hyphenated_threshold() -> None:
     severities = []
     for run in result.runs:
         assert isinstance(run.result, ChainResult)
-        severities.append(next(f.severity for f in run.result.findings if f.title == "Class Coverage"))
+        severities.append(next(f.severity for f in run.result.findings if f.title == "Dimensional Completeness"))
     assert severities == ["info", "warning"]

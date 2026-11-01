@@ -121,7 +121,6 @@ CASES: dict[str, Case] = {
                 "class-imbalance": {"warning": 2.0},
                 "factor-coverage-gaps": {"warning": 1},
                 "dimensional-completeness": {"warning": 0.9, "info": 0.9},
-                "class-coverage": {"dispersion": 1.5},
             }
         },
         True,

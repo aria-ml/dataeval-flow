@@ -226,7 +226,23 @@ def test_an_unchunked_drift_section_is_one_fields_block_of_the_verdict() -> None
         "Threshold",
         "Metric",
         "p-value",
-        "Features drifted",
+        "Features flagged (diagnostic)",
+    ]
+
+
+def test_a_wasserstein_section_shows_the_mean_ratio_that_decided_beside_the_features_flagged_alone() -> None:
+    from dataeval_flow.evaluators.shift._report import drift_section
+
+    details = {"ratio": 1.2, "feature_drift": [True, False, False, False]}
+    data = {"drifted": False, "distance": 1.2, "threshold": 1.4, "metric_name": "wasserstein_ratio", "details": details}
+    (fields,) = drift_section({"data": data})
+    assert isinstance(fields, Fields)
+    assert fields.items == [
+        ("Drifted", "no"),
+        ("Mean ratio", 1.2),
+        ("Threshold", 1.4),
+        ("Metric", "wasserstein_ratio"),
+        ("Features flagged (diagnostic)", "1 / 4"),
     ]
 
 

@@ -144,8 +144,36 @@ class CoverageConfig(EvaluatorConfig[CoverageResult]):
         default=None,
         gt=0.0,
         description=(
-            "A nearest-neighbor pair counts as a near duplicate when its distance is below this fraction of the "
-            "class's median nearest-neighbor distance. Unset uses DataEval's default (0.5)."
+            "An item counts as a near duplicate when its nearest neighbor in its class is no farther than this "
+            "fraction of a typical class's median nearest-neighbor distance; it sets `near_duplicate_fraction`. Unset "
+            "uses DataEval's default (0.5)."
+        ),
+    )
+    dispersion_factor: float | None = Field(
+        default=None,
+        gt=0.0,
+        lt=1.0,
+        description=(
+            "A class is clustered (`is_clustered`) where its dispersion is under this share of the median class's "
+            "spread, in (0, 1). Unset uses DataEval's default (0.5)."
+        ),
+    )
+    isotropy_factor: float | None = Field(
+        default=None,
+        gt=0.0,
+        lt=1.0,
+        description=(
+            "A class is one-dimensional (`is_one_dimensional`) where its isotropy is under this share of the median "
+            "isotropy of the classes that report one, in (0, 1). Unset uses DataEval's default (0.5)."
+        ),
+    )
+    near_duplicate_threshold: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "A class has near duplicates (`has_near_duplicates`) where its near-duplicate fraction is over this share "
+            "of its items, in [0, 1]: 0 flags any near duplicate, 1 none. Unset uses DataEval's default (0.1)."
         ),
     )
 

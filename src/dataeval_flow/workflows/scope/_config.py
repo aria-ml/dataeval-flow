@@ -61,7 +61,36 @@ class CoverageSettings(BaseModel):
         default=None,
         gt=0.0,
         description=(
-            "The fraction of the radius within which two items are near-duplicates. Unset is DataEval's default, 0.5."
+            "An item counts as a near duplicate when its nearest neighbor in its class is no farther than this "
+            "fraction of a typical class's median nearest-neighbor distance. Unset is DataEval's default, 0.5."
+        ),
+    )
+    dispersion_factor: float | None = Field(
+        default=None,
+        gt=0.0,
+        lt=1.0,
+        description=(
+            "An assessable class is clustered, and the Class Coverage finding warns, where its dispersion is under "
+            "this share of the median class's spread, in (0, 1). Unset is DataEval's default, 0.5."
+        ),
+    )
+    isotropy_factor: float | None = Field(
+        default=None,
+        gt=0.0,
+        lt=1.0,
+        description=(
+            "A class is one-dimensional, and the Class Coverage finding warns, where its isotropy is under this share "
+            "of the median isotropy of the classes that report one, in (0, 1). Unset is DataEval's default, 0.5."
+        ),
+    )
+    near_duplicate_threshold: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "A class has near duplicates, and the Class Coverage finding warns, where its near-duplicate fraction is "
+            "over this share of its items, in [0, 1]: 0 flags any near duplicate, 1 none. Unset is DataEval's "
+            "default, 0.1."
         ),
     )
 
@@ -98,38 +127,6 @@ class RepresentationSettings(BaseModel):
         description=(
             "Class name to its minimum expected share of the dataset, a fraction in [0, 1]. A name that is no class, "
             "or, under an ontology, resolves to no concept or to several, is ignored and noted."
-        ),
-    )
-
-
-class ClassCoverageSettings(BaseModel):
-    """The `class-coverage` check's fields."""
-
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
-    dispersion: float | None = Field(
-        default=0.5,
-        ge=0.0,
-        description=(
-            "An assessable class's dispersion under which it is clustered, and the Class Coverage finding warns; "
-            "`null` turns this criterion off."
-        ),
-    )
-    isotropy: float | None = Field(
-        default=0.5,
-        ge=0.0,
-        description=(
-            "An assessable class's isotropy under which it is one-dimensional, and the Class Coverage finding "
-            "warns; `null` turns this criterion off."
-        ),
-    )
-    near_duplicates: float | None = Field(
-        default=0.1,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Class "
-            "Coverage finding warns; `null` turns this criterion off."
         ),
     )
 
@@ -194,11 +191,6 @@ class ScopeChecks(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", populate_by_name=True, serialize_by_alias=True)
 
-    class_coverage: ClassCoverageSettings = Field(
-        default_factory=ClassCoverageSettings,
-        alias="class-coverage",
-        description="The `class-coverage` check's thresholds.",
-    )
     uncovered_items: UncoveredItemsSettings = Field(
         default_factory=UncoveredItemsSettings,
         alias="uncovered-items",

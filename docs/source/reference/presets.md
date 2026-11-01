@@ -130,7 +130,7 @@ splits. `crops` crops detection data and passes other Datasets through:
 | `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares). Every split's factors are encoded like train's, or like the source the policy's `reference_split` names |
 | `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; set, it adds `label-reconciliation` and `label-conformance` on each split; see [Settings every preset shares](#settings-every-preset-shares) |
 | `outliers` | a block | required | [`outliers`](evaluators.md#outliers)'s `flags` and `outlier_threshold`, both required, and `cluster_threshold`, `cluster_algorithm` and `n_clusters`; the preset sets `per_target: false` |
-| `coverage` | a block | unset: DataEval's defaults, `adaptive`, 20, 0.01, 20 and 0.5 | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples` and `near_duplicate_factor`; the step runs on train when the task names an extractor |
+| `coverage` | a block | unset: DataEval's defaults, `adaptive`, 20, 0.01, 20, 0.5, 0.5, 0.5 and 0.1 | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples`, `near_duplicate_factor`, `dispersion_factor`, `isotropy_factor` and `near_duplicate_threshold`, the last three the cutoffs at which `class-coverage` flags a class; the step runs on train when the task names an extractor |
 | `wrap` | a block | `params: {padding: 0.0, min_size: 1}` | [`wrap`](transforms.md#wrap)'s `params`, used on detection data only; the preset fixes the wrapper |
 | `factor-gaps` | a block, or `false` | `mi_threshold: 0.1`, `min_representation: 5` | [`factor-gaps`](combines.md#factor-gaps)'s `mi_threshold` and `min_representation`; `false` leaves out the gap analysis and its check |
 | `factor-leakage` | a block, or `null` | `null` | [`factor-leakage`](evaluators.md#factor-leakage)'s `factors`, at least one: the group factors, such as a scene or site, whose values must not sit in two splits; unset leaves group leakage out. A factor a split's metadata lacks fails the task, which then has no verdict |
@@ -152,7 +152,6 @@ splits. `crops` crops detection data and passes other Datasets through:
 | [`class-sufficiency`](checks.md#class-sufficiency) | `train: 20`, `eval: 30` |
 | [`untrained-classes`](checks.md#untrained-classes) | `declared: false` |
 | [`label-conformance`](checks.md#label-conformance) | `warning: 0`; run only where `ontology` is set |
-| [`class-coverage`](checks.md#class-coverage) | `dispersion: 0.5`, `isotropy: 0.5`, `near_duplicates: 0.1` |
 | [`uncovered-items`](checks.md#uncovered-items) | `warning: 10.0`; run only under `coverage: {method: naive}` |
 | [`dimensional-completeness`](checks.md#dimensional-completeness) | `warning: 0.5`, `info: 0.8` |
 | [`factor-coverage-gaps`](checks.md#factor-coverage-gaps) | `warning: 2`; run unless `factor-gaps: false` |
@@ -353,7 +352,7 @@ detection data and passes other Datasets through:
 | --- | --- | --- | --- |
 | `ontology` | `null`; any other value is refused | `null` | Refused when set, as the config loads: judge the labels with a `taxonomy` entry on the same source; see [Settings every preset shares](#settings-every-preset-shares) |
 | `representation` | a block | the step's own defaults | [`representation`](evaluators.md#representation)'s `expected`: each class's minimum share |
-| `coverage` | a block | unset: DataEval's defaults, `adaptive`, 20, 0.01, 20 and 0.5 | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples` and `near_duplicate_factor`; the step runs when the task names an extractor |
+| `coverage` | a block | unset: DataEval's defaults, `adaptive`, 20, 0.01, 20, 0.5, 0.5, 0.5 and 0.1 | [`coverage`](evaluators.md#coverage)'s `method`, `num_observations`, `percent`, `min_class_samples`, `isotropy_min_samples`, `near_duplicate_factor`, `dispersion_factor`, `isotropy_factor` and `near_duplicate_threshold`, the last three the cutoffs at which `class-coverage` flags a class; the step runs when the task names an extractor |
 | `wrap` | a block | `params: {padding: 0.0, min_size: 1}` | [`wrap`](transforms.md#wrap)'s `params`, used on detection data only; the preset fixes the wrapper |
 | `completeness` | `true` or `false` | `true` | Whether the completeness steps run, when the task names an extractor |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
@@ -362,7 +361,6 @@ detection data and passes other Datasets through:
 
 | Check | Default settings |
 | --- | --- |
-| [`class-coverage`](checks.md#class-coverage) | `dispersion: 0.5`, `isotropy: 0.5`, `near_duplicates: 0.1` |
 | [`uncovered-items`](checks.md#uncovered-items) | `warning: 10.0` |
 | [`dimensional-completeness`](checks.md#dimensional-completeness) | `warning: 0.5`, `info: 0.8` |
 

@@ -190,6 +190,9 @@ Notice:
 - `num_observations` must be fewer than the source's items.
 - Without one label per item — an unlabeled or detection dataset — it logs a warning and reports one class, `0`,
   covering every item.
+- `is_clustered`, `is_one_dimensional` and `has_near_duplicates` are DataEval's verdict on each class, null where it
+  cannot judge; `dispersion_factor`, `isotropy_factor` and `near_duplicate_threshold` set them, and a `class-coverage`
+  check reports them.
 - `extras` holds `uncovered_indices`, `coverage_radius` and `critical_value_radii`.
 
 `coverage_check`'s output (trimmed; from a small run):
@@ -198,12 +201,15 @@ Notice:
 {
   "shape": "table",
   "columns": ["class", "count", "uncovered", "uncovered_fraction", "dispersion", "isotropy",
-              "near_duplicate_fraction", "assessable"],
+              "near_duplicate_fraction", "assessable", "is_clustered", "is_one_dimensional",
+              "has_near_duplicates"],
   "rows": [
     {"class": "a", "count": 20, "uncovered": 0, "uncovered_fraction": 0.0, "dispersion": 0.9783207970130985,
-     "isotropy": null, "near_duplicate_fraction": 0.0, "assessable": true},
+     "isotropy": null, "near_duplicate_fraction": 0.0, "assessable": true, "is_clustered": false,
+     "is_one_dimensional": null, "has_near_duplicates": false},
     {"class": "b", "count": 20, "uncovered": 1, "uncovered_fraction": 0.05, "dispersion": 1.0216792029869015,
-     "isotropy": null, "near_duplicate_fraction": 0.0, "assessable": true}
+     "isotropy": null, "near_duplicate_fraction": 0.0, "assessable": true, "is_clustered": false,
+     "is_one_dimensional": null, "has_near_duplicates": false}
   ],
   "extras": {
     "uncovered_indices": [7],

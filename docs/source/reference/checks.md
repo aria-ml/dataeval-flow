@@ -489,9 +489,11 @@ workflows:
 
 Judges `coverage`'s output: warns when a class is clustered, one-dimensional or padded with near-duplicates.
 
-It names the assessable classes `coverage` flagged and counts the items it left uncovered. It warns on any flagged
-class, informs while any item is uncovered, and is `ok` otherwise. On detection crops it notes the crops counted and the
-detections dropped.
+It names the classes `coverage` flagged, by its `is_clustered`, `is_one_dimensional` and `has_near_duplicates` columns
+(a null is no flag), and counts the items it left uncovered. It warns on any flagged class, informs while any item is
+uncovered, and is `ok` otherwise. On detection crops it notes the crops counted and the detections dropped. The cutoffs
+that flag a class are `coverage`'s `dispersion_factor`, `isotropy_factor` and `near_duplicate_threshold`, and DataEval's
+defaults apply where they are unset.
 
 - **Reads:** `input`, a `coverage` Output.
 - **Makes:** one finding, titled Class Coverage.
@@ -501,23 +503,20 @@ detections dropped.
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
 | `input` | an address | required | A `coverage` Output |
-| `dispersion` | a number, or `null` | `0.5` | The dispersion under which a class is clustered; `null` turns it off |
-| `isotropy` | a number, or `null` | `0.5` | The isotropy under which a class is one-dimensional; `null` turns it off |
-| `near_duplicates` | a fraction, or `null` | `0.1` | The near-duplicate share over which a class is padded; `null` turns it off |
 
 - **Judges:** [`coverage`](evaluators.md#coverage)
 - **Used in:** [`audit`](presets.md#audit), [`scope`](presets.md#scope)
 
 ```yaml
 evaluators:
-  - {name: coverage, type: coverage}
+  - {name: coverage, type: coverage, dispersion_factor: 0.3}
 
 workflows:
   - name: example
     inputs: [data]
     steps:
       - {name: coverage, evaluator: coverage, input: data}
-      - {name: class-coverage, check: class-coverage, input: coverage, dispersion: 0.3}
+      - {name: class-coverage, check: class-coverage, input: coverage}
 ```
 
 ### `uncovered-items`

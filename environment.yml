@@ -19,5 +19,5 @@ dependencies:
   - pyyaml>=6.0
   - pip
   - pip:
-      - dataeval>=1.2.0rc0
+      - dataeval>=1.2.0rc2
       - datamaite[ic,od]>=0.4.1

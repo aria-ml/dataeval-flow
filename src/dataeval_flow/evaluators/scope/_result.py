@@ -62,7 +62,9 @@ class CoverageResult(EvaluatorResult[CoverageOutput]):
     ------
     output
         DataEval's ``CoverageOutput``: ``data()`` is the per-class table (``class``, ``count``, ``uncovered``,
-        ``uncovered_fraction``, ``dispersion``, ``isotropy``, ``near_duplicate_fraction``, ``assessable``), and
+        ``uncovered_fraction``, ``dispersion``, ``isotropy``, ``near_duplicate_fraction``, ``assessable``, and the
+        verdicts ``is_clustered``, ``is_one_dimensional`` and ``has_near_duplicates``, null where DataEval cannot
+        judge), and
         ``uncovered_indices``, ``coverage_radius``, ``critical_value_radii`` and ``uncovered_classes`` (each
         uncovered item's class, ``None`` where there was no class breakdown) are the source-wide results
         ``to_dict()`` writes under ``extras``.
