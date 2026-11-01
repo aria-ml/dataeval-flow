@@ -239,6 +239,7 @@ def verify(session: nox.Session) -> None:
     session.run(
         "pytest",
         "verification/",
+        "-q",
         "--tb=short",
         "--junitxml=output/verify.xml",
         *session.posargs,
@@ -262,9 +263,9 @@ def deps(session: nox.Session) -> None:
         touch tensors; everything else is excluded via ``-m "not optional"`` and
         by ignoring ``tests/app`` (which imports ``textual`` at module level).
     """
-    session.run_install("uv", "pip", "install", ".[cpu]", "--resolution=lowest-direct")
-    session.run_install("uv", "pip", "install", "pytest", "pytest-asyncio", "pytest-xdist")
-    session.run("pytest", "-m", "not optional", "--ignore=tests/app", f"-n{TEST_WORKERS}", "--dist=loadscope")
+    session.run_install("uv", "pip", "install", "--quiet", ".[cpu]", "--resolution=lowest-direct")
+    session.run_install("uv", "pip", "install", "--quiet", "pytest", "pytest-asyncio", "pytest-xdist")
+    session.run("pytest", "-q", "-m", "not optional", "--ignore=tests/app", f"-n{TEST_WORKERS}", "--dist=loadscope")
 
 
 @nox_uv.session(uv_only_groups=["docs"], uv_no_install_project=True)
@@ -540,6 +541,7 @@ def docker_smoke(session: nox.Session) -> None:
         "tests/test_main_run.py",
         "tests/test_runner.py",
         "tests/test_e2e.py",
+        "-q",
         f"-n{TEST_WORKERS}",
         "--dist=loadscope",
         "-x",
