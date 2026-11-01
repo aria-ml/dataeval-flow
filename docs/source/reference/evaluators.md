@@ -40,6 +40,7 @@ chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md). Each
 | `factor-triage` | `dataeval.Metadata` | metadata | 1 | refused |
 | `content-digest` | `dataeval_flow.dataset_digest` | the Dataset itself, every item | 1 | refused |
 | `profile` | `dataeval.core.image_stats`, `dataeval.Metadata` | stats; metadata | 1 | refused |
+| `sufficiency` (experimental) | `dataeval.performance.Sufficiency` | the Dataset itself, every item, through a trainer file | 2: the training set, then the test set | refused |
 
 A task's `extractor:` still lands in the result envelope's `model_id`, whether or not that run's mode actually reads it.
 
@@ -1031,7 +1032,63 @@ tasks:
   - {name: profile, evaluator: profile, sources: [train]}
 ```
 
+## How much training data does the model need?
+
+### `sufficiency`
+
+How a trained model's metrics grow with its training data: the first source trains, the second tests (DataEval
+Sufficiency).
+
+:::{note}
+`sufficiency` is experimental: it may change or be removed in any release without a deprecation cycle, as may the
+trainer contract it loads. The first run in a process to use it warns with `ExperimentalWarning`.
+:::
+
+It runs `dataeval.performance.Sufficiency`: it trains the model on growing subsets of the training set, scores it on
+the test set at each size, and fits a power law to each metric, from which `project` and `inv_project` read. The
+model and the training, evaluation and reset strategies come from a trainer: a
+{py:class}`~dataeval_flow.evaluators.performance.Trainer` subclass in a Python file in the data root's `trainers/`
+folder, loaded when the run starts and not when the config loads. A trainer path that is absolute, or does not start
+with `trainers/` once normalized, fails the config load; a file that resolves outside `trainers/` through a symlink
+fails the run. [Measure how much training data a model needs](../how_to/measure_data_sufficiency.md) writes one.
+
+A size is a number of items drawn with replacement, not of distinct items. DataEval checks no schedule, so Flow does:
+a `schedule` must be strictly increasing positive integers, and is refused with `substeps`; a size larger than the
+training set, or no `schedule` for a training set under 100 items (where the default's first size is 0 items), fails
+the run with a message saying so.
+
+- **Reads:** `input`: two Datasets, the training set then the test set, told apart by position alone; the trainer reads
+  their items as they are stored. A task names no extractor.
+- **Makes:** a `sufficiency` Output: a mapping of `steps`, the sizes measured; `measures`, each metric per run and step;
+  `averaged_measures`, averaged over the runs; and `unit_interval`. A per-class metric gives one column per class.
+  Its extras are `trainer`, the file's `path`, `class` and `sha256`, and `params`, the power law fitted to each metric,
+  once, from which the check projects.
+
+**Settings** ({py:class}`~dataeval_flow.evaluators.performance.SufficiencyConfig`):
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `trainer` | (DataEval Flow) `path`, under `trainers/`; `class`; and `params`, the keyword arguments it is built with, which the trainer checks | required |
+| `runs` | `runs`: independent runs from a reset model, averaged | DataEval's default (`1`) |
+| `substeps` | `substeps`: sizes the default schedule measures, from 1% of the training set to all of it; not with `schedule` | DataEval's default (`5`) |
+| `unit_interval` | `unit_interval`: whether the metrics lie on [0, 1], which bounds the curve | DataEval's default (`true`) |
+| `schedule` | `schedule` of `evaluate`: the sizes to measure, strictly increasing, none past the training set | the default schedule, for a training set of at least 100 items |
+
+- **Judged by:** [`sufficiency-target`](checks.md#sufficiency-target)
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+
+```yaml
+evaluators:
+  - name: sufficiency
+    type: sufficiency
+    schedule: [500, 1000, 2000, 4000]
+    trainer: {path: trainers/backbone.py, class: BackboneTrainer, params: {weights: models/resnet50-v1-7.onnx}}
+
+tasks:
+  - {name: sufficiency, evaluator: sufficiency, sources: [train, test]}
+```
+
 ## Not in the catalog yet
 
-DataEval's `DriftReconstruction`, `OODReconstruction` and `Sufficiency` train a PyTorch model, which a config file
-cannot describe yet.
+DataEval's `DriftReconstruction` and `OODReconstruction` train a PyTorch model, which a config file cannot describe
+yet.

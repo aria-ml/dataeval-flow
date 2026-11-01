@@ -304,7 +304,7 @@ requirements:
     that fails without stopping the others.
   criteria:
   - '`list_workflows()` returns the nine built-in workflows (`audit`, `bias`, `prioritization`, `quality`, `scope`, `shift`,
-    `splits`, `taxonomy`, `triage`) and `list_evaluators()` the 26 built-in evaluators, by name and description; `get_workflow()`
+    `splits`, `taxonomy`, `triage`) and `list_evaluators()` the 27 built-in evaluators, by name and description; `get_workflow()`
     and `get_evaluator()` return the class or raise `ValueError` listing the installed names; the `workflows` and `evaluators`
     commands list the same.'
   - Each `workflows:` and `evaluators:` entry is validated with the config class its `type` names, and each workflow and evaluator
@@ -1448,7 +1448,7 @@ test_cases:
     tests:
     - f6_wf::test_a_workflow_declares_its_inputs_and_its_result_class
   - do: Call `list_evaluators()`, `get_evaluator()` with a known and an unknown name, and read each evaluator's inputs.
-    expect: The 26 evaluators are returned by name; the unknown name raises `ValueError` listing the installed ones; each
+    expect: The 27 evaluators are returned by name; the unknown name raises `ValueError` listing the installed ones; each
       evaluator declares what it consumes and its result class.
     tests:
     - f6_ev::test_list_evaluators_returns_every_evaluator_by_name

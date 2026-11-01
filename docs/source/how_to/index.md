@@ -87,6 +87,7 @@ configure_metadata_binning
 
 write_a_custom_workflow
 monitor_drift
+measure_data_sufficiency
 reuse_a_workflow
 run_a_matrix
 ```
@@ -101,6 +102,9 @@ run_a_matrix
 - - {doc}`Monitor drift with steps <monitor_drift>`
   - Read what the drift preset makes for each test source, merge sources to test them as one, compare classes or
     groups, and drift on the crops of detection data.
+- - {doc}`Measure how much training data a model needs <measure_data_sufficiency>`
+  - Mount your training code as a trainer file, train on growing subsets, and read whether each metric reaches its
+    target and how much data the fitted curve says it takes.
 - - {doc}`Reuse a cleaning chain on new data <reuse_a_workflow>`
   - Keep a chain in your config, in a file each project loads, or saved from Python, and run it on each new dataset.
 - - {doc}`Sweep settings with a matrix <run_a_matrix>`

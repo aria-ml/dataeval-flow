@@ -20,6 +20,7 @@ _BUILTINS = {
     "label-health": "dataeval_flow.evaluators.quality._evaluator:LabelHealthEvaluator",
     "outliers": "dataeval_flow.evaluators.quality._evaluator:OutliersEvaluator",
     "profile": "dataeval_flow.evaluators.quality._profile:ProfileEvaluator",
+    "sufficiency": "dataeval_flow.evaluators.performance._evaluator:SufficiencyEvaluator",
     "representation": "dataeval_flow.evaluators.scope._evaluator:RepresentationEvaluator",
     "completeness": "dataeval_flow.evaluators.scope._evaluator:CompletenessEvaluator",
     "coverage": "dataeval_flow.evaluators.scope._evaluator:CoverageEvaluator",

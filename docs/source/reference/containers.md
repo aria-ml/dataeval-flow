@@ -56,11 +56,11 @@ in-container help for your specific image tag is authoritative.
 
 ## Volume mounts
 
-| Path        | Mode       | Purpose                                              | Required |
-| ----------- | ---------- | ---------------------------------------------------- | -------- |
-| `/dataeval` | read-only  | Input data root — datasets, models, and config files | Yes      |
-| `/output`   | read-write | Results and human-readable reports                   | Yes      |
-| `/cache`    | read-write | Disk-backed computation cache                        | Optional |
+| Path        | Mode       | Purpose                                               | Required |
+| ----------- | ---------- | ----------------------------------------------------- | -------- |
+| `/dataeval` | read-only  | Input data root — datasets, models, trainers, configs | Yes      |
+| `/output`   | read-write | Results and human-readable reports                    | Yes      |
+| `/cache`    | read-write | Disk-backed computation cache                         | Optional |
 
 Mount your host directories onto these paths, e.g.:
 
@@ -74,6 +74,19 @@ docker run --gpus all \
 
 The data root can be relocated with `DATAEVAL_DATA` / `--data` (see below).
 
+The root filesystem is not read-only, but anything written outside `/output` or `/cache` is lost when the container
+exits.
+
+`trainers/` is a folder of the data root, beside `data/` and `models/`, that holds the trainer files a `sufficiency`
+evaluator loads: a trainer path must start with `trainers/`, and the file must resolve inside that folder. To mount
+trainers from elsewhere at `/dataeval/trainers`, create an empty `trainers/` folder in the data directory first: Docker
+cannot make a mount point inside the read-only data root, and the container fails to start. A trainer imports what the
+variant installs, listed in its `requirements.<variant>.txt` (every variant ships ONNX Runtime and OpenCV, and DataEval
+brings scikit-learn, SciPy, LightGBM and Polars); the image has no `pip`. Train on a CUDA variant run with
+`--gpus all`. A run may have no network, so mount any pretrained weights under the data root. A trainer whose
+`DataLoader` forks worker processes needs a larger `--shm-size` than Docker's default; one with `num_workers=0` does
+not. See [Measure how much training data a model needs](../how_to/measure_data_sufficiency.md).
+
 ## Secrets
 
 DataEval Flow uses **no API keys, tokens, or passwords**, so **no secret mounts
@@ -83,16 +96,16 @@ or secret-management mechanism are required**.
 
 All runtime environment variables are optional.
 
-| Variable                 | Purpose                                     | Default                                                                  |
-| ------------------------ | ------------------------------------------- | ------------------------------------------------------------------------ |
-| `DATAEVAL_DATA`          | Input data root (datasets, models, configs) | `/dataeval` in the container; current working directory otherwise        |
-| `DATAEVAL_OUTPUT`        | Output directory for results and reports    | `/output` in the container                                               |
-| `DATAEVAL_CACHE`         | Disk-backed computation cache directory     | Auto-set to `/cache` when that mount is present and writable (see below) |
-| `DATAEVAL_REPORT_WIDTH`  | Characters per line of the text report      | The config's `result: width`, else `80`; at least `40`                   |
-| `DATAEVAL_REPORT_IMAGES` | Thumbnails of the items reports name        | On; `0`, `false` or `no` turns them off                                  |
-| `DATAEVAL_REQUIRE`       | The worst verdict that passes, else exit 4  | The config's `result: require`, else none                                |
-| `DATAEVAL_SERVICE_HOST`  | Address `serve` listens on                  | `0.0.0.0` in the container; `127.0.0.1` otherwise                        |
-| `DATAEVAL_SERVICE_PORT`  | Port `serve` listens on                     | `8001`                                                                   |
+| Variable                 | Purpose                                               | Default                                                                  |
+| ------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------ |
+| `DATAEVAL_DATA`          | Input data root (datasets, models, trainers, configs) | `/dataeval` in the container; current working directory otherwise        |
+| `DATAEVAL_OUTPUT`        | Output directory for results and reports              | `/output` in the container                                               |
+| `DATAEVAL_CACHE`         | Disk-backed computation cache directory               | Auto-set to `/cache` when that mount is present and writable (see below) |
+| `DATAEVAL_REPORT_WIDTH`  | Characters per line of the text report                | The config's `result: width`, else `80`; at least `40`                   |
+| `DATAEVAL_REPORT_IMAGES` | Thumbnails of the items reports name                  | On; `0`, `false` or `no` turns them off                                  |
+| `DATAEVAL_REQUIRE`       | The worst verdict that passes, else exit 4            | The config's `result: require`, else none                                |
+| `DATAEVAL_SERVICE_HOST`  | Address `serve` listens on                            | `0.0.0.0` in the container; `127.0.0.1` otherwise                        |
+| `DATAEVAL_SERVICE_PORT`  | Port `serve` listens on                               | `8001`                                                                   |
 
 `DATAEVAL_DATA` and `DATAEVAL_OUTPUT` are baked into the image as `/dataeval` and
 `/output`. `DATAEVAL_CACHE` is **not**. The entrypoint sets it to `/cache`
@@ -178,7 +191,8 @@ variables: its pipeline snapshot alone defines it.
 Dataset and model paths inside a config file are resolved **relative to the data
 root**. A relative path not found directly under the data root is also looked up
 under the conventional `data/` (datasets) and `models/` (models) subfolders.
-Absolute paths in a config are used as-is.
+Absolute paths in a config are used as-is. A trainer path is the exception: it is
+relative, starts with `trainers/`, and is never looked up elsewhere.
 
 ## Supported inputs and formats
 

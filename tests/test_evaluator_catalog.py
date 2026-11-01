@@ -42,6 +42,7 @@ _CATALOG: dict[str, tuple[str, str]] = {
     "ood-domain-classifier": ("2", "required"),
     "ood-kneighbors": ("2", "required"),
     "divergence": ("2", "required"),
+    "sufficiency": ("2", "refused"),
 }
 
 # A count each rule refuses, where one exists; and a count it allows.

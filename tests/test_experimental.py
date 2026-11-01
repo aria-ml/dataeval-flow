@@ -75,9 +75,14 @@ def test_a_marked_function_or_class_warns_on_its_first_use() -> None:
         assert Thing(3).value == 3
 
 
-def test_the_catalog_marks_parity_and_the_check_judging_it() -> None:
+def test_the_catalog_marks_parity_sufficiency_and_the_checks_judging_them() -> None:
     marked = {(entry.kind, entry.type) for entry in list_steps(plugins=False).steps if entry.experimental}
-    assert marked == {("evaluator", "parity"), ("check", "factor-parity")}
+    assert marked == {
+        ("evaluator", "parity"),
+        ("check", "factor-parity"),
+        ("evaluator", "sufficiency"),
+        ("check", "sufficiency-target"),
+    }
 
 
 def test_running_an_experimental_step_warns_once_per_type() -> None:

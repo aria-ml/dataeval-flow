@@ -17,7 +17,7 @@ DataEval Workflows container - CPU variant
 
 | Mount Path | Description | Access Mode |
 |---|---|---|
-| `/dataeval` | Input datasets, models, and configuration files | Read-Only |
+| `/dataeval` | Input datasets, models, configuration files, and the trainer files under `trainers/` that a `sufficiency` evaluator loads | Read-Only |
 | `/output` | Evaluation results, artifacts, and generated reports | Read-Write |
 | `/cache` | Optional disk computation cache | Read-Write |
 

@@ -19,6 +19,7 @@ EXTENSIBLE = [
     "dataeval_flow.evaluators:Evaluator",
     "dataeval_flow.evaluators:EvaluatorConfig",
     "dataeval_flow.evaluators:EvaluatorResult",
+    "dataeval_flow.evaluators.performance:Trainer",
     "dataeval_flow.config.extractors:Extractor",
     "dataeval_flow.config.extractors:ExtractorConfig",
     "dataeval_flow.config.image_transforms:ImageTransform",

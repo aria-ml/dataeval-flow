@@ -6,8 +6,13 @@ flag. ``ToyImages(near_duplicate=True)`` also makes item 9 a one-pixel edit of i
 duplicates run finds a near group as well.
 """
 
+import functools
+import os
+import tempfile
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
+from unittest.mock import patch
 
 import numpy as np
 
@@ -155,6 +160,45 @@ def output_json(result: "Result[Any, Any]") -> dict[str, Any]:
     return cast("dict[str, Any]", result.to_dict()["output"])
 
 
+# A trainer for `sufficiency`: the class whose items are most common in the training subset, always. It reads no image,
+# so a toy run costs nothing, and its accuracy on `ToyImages`, half of each class, is 0.5 at every size.
+TOY_TRAINER = """
+from collections import Counter
+
+from dataeval_flow.evaluators.performance import Trainer, TrainerKit
+
+
+class Majority:
+    label = 0
+
+
+class Fit:
+    def train(self, model, dataset, indices):
+        counts = Counter(int(dataset[i][1].argmax()) for i in indices)
+        model.label = counts.most_common(1)[0][0] if counts else 0
+
+
+class Score:
+    def evaluate(self, model, dataset):
+        hits = sum(int(dataset[i][1].argmax()) == model.label for i in range(len(dataset)))
+        return {"accuracy": hits / len(dataset)}
+
+
+class MajorityTrainer(Trainer):
+    def build(self):
+        return TrainerKit(model=Majority(), training_strategy=Fit(), evaluation_strategy=Score())
+"""
+
+
+@functools.cache
+def toy_data_root() -> Path:
+    """A data root holding `trainers/majority.py`, `TOY_TRAINER`, made once per process."""
+    root = Path(tempfile.mkdtemp(prefix="flow-toy-root-"))
+    (root / "trainers").mkdir()
+    (root / "trainers" / "majority.py").write_text(TOY_TRAINER)
+    return root
+
+
 # Toy data each built-in evaluator can read, by type: the data `run` takes, and the extractor its task needs. Each
 # factory takes the item count, so a test can ask for an empty source. A task adding a type adds its row.
 _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
@@ -184,6 +228,7 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "label-alignment": lambda count: (ToyImages(count=count), None),
     "label-reconciliation": lambda count: (ToyImages(count=count), None),
     "ontology-validation": lambda count: (ToyImages(count=count), None),
+    "sufficiency": lambda count: ({"train": ToyImages(count=count), "test": ToyImages(count=count, seed=1)}, None),
 }
 
 # Config values a bare `config_type()` cannot supply, because the field has no default. `label-alignment`
@@ -193,7 +238,17 @@ _EXTRA_CONFIG: "dict[str, dict[str, Any]]" = {
     "label-alignment": {"ontology": {"a": None, "b": None}},
     "label-reconciliation": {"ontology": {"a": None, "b": None}},
     "ontology-validation": {"ontology": {"a": None, "b": None}},
+    # Under 100 training items the default schedule starts at 0 items, so the 40-item toy names its own.
+    "sufficiency": {"trainer": {"path": "trainers/majority.py", "class": "MajorityTrainer"}, "schedule": [10, 20, 40]},
 }
+
+# The types whose run reads a file under the data root, which `toy_data_root` holds.
+_READS_DATA_ROOT = {"sufficiency"}
+
+
+def _data_root(name: str) -> Any:
+    """`DATAEVAL_DATA` set to `toy_data_root()` for a type in `_READS_DATA_ROOT`, and restored after; else nothing."""
+    return patch.dict(os.environ, {"DATAEVAL_DATA": str(toy_data_root())} if name in _READS_DATA_ROOT else {})
 
 
 def toy_run(name: str, count: int = 40) -> "EvaluatorResult[Any]":
@@ -204,7 +259,8 @@ def toy_run(name: str, count: int = 40) -> "EvaluatorResult[Any]":
     assert name in _TOY_DATA, f"give {name} toy data in tests/evaluator_toys.py"
     data, extractor = _TOY_DATA[name](count)
     config = get_evaluator(name).config_type(**_EXTRA_CONFIG.get(name, {}))  # type: ignore[call-arg]
-    return run(config, data, extractor=extractor)
+    with _data_root(name):
+        return run(config, data, extractor=extractor)
 
 
 def toy_task_run(name: str, count: int = 40) -> "Result[Any, Any]":
@@ -229,4 +285,5 @@ def toy_task_run(name: str, count: int = 40) -> "Result[Any, Any]":
         datasets=data if several else None,
         extractor=extractor is not None,
     )
-    return run_tasks(config)["t"]
+    with _data_root(name):
+        return run_tasks(config)["t"]

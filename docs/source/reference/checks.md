@@ -48,6 +48,7 @@ example assumes the pipeline defines
 | `ood` | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `ood-agreement` | `input`: an `ood-union` Output | OOD Agreement: the share every detector flagged, and the images one alone flagged |
 | `factor-issues` | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
+| `sufficiency-target` (experimental) | `input`: a `sufficiency` Output | Sufficiency Target, with a section per target |
 
 ## How thresholds work
 
@@ -1050,4 +1051,61 @@ workflows:
     steps:
       - {name: triage, evaluator: triage, input: data}
       - {name: factor-issues, check: factor-issues, input: triage, max_examples: 10}
+```
+
+## How much training data does the model need?
+
+### `sufficiency-target`
+
+Judges `sufficiency`'s output: warns when a metric's target is not reached at the largest size measured and the
+fitted curve needs more data than the training set holds, or never reaches it.
+
+:::{note}
+`sufficiency-target` is experimental: it may change or be removed in any release without a deprecation cycle, as the
+`sufficiency` Output it judges may. The first run in a process to use it warns with `ExperimentalWarning`.
+:::
+
+Higher is better: a target is reached where the metric's value at the largest size measured is at least `value`.
+Where it is not, the check takes the size DataEval's `inv_project` gives, reads the fitted curve there, and adds one
+item where the curve is still short (DataEval 1.2.0rc2 rounds that size down), so the size is the first at which the
+curve reaches the target, given as "about" that many items. A size past the largest measured is an extrapolation of
+the curve. Where the target is at or past the curve's limit, or the curve is flat or falls as the training set grows,
+the target is "not reached by the fitted curve". No cutoff on how far a projection reaches is applied: the ratio of the
+projected size to the largest measured is shown instead.
+
+The finding is `ok` where every target is reached; `warning` where a projected size is past the training set's size,
+or the curve never reaches a target; and `info` otherwise. A projection within the training set is rare with the
+default schedule, whose largest size is the whole training set, and common with a shorter `schedule`. Only a scalar
+metric can be a target: one returned as an array, one value per class, is listed as not assessed, and the finding is
+at best `info`; where every target names one, the check is not assessed. A target naming a metric the run did not
+measure fails the step, listing the metrics it did. A metric where lower is better, such as a loss, is out of its
+scope.
+
+- **Reads:** `input`, a `sufficiency` Output, and the size of the training set it was computed on.
+- **Makes:** a finding titled Sufficiency Target, briefed with how many targets were reached, with a section per
+  target: the value at the largest size measured, whether it is reached, and where not, the projected size and its
+  ratio to the largest size measured.
+
+**Settings** ({py:class}`~dataeval_flow.steps.checks.SufficiencyTargetConfig`):
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `sufficiency` Output |
+| `targets` | a list of `{metric, value}`, at least one | required | Each scalar metric's target, as the trainer names the metric; higher is better |
+
+- **Judges:** [`sufficiency`](evaluators.md#sufficiency)
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+
+```yaml
+evaluators:
+  - name: sufficiency
+    type: sufficiency
+    trainer: {path: trainers/backbone.py, class: BackboneTrainer, params: {weights: models/resnet50-v1-7.onnx}}
+
+workflows:
+  - name: example
+    inputs: [train, test]
+    steps:
+      - {name: sufficiency, evaluator: sufficiency, input: [train, test]}
+      - {name: target, check: sufficiency-target, input: sufficiency, targets: [{metric: accuracy, value: 0.9}]}
 ```

@@ -37,7 +37,8 @@ class EvaluatorInputs:
     """The source's name, as the task names it."""
     dataset: "AnnotatedDataset[Any] | None" = None
     """The source's Dataset itself, after its view, when the run wants ``dataset``: for an evaluator that reads every
-    item as it is, with no cache between them, as ``content-digest`` does."""
+    item as it is, with no cache between them, as ``content-digest`` does to digest them and ``sufficiency`` to train
+    a model on them."""
     stats: "StatsResult | None" = None
     """DataEval's image statistics for the source, when the run wants ``stats``."""
     stats_policy: "ResolvedStatsPolicy | None" = None

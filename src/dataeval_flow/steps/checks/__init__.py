@@ -50,6 +50,9 @@ __all__ = [
     "ClassStratificationCheck",
     "ClassStratificationConfig",
     "ClassStratificationThresholds",
+    "SufficiencyTarget",
+    "SufficiencyTargetCheck",
+    "SufficiencyTargetConfig",
     "TargetOutliersCheck",
     "TargetOutliersConfig",
     "UncoveredItemsCheck",
@@ -122,5 +125,10 @@ from dataeval_flow.steps.checks._stratification import (
     ClassStratificationCheck,
     ClassStratificationConfig,
     ClassStratificationThresholds,
+)
+from dataeval_flow.steps.checks._sufficiency import (
+    SufficiencyTarget,
+    SufficiencyTargetCheck,
+    SufficiencyTargetConfig,
 )
 from dataeval_flow.steps.checks._triage import FactorIssuesCheck, FactorIssuesConfig

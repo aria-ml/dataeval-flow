@@ -63,6 +63,7 @@ _CHECK_BUILTINS: dict[str, str] = {
     "ood": "dataeval_flow.steps.checks._ood:OODCheck",
     "ood-agreement": "dataeval_flow.steps.checks._ood:OODAgreementCheck",
     "shortcut-risk": "dataeval_flow.steps.checks._bias:ShortcutRiskCheck",
+    "sufficiency-target": "dataeval_flow.steps.checks._sufficiency:SufficiencyTargetCheck",
     "target-outliers": "dataeval_flow.steps.checks._outliers:TargetOutliersCheck",
     "uncovered-items": "dataeval_flow.steps.checks._coverage:UncoveredItemsCheck",
     "untrained-classes": "dataeval_flow.steps.checks._labels:UntrainedClassesCheck",

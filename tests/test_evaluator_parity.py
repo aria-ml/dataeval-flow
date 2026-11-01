@@ -46,6 +46,8 @@ _WIRING: dict[str, frozenset[str]] = {
     "label-reconciliation": frozenset(),
     # `label_pattern` is keyword-only, so it is a field rather than wiring.
     "ontology-validation": frozenset(),
+    # The trainer file builds the model and these three; `trainer` is Flow's field (`FLOW_FIELDS`).
+    "sufficiency": frozenset({"training_strategy", "evaluation_strategy", "reset_strategy"}),
 }
 
 # Flow's own evaluators: their settings are Flow's, not a DataEval `Config`'s, so they have no wiring list.

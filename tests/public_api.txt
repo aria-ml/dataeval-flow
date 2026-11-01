@@ -87,6 +87,12 @@ dataeval_flow.evaluators.bias:FactorSummaryResult
 dataeval_flow.evaluators.bias:ParityConfig
 dataeval_flow.evaluators.bias:ParityEvaluator
 dataeval_flow.evaluators.bias:ParityResult
+dataeval_flow.evaluators.performance:SufficiencyConfig
+dataeval_flow.evaluators.performance:SufficiencyEvaluator
+dataeval_flow.evaluators.performance:SufficiencyResult
+dataeval_flow.evaluators.performance:Trainer
+dataeval_flow.evaluators.performance:TrainerConfig
+dataeval_flow.evaluators.performance:TrainerKit
 dataeval_flow.evaluators.quality:ContentDigestConfig
 dataeval_flow.evaluators.quality:ContentDigestEvaluator
 dataeval_flow.evaluators.quality:ContentDigestOutput
@@ -252,6 +258,9 @@ dataeval_flow.steps.checks:OntologyStructureCheck
 dataeval_flow.steps.checks:OntologyStructureConfig
 dataeval_flow.steps.checks:ShortcutRiskCheck
 dataeval_flow.steps.checks:ShortcutRiskConfig
+dataeval_flow.steps.checks:SufficiencyTarget
+dataeval_flow.steps.checks:SufficiencyTargetCheck
+dataeval_flow.steps.checks:SufficiencyTargetConfig
 dataeval_flow.steps.checks:TargetOutliersCheck
 dataeval_flow.steps.checks:TargetOutliersConfig
 dataeval_flow.steps.checks:UncoveredItemsCheck
