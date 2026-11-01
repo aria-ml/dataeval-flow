@@ -622,6 +622,8 @@ push:docker:
       artifacts: true
   parallel:
     matrix: *variants
+  # The default small runner OOM-kills the build container (exit 137) while syft scans the cu130 tarball.
+  tags: [k8s-medium-cpu]
   variables:
     # Trivy's 5m default ran out analysing the cu130 tarball, several GiB, and
     # failed the push with "context deadline exceeded" before reporting.
