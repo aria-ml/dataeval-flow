@@ -18,7 +18,7 @@ classifiers = [
 ]
 dependencies = [
     "click>=8.0",
-    "dataeval>=1.2.0rc0",
+    "dataeval>=1.2.0rc2",
     "datamaite[ic,od]>=0.4.1",
     "maite>=0.9.4,<0.10.0",
     "numpy>=1.24.2",
@@ -53,7 +53,7 @@ onnx-cu130 = [
 opencv = ["opencv-python-headless>=4.8.0,<4.13.0"]  # OpenCV 4.13 and higher are not FIPS compliant
 app = ["textual>=3.0"]
 service = ["fastapi>=0.116", "uvicorn>=0.35"]
-ontology = ["dataeval[ontology]>=1.2.0rc0"]
+ontology = ["dataeval[ontology]>=1.2.0rc2"]
 
 [project.urls]
 Homepage = "https://github.com/aria-ml/dataeval-flow"

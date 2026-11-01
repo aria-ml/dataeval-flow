@@ -341,7 +341,8 @@ logs a warning. Crop detections first with a `wrap` step, as `scope` does. It ru
 - **Reads:** `input`: one Dataset; Flow derives its embeddings through the task's extractor, and its labels where there
   is one per item.
 - **Makes:** a `coverage` Output: a table with one row per class (`class`, `count`, `uncovered`, `uncovered_fraction`,
-  `dispersion`, `isotropy`, `near_duplicate_fraction`, `assessable`). `extras` holds `uncovered_indices`,
+  `dispersion`, `isotropy`, `near_duplicate_fraction`, `assessable`, and DataEval's verdicts `is_clustered`,
+  `is_one_dimensional` and `has_near_duplicates`, each null where it cannot judge). `extras` holds `uncovered_indices`,
   `coverage_radius`, `critical_value_radii` and `uncovered_classes` (each uncovered item's class, `None` without a class
   breakdown).
 
@@ -355,6 +356,9 @@ logs a warning. Crop detections first with a `wrap` step, as `scope` does. It ru
 | `min_class_samples` | `min_class_samples` | DataEval's default (`20`) |
 | `isotropy_min_samples` | `isotropy_min_samples` | one more than the embedding size |
 | `near_duplicate_factor` | `near_duplicate_factor` | DataEval's default (`0.5`) |
+| `dispersion_factor` | `dispersion_factor`, in (0, 1): `is_clustered` where `dispersion` is under it | DataEval's default (`0.5`) |
+| `isotropy_factor` | `isotropy_factor`, in (0, 1): `is_one_dimensional` where `isotropy` is under it times the median class's | DataEval's default (`0.5`) |
+| `near_duplicate_threshold` | `near_duplicate_threshold`, in [0, 1]: `has_near_duplicates` where `near_duplicate_fraction` is over it | DataEval's default (`0.1`) |
 
 - **Judged by:** [`class-coverage`](checks.md#class-coverage), [`uncovered-items`](checks.md#uncovered-items)
 - **Used in:** [`audit`](presets.md#audit), [`scope`](presets.md#scope)
@@ -717,8 +721,12 @@ tasks:
 
 Per-dimension Wasserstein distance against a validation baseline (DataEval DriftWasserstein).
 
-Each dimension's Wasserstein distance from the reference to the data is set against its distance to the validation set.
-It runs `dataeval.shift.DriftWasserstein`. `shift` takes no validation source and refuses it, so chain it
+Each dimension's Wasserstein distance from the reference to the data is divided by its distance to the validation set,
+corrected for the sample sizes, and drift is declared when the mean of those ratios over the dimensions passes
+`ratio_threshold`. Each dimension's own flag, `feature_drift` in `details`, says where to look and not whether the data
+drifted, so it can disagree with `drifted`. It is unusable on constant or discrete dimensions, noisy with fewer than 5
+dimensions, where [`drift-univariate`](#drift-univariate) suits better, and blind to a shift confined to a few of many
+dimensions. It runs `dataeval.shift.DriftWasserstein`. `shift` takes no validation source and refuses it, so chain it
 as [Drift in a model's uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty) does.
 
 - **Reads:** `input`: three Datasets, the reference, an in-distribution validation set (the task's middle source, which
@@ -729,7 +737,7 @@ as [Drift in a model's uncertainty](../how_to/monitor_drift.md#6-drift-in-a-mode
 
 | Parameter | DataEval argument | Left unset |
 | --- | --- | --- |
-| `ratio_threshold` | `ratio_threshold` | DataEval's default (`1.4`) |
+| `ratio_threshold` | `ratio_threshold`: the mean ratio, corrected for sample sizes, above which the data drifts | DataEval's default (`1.4`) |
 | `n_features` | `n_features` | inferred from the embeddings |
 | `chunking` | (DataEval Flow) `chunked(...)`, above | the data is tested whole |
 

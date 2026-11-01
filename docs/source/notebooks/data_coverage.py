@@ -486,7 +486,7 @@ print("unmatched:", list(check["unmatched"]))
 # evaluate fully.
 #
 # The `coverage` settings are the `coverage` step's. `dimensional-completeness` judges the
-# completeness step, and `class-coverage` judges each class's coverage.
+# completeness step, and `class-coverage` reports the classes the `coverage` step flagged.
 
 # %%
 from dataeval_flow.config.extractors import BoVWExtractorConfig
@@ -556,8 +556,10 @@ print(f"Method: {full_workflow.coverage.method}")
 print(f"Uncovered: {uncovered} of {total} ({uncovered / total:.1%})\n")
 
 columns = ["class", "count", "uncovered", "dispersion", "isotropy", "near_duplicate_fraction"]
+flags = ["is_clustered", "is_one_dimensional", "has_near_duplicates"]
 with pl.Config(tbl_rows=-1, tbl_hide_dataframe_shape=True, tbl_hide_column_data_types=True, float_precision=2):
     print(per_class.select(columns).sort("dispersion"))
+    print(per_class.select("class", *flags).sort("class"))
 
 # %% [markdown]
 # ### Reading the per-class columns
@@ -568,17 +570,25 @@ with pl.Config(tbl_rows=-1, tbl_hide_dataframe_shape=True, tbl_hide_column_data_
 #   indicate typical spread; low values indicate tight clustering.
 # - **isotropy**: Directional variance across embedding dimensions. Low values indicate
 #   variation concentrated along few principal axes.
-# - **near_duplicate_fraction**: Proportion of samples in near-identical pairs.
+# - **near_duplicate_fraction**: Proportion of samples whose nearest neighbor in the class is
+#   unusually close, judged against a typical class's spacing.
+#
+# DataEval turns each into a verdict per class: `is_clustered` (dispersion under
+# `dispersion_factor`, 0.5 by default), `is_one_dimensional` (isotropy under
+# `isotropy_factor` times the median class's, 0.5 by default) and `has_near_duplicates`
+# (near-duplicate fraction over `near_duplicate_threshold`, 0.1 by default). A verdict is
+# `null` where DataEval cannot judge, such as an isotropy it did not measure.
 #
 # Across all 20 classes, dispersion is balanced (0.96 to 1.03) and near-duplicate fractions
 # are 0.00, so the sampled classes cover feature space well. Isotropy is `null`
-# for every class, since none has more than 256 samples.
+# for every class, since none has more than 256 samples, and so is `is_one_dimensional`.
+# DataEval flags no class clustered or padded with near duplicates.
 #
 # Adaptive coverage flags its `percent` of the items by construction, so 15 of 1,500
 # uncovered (1.0%) is the setting at work rather than a finding. The 15 fall in 12 classes,
 # no more than 2 in any one. The Class Coverage finding informs while any item is
-# uncovered, and warns only on a clustered, one-dimensional or duplicate-padded class:
-# there is none.
+# uncovered, and warns only on a class DataEval flags clustered, one-dimensional or
+# duplicate-padded: there is none.
 
 # %%
 completeness = result_full.steps["completeness"].output.data()
@@ -587,7 +597,7 @@ print(f"  Score: {completeness['completeness']:.3f}")
 print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}")
 
 # %% [markdown]
-# Dimensional completeness is 0.573, between the warning band (0.5) and the info band
+# Dimensional completeness is 0.572, between the warning band (0.5) and the info band
 # (0.8), so its finding informs. On visual variation, this sample shows no weakness the
 # default thresholds warn on: its gap is in the taxonomy.
 
@@ -595,7 +605,8 @@ print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}"
 # ## Step 4: Tune check thresholds
 #
 # Check thresholds control when a finding warns, as the glossary's Severity
-# entry describes. Each preset keys its `checks` by check type. The right
+# entry describes. Each preset keys its `checks` by check type, and the cutoffs
+# that flag a class for `class-coverage` are the `coverage` step's settings. The right
 # thresholds depend on your domain:
 #
 # | Preset | Check | Field | Default | Safety-critical | Web-scraped data |
@@ -604,16 +615,18 @@ print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}"
 # | `scope` | `dimensional-completeness` | `warning` | 0.5 | 0.7–0.8 | 0.3–0.4 |
 # | `bias` | `class-imbalance` | `warning` | 5:1 | 2–3:1 | 10–20:1 |
 # | `bias` | `factor-coverage-gaps` | `warning` | 2 | 1 | 5–10 |
-# | `scope` | `class-coverage` | `dispersion` | 0.5 | 0.7 | 0.3 |
-# | `scope` | `class-coverage` | `isotropy` | 0.5 | 0.7 | 0.3 |
-# | `scope` | `class-coverage` | `near_duplicates` | 0.1 | 0.02 | 0.25 |
+# | `scope` | `coverage` (step) | `dispersion_factor` | 0.5 | 0.7 | 0.3 |
+# | `scope` | `coverage` (step) | `isotropy_factor` | 0.5 | 0.7 | 0.3 |
+# | `scope` | `coverage` (step) | `near_duplicate_threshold` | 0.1 | 0.02 | 0.25 |
 # | `taxonomy` | `leaf-coverage` | `coverage` | 0.9 | 0.95 | 0.6 |
 # | `taxonomy` | `leaf-coverage` | `empty_branches` | 0 | 0 | 2–5 |
 # | `taxonomy` | `label-conformance` | `warning` | 0 | 0 | 3–10 |
 #
 # `class-imbalance` (on `bias`) and `dimensional-completeness` also take `info`, the band between `ok` and
 # a warning: a ratio over 2.0, or a score under 0.8, informs by default. `null` turns a
-# threshold off.
+# threshold off. The `coverage` factors are DataEval's and take no `null`: each must be
+# between 0 and 1, and isotropy is judged against the median class, not on an absolute
+# scale. `near_duplicate_threshold: 1` turns that flag off.
 #
 # `uncovered-items` judges only `naive` coverage, since adaptive coverage flags its
 # `percent` of the items by construction. The bias and taxonomy thresholds go on their
@@ -622,15 +635,13 @@ print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}"
 # %%
 from dataeval_flow.workflows.scope import ScopeChecks
 
-strict_thresholds = ScopeChecks.model_validate(
-    {
-        "dimensional-completeness": {"warning": 0.6},
-        "class-coverage": {"dispersion": 0.7, "isotropy": 0.7, "near_duplicates": 0.02},
-    }
+strict_thresholds = ScopeChecks.model_validate({"dimensional-completeness": {"warning": 0.6}})
+strict_coverage = full_workflow.coverage.model_copy(
+    update={"dispersion_factor": 0.7, "isotropy_factor": 0.7, "near_duplicate_threshold": 0.02}
 )
 
 strict_workflow = full_workflow.model_copy(
-    update={"name": "coverage-strict", "checks": strict_thresholds},
+    update={"name": "coverage-strict", "checks": strict_thresholds, "coverage": strict_coverage},
 )
 
 task_strict = TaskConfig(
@@ -662,13 +673,14 @@ for default, strict in zip(result_full.findings, result_strict.findings, strict=
     print(f"{default.title:<28} {default.severity:<8} -> {strict.severity:<8} {strict.brief}")
 
 # %% [markdown]
-# Exactly one additional warning triggers: Dimensional Completeness (0.573) falls below
-# the strict 0.6 threshold. The other strict limits change nothing: no class's dispersion
-# is under 0.7, every class's near-duplicate fraction prints as 0.00, and isotropy is not
-# measured.
+# Exactly one additional warning triggers: Dimensional Completeness (0.572) falls below
+# the strict 0.6 threshold. The stricter `coverage` factors flag no class: no class's
+# dispersion is under 0.7, every class's near-duplicate fraction prints as 0.00, and
+# isotropy is not measured.
 #
 # You can adjust individual check thresholds to match your domain tolerance without
-# altering underlying data calculations.
+# altering underlying data calculations. The `coverage` factors only change where DataEval
+# draws its verdicts; `dispersion`, `isotropy` and `near_duplicate_fraction` stay the same.
 
 # %% [markdown]
 # ## Results Exploration: Export results

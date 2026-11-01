@@ -262,7 +262,26 @@
 
 ### Changed
 
-- Requires DataEval 1.2; the lock files and container images resolve DataEval 1.2.0rc0
+- Requires DataEval 1.2.0rc2 or newer; the lock files and container images resolve DataEval 1.2.0rc2
+- `class-coverage` flags the classes DataEval's Coverage flags, by its `is_clustered`, `is_one_dimensional` and
+  `has_near_duplicates` columns, instead of judging `dispersion`, `isotropy` and `near_duplicate_fraction` itself
+  - Breaking: the check's `dispersion`, `isotropy` and `near_duplicates` are removed, and with them
+    `checks.class-coverage` on `scope` and `audit` (`ClassCoverageSettings`); each now fails as an unknown key
+  - The cutoffs are DataEval's, set on the `coverage` evaluator and on `scope`'s and `audit`'s `coverage:` block:
+    `dispersion_factor`, `isotropy_factor` and `near_duplicate_threshold`; unset is DataEval's 0.5, 0.5 and 0.1
+  - `dispersion` → `dispersion_factor`, which must be in (0, 1): a share of the median class's spread
+  - `isotropy` → `isotropy_factor`, which means something else: the old cutoff was an absolute isotropy, and the
+    factor, in (0, 1), is a share of the median isotropy of the classes that report one
+  - `near_duplicates` → `near_duplicate_threshold`; DataEval 1.2.0rc2 also measures `near_duplicate_fraction` anew,
+    each item against a typical class's nearest-neighbor spacing, so a fraction from an earlier run is not comparable
+  - `null` no longer turns a criterion off, though `near_duplicate_threshold: 1` still turns its flag off; a flag
+    DataEval can't judge is null, and a null is no flag
+  - The `coverage` Output's table adds the three columns, after `assessable`
+- A drift report's "Features drifted" is "Features flagged (diagnostic)": each feature judged alone says where to look,
+  and can disagree with "Drifted", which DataEval decides on its own statistic
+  - `drift-wasserstein` reports the statistic that decided as "Mean ratio" (was "Distance"): DataEval 1.2.0rc2 decides
+    on the mean ratio over the dimensions, corrected for sample sizes, and its docs no longer say drift is decided per
+    dimension
 - Metadata keeps missing values null, and drops factors mixing booleans with numbers or text as `mixed_types`
 - Outliers fits a statistical threshold only to populations of at least 20
   - `image-outliers`, `target-outliers` and `class-outliers` are not assessed, with DataEval's reason, where it judged
@@ -502,7 +521,7 @@
   - Naive coverage that overflows is skipped, where legacy re-ran it as adaptive
   - On detection data, uncovered items index the `crops` Dataset (one item per box), not each one's image and box
   - It no longer judges an ontology; a `taxonomy` entry on the same source does, and carries the join key
-  - `checks` is keyed by check type: `class-imbalance`, `factor-coverage-gaps` and `class-coverage`
+  - `checks` is keyed by check type: `class-imbalance` and `factor-coverage-gaps`
   - The `uncovered-items` and `dimensional-completeness` checks take keys there too
   - Every legacy field is refused by name, with its replacement. To upgrade:
     - `coverage_method`, `coverage_percent` and `num_observations` → `coverage.method`, `.percent`, `.num_observations`
@@ -520,8 +539,11 @@
     - `health_thresholds` → `checks`:
       - `class_imbalance_ratio` → `class-imbalance.warning`; legacy's fixed band at 2.0 → `class-imbalance.info`
       - `gap_count: N` → `factor-coverage-gaps.warning: N-1` (legacy warned at N; this warns past the bound)
-      - `min_dispersion` and `min_isotropy` → `class-coverage.dispersion` and `.isotropy`
-      - `max_near_duplicate_fraction` → `class-coverage.near_duplicates`
+      - `min_dispersion` → `coverage.dispersion_factor`, which must be under 1
+      - `min_isotropy` → `coverage.isotropy_factor`, which is relative where legacy's was absolute: a share, in
+        (0, 1), of the median isotropy of the classes that report one
+      - `max_near_duplicate_fraction` → `coverage.near_duplicate_threshold`, over a fraction DataEval 1.2.0rc2
+        measures anew
       - `uncovered_rate` → `uncovered-items.warning`
       - `completeness_score` → `dimensional-completeness.warning`; legacy's band at 0.8 → `.info`
       - An unset `info` follows `warning` as legacy's band did; two written bounds that cross are refused

@@ -39,12 +39,7 @@ def embedding_steps(config: "Covered", source: str, *, completeness: bool = True
             "other_kinds": "pass",
         },
         {"name": "coverage", "evaluator": "coverage", "input": "crops", "optional": True},
-        {
-            "name": "class-coverage",
-            "check": "class-coverage",
-            "input": "coverage",
-            **limits.class_coverage.model_dump(),
-        },
+        {"name": "class-coverage", "check": "class-coverage", "input": "coverage"},
     ]
     if config.coverage.method == "naive":
         steps.append(

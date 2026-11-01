@@ -253,9 +253,13 @@ class DriftKNeighborsConfig(EvaluatorConfig[DriftKNeighborsResult]):
 class DriftWassersteinConfig(EvaluatorConfig[DriftWassersteinResult]):
     """Config for ``drift-wasserstein``, DataEval's DriftWasserstein.
 
-    Compares each embedding dimension's Wasserstein distance from the reference to the test data with its distance to
-    an in-distribution validation set, and declares drift where the ratio passes ``ratio_threshold``. Needs an
-    extractor on the task, and three sources: the reference, the validation set, then the data to test.
+    Divides each embedding dimension's Wasserstein distance from the reference to the test data by its distance to an
+    in-distribution validation set, corrected for the sample sizes, and declares drift where the mean of those ratios
+    over the dimensions passes ``ratio_threshold``. Each dimension's own flag (``feature_drift``) only says where to
+    look. Needs an extractor on the task, and three sources: the reference, the validation set, then the data to test.
+
+    It is unusable on constant or discrete dimensions, noisy with fewer than 5 dimensions (use ``drift-univariate``
+    there), and blind to a shift confined to a few of many dimensions.
 
     Every parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog
     (``reference/evaluators``), and ``dataeval-flow evaluators drift-wasserstein`` prints the JSON Schema.
@@ -285,8 +289,9 @@ class DriftWassersteinConfig(EvaluatorConfig[DriftWassersteinResult]):
         default=None,
         gt=0.0,
         description=(
-            "Ratio of a dimension's distance to the test data over its distance to the validation set, above which it "
-            "drifts: 1.4 flags distances 40% above the baseline. Unset uses DataEval's default (1.4)."
+            "Mean, over the dimensions and corrected for sample sizes, of each dimension's distance to the test data "
+            "over its distance to the validation set, above which the data drifts: 1.4 flags distances on average 40% "
+            "above the baseline. Unset uses DataEval's default (1.4)."
         ),
     )
     n_features: int | None = Field(

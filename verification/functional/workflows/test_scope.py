@@ -80,9 +80,10 @@ class TestScopePreset:
 
         assert by_title(varied)["Class Coverage"].severity == "info"
         assert by_title(clustered)["Class Coverage"].severity == "warning"
-        assert by_title(clustered)["Class Coverage"].brief.endswith("1 clustered")
+        assert "1 clustered" in by_title(clustered)["Class Coverage"].brief
         rows = {r["class"]: r for r in clustered.steps["coverage"].output.data().to_dicts()}
         assert rows["bird"]["dispersion"] < 0.5 <= rows["cat"]["dispersion"]
+        assert [name for name, row in rows.items() if row["is_clustered"]] == ["bird"]  # DataEval's verdict
 
     def test_thresholds_in_checks_decide_whether_a_finding_warns(self) -> None:
         lenient = {"dimensional-completeness": {"warning": 0.1, "info": 0.2}}

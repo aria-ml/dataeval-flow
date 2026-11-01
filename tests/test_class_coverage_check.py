@@ -9,32 +9,19 @@ import pytest
 
 from dataeval_flow.steps.checks import ClassCoverageCheck, ClassCoverageConfig
 
-
-def _row(
-    name: str,
-    *,
-    dispersion: float | None = 1.0,
-    isotropy: float | None = None,
-    dup: float | None = 0.0,
-    assessable: bool = True,
-) -> dict[str, Any]:
-    return {
-        "class": name,
-        "count": 30,
-        "uncovered": 0,
-        "uncovered_fraction": 0.0,
-        "dispersion": dispersion,
-        "isotropy": isotropy,
-        "near_duplicate_fraction": dup,
-        "assessable": assessable,
-    }
+_FLAGS = ("is_clustered", "is_one_dimensional", "has_near_duplicates")
 
 
-def _judge(rows: list[dict[str, Any]], *, uncovered: int = 1, items: int = 90, on: Any = None, **settings: Any) -> Any:
+def _row(name: str, *, flag: str | None = None, assessable: bool = True) -> dict[str, Any]:
+    """A class row with DataEval's verdicts: `flag` true, the others false, and all null where it is unassessable."""
+    verdicts = {key: (key == flag) if assessable else None for key in _FLAGS}
+    return {"class": name, "count": 30, "uncovered": 0, "assessable": assessable, **verdicts}
+
+
+def _judge(rows: list[dict[str, Any]], *, uncovered: int = 1, items: int = 90, on: Any = None) -> Any:
     value = SimpleNamespace(data=lambda: pl.DataFrame(rows), uncovered_indices=np.arange(uncovered))
     node = SimpleNamespace(value=value, items=items, computed_on=(on,) if on is not None else ())
-    config = ClassCoverageConfig(input="coverage", **settings)
-    (finding,) = ClassCoverageCheck().run(config, {"input": node}, None)  # type: ignore[arg-type]
+    (finding,) = ClassCoverageCheck().run(ClassCoverageConfig(input="coverage"), {"input": node}, None)  # type: ignore[arg-type]
     return finding
 
 
@@ -49,25 +36,22 @@ def test_nothing_uncovered_is_ok() -> None:
 
 
 @pytest.mark.parametrize(
-    ("row", "flag"),
+    ("flag", "brief"),
     [
-        (_row("cat", dispersion=0.2), "1 clustered"),
-        (_row("cat", isotropy=0.1), "1 one-dimensional"),
-        (_row("cat", dup=0.5), "1 duplicate-padded"),
+        ("is_clustered", "1 clustered"),
+        ("is_one_dimensional", "1 one-dimensional"),
+        ("has_near_duplicates", "1 duplicate-padded"),
     ],
 )
-def test_a_clustered_flat_or_padded_class_warns(row: dict[str, Any], flag: str) -> None:
-    finding = _judge([row])
+def test_a_class_dataeval_flags_warns(flag: str, brief: str) -> None:
+    finding = _judge([_row("cat", flag=flag)])
     assert finding.severity == "warning"
-    assert finding.brief == f"1 uncovered (1.1%) · {flag}"
+    assert finding.brief == f"1 uncovered (1.1%) · {brief}"
 
 
-def test_a_criterion_set_to_null_is_off() -> None:
-    assert _judge([_row("cat", dispersion=0.2)], dispersion=None).severity == "info"
-
-
-def test_an_unassessable_class_is_not_judged() -> None:
-    assert _judge([_row("bird", dispersion=0.0, assessable=False)]).severity == "info"
+def test_a_false_or_null_flag_is_no_flag() -> None:
+    finding = _judge([_row("cat"), _row("bird", assessable=False)])
+    assert (finding.severity, finding.brief) == ("info", "1 uncovered (1.1%)")
 
 
 def test_on_crops_it_counts_detection_crops_and_notes_the_dropped() -> None:
@@ -88,27 +72,41 @@ def _texts(finding: Any) -> list[str]:
 
 
 @pytest.mark.parametrize(
-    ("row", "note"),
+    ("flag", "note"),
     [
-        (_row("cat", dispersion=0.2), "Clustered (low dispersion): cat."),
-        (_row("cat", isotropy=0.1), "One-dimensional (low isotropy): cat."),
-        (_row("cat", dup=0.5), "Duplicate-padded: cat."),
+        ("is_clustered", "Clustered (low dispersion): cat."),
+        ("is_one_dimensional", "One-dimensional (low isotropy): cat."),
+        ("has_near_duplicates", "Duplicate-padded: cat."),
     ],
 )
-def test_a_flagged_class_is_named_in_its_note(row: dict[str, Any], note: str) -> None:
-    assert _texts(_judge([row])) == [note]
-
-
-@pytest.mark.parametrize(
-    "row",
-    [_row("cat", dispersion=0.5), _row("cat", dispersion=1.0, isotropy=0.5), _row("cat", dup=0.1)],
-)
-def test_a_class_exactly_at_a_limit_is_not_flagged(row: dict[str, Any]) -> None:
-    finding = _judge([row])
-    assert (finding.severity, finding.brief) == ("info", "1 uncovered (1.1%)")
+def test_a_flagged_class_is_named_in_its_note(flag: str, note: str) -> None:
+    assert _texts(_judge([_row("cat", flag=flag)])) == [note]
 
 
 def test_two_flagged_classes_are_counted_and_listed() -> None:
-    finding = _judge([_row("cat", dispersion=0.2), _row("dog", dispersion=0.3)])
+    finding = _judge([_row("cat", flag="is_clustered"), _row("dog", flag="is_clustered")])
     assert finding.brief == "1 uncovered (1.1%) · 2 clustered"
     assert _texts(finding) == ["Clustered (low dispersion): cat, dog."]
+
+
+def test_it_flags_the_classes_dataeval_flags_under_the_factors_coverage_was_given() -> None:
+    from dataeval.scope import Coverage
+
+    rng = np.random.default_rng(0)
+    spreads = {0: 1.0, 1: 1.0, 2: 0.6, 3: 0.2}  # class 3 collapsed, class 2 a little tight
+    embeddings = np.concatenate([rng.normal(cls * 10, spread, (40, 4)) for cls, spread in spreads.items()])
+    names = {0: "a", 1: "b", 2: "c", 3: "d"}
+    labels: Any = SimpleNamespace(class_labels=np.repeat(list(spreads), 40), index2label=names)
+    notes: dict[str, str] = dict(
+        zip(_FLAGS, ("Clustered (low dispersion)", "One-dimensional (low isotropy)", "Duplicate-padded"), strict=True)
+    )
+    clustered = []
+    for factor in (0.5, 0.8):
+        output = Coverage(dispersion_factor=factor).from_embeddings(embeddings, labels)
+        rows = output.data().to_dicts()
+        flagged = {flag: [row["class"] for row in rows if row[flag]] for flag in _FLAGS}
+        node = SimpleNamespace(value=output, items=len(embeddings), computed_on=())
+        (finding,) = ClassCoverageCheck().run(ClassCoverageConfig(input="coverage"), {"input": node}, None)  # type: ignore[arg-type]
+        assert _texts(finding) == [f"{notes[flag]}: {', '.join(names)}." for flag, names in flagged.items() if names]
+        clustered.append(flagged["is_clustered"])
+    assert clustered == [["d"], ["d", "c"]]  # the factor is DataEval's, and the check follows it

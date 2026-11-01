@@ -22,17 +22,20 @@ def drift_section(output: Mapping[str, Any]) -> list[Block]:
         if rows is not None and rows.get("unassessed"):
             blocks.append(Paragraph(text=_unassessed(rows["unassessed"])))
         return blocks
+    # Wasserstein decides on the mean of its per-feature ratios, which it reports as `distance` and as `ratio`.
+    ratio = isinstance(details, Mapping) and details.get("ratio") is not None
     items: list[tuple[str, Scalar]] = [
         ("Drifted", "yes" if data["drifted"] else "no"),
-        ("Distance", round(float(data["distance"]), 4)),
+        ("Mean ratio" if ratio else "Distance", round(float(data["distance"]), 4)),
         ("Threshold", round(float(data["threshold"]), 4)),
         ("Metric", data["metric_name"]),
     ]
     if isinstance(details, Mapping) and details.get("p_val") is not None:
         items.append(("p-value", round(float(details["p_val"]), 6)))
     if isinstance(details, Mapping) and details.get("feature_drift") is not None:
+        # Each feature judged alone: where to look, not the verdict, which can disagree with it
         flags = list(details["feature_drift"])
-        items.append(("Features drifted", f"{sum(bool(flag) for flag in flags)} / {len(flags)}"))
+        items.append(("Features flagged (diagnostic)", f"{sum(bool(flag) for flag in flags)} / {len(flags)}"))
     if rows is not None:
         items.append(("Compared", _compared_item(rows)))
     return [*blocks, Fields(items=items)]

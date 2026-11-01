@@ -15,6 +15,12 @@ Deliberate differences from its legacy run (step-chaining spec §10.3 item 3), e
 - **Legacy's one "Embedding Coverage" finding is two under `naive`:** `class-coverage`'s, with legacy's brief and
   description, and `uncovered-items`'s. Legacy's severity is the worse of the two. Under `adaptive` the uncovered rate
   is not judged, so legacy's note saying so goes.
+- **The per-class table has DataEval 1.2's verdict columns,** `is_clustered`, `is_one_dimensional` and
+  `has_near_duplicates`, after the ones legacy recorded; the rows are compared without them.
+- **Class Coverage flags a class where DataEval does,** by `coverage`'s `dispersion_factor`, `isotropy_factor` and
+  `near_duplicate_threshold`. A dispersion factor is under 1, a share of the median class's spread, so the strict case's
+  legacy `min_dispersion: 1.5`, which flagged both assessable classes, has no counterpart: the case runs DataEval's
+  default, and its Class Coverage is legacy's without "2 clustered", and `info`.
 - **Naive coverage that overflows is skipped** with "failed: OverflowError", where legacy re-ran it as adaptive; the
   golden's 192 dimensions do not overflow.
 - **Skip reasons are the steps' own.**
@@ -48,6 +54,8 @@ from tests.golden.rerouting import approximately
 
 _GOLDEN: dict[str, Any] = json.loads((Path(__file__).parent / "golden" / "coverage.json").read_text("utf-8"))
 _RANK = {"ok": 0, "info": 1, "warning": 2}
+# DataEval 1.2's verdict columns, which legacy's Coverage did not have.
+_VERDICTS = ("is_clustered", "is_one_dimensional", "has_near_duplicates")
 
 
 def test_every_case_is_recorded() -> None:
@@ -103,6 +111,8 @@ def test_the_findings_agree(name: str) -> None:
     assert [f.title for f in bias.findings if f.title not in _NEW] == [title for title in titles if title in _BIAS]
     assert preset["Class Imbalance"][0] == legacy["Class Imbalance"][0]
     coverage = legacy.get("Class Coverage")
+    if name == "strict" and coverage is not None:  # legacy's `min_dispersion: 1.5` has no counterpart
+        coverage = ["info", coverage[1], coverage[2].removesuffix(" · 2 clustered"), coverage[3]]
     if coverage is None or coverage[2] == "skipped":
         assert preset["Class Coverage"][2] == "not assessed"
     else:
@@ -158,7 +168,7 @@ def _canonical(gaps: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _coverage_agrees(result: ChainResult, golden: dict[str, Any]) -> None:
     output = result.steps["coverage"].output
-    rows = [{"class_name": row.pop("class"), **row} for row in output.data().to_dicts()]
+    rows = [{"class_name": row.pop("class"), **row} for row in output.data().drop(_VERDICTS).to_dicts()]
     assert rows == approximately(golden["per_class"])
     assert output.coverage_radius == pytest.approx(golden["radius"], rel=1e-4)
     crops = result.steps["crops"]

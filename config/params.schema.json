@@ -192,10 +192,6 @@
           "$ref": "#/$defs/LabelConformanceSettings",
           "description": "The `label-conformance` check's settings, read where `ontology` is set."
         },
-        "class-coverage": {
-          "$ref": "#/$defs/ClassCoverageSettings",
-          "description": "The `class-coverage` check's settings."
-        },
         "uncovered-items": {
           "$ref": "#/$defs/UncoveredItemsSettings",
           "description": "The `uncovered-items` check's settings, under `naive` coverage."
@@ -743,49 +739,6 @@
           "description": "A `coverage` Output.",
           "title": "Input",
           "type": "string"
-        },
-        "dispersion": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.5,
-          "description": "A class's dispersion under which it is clustered; `null` turns it off.",
-          "title": "Dispersion"
-        },
-        "isotropy": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.5,
-          "description": "A class's isotropy under which it is one-dimensional; `null` turns it off.",
-          "title": "Isotropy"
-        },
-        "near_duplicates": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.1,
-          "description": "A class's near-duplicate share over which it is duplicate-padded; `null` turns it off.",
-          "title": "Near Duplicates"
         },
         "check": {
           "const": "class-coverage",
@@ -3215,57 +3168,6 @@
       "title": "ChunkedDriftConfig",
       "type": "object"
     },
-    "ClassCoverageSettings": {
-      "additionalProperties": false,
-      "description": "The `class-coverage` check's fields.",
-      "properties": {
-        "dispersion": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.5,
-          "description": "An assessable class's dispersion under which it is clustered, and the Class Coverage finding warns; `null` turns this criterion off.",
-          "title": "Dispersion"
-        },
-        "isotropy": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.5,
-          "description": "An assessable class's isotropy under which it is one-dimensional, and the Class Coverage finding warns; `null` turns this criterion off.",
-          "title": "Isotropy"
-        },
-        "near_duplicates": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": 0.1,
-          "description": "An assessable class's share in near-duplicate pairs over which it is duplicate-padded, and the Class Coverage finding warns; `null` turns this criterion off.",
-          "title": "Near Duplicates"
-        }
-      },
-      "title": "ClassCoverageSettings",
-      "type": "object"
-    },
     "ClassImbalanceSettings": {
       "additionalProperties": false,
       "description": "The `class-imbalance` check's settings, with its defaults, for every preset that runs it.",
@@ -4075,8 +3977,53 @@
             }
           ],
           "default": null,
-          "description": "A nearest-neighbor pair counts as a near duplicate when its distance is below this fraction of the class's median nearest-neighbor distance. Unset uses DataEval's default (0.5).",
+          "description": "An item counts as a near duplicate when its nearest neighbor in its class is no farther than this fraction of a typical class's median nearest-neighbor distance; it sets `near_duplicate_fraction`. Unset uses DataEval's default (0.5).",
           "title": "Near Duplicate Factor"
+        },
+        "dispersion_factor": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A class is clustered (`is_clustered`) where its dispersion is under this share of the median class's spread, in (0, 1). Unset uses DataEval's default (0.5).",
+          "title": "Dispersion Factor"
+        },
+        "isotropy_factor": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A class is one-dimensional (`is_one_dimensional`) where its isotropy is under this share of the median isotropy of the classes that report one, in (0, 1). Unset uses DataEval's default (0.5).",
+          "title": "Isotropy Factor"
+        },
+        "near_duplicate_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A class has near duplicates (`has_near_duplicates`) where its near-duplicate fraction is over this share of its items, in [0, 1]: 0 flags any near duplicate, 1 none. Unset uses DataEval's default (0.1).",
+          "title": "Near Duplicate Threshold"
         }
       },
       "title": "CoverageConfig",
@@ -4171,8 +4118,53 @@
             }
           ],
           "default": null,
-          "description": "The fraction of the radius within which two items are near-duplicates. Unset is DataEval's default, 0.5.",
+          "description": "An item counts as a near duplicate when its nearest neighbor in its class is no farther than this fraction of a typical class's median nearest-neighbor distance. Unset is DataEval's default, 0.5.",
           "title": "Near Duplicate Factor"
+        },
+        "dispersion_factor": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An assessable class is clustered, and the Class Coverage finding warns, where its dispersion is under this share of the median class's spread, in (0, 1). Unset is DataEval's default, 0.5.",
+          "title": "Dispersion Factor"
+        },
+        "isotropy_factor": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1.0,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A class is one-dimensional, and the Class Coverage finding warns, where its isotropy is under this share of the median isotropy of the classes that report one, in (0, 1). Unset is DataEval's default, 0.5.",
+          "title": "Isotropy Factor"
+        },
+        "near_duplicate_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A class has near duplicates, and the Class Coverage finding warns, where its near-duplicate fraction is over this share of its items, in [0, 1]: 0 flags any near duplicate, 1 none. Unset is DataEval's default, 0.1.",
+          "title": "Near Duplicate Threshold"
         }
       },
       "title": "CoverageSettings",
@@ -5737,7 +5729,7 @@
     },
     "DriftWassersteinConfig": {
       "additionalProperties": false,
-      "description": "Config for ``drift-wasserstein``, DataEval's DriftWasserstein.\n\nCompares each embedding dimension's Wasserstein distance from the reference to the test data with its distance to\nan in-distribution validation set, and declares drift where the ratio passes ``ratio_threshold``. Needs an\nextractor on the task, and three sources: the reference, the validation set, then the data to test.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators drift-wasserstein`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: wasserstein\n        type: drift-wasserstein\n\n    tasks:\n      - name: drift_check\n        evaluator: wasserstein\n        sources: [train, validation, operational]\n        extractor: bovw_ext",
+      "description": "Config for ``drift-wasserstein``, DataEval's DriftWasserstein.\n\nDivides each embedding dimension's Wasserstein distance from the reference to the test data by its distance to an\nin-distribution validation set, corrected for the sample sizes, and declares drift where the mean of those ratios\nover the dimensions passes ``ratio_threshold``. Each dimension's own flag (``feature_drift``) only says where to\nlook. Needs an extractor on the task, and three sources: the reference, the validation set, then the data to test.\n\nIt is unusable on constant or discrete dimensions, noisy with fewer than 5 dimensions (use ``drift-univariate``\nthere), and blind to a shift confined to a few of many dimensions.\n\nEvery parameter, its DataEval argument and its unset behaviour is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators drift-wasserstein`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: wasserstein\n        type: drift-wasserstein\n\n    tasks:\n      - name: drift_check\n        evaluator: wasserstein\n        sources: [train, validation, operational]\n        extractor: bovw_ext",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -5762,7 +5754,7 @@
             }
           ],
           "default": null,
-          "description": "Ratio of a dimension's distance to the test data over its distance to the validation set, above which it drifts: 1.4 flags distances 40% above the baseline. Unset uses DataEval's default (1.4).",
+          "description": "Mean, over the dimensions and corrected for sample sizes, of each dimension's distance to the test data over its distance to the validation set, above which the data drifts: 1.4 flags distances on average 40% above the baseline. Unset uses DataEval's default (1.4).",
           "title": "Ratio Threshold"
         },
         "n_features": {
@@ -11137,10 +11129,6 @@
       "additionalProperties": false,
       "description": "When scope's findings warn: each check's fields, keyed by check type.",
       "properties": {
-        "class-coverage": {
-          "$ref": "#/$defs/ClassCoverageSettings",
-          "description": "The `class-coverage` check's thresholds."
-        },
         "uncovered-items": {
           "$ref": "#/$defs/UncoveredItemsSettings",
           "description": "The `uncovered-items` check's threshold, under `naive` coverage."

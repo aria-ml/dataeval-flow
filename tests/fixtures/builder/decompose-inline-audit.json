@@ -1,7 +1,7 @@
 {
   "generated_by": "uv run python -m tests.service.builder_fixtures",
-  "flow_version": "0.2.3.dev824+g902f85161",
-  "dataeval_version": "1.2.0rc0",
+  "flow_version": "0.2.3.dev834+g7b54a5728",
+  "dataeval_version": "1.2.0rc2",
   "request": {
     "method": "POST",
     "path": "/v1/presets/decompose",
@@ -109,7 +109,7 @@
   "status": 200,
   "response": {
     "schema": 1,
-    "schema_fingerprint": "sha256:afd661fc2aa79ae8a88c361e89da2588ca4a08e7ebb45f9eb1741412e9332a89",
+    "schema_fingerprint": "sha256:cc2cd8eff43075b878a44660af6da8bb8ad30540f56e6128735a65cbaf7828cb",
     "operation": "inline_step",
     "target_pointer": "/workflows/3/steps/2",
     "supported_operations": [
@@ -223,7 +223,10 @@
             "num_observations": null,
             "min_class_samples": null,
             "isotropy_min_samples": null,
-            "near_duplicate_factor": null
+            "near_duplicate_factor": null,
+            "dispersion_factor": null,
+            "isotropy_factor": null,
+            "near_duplicate_threshold": null
           },
           "wrap": {
             "params": {
@@ -277,11 +280,6 @@
             },
             "label-conformance": {
               "warning": 0
-            },
-            "class-coverage": {
-              "dispersion": 0.5,
-              "isotropy": 0.5,
-              "near_duplicates": 0.1
             },
             "uncovered-items": {
               "warning": 10.0
@@ -538,10 +536,7 @@
             {
               "name": "audit-class-coverage",
               "check": "class-coverage",
-              "input": "audit-coverage",
-              "dispersion": 0.5,
-              "isotropy": 0.5,
-              "near_duplicates": 0.1
+              "input": "audit-coverage"
             },
             {
               "name": "audit-completeness",
@@ -760,7 +755,10 @@
                   "num_observations": null,
                   "min_class_samples": null,
                   "isotropy_min_samples": null,
-                  "near_duplicate_factor": null
+                  "near_duplicate_factor": null,
+                  "dispersion_factor": null,
+                  "isotropy_factor": null,
+                  "near_duplicate_threshold": null
                 },
                 "wrap": {
                   "params": {
@@ -814,11 +812,6 @@
                   },
                   "label-conformance": {
                     "warning": 0
-                  },
-                  "class-coverage": {
-                    "dispersion": 0.5,
-                    "isotropy": 0.5,
-                    "near_duplicates": 0.1
                   },
                   "uncovered-items": {
                     "warning": 10.0
@@ -893,7 +886,7 @@
                 "audit-factor-gaps",
                 "audit-factor-coverage-gaps"
               ],
-              "flow_version": "0.2.3.dev824+g902f85161"
+              "flow_version": "0.2.3.dev834+g7b54a5728"
             }
           ]
         }
@@ -988,7 +981,10 @@
           "percent": null,
           "min_class_samples": null,
           "isotropy_min_samples": null,
-          "near_duplicate_factor": null
+          "near_duplicate_factor": null,
+          "dispersion_factor": null,
+          "isotropy_factor": null,
+          "near_duplicate_threshold": null
         },
         {
           "name": "outer-audit-completeness",
