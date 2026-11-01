@@ -621,6 +621,10 @@ push:docker:
       artifacts: true
   parallel:
     matrix: *variants
+  variables:
+    # Trivy's 5m default ran out analysing the cu130 tarball, several GiB, and
+    # failed the push with "context deadline exceeded" before reporting.
+    TRIVY_TIMEOUT: "20m"
   script:
     # DATAEVAL_FLOW_VERSION / DATAEVAL_FLOW_PUBLISH_TAG inherited from resolve:version
     - PUBLISH_TAG="${DATAEVAL_FLOW_PUBLISH_TAG}-${VARIANT}"
