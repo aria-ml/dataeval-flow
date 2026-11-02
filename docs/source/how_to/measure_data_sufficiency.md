@@ -105,6 +105,10 @@ Notice:
 dataeval-flow -c pipeline.yaml -o out/
 ```
 
+Training takes the time. Add `-vv` to see a line as each training size is measured, such as
+`Sufficiency 5/5: run 1 of 1, 7823 items, accuracy=0.2517`, the last of this run's five. The service shows the same
+lines in a run's logs.
+
 In a container, mount the project as the data root, `trainers/` and all. A GPU variant trains on the GPU:
 
 ```bash

@@ -717,8 +717,8 @@ wheels = [
 
 [[package]]
 name = "dataeval"
-version = "1.2.0rc2"
-source = { registry = "https://pypi.org/simple" }
+version = "1.2.0rc3.dev2+gb1895dd5d"
+source = { git = "https://github.com/aria-ml/dataeval.git?rev=b1895dd5d95d71b598048fb5dcbb00259aaa2e79#b1895dd5d95d71b598048fb5dcbb00259aaa2e79" }
 dependencies = [
     { name = "lightgbm" },
     { name = "maite" },
@@ -737,10 +737,6 @@ dependencies = [
     { name = "torch", version = "2.14.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "(extra == 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu126') or (extra != 'extra-13-dataeval-flow-cu126' and extra == 'extra-13-dataeval-flow-cu130') or (extra != 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-cu130') or (extra != 'extra-13-dataeval-flow-cu126' and extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-cu126') or (extra != 'extra-13-dataeval-flow-cu126' and extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-cu130') or (extra != 'extra-13-dataeval-flow-cu126' and extra == 'extra-13-dataeval-flow-onnx-cu126' and extra == 'extra-13-dataeval-flow-onnx-cu130') or (extra != 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-cu126') or (extra != 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-onnx' and extra == 'extra-13-dataeval-flow-onnx-cu130') or (extra != 'extra-13-dataeval-flow-cpu' and extra == 'extra-13-dataeval-flow-onnx-cu126' and extra == 'extra-13-dataeval-flow-onnx-cu130')" },
     { name = "typing-extensions" },
     { name = "xxhash" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a8/1f/2563f25781e6fd671304112c551276c532004b073afe3ca26c3235a93934/dataeval-1.2.0rc2.tar.gz", hash = "sha256:c74e426b031bef614a3e6007ab25b34fa9a267fedcee093558e593d0b7bef42d", size = 1129633, upload-time = "2026-11-01T14:57:56.085Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/98/5fe2378f63e1f4fff160cdbc3270f733e73c1a98f807dada3edbb04e44a1/dataeval-1.2.0rc2-py3-none-any.whl", hash = "sha256:9ceeb9159cb02f2a01abdb275f71c6b9b6a990f01e74dc85064cd1dfda547662", size = 1284572, upload-time = "2026-11-01T14:57:53.927Z" },
 ]
 
 [package.optional-dependencies]
@@ -894,8 +890,8 @@ verify = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
-    { name = "dataeval", specifier = ">=1.2.0rc2" },
-    { name = "dataeval", extras = ["ontology"], marker = "extra == 'ontology'", specifier = ">=1.2.0rc2" },
+    { name = "dataeval", git = "https://github.com/aria-ml/dataeval.git?rev=b1895dd5d95d71b598048fb5dcbb00259aaa2e79" },
+    { name = "dataeval", extras = ["ontology"], marker = "extra == 'ontology'", git = "https://github.com/aria-ml/dataeval.git?rev=b1895dd5d95d71b598048fb5dcbb00259aaa2e79" },
     { name = "datamaite", extras = ["ic", "od"], specifier = ">=0.4.1" },
     { name = "fastapi", marker = "extra == 'service'", specifier = ">=0.116" },
     { name = "filelock", specifier = ">=4.2.1" },

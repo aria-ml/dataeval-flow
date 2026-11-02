@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import shutil
 import sys
 from pathlib import Path
@@ -15,6 +16,7 @@ from pydantic import ValidationError
 from dataeval_flow import run, run_tasks
 from dataeval_flow.config import PipelineConfig
 from dataeval_flow.evaluators.performance import SufficiencyConfig, SufficiencyResult, TrainerConfig
+from dataeval_flow.evaluators.performance._evaluator import _log_progress
 from dataeval_flow.evaluators.performance._trainer import load_trainer
 from dataeval_flow.steps import ChainResult
 from tests.chain_toys import chain_pipeline
@@ -202,6 +204,23 @@ def test_runs_substeps_and_schedule_reach_dataeval() -> None:
     assert output.measures["accuracy"].shape == (2, 3)  # two runs of DataEval's three-size default schedule
     assert output.steps.tolist() == [1, 11, 120]  # np.geomspace(1.2, 120, 3), 11.99... truncated to 11
     assert _run(schedule=[12, 60]).output.steps.tolist() == [12, 60]
+
+
+@pytest.mark.usefixtures("mounted")
+def test_a_run_logs_a_line_for_each_size_it_measures(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.INFO, logger=_log_progress.__module__):
+        _run(runs=2, schedule=[12, 60])
+    lines = caplog.messages
+    assert len(lines) == 4  # two runs of two sizes
+    assert lines[0].startswith("Sufficiency 1/4: run 1 of 2, 12 items, accuracy=")
+    assert lines[3].startswith("Sufficiency 4/4: run 2 of 2, 60 items, accuracy=")
+
+
+def test_the_progress_line_leaves_out_metrics_that_are_not_scalars(caplog: pytest.LogCaptureFixture) -> None:
+    info = {"run": 0, "runs": 1, "size": 10, "metrics": {"accuracy": 0.5, "per_class": np.array([0.1, 0.9])}}
+    with caplog.at_level(logging.INFO, logger=_log_progress.__module__):
+        _log_progress(1, total=1, extra_info=info)
+    assert caplog.messages == ["Sufficiency 1/1: run 1 of 1, 10 items, accuracy=0.5"]
 
 
 @pytest.mark.parametrize(
