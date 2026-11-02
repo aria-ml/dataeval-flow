@@ -85,7 +85,7 @@ variant installs, listed in its `requirements.<variant>.txt` (every variant ship
 brings scikit-learn, SciPy, LightGBM and Polars); the image has no `pip`. Train on a CUDA variant run with
 `--gpus all`. A run may have no network, so mount any pretrained weights under the data root. A trainer whose
 `DataLoader` forks worker processes needs a larger `--shm-size` than Docker's default; one with `num_workers=0` does
-not. See [Measure how much training data a model needs](../how_to/measure_data_sufficiency.md).
+not. See {doc}`Measure how much training data a model needs <../notebooks/measure_data_sufficiency>`.
 
 ## Secrets
 

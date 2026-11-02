@@ -48,7 +48,7 @@ example assumes the pipeline defines
 | `ood` | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `ood-agreement` | `input`: an `ood-union` Output | OOD Agreement: the share every detector flagged, and the images one alone flagged |
 | `factor-issues` | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
-| `performance-sufficiency` (experimental) | `input`: a `sufficiency` Output | Performance Sufficiency, with a section per target |
+| `performance-sufficiency` (experimental) | `input`: a `sufficiency` Output | Performance Sufficiency: a curve per metric, a row per target |
 
 ## How thresholds work
 
@@ -1070,8 +1070,8 @@ Where it is not, the check takes the size DataEval's `inv_project` gives, reads 
 item where the curve is still short (DataEval 1.2.0rc2 rounds that size down), so the size is the first at which the
 curve reaches the target, given as "about" that many items. A size past the largest measured is an extrapolation of
 the curve. Where the target is at or past the curve's limit, or the curve is flat or falls as the training set grows,
-the target is "not reached by the fitted curve". No cutoff on how far a projection reaches is applied: the ratio of the
-projected size to the largest measured is shown instead.
+the curve "never" reaches it, and the row says which. No cutoff on how far a projection reaches is applied: the ratio
+of the projected size to the largest measured is shown instead.
 
 The finding is `ok` where every target is reached; `warning` where a projected size is past the training set's size,
 or the curve never reaches a target; and `info` otherwise. A projection within the training set is rare with the
@@ -1082,9 +1082,10 @@ measure fails the step, listing the metrics it did. A metric where lower is bett
 scope.
 
 - **Reads:** `input`, a `sufficiency` Output, and the size of the training set it was computed on.
-- **Makes:** a finding titled Performance Sufficiency, briefed with how many targets were reached, with a section per
-  target: the value at the largest size measured, whether it is reached, and where not, the projected size and its
-  ratio to the largest size measured.
+- **Makes:** a finding titled Performance Sufficiency, briefed with how many targets were reached. It draws each
+  metric a target names as a learning curve, one row per size measured with a bar and a marker at each target, then a
+  row per target: whether it is reached, and where not, the size the curve reaches it at and its ratio to the largest
+  size measured. The sizes, scores and fitted curve are in the `sufficiency` step's output in `result.json`.
 
 **Settings** ({py:class}`~dataeval_flow.steps.checks.PerformanceSufficiencyConfig`):
 

@@ -3,7 +3,7 @@
 import hashlib
 import json
 import logging
-import shutil
+import re
 import sys
 from pathlib import Path
 from typing import Any, cast
@@ -167,7 +167,8 @@ def test_the_trainer_entry_writes_class_back() -> None:
     assert config.model_dump()["trainer"]["class"] == "CentroidTrainer"
 
 
-def test_a_chain_step_records_the_trainer_and_its_check_judges_the_output(root: Path) -> None:
+def _chain(root: Path) -> ChainResult:
+    """The `sufficiency` evaluator and its check, chained, on the toy trainer."""
     config = chain_pipeline(
         datasets=_data(),
         evaluators=[SufficiencyConfig(name="suff", trainer=CENTROIDS, schedule=[30, 120])],
@@ -191,11 +192,32 @@ def test_a_chain_step_records_the_trainer_and_its_check_judges_the_output(root: 
     result = run_tasks(config, data_dir=root)["t"]  # the root reaches the step without `DATAEVAL_DATA`
     assert isinstance(result, ChainResult)
     assert result.success, result.errors
+    return result
+
+
+def test_a_chain_step_records_the_trainer_and_its_check_judges_the_output(root: Path) -> None:
+    result = _chain(root)
     step = cast("dict[str, Any]", result.to_dict()["steps"])["measured"]
     assert step["output"]["extras"]["trainer"]["sha256"] == DIGEST
     (finding,) = result.findings
     assert (finding.title, finding.severity) == ("Performance Sufficiency", "ok")
     assert finding.brief == "1 of 1 targets reached at 120 items"
+
+
+def test_the_report_says_each_measurement_once_and_leaves_the_rest_to_the_json(root: Path) -> None:
+    """The finding draws the curve and the targets; the evaluator's section names the trainer, and nothing else."""
+    result = _chain(root)
+    text = result.report()
+    assert text.count("Items") == 1  # the curve's heading: the sizes and scores are drawn once
+    assert text.count(f"Trainer: trainers/centroids.py · CentroidTrainer · sha256 {DIGEST[:12]}") == 1
+    for in_the_json in ("averaged_measures", "unit_interval", DIGEST):
+        assert in_the_json not in text
+    section = text.split("PERFORMANCE SUFFICIENCY", 1)[1].split("  STEPS", 1)[0]
+    assert len(section.splitlines()) <= 25, section
+    page = result.to_html()
+    assert page.count("<table") >= 3  # the curve, the targets and the steps
+    assert "Items" in page
+    assert "CentroidTrainer" in page
 
 
 @pytest.mark.usefixtures("mounted")
@@ -314,9 +336,15 @@ def test_a_dataclass_under_postponed_annotations_loads_and_the_module_is_kept_on
     assert not (root / "trainers" / "__pycache__").exists()  # nothing is written into the data root
 
 
-def test_the_how_tos_trainer_loads_and_builds_without_reading_its_weights(tmp_path: Path) -> None:
+def test_the_tutorials_trainer_loads_and_builds_without_reading_its_weights(tmp_path: Path) -> None:
+    """The tutorial writes its trainer from a cell of the notebook; the test writes the same file."""
+    notebook = Path(__file__).parents[1] / "docs" / "source" / "notebooks" / "measure_data_sufficiency.py"
+    cell = re.search(
+        r"^# %%writefile trainers/backbone\.py\n(.*?)^# %%", notebook.read_text(encoding="utf-8"), re.S | re.M
+    )
+    assert cell, "the notebook no longer writes trainers/backbone.py"
     (tmp_path / "trainers").mkdir()
-    shutil.copy(Path(__file__).parents[1] / "docs" / "trainers" / "backbone.py", tmp_path / "trainers")
+    (tmp_path / "trainers" / "backbone.py").write_text(cell.group(1), encoding="utf-8")
     entry = {"path": "trainers/backbone.py", "class": "BackboneTrainer", "params": {"weights": "models/absent.onnx"}}
     with load_trainer(TrainerConfig.model_validate(entry), tmp_path) as (kit, _):
         assert (type(kit.model).__name__, type(kit.training_strategy).__name__) == ("Centroids", "Fit")

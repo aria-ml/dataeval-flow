@@ -68,6 +68,7 @@ Deciding what to label next, and choosing the parameters an evaluation runs with
 :hidden:
 
 ../notebooks/data_prioritization
+../notebooks/measure_data_sufficiency
 ../notebooks/tune_data_cleaning
 ```
 
@@ -77,6 +78,9 @@ Deciding what to label next, and choosing the parameters an evaluation runs with
 
 - - {doc}`Prioritize unlabeled data for labeling <../notebooks/data_prioritization>`
   - Rank an abundant unlabeled pool so the most informative samples are annotated first.
+- - {doc}`Measure how much training data a model needs <../notebooks/measure_data_sufficiency>`
+  - Train a model on growing subsets of a training set, and learn whether more data would reach a target score and how
+    much it would take.
 - - {doc}`Tune data cleaning with a matrix <../notebooks/tune_data_cleaning>`
   - Run data cleaning across a grid of thresholds, compare every run's findings in one table, and choose settings.
 

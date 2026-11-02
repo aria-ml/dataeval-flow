@@ -2,8 +2,12 @@
 
 __all__ = ["SufficiencyResult"]
 
+from collections.abc import Mapping, Sequence
+from typing import Any
+
 from dataeval.performance import SufficiencyOutput
 
+from dataeval_flow._blocks import Block, Fields, Scalar
 from dataeval_flow.evaluators._result import EvaluatorResult
 
 
@@ -28,3 +32,15 @@ class SufficiencyResult(EvaluatorResult[SufficiencyOutput]):
         DataEval's own record of the call: its ``name``, ``version``, ``execution_time`` and ``execution_duration``. The
         parameters as written are in ``resolved_config``.
     """
+
+    def _section(self, output: Mapping[str, Any], sources: Sequence[str], *, detailed: bool) -> list[Block] | None:  # noqa: ARG002
+        """The trainer that made the measurements, and the runs averaged where there were several. The sizes and scores
+        are in the ``performance-sufficiency`` finding's curve, and in the JSON."""
+        trainer = output["extras"]["trainer"]
+        runs = len(next(iter(output["data"]["measures"].values())))
+        items: list[tuple[str, Scalar]] = [
+            ("Trainer", f"{trainer['path']} · {trainer['class']} · sha256 {trainer['sha256'][:12]}")
+        ]
+        if runs > 1:
+            items.append(("Runs averaged", runs))
+        return [Fields(items=items)]

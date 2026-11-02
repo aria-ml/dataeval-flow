@@ -1,4 +1,5 @@
-"""Every YAML snippet in the how-tos, the chain concept page and the reference catalogs loads, assembled in order.
+"""Every YAML snippet in the how-tos, the chain concept page and the reference catalogs loads, assembled in order, as
+does the pipeline file the sufficiency tutorial runs.
 
 A renamed parameter or evaluator type then fails CI instead of a reader's config.
 """
@@ -55,7 +56,6 @@ _PAGES: dict[str, dict[str, Any]] = {
     "reference/transforms.md": _BASE,
     "how_to/export_a_dataset.md": _EXPORT_BASE,
     "how_to/gate_training_on_an_audit.md": _BASE,
-    "how_to/measure_data_sufficiency.md": _BASE,
 }
 
 
@@ -78,3 +78,9 @@ def test_every_yaml_snippet_loads(page: str):
     for block in blocks:
         config = _merge(config, yaml.safe_load(block))
         PipelineConfig.model_validate(config)
+
+
+def test_the_sufficiency_tutorial_pipeline_loads() -> None:
+    """The notebook is rerun from a cache that keys on its code cells, so a stale pipeline file would go unnoticed."""
+    path = _DOCS / "notebooks" / "measure_data_sufficiency.yaml"
+    PipelineConfig.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))

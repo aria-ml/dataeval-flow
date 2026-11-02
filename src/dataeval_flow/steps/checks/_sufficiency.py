@@ -9,7 +9,7 @@ from typing import Any, ClassVar
 from dataeval.performance import SufficiencyOutput
 from pydantic import BaseModel, ConfigDict, Field
 
-from dataeval_flow._blocks import Block, Fields, Scalar, Section
+from dataeval_flow._blocks import Cell, Column, Table
 from dataeval_flow.steps._check import Check, CheckConfig, CheckContext
 from dataeval_flow.steps._port import DataType, Port
 from dataeval_flow.steps._step import StepSkipped
@@ -58,8 +58,8 @@ class PerformanceSufficiencyCheck(Check[PerformanceSufficiencyConfig]):
         inputs: Mapping[str, Any],
         context: CheckContext,  # noqa: ARG002
     ) -> list[Finding]:
-        """A block per target: its value at the largest size measured, whether it is reached, and where not, the size
-        the curve projects and its ratio to that largest size.
+        """A learning curve per metric, drawn against its targets, then a row per target: whether it is reached, and
+        where not, the size the fitted curve projects and its ratio to the largest size measured.
 
         ``ok`` where every target is reached; ``warning`` where a projection exceeds the training set or the curve
         never reaches the target; ``info`` otherwise, as where a projection falls within the training set, or a
@@ -83,52 +83,76 @@ class PerformanceSufficiencyCheck(Check[PerformanceSufficiencyConfig]):
             raise StepSkipped(f"every target names a per-class metric ({', '.join(per_class)}): only a scalar can be")
         largest = int(output.steps[-1])
         training = len(node.computed_on[0].value)
-        blocks: list[Block] = []
+        rows: list[dict[str, Cell]] = []
         reached = short = beyond = 0
         for target in config.targets:
-            label = f"`{target.metric}` at least {target.value:g}"
+            row: dict[str, Cell] = {"target": f"{target.metric} ≥ {target.value:.10g}", "reached": "yes", "at": ""}
+            rows.append(row)
             if target.metric in per_class:
-                blocks.append(Section(title=label, brief="not assessed: a per-class metric"))
+                row.update(reached="n/a", at="not assessed: a per-class metric")
                 continue
-            value = float(measured[target.metric][-1])
-            items: list[tuple[str, Scalar]] = [(f"At {largest:,} items", round(value, 4))]
-            if value >= target.value:
+            if float(measured[target.metric][-1]) >= target.value:
                 reached += 1
-                items.append(("Reached", "yes"))
-                blocks.append(Section(title=label, brief="reached", blocks=[Fields(items=items)]))
                 continue
             size = _projected_size(output, target.metric, target.value)
             if size is None or size > training:
                 beyond += 1
             else:
                 short += 1
-            items.append(("Reached", "no"))
-            if size is None:
-                brief = "not reached by the fitted curve"
-                items.append(("Projected size", brief))
-            else:
-                brief = f"not reached; about {size:,} items"
-                items += [("Projected size", f"about {size:,} items"), ("Ratio to largest", f"{size / largest:.2f}")]
-            blocks.append(Section(title=label, brief=brief, blocks=[Fields(items=items)]))
+            row.update(reached="no", at=_never(output, target) if size is None else _reaches(size, largest))
         severity: Severity = "warning" if beyond else "info" if short or per_class else "ok"
         assessed = len(config.targets) - len(per_class)
         brief = f"{reached} of {assessed} targets reached at {largest:,} items"
         if per_class:
             brief += f", {len(per_class)} not assessed"
+        columns = [
+            Column(key="target", header="Target", align="left"),
+            Column(key="reached", header="Reached"),
+            Column(key="at", header="Fitted curve reaches it at", align="left"),
+        ]
+        curves = [
+            _curve(output, metric, [t.value for t in config.targets if t.metric == metric])
+            for metric in dict.fromkeys(t.metric for t in config.targets if t.metric not in per_class)
+        ]
         return [
             Finding(
                 severity=severity,
                 title=self.title,
                 brief=brief,
-                description=(
-                    f"Each target is read at the largest size measured, {largest:,} of the training set's "
-                    f"{training:,} items; higher is better. Where it is not reached, the size is where DataEval's "
-                    "fitted power law reaches it, and a size past the largest measured is an extrapolation of that "
-                    "curve, less certain the further it reaches."
-                ),
-                blocks=blocks,
+                blocks=[*curves, Table(columns=columns, rows=rows)],
             )
         ]
+
+
+def _curve(output: SufficiencyOutput, metric: str, targets: list[float]) -> Table:
+    """A metric at each size measured, as a bar scaled up to its highest target, with a marker at each target."""
+    markers = [("target", value) for value in targets]
+    columns = [
+        Column(key="size", header="Items", align="right", format="{:,}"),
+        Column(key="value", header=metric, format="{:.4f}"),
+        Column(key="value", kind="bar", format="{:.10g}", markers=markers),
+    ]
+    values = output.averaged_measures[metric]
+    rows: list[dict[str, Cell]] = [
+        {"size": int(size), "value": round(float(value), 4)} for size, value in zip(output.steps, values, strict=True)
+    ]
+    return Table(columns=columns, rows=rows)
+
+
+def _reaches(size: int, largest: int) -> str:
+    """The size a curve reaches a target at, and its ratio to the largest size measured."""
+    ratio = size / largest
+    return f"~{size:,} items ({ratio:.1f}x)" if ratio < 10 else f"~{size:,} items ({ratio:,.0f}x)"
+
+
+def _never(output: SufficiencyOutput, target: SufficiencyTarget) -> str:
+    """Why the fitted curve never reaches `target`: it levels off below it, it does not rise, or it is too far out."""
+    scale, exponent, asymptote = (float(value) for value in output.params[target.metric])
+    if scale <= 0 or exponent <= 0:
+        return "never (the curve does not rise)"
+    if target.value >= 1 - asymptote:
+        return f"never (levels off near {1 - asymptote:.3f})"
+    return "never (too far out to project)"
 
 
 def _projected_size(output: SufficiencyOutput, metric: str, target: float) -> int | None:
