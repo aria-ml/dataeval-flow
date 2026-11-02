@@ -152,6 +152,7 @@ EVALUATOR_DATA: dict[str, tuple[Any, bool]] = {
     "factor-leakage": ({"a": Factors(), "b": Factors()}, False),
     "factor-summary": (Factors(), False),
     "factor-triage": (Factors(), False),
+    "feasibility": (Images(40), True),
     "label-alignment": (Images(40), False),
     "label-health": (Images(40), False),
     "label-reconciliation": (Images(40), False),
@@ -169,6 +170,7 @@ EVALUATOR_DATA: dict[str, tuple[Any, bool]] = {
 # Settings a bare config cannot supply because the field has no default.
 EVALUATOR_SETTINGS: dict[str, dict[str, Any]] = {
     "factor-leakage": {"factors": ["site"]},
+    "feasibility": {"target": {"accuracy": 0.5}},
     "label-alignment": {"ontology": {"a": None, "b": None}},
     "label-reconciliation": {"ontology": {"a": None, "b": None}},
     "ontology-validation": {"ontology": {"a": None, "b": None}},

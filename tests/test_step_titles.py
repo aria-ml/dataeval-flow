@@ -47,6 +47,7 @@ _TITLES = {
     "ood-kneighbors": "OOD (K-Neighbors)",
     "divergence": "Divergence",
     "sufficiency": "Sufficiency",
+    "feasibility": "Feasibility",
     "conform": "Conform",
     "export": "Export",
     "kfold": "K-Fold",

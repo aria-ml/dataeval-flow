@@ -15,6 +15,26 @@
   - `performance-sufficiency` reads each `{metric, value}` target at the largest size measured, and where it is not
     reached, the size the fitted curve projects; it warns where that is past the training set or never comes
   - A tutorial, "Measure how much training data a model needs", mounts a trainer, runs the chain, and reads the report
+- `feasibility` evaluator and `performance-feasibility` check, both experimental: is a performance target reachable
+  - `feasibility` runs DataEval's `Feasibility` on one classification source: its labeled items, and its embeddings from
+    the task's extractor, which must not have seen the labels
+  - Each `target:` entry, such as `accuracy: 0.9` or `ap:cat/fixed_representation: 0.8`, gets one answer: demonstrated
+    feasible, ruled out under recorded assumptions, not ruled out, insufficient evidence or an evidence conflict
+  - The result keeps DataEval's `determinations` and `evidence`; `alpha` is stated in `resolved_config`, and the
+    extras give the source's item count, how many are labeled, and the declared classes with no labeled item
+  - `alpha` is one error budget for every bound of every target, so more targets widen every bound
+  - `allowances: {beta, gamma}` are your assertions, recorded as assumed; without them a target at the default scope
+    can be demonstrated but not ruled out
+  - A derived dataset such as `DetectionCrops` is refused, as are a source with no labeled item and one with labeled
+    items in fewer than two classes
+  - A task's `matrix:` over `feasibility` may vary only `sources`; any other key fails the load
+  - `EvaluatorConfig.matrix_refusal` lets an evaluator's config ask for that
+  - `performance-feasibility` is `ok` only where every target is demonstrated feasible; every other answer warns
+  - It draws a row per target: a mark for its answer, a bar of the interval its bounds leave, and the bounds, rounded
+    as DataEval's printout rounds them, with a key to the marks and a line each for the confidence and allowances under
+    it; the unrounded bounds, evidence, assumptions and DataEval's recommendations stay in the evaluator's output
+  - A tutorial, "Check whether a performance target is reachable", runs it on MilitaryVehicles with a pretrained
+    image model, and reads the text and HTML reports
 - Preset decomposition: a preset entry copied, or one of its steps inlined, into a custom workflow an editor can change
   - `POST /v1/presets/decompose` prepares a whole candidate pipeline copying a preset entry into a custom workflow,
     or answers `unsupported` with located reasons; `features.preset_decomposition: 1`

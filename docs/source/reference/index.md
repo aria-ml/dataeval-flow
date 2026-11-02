@@ -145,6 +145,17 @@ data root's `trainers/` folder.
 - **Evaluators:** [`sufficiency`](evaluators.md#sufficiency)
 - **Checks:** [`performance-sufficiency`](checks.md#performance-sufficiency)
 
+## Can a model reach this performance target?
+
+Decides, for each target, such as 90% accuracy, whether the labeled items of a classification Dataset demonstrate that a
+model can reach it, rule it out under stated assumptions, or do neither, and keeps the proof behind every answer. It
+reads the Dataset through the task's extractor.
+
+- **Preset:** none; chain the steps in a [workflow of your own](../how_to/write_a_custom_workflow.md), as
+  {doc}`Check whether a performance target is reachable <../notebooks/check_target_feasibility>` does
+- **Evaluators:** [`feasibility`](evaluators.md#feasibility)
+- **Checks:** [`performance-feasibility`](checks.md#performance-feasibility)
+
 ## Is the metadata readable?
 
 Reports the metadata factors a run could not read as configured, and a policy that repairs them.

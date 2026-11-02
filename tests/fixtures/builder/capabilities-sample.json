@@ -12,7 +12,7 @@
     "api_version": 1,
     "flow_version": "0.2.3.dev835+gbc1e3b244",
     "dataeval_version": "1.2.0rc2",
-    "schema_fingerprint": "sha256:16f616f0c189c051d1e34aa28a61ec86f032b5b43919c662d94cb34f80f5fca8",
+    "schema_fingerprint": "sha256:cd26e93b4bde7faebee05d5c1119910edd8fcb92fb215a6a4793a84ea1decb82",
     "max_active_runs": 1,
     "features": {
       "items": 1,
@@ -624,6 +624,7 @@
         "dataeval.bias.BalanceOutput": [],
         "dataeval.bias.DiversityOutput": [],
         "dataeval.bias.ParityOutput": [],
+        "dataeval.performance.FeasibilityOutput": [],
         "dataeval.performance.SufficiencyOutput": [],
         "dataeval.quality.DuplicatesOutput": [],
         "dataeval.quality.OutliersOutput": [],

@@ -245,8 +245,9 @@ Output
 
 Performance Target
     A value a model's metric should reach, such as 0.9 accuracy: what `performance-sufficiency` reads off a
-    `sufficiency` learning curve, set in its `targets:`. Not an annotated object (a detection or a track), which is a
-    *target* in the sense of `target-outliers` and the item or target level.
+    `sufficiency` learning curve, set in its `targets:`, and what `feasibility` decides the data can demonstrate
+    reachable, set in its `target:`. Not an annotated object (a detection or a track), which is a *target* in the
+    sense of `target-outliers` and the item or target level.
 
 Pipeline
     The full sequence executed in a single DataEval Flow run: one or more

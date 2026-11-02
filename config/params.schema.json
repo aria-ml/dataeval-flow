@@ -161,6 +161,42 @@
       "title": "AggregatorConfig",
       "type": "object"
     },
+    "AllowancesConfig": {
+      "additionalProperties": false,
+      "description": "The assumptions a ``feasibility`` run is told to make, which widen the scope at which a target can be ruled out.\n\nEach is **your assertion**, recorded as assumed in the result, not something DataEval measures. Each must be a\njustified bound: ``beta: 0`` asserts that no model reading the representation beats one fixed answer per cell of\nDataEval's partition of it.\n\nExample YAML::\n\n    allowances: {beta: 0, gamma: 0}",
+      "properties": {
+        "beta": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cell heterogeneity, a scalar: how much better than one fixed answer per cell a model reading the representation is asserted to do. `0` asserts it does no better. Your assertion, recorded as assumed.",
+          "title": "Beta"
+        },
+        "gamma": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Information loss, a scalar, only with `beta`: how much a model reading the whole input could gain over one reading the representation. `0` asserts that the representation loses nothing such a model could use. Your assertion, recorded as assumed.",
+          "title": "Gamma"
+        }
+      },
+      "title": "AllowancesConfig",
+      "type": "object"
+    },
     "AuditChecks": {
       "additionalProperties": false,
       "description": "When audit's findings warn: each check's settings, keyed by check type. A check over each split applies its\nsettings to every split.",
@@ -2577,6 +2613,64 @@
       "title": "CheckStep_ood-agreement",
       "type": "object"
     },
+    "CheckStep_performance-feasibility": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `feasibility` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "check": {
+          "const": "performance-feasibility",
+          "description": "`performance-feasibility`: Judges `feasibility`'s output: warns for each performance target that is not demonstrated reachable, and draws the bounds behind every answer.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_performance-feasibility",
+      "type": "object"
+    },
     "CheckStep_performance-sufficiency": {
       "additionalProperties": false,
       "properties": {
@@ -4411,6 +4505,9 @@
               },
               {
                 "$ref": "#/$defs/CheckStep_ood-agreement"
+              },
+              {
+                "$ref": "#/$defs/CheckStep_performance-feasibility"
               },
               {
                 "$ref": "#/$defs/CheckStep_performance-sufficiency"
@@ -6668,6 +6765,112 @@
         }
       },
       "title": "FactorTriageConfig",
+      "type": "object"
+    },
+    "FeasibilityConfig": {
+      "additionalProperties": false,
+      "description": "Config for ``feasibility``, DataEval's Feasibility.\n\nFor each target, such as ``accuracy: 0.9``, decides whether the labeled items of the one source demonstrate that\na model can reach it, rule it out under recorded assumptions, or neither, and keeps the evidence behind each\nanswer. One call is one ledger: ``alpha`` is the error budget shared by every bound of every target, so adding a\ntarget widens every bound, and choosing among several calls on one dataset (several extractors, say) needs\n``alpha`` divided by their number. For that reason a task's ``matrix:`` may vary only ``sources``.\n\nOnly the labeled items count, and the claims are about them. A source that is a derived dataset, such as\n``DetectionCrops``, is refused, because its items share a source image and are not independent; so is a source with\nfewer than two classes among its labeled items. The task's extractor must not have seen the labels, which Flow\ncannot check.\n\nEvery parameter, its DataEval argument and its unset behavior is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators feasibility`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: feasibility\n        type: feasibility\n        target: {accuracy: 0.9}\n        allowances: {beta: 0, gamma: 0}",
+      "properties": {
+        "name": {
+          "description": "The name this entry is referenced by. Defaults to its `type`.",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "const": "feasibility",
+          "default": "feasibility",
+          "description": "The evaluator type this entry configures: `feasibility`.",
+          "title": "Type",
+          "type": "string"
+        },
+        "target": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "The performance targets: `metric[:class][/scope][|aggregation]` mapped to the threshold the model should reach, in (0, 1], such as `{accuracy: 0.9}`. The metric is `accuracy`, or `ap` (macro, or for `ap:<class>`); the scope, which defaults to `full_input`, is `fixed_representation` or `partition_restricted` to judge models that read less; `|sequence_mean` averages accuracy over groups of items. A recall target needs a false-positive limit and is not offered. Adding a target widens every bound, because `alpha` is shared among them.",
+          "minProperties": 1,
+          "title": "Target",
+          "type": "object"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "The error budget of the whole call, shared by every bound of every target: all of them hold together with probability at least 1 - `alpha`. Comparing `k` extractors or models on one dataset, or keeping the best of `k` runs, needs `alpha / k` per call.",
+          "exclusiveMaximum": 1,
+          "exclusiveMinimum": 0,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "panel_size": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Labels per local panel, at least 2. Unset uses DataEval's provisional default (5).",
+          "title": "Panel Size"
+        },
+        "n_cells": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cells of the partition the local panels pool within. Unset follows the number of audit units (10 below 20,000).",
+          "title": "N Cells"
+        },
+        "builtin_witnesses": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether to fit and score the built-in k-NN and linear-probe models. Unset uses DataEval's default (true).",
+          "title": "Builtin Witnesses"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The seed of the splits, the partition and the panels, which makes a run repeatable. Unset uses the pipeline's `seed`, else 0.",
+          "title": "Seed"
+        },
+        "allowances": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AllowancesConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Assumptions asserted to rule a target out at a broader scope: `beta`, then `gamma` on top of it. Without them, and without repeated labels, which Flow does not take, a target at the default scope can only be shown, not ruled out. They are your assertions, recorded as assumed; each must be a justified bound. `beta: 0` asserts that no model reading the representation beats one fixed answer per cell."
+        }
+      },
+      "required": [
+        "target"
+      ],
+      "title": "FeasibilityConfig",
       "type": "object"
     },
     "FlattenExtractorConfig": {
@@ -14026,6 +14229,9 @@
               },
               {
                 "$ref": "#/$defs/FactorTriageConfig"
+              },
+              {
+                "$ref": "#/$defs/FeasibilityConfig"
               },
               {
                 "$ref": "#/$defs/LabelAlignmentConfig"

@@ -87,6 +87,10 @@ dataeval_flow.evaluators.bias:FactorSummaryResult
 dataeval_flow.evaluators.bias:ParityConfig
 dataeval_flow.evaluators.bias:ParityEvaluator
 dataeval_flow.evaluators.bias:ParityResult
+dataeval_flow.evaluators.performance:AllowancesConfig
+dataeval_flow.evaluators.performance:FeasibilityConfig
+dataeval_flow.evaluators.performance:FeasibilityEvaluator
+dataeval_flow.evaluators.performance:FeasibilityResult
 dataeval_flow.evaluators.performance:SufficiencyConfig
 dataeval_flow.evaluators.performance:SufficiencyEvaluator
 dataeval_flow.evaluators.performance:SufficiencyResult
@@ -256,6 +260,8 @@ dataeval_flow.steps.checks:OODConfig
 dataeval_flow.steps.checks:OODThresholds
 dataeval_flow.steps.checks:OntologyStructureCheck
 dataeval_flow.steps.checks:OntologyStructureConfig
+dataeval_flow.steps.checks:PerformanceFeasibilityCheck
+dataeval_flow.steps.checks:PerformanceFeasibilityConfig
 dataeval_flow.steps.checks:PerformanceSufficiencyCheck
 dataeval_flow.steps.checks:PerformanceSufficiencyConfig
 dataeval_flow.steps.checks:ShortcutRiskCheck

@@ -41,6 +41,7 @@ chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md). Each
 | `content-digest` | `dataeval_flow.dataset_digest` | the Dataset itself, every item | 1 | refused |
 | `profile` | `dataeval.core.image_stats`, `dataeval.Metadata` | stats; metadata | 1 | refused |
 | `sufficiency` (experimental) | `dataeval.performance.Sufficiency` | the Dataset itself, every item, through a trainer file | 2: the training set, then the test set | refused |
+| `feasibility` (experimental) | `dataeval.performance.Feasibility` | the Dataset itself, embeddings and labels | 1 | required |
 
 A task's `extractor:` still lands in the result envelope's `model_id`, whether or not that run's mode actually reads it.
 
@@ -1086,6 +1087,84 @@ evaluators:
 
 tasks:
   - {name: sufficiency, evaluator: sufficiency, sources: [train, test]}
+```
+
+## Can a model reach this performance target?
+
+### `feasibility`
+
+Whether the data demonstrates each performance target reachable, rules it out under stated assumptions, or does
+neither, with the proof behind every answer (DataEval Feasibility).
+
+:::{note}
+`feasibility` is experimental: it may change or be removed in any release without a deprecation cycle, as may the
+DataEval class it wraps. The first run in a process to use it warns with `ExperimentalWarning`.
+:::
+
+It runs `dataeval.performance.Feasibility`. For each target, it gathers **ceilings**, upper confidence bounds on what
+any model of a class can reach on the population, and **witnesses**, lower confidence bounds on what a frozen model
+does reach, all holding together at `alpha`. Five ordered rules then give each target one answer: `evidence_conflict`,
+`demonstrated_feasible`, `infeasible_under_recorded_assumptions`, `not_ruled_out` or `unresolved`. A final answer
+carries its proof; one that is not final names its `limiting_factor` and what would address it. A ruled-out target is
+ruled out only under the assumptions recorded with its evidence, and a demonstrated one assumes that no evaluation
+image was used to train or choose a model, or to set a requirement.
+
+- **One call, one ledger.** `alpha` is one error budget for every bound of every target, so adding a target widens every
+  bound. Comparing `k` extractors or models on one dataset, or keeping the best of `k` runs, needs `alpha / k` per
+  call; Flow cannot see separate tasks that do so, and a task's `matrix:` over this evaluator may vary only `sources`
+  (separate populations make separate claims) and is refused otherwise.
+- **The extractor must not have seen the labels.** Flow cannot check it. The task's extractor must be fitted and chosen
+  independently of this source's labels.
+- **Only labeled items count.** Every claim is about the labeled items; a declared class with no labeled item is no
+  part of any claim, and the Output's extras name it. A source with no labeled item, or whose labeled items fall in
+  fewer than two classes, is refused: there is insufficient data to judge a target on it.
+- **A derived dataset is refused.** The items of `DetectionCrops` (made by [`wrap`](transforms.md#wrap)) and of similar
+  wrappers share a source and are not independent, and `feasibility` has no way to tell which share one, so it judges no
+  target on them.
+- **Allowances are your assertions.** Without repeated labels, which Flow does not take, a target at the default scope,
+  `full_input`, can be demonstrated but not ruled out: it comes back `unresolved`. `allowances: {beta: 0}` asserts that
+  no model reading the representation beats one fixed answer per cell of DataEval's partition of it, which widens the
+  scope of the ceiling to `fixed_representation`; adding `gamma: 0` asserts that the representation loses nothing a
+  model reading the whole image could use, which widens it to `full_input`. They are recorded as assumed, shown beside
+  every answer they bear on, and each must be a justified bound.
+- **Not offered.** Repeated labels (`replicas`), a model's own predictions as a witness (`predictions`, `provenance`),
+  sampling plans (`sampling`, `look`), video classification (`max_sequence_length`) and recall targets, which need a
+  false-positive limit a key cannot carry. Flow may offer them later.
+
+{doc}`Check whether a performance target is reachable <../notebooks/check_target_feasibility>` runs it on
+MilitaryVehicles. DataEval's [Feasibility
+tutorial](https://dataeval.readthedocs.io/en/latest/notebooks/tt_assess_ic_feasibility.html) explains the concepts.
+
+- **Reads:** `input`: one Dataset, its items as they are stored, and its labels and embeddings through the task's
+  extractor, which must give one row per item.
+- **Makes:** a `feasibility` Output: a mapping of `determinations`, one row per target in the order given, and
+  `evidence`, every bound of the call by id. Its extras are `items`, the source's item count, `labeled`, how many of
+  them have a label, and `absent_classes`, the declared classes with no labeled item.
+
+**Settings** ({py:class}`~dataeval_flow.evaluators.performance.FeasibilityConfig`):
+
+| Parameter | DataEval argument | Left unset |
+| --- | --- | --- |
+| `target` | `target` of `evaluate`: `metric[:class][/scope][\|aggregation]` mapped to a threshold in (0, 1]. The metric is `accuracy` or `ap`; the scope `full_input`, `fixed_representation` or `partition_restricted`; the aggregation `sequence_mean` | required |
+| `alpha` | `alpha`: the error budget of the whole call | `0.05`, stated in the result's `resolved_config` |
+| `panel_size` | `panel_size`: labels per local panel, at least 2 | DataEval's provisional default (`5`) |
+| `n_cells` | `n_cells`: partition cells for the local panels | by the number of audit units (10 below 20,000) |
+| `builtin_witnesses` | `builtin_witnesses`: whether to fit and score the built-in k-NN and linear probe | DataEval's default (`true`) |
+| `seed` | `seed`: the seed of the splits, partition and panels | the pipeline's `seed`, else 0 |
+| `allowances` | `allowances` of `evaluate`: `{beta, gamma}`, each at least 0, `gamma` only with `beta` | none |
+
+- **Judged by:** [`performance-feasibility`](checks.md#performance-feasibility)
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+
+```yaml
+evaluators:
+  - name: feasibility
+    type: feasibility
+    target: {accuracy: 0.9, ap: 0.8}
+    allowances: {beta: 0, gamma: 0}
+
+tasks:
+  - {name: feasibility, evaluator: feasibility, sources: [train], extractor: bovw_ext}
 ```
 
 ## Not in the catalog yet

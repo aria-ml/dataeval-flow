@@ -9,7 +9,7 @@ duplicates run finds a near group as well.
 import functools
 import os
 import tempfile
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import patch
@@ -85,6 +85,47 @@ class ToyFactors:
         target = np.zeros(3, dtype=np.float32)
         target[index % 3] = 1.0
         return self._images[index], target, {"site": ["north", "south", "east"][index % 3], "angle": float(index % 7)}
+
+
+class ToyClasses:
+    """Classification items in `classes` classes that a flatten extractor separates: a class sets the level of the 16
+    pixels (0.0, 0.25, ...), with noise of 0.02, so any k-NN reads it back from the embeddings.
+
+    `flip` is the share of items whose label is redrawn uniformly over the classes, so no model does better than
+    ``1 - flip * (classes - 1) / classes`` on the labels: a known cap. `declared` declares that many classes, more than
+    are present, and `unlabeled` gives the items it names an empty target, as a dataset with unlabeled items has.
+    """
+
+    def __init__(
+        self,
+        count: int = 40,
+        classes: int = 2,
+        *,
+        flip: float = 0.0,
+        declared: int | None = None,
+        unlabeled: Collection[int] = (),
+        seed: int = 0,
+    ) -> None:
+        rng = np.random.default_rng(seed)
+        self._classes = declared or classes
+        truth = rng.integers(0, classes, count)
+        self._labels = np.where(rng.random(count) < flip, rng.integers(0, classes, count), truth)
+        self._images = [rng.normal(0.25 * label, 0.02, (1, 4, 4)).astype(np.float32) for label in truth]
+        self._unlabeled = set(unlabeled)
+        self.metadata: DatasetMetadata = {
+            "id": f"classes-{seed}-{count}-{classes}-{flip}-{declared}-{sorted(self._unlabeled)}",  # one id per dataset
+            "index2label": {index: f"c{index}" for index in range(self._classes)},
+        }
+
+    def __len__(self) -> int:
+        return len(self._images)
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, dict[str, Any]]:
+        if index in self._unlabeled:
+            return self._images[index], np.zeros(0, dtype=np.float32), {"id": index}
+        target = np.zeros(self._classes, dtype=np.float32)
+        target[self._labels[index]] = 1.0
+        return self._images[index], target, {"id": index}
 
 
 class Items:
@@ -229,6 +270,7 @@ _TOY_DATA: "dict[str, Callable[[int], tuple[Any, ExtractorConfig | None]]]" = {
     "label-reconciliation": lambda count: (ToyImages(count=count), None),
     "ontology-validation": lambda count: (ToyImages(count=count), None),
     "sufficiency": lambda count: ({"train": ToyImages(count=count), "test": ToyImages(count=count, seed=1)}, None),
+    "feasibility": lambda count: (ToyClasses(count=count), FLAT),
 }
 
 # Config values a bare `config_type()` cannot supply, because the field has no default. `label-alignment`
@@ -240,6 +282,7 @@ _EXTRA_CONFIG: "dict[str, dict[str, Any]]" = {
     "ontology-validation": {"ontology": {"a": None, "b": None}},
     # Under 100 training items the default schedule starts at 0 items, so the 40-item toy names its own.
     "sufficiency": {"trainer": {"path": "trainers/majority.py", "class": "MajorityTrainer"}, "schedule": [10, 20, 40]},
+    "feasibility": {"target": {"accuracy": 0.5}},
 }
 
 # The types whose run reads a file under the data root, which `toy_data_root` holds.

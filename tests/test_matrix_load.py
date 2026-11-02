@@ -342,3 +342,40 @@ def test_the_matrix_as_written_is_never_written_into() -> None:
     config = _cleaning(copy.deepcopy(written))
     assert [run.pipeline.workflows[0].checks.image_duplicates.near for run in _runs(config)] == [2.0, 1.0]
     assert config.tasks[0].matrix == written
+
+
+def _evaluator_matrix(matrix: Any, **extra: Any) -> Any:
+    """A matrix on an evaluator task over `dupes`, a `duplicates` entry, or on a custom workflow's step reading it."""
+    workflow = {"name": "w", "inputs": ["a"], "steps": [{"name": "found", "evaluator": "dupes", "input": "a"}]}
+    return chain_pipeline(
+        workflows=[workflow] if extra.get("custom") else [],
+        evaluators=[{"name": "dupes", "type": "duplicates"}],
+        tasks=[
+            {
+                "name": "t",
+                "sources": "src",
+                "matrix": matrix,
+                **({"workflow": "w", "kind": "workflow"} if extra.get("custom") else {"evaluator": "dupes"}),
+            }
+        ],
+        extractor=True,
+    )
+
+
+@pytest.mark.parametrize("custom", [False, True])
+def test_a_matrix_over_more_than_sources_is_refused_where_an_evaluator_asks_for_that(
+    monkeypatch: pytest.MonkeyPatch, custom: bool
+) -> None:
+    from dataeval_flow.evaluators.quality import DuplicatesConfig
+
+    monkeypatch.setattr(DuplicatesConfig, "matrix_refusal", "the runs share one ledger.")
+    _refusal(
+        lambda: _evaluator_matrix({"merge_near_duplicates": [True, False], "extractor": ["flat"]}, custom=custom),
+        "evaluator `dupes` allows only `sources` to vary",
+        "this matrix varies `extractor`, `merge_near_duplicates`: the runs share one ledger.",
+    )
+    assert len(_runs(_evaluator_matrix({"sources": ["src"]}, custom=custom))) == 1  # `sources` alone still runs
+
+
+def test_an_evaluator_that_asks_for_nothing_keeps_the_whole_matrix() -> None:
+    assert len(_runs(_evaluator_matrix({"merge_near_duplicates": [True, False]}))) == 2

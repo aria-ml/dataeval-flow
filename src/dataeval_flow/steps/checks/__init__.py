@@ -51,6 +51,8 @@ __all__ = [
     "ClassStratificationConfig",
     "ClassStratificationThresholds",
     "SufficiencyTarget",
+    "PerformanceFeasibilityCheck",
+    "PerformanceFeasibilityConfig",
     "PerformanceSufficiencyCheck",
     "PerformanceSufficiencyConfig",
     "TargetOutliersCheck",
@@ -84,6 +86,7 @@ from dataeval_flow.steps.checks._drift import (
     EmbeddingDivergenceConfig,
 )
 from dataeval_flow.steps.checks._duplicates import ImageDuplicatesCheck, ImageDuplicatesConfig
+from dataeval_flow.steps.checks._feasibility import PerformanceFeasibilityCheck, PerformanceFeasibilityConfig
 from dataeval_flow.steps.checks._gaps import FactorCoverageGapsCheck, FactorCoverageGapsConfig
 from dataeval_flow.steps.checks._label_space import (
     ClassShortfallCheck,

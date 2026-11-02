@@ -74,6 +74,7 @@ def expand_matrix(task: "TaskConfig", pipeline: "PipelineConfig") -> list[Matrix
     if task.matrix is None:
         return []
     runs = grid_runs(task.matrix)
+    _refuse_varying(runs, task, pipeline)
     targets, paths = _targets(runs, task, pipeline)
     problems: list[str] = []
     plans: list[MatrixRunPlan] = []
@@ -93,6 +94,23 @@ def expand_matrix(task: "TaskConfig", pipeline: "PipelineConfig") -> list[Matrix
     if problems:
         raise MatrixError(_message(task, problems))
     return plans
+
+
+def _refuse_varying(
+    runs: Sequence[tuple[int, Sequence[tuple[str, Any]]]], task: "TaskConfig", pipeline: "PipelineConfig"
+) -> None:
+    """Refuse a matrix that varies more than ``sources`` where the task reads an evaluator whose config sets
+    ``matrix_refusal``, quoting that reason."""
+    varied = sorted({key for _, pairs in runs for key, _ in pairs} - {"sources"})
+    read = reads(task, pipeline)
+    problems = [
+        f"evaluator `{entry.name}` allows only `sources` to vary, and this matrix varies "
+        f"{', '.join(f'`{key}`' for key in varied)}: {entry.matrix_refusal}"
+        for entry in pipeline.evaluators or ()
+        if varied and ("evaluators", entry.name) in read and entry.matrix_refusal is not None
+    ]
+    if problems:
+        raise MatrixError(_message(task, problems))
 
 
 def _targets(
