@@ -130,7 +130,7 @@ On a 32-thread CPU the run took under a minute.
 
 ```text
 ================================================================================
-  SUFFICIENCY TARGET                       1 of 3 targets reached at 7,823 items
+  PERFORMANCE SUFFICIENCY                  1 of 3 targets reached at 7,823 items
 ================================================================================
   Each target is read at the largest size measured, 7,823 of the training set's
   7,823 items; higher is better. Where it is not reached, the size is where
