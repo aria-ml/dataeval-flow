@@ -1050,7 +1050,7 @@ model and the training, evaluation and reset strategies come from a trainer: a
 {py:class}`~dataeval_flow.evaluators.performance.Trainer` subclass in a Python file in the data root's `trainers/`
 folder, loaded when the run starts and not when the config loads. A trainer path that is absolute, or does not start
 with `trainers/` once normalized, fails the config load; a file that resolves outside `trainers/` through a symlink
-fails the run. [Measure how much training data a model needs](../how_to/measure_data_sufficiency.md) writes one.
+fails the run. {doc}`Measure how much training data a model needs <../notebooks/measure_data_sufficiency>` writes one.
 
 A size is a number of items drawn with replacement, not of distinct items. DataEval checks no schedule, so Flow does:
 a `schedule` must be strictly increasing positive integers, and is refused with `substeps`; a size larger than the

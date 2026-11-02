@@ -14,8 +14,11 @@ import pytest
 from dataeval.performance import SufficiencyOutput
 from pydantic import ValidationError
 
+from dataeval_flow._blocks import Table
+from dataeval_flow._blocks._text import Frame, render_text
 from dataeval_flow.steps import CheckContext, StepSkipped
 from dataeval_flow.steps.checks import PerformanceSufficiencyCheck, PerformanceSufficiencyConfig, SufficiencyTarget
+from dataeval_flow.workflows._result import finding_section
 
 _STEPS = np.array([10, 20, 40, 80, 160])
 _ACCURACY = 1 - 0.9 * _STEPS.astype(float) ** -0.35
@@ -33,39 +36,39 @@ def _judge(*targets: tuple[str, float], output: SufficiencyOutput | None = None,
     return finding
 
 
-def _fields(block: Any) -> dict[str, Any]:
-    return dict(block.blocks[0].items)
+def _rows(finding: Any) -> list[dict[str, Any]]:
+    """The targets table's rows: its target, whether it is reached, and where the curve reaches it."""
+    return finding.blocks[-1].rows
+
+
+def _at(finding: Any, index: int = 0) -> str:
+    return _rows(finding)[index]["at"]
 
 
 def test_a_target_reached_at_the_largest_size_is_ok() -> None:
     finding = _judge(("accuracy", 0.8))
     assert (finding.severity, finding.title) == ("ok", "Performance Sufficiency")
     assert finding.brief == "1 of 1 targets reached at 160 items"
-    (block,) = finding.blocks
-    assert (block.title, block.brief) == ("`accuracy` at least 0.8", "reached")
-    assert _fields(block) == {"At 160 items": 0.8477, "Reached": "yes"}
-    assert "extrapolation" in finding.description
+    assert finding.description is None  # the tables say it all
+    curve, targets = finding.blocks
+    assert [row["size"] for row in curve.rows] == [10, 20, 40, 80, 160]
+    assert [row["value"] for row in curve.rows][-1] == 0.8477
+    assert [(c.kind, c.markers) for c in curve.columns if c.kind == "bar"] == [("bar", [("target", 0.8)])]
+    assert targets.rows == [{"target": "accuracy ≥ 0.8", "reached": "yes", "at": ""}]
 
 
 def test_a_projection_within_the_training_set_informs() -> None:
     finding = _judge(("accuracy", 0.85))
     assert finding.severity == "info"
-    (block,) = finding.blocks
-    assert block.brief == "not reached; about 168 items"
-    assert _fields(block) == {
-        "At 160 items": 0.8477,
-        "Reached": "no",
-        "Projected size": "about 168 items",
-        "Ratio to largest": "1.05",
-    }
+    assert _rows(finding) == [{"target": "accuracy ≥ 0.85", "reached": "no", "at": "~168 items (1.1x)"}]
 
 
 def test_a_projection_past_the_training_set_warns() -> None:
     finding = _judge(("accuracy", 0.8), ("accuracy", 0.9))
     assert finding.severity == "warning"
     assert finding.brief == "1 of 2 targets reached at 160 items"
-    assert _fields(finding.blocks[1])["Projected size"] == "about 533 items"
-    assert _fields(finding.blocks[1])["Ratio to largest"] == "3.33"
+    assert [row["reached"] for row in _rows(finding)] == ["yes", "no"]
+    assert _at(finding, 1) == "~533 items (3.3x)"
     assert _judge(("accuracy", 0.9), training=600).severity == "info"  # 533 items fit a training set of 600
 
 
@@ -73,9 +76,7 @@ def test_a_projection_past_the_training_set_warns() -> None:
 def test_a_target_the_curve_never_reaches_warns(value: float) -> None:
     finding = _judge(("accuracy", value))
     assert finding.severity == "warning"
-    (block,) = finding.blocks
-    assert block.brief == "not reached by the fitted curve"
-    assert "Ratio to largest" not in _fields(block)
+    assert _at(finding).startswith("never (")
 
 
 def test_a_curve_that_falls_as_the_training_set_grows_never_reaches_a_target_above_it() -> None:
@@ -84,14 +85,14 @@ def test_a_curve_that_falls_as_the_training_set_grows_never_reaches_a_target_abo
     assert 0 < int(output.inv_project({"accuracy": [0.55]})["accuracy"][0]) < 160  # where the curve passed 0.55
     finding = _judge(("accuracy", 0.55), output=output)
     assert finding.severity == "warning"
-    assert finding.blocks[0].brief == "not reached by the fitted curve"
+    assert _at(finding) == "never (the curve does not rise)"
 
 
 def test_the_size_is_right_whichever_way_inv_project_rounds(monkeypatch: pytest.MonkeyPatch) -> None:
     """DataEval 1.2.0rc2 gives 167 for 0.85, where the curve is just under it; a later release rounds up to 168."""
     output = _output()
     assert int(output.inv_project({"accuracy": [0.85]})["accuracy"][0]) in (167, 168)
-    assert _fields(_judge(("accuracy", 0.85), output=output).blocks[0])["Projected size"] == "about 168 items"
+    assert _at(_judge(("accuracy", 0.85), output=output)) == "~168 items (1.1x)"
     rounded_down = output.inv_project
 
     def rounded_up(targets: Any, n_iter: int = 1000) -> Any:
@@ -99,7 +100,7 @@ def test_the_size_is_right_whichever_way_inv_project_rounds(monkeypatch: pytest.
         return frame.with_columns(frame["accuracy"] + (frame["accuracy"] == 167))
 
     monkeypatch.setattr(output, "inv_project", rounded_up)
-    assert _fields(_judge(("accuracy", 0.85), output=output).blocks[0])["Projected size"] == "about 168 items"
+    assert _at(_judge(("accuracy", 0.85), output=output)) == "~168 items (1.1x)"
 
 
 def test_a_per_class_metric_is_not_assessed() -> None:
@@ -108,7 +109,8 @@ def test_a_per_class_metric_is_not_assessed() -> None:
     finding = _judge(("accuracy", 0.8), ("recall", 0.5), output=output)
     assert finding.severity == "info"  # not assessed is never a pass
     assert finding.brief == "1 of 1 targets reached at 160 items, 1 not assessed"
-    assert finding.blocks[1].brief == "not assessed: a per-class metric"
+    assert _rows(finding)[1] == {"target": "recall ≥ 0.5", "reached": "n/a", "at": "not assessed: a per-class metric"}
+    assert len([block for block in finding.blocks if isinstance(block, Table)]) == 2  # a curve for accuracy alone
     with pytest.raises(StepSkipped, match=r"every target names a per-class metric \(recall\)"):
         _judge(("recall", 0.5), output=output)
 
@@ -121,3 +123,23 @@ def test_a_metric_the_run_did_not_measure_is_an_error_listing_those_it_did() -> 
 def test_a_check_needs_a_target() -> None:
     with pytest.raises(ValidationError, match="at least 1 item"):
         PerformanceSufficiencyConfig(input="s", targets=[])
+
+
+def test_each_metric_the_targets_name_gets_its_own_curve() -> None:
+    output = _output(f1=_ACCURACY[None, :] * 0.5)
+    finding = _judge(("accuracy", 0.8), ("f1", 0.3), ("accuracy", 0.9), output=output)
+    first, second, targets = finding.blocks
+    assert [c.header for c in first.columns][1] == "accuracy"
+    assert [c.header for c in second.columns][1] == "f1"
+    assert [c.markers for c in first.columns if c.kind == "bar"] == [[("target", 0.8), ("target", 0.9)]]
+    assert [row["target"] for row in targets.rows] == ["accuracy ≥ 0.8", "f1 ≥ 0.3", "accuracy ≥ 0.9"]
+
+
+def test_the_finding_is_a_curve_and_a_row_per_target() -> None:
+    """Five sizes and three targets: the banner, the curve with its legend, and the targets, in 17 lines."""
+    finding = _judge(("accuracy", 0.8), ("accuracy", 0.9), ("accuracy", 1.0))
+    text = render_text([finding_section(finding)], Frame(indent="  ", depth=1))
+    assert len(text) == 17, "\n".join(text)
+    assert any("(0.8)|" in line and line.rstrip().endswith("(1)") for line in text), "\n".join(text)
+    assert any(line.strip().endswith("~533 items (3.3x)") for line in text)
+    assert any(line.strip().endswith("never (levels off near 1.000)") for line in text)

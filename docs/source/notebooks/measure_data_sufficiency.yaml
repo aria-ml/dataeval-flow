@@ -1,0 +1,43 @@
+# Mirrors the configuration in measure_data_sufficiency.py
+# All paths are relative to the data root (docs/source/notebooks/)
+#
+# You can execute this workflow with `dataeval-flow --config measure_data_sufficiency.yaml --output ./output`,
+# once the notebook has put the model under models/ and the trainer under trainers/.
+#
+# yaml-language-server: $schema=../../../config/params.schema.json
+
+datasets:
+  - {name: vehicles_train, format: image_folder, path: data/militaryvehicles/train_fine, infer_labels: true}
+  - {name: vehicles_test, format: image_folder, path: data/militaryvehicles/test_fine, infer_labels: true}
+
+sources:
+  - {name: train, dataset: vehicles_train}
+  - {name: test, dataset: vehicles_test}
+
+evaluators:
+  - name: sufficiency
+    type: sufficiency
+    schedule: [100, 300, 800, 1600, 3200]
+    trainer:
+      path: trainers/backbone.py
+      class: BackboneTrainer
+      params: {weights: models/resnet18.onnx}
+
+workflows:
+  - name: how_much_data
+    inputs: [train, test]
+    steps:
+      - {name: measured, evaluator: sufficiency, input: [train, test]}
+      - name: target
+        check: performance-sufficiency
+        input: measured
+        targets:
+          - {metric: accuracy, value: 0.27}
+          - {metric: accuracy, value: 0.29}
+          - {metric: accuracy, value: 0.30}
+          - {metric: accuracy, value: 0.35}
+
+tasks:
+  - {name: sufficiency, workflow: how_much_data, sources: [train, test]}
+
+seed: 0

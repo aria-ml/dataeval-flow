@@ -14,7 +14,7 @@
     set, and set where the training set has under 100 items
   - `performance-sufficiency` reads each `{metric, value}` target at the largest size measured, and where it is not
     reached, the size the fitted curve projects; it warns where that is past the training set or never comes
-  - A how-to, "Measure how much training data a model needs", mounts a trainer and reads the check
+  - A tutorial, "Measure how much training data a model needs", mounts a trainer, runs the chain, and reads the report
 - Preset decomposition: a preset entry copied, or one of its steps inlined, into a custom workflow an editor can change
   - `POST /v1/presets/decompose` prepares a whole candidate pipeline copying a preset entry into a custom workflow,
     or answers `unsupported` with located reasons; `features.preset_decomposition: 1`

@@ -49,6 +49,8 @@ exclude_patterns = [
     ".jupyter_cache",
     ".ipython",
     "notebooks/*.ipynb",
+    # The trainer the sufficiency tutorial writes into its data root: a `.py` file that is not a notebook
+    "notebooks/trainers",
     "cache",
     "data",
     "models",

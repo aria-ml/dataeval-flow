@@ -141,7 +141,7 @@ whether each metric reaches its target and how much data it would take. The trai
 data root's `trainers/` folder.
 
 - **Preset:** none; chain the steps in a [workflow of your own](../how_to/write_a_custom_workflow.md), as
-  [Measure how much training data a model needs](../how_to/measure_data_sufficiency.md) does
+  {doc}`Measure how much training data a model needs <../notebooks/measure_data_sufficiency>` does
 - **Evaluators:** [`sufficiency`](evaluators.md#sufficiency)
 - **Checks:** [`performance-sufficiency`](checks.md#performance-sufficiency)
 
