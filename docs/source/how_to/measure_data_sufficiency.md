@@ -1,7 +1,7 @@
 # Measure how much training data a model needs
 
 The `sufficiency` evaluator trains your model on growing subsets of a training set, scores it on a test set at each
-size, and fits a curve to the scores. The `sufficiency-target` check reads that curve: whether a metric reached your
+size, and fits a curve to the scores. The `performance-sufficiency` check reads that curve: whether a metric reached your
 target, and if not, about how much data the curve says it would take. Your training code is a trainer file in the
 data root's `trainers/` folder, which Flow loads when the run starts. Both steps are experimental.
 
@@ -77,7 +77,7 @@ workflows:
     steps:
       - {name: measured, evaluator: sufficiency, input: [train, test]}
       - name: target
-        check: sufficiency-target
+        check: performance-sufficiency
         input: measured
         targets:
           - {metric: accuracy, value: 0.25}
@@ -172,6 +172,6 @@ fails the step, listing the metrics it did.
 ## Next steps
 
 - [`sufficiency`](../reference/evaluators.md#sufficiency) and
-  [`sufficiency-target`](../reference/checks.md#sufficiency-target) list every setting.
+  [`performance-sufficiency`](../reference/checks.md#performance-sufficiency) list every setting.
 - [Chain steps into a workflow of your own](write_a_custom_workflow.md) explains the workflow's parts.
 - [Run workflows in containers](containerized_workflows.md) covers the mounts and the variants.

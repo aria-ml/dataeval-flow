@@ -179,7 +179,7 @@ def test_a_chain_step_records_the_trainer_and_its_check_judges_the_output(root: 
                     {"name": "measured", "evaluator": "suff", "input": ["train", "test"]},
                     {
                         "name": "target",
-                        "check": "sufficiency-target",
+                        "check": "performance-sufficiency",
                         "input": "measured",
                         "targets": [{"metric": "accuracy", "value": 0.0}],
                     },
@@ -194,7 +194,7 @@ def test_a_chain_step_records_the_trainer_and_its_check_judges_the_output(root: 
     step = cast("dict[str, Any]", result.to_dict()["steps"])["measured"]
     assert step["output"]["extras"]["trainer"]["sha256"] == DIGEST
     (finding,) = result.findings
-    assert (finding.title, finding.severity) == ("Sufficiency Target", "ok")
+    assert (finding.title, finding.severity) == ("Performance Sufficiency", "ok")
     assert finding.brief == "1 of 1 targets reached at 120 items"
 
 

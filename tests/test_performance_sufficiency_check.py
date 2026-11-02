@@ -1,4 +1,4 @@
-"""The `sufficiency-target` check: each target read at the largest size measured, and the size the curve projects.
+"""The `performance-sufficiency` check: each target read at the largest size measured, and the size the curve projects.
 
 The outputs are an exact power law, ``accuracy = 1 - 0.9 n^-0.35``, measured at 10, 20, 40, 80 and 160 items, which
 DataEval's fit recovers (scale 0.9, exponent 0.35, asymptote 0, to six places). At 160 items the accuracy is 0.8477.
@@ -15,7 +15,7 @@ from dataeval.performance import SufficiencyOutput
 from pydantic import ValidationError
 
 from dataeval_flow.steps import CheckContext, StepSkipped
-from dataeval_flow.steps.checks import SufficiencyTarget, SufficiencyTargetCheck, SufficiencyTargetConfig
+from dataeval_flow.steps.checks import PerformanceSufficiencyCheck, PerformanceSufficiencyConfig, SufficiencyTarget
 
 _STEPS = np.array([10, 20, 40, 80, 160])
 _ACCURACY = 1 - 0.9 * _STEPS.astype(float) ** -0.35
@@ -28,8 +28,8 @@ def _output(**measures: Any) -> SufficiencyOutput:
 
 def _judge(*targets: tuple[str, float], output: SufficiencyOutput | None = None, training: int = 200) -> Any:
     node = SimpleNamespace(value=output or _output(), computed_on=(SimpleNamespace(value=range(training)),))
-    config = SufficiencyTargetConfig(input="s", targets=[SufficiencyTarget(metric=m, value=v) for m, v in targets])
-    (finding,) = SufficiencyTargetCheck().run(config, {"input": node}, CheckContext("t", "s"))
+    config = PerformanceSufficiencyConfig(input="s", targets=[SufficiencyTarget(metric=m, value=v) for m, v in targets])
+    (finding,) = PerformanceSufficiencyCheck().run(config, {"input": node}, CheckContext("t", "s"))
     return finding
 
 
@@ -39,7 +39,7 @@ def _fields(block: Any) -> dict[str, Any]:
 
 def test_a_target_reached_at_the_largest_size_is_ok() -> None:
     finding = _judge(("accuracy", 0.8))
-    assert (finding.severity, finding.title) == ("ok", "Sufficiency Target")
+    assert (finding.severity, finding.title) == ("ok", "Performance Sufficiency")
     assert finding.brief == "1 of 1 targets reached at 160 items"
     (block,) = finding.blocks
     assert (block.title, block.brief) == ("`accuracy` at least 0.8", "reached")
@@ -120,4 +120,4 @@ def test_a_metric_the_run_did_not_measure_is_an_error_listing_those_it_did() -> 
 
 def test_a_check_needs_a_target() -> None:
     with pytest.raises(ValidationError, match="at least 1 item"):
-        SufficiencyTargetConfig(input="s", targets=[])
+        PerformanceSufficiencyConfig(input="s", targets=[])

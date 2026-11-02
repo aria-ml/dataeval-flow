@@ -1074,7 +1074,7 @@ the run with a message saying so.
 | `unit_interval` | `unit_interval`: whether the metrics lie on [0, 1], which bounds the curve | DataEval's default (`true`) |
 | `schedule` | `schedule` of `evaluate`: the sizes to measure, strictly increasing, none past the training set | the default schedule, for a training set of at least 100 items |
 
-- **Judged by:** [`sufficiency-target`](checks.md#sufficiency-target)
+- **Judged by:** [`performance-sufficiency`](checks.md#performance-sufficiency)
 - **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
 
 ```yaml

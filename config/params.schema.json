@@ -2577,6 +2577,74 @@
       "title": "CheckStep_ood-agreement",
       "type": "object"
     },
+    "CheckStep_performance-sufficiency": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "description": "A `sufficiency` Output.",
+          "title": "Input",
+          "type": "string"
+        },
+        "targets": {
+          "description": "Each metric's target, as `{metric, value}`; higher is better. A metric the run did not measure is an error, and a per-class metric is not assessed.",
+          "items": {
+            "$ref": "#/$defs/SufficiencyTarget"
+          },
+          "minItems": 1,
+          "title": "Targets",
+          "type": "array"
+        },
+        "check": {
+          "const": "performance-sufficiency",
+          "description": "`performance-sufficiency`: Judges `sufficiency`'s output: warns when a metric's target is not reached at the largest size measured and the fitted curve needs more data than the training set holds, or never reaches it.",
+          "title": "Check",
+          "type": "string"
+        },
+        "name": {
+          "description": "The step's name, which is the address of its output.",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether a failure is recorded as a skip that does not fail the task.",
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "pairs": {
+          "default": false,
+          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
+          "title": "Pairs",
+          "type": "boolean"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "enum": [
+                "class",
+                "predicted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
+          "title": "By"
+        }
+      },
+      "required": [
+        "input",
+        "targets",
+        "check",
+        "name"
+      ],
+      "title": "CheckStep_performance-sufficiency",
+      "type": "object"
+    },
     "CheckStep_shortcut-risk": {
       "additionalProperties": false,
       "properties": {
@@ -2648,74 +2716,6 @@
         "name"
       ],
       "title": "CheckStep_shortcut-risk",
-      "type": "object"
-    },
-    "CheckStep_sufficiency-target": {
-      "additionalProperties": false,
-      "properties": {
-        "input": {
-          "description": "A `sufficiency` Output.",
-          "title": "Input",
-          "type": "string"
-        },
-        "targets": {
-          "description": "Each metric's target, as `{metric, value}`; higher is better. A metric the run did not measure is an error, and a per-class metric is not assessed.",
-          "items": {
-            "$ref": "#/$defs/SufficiencyTarget"
-          },
-          "minItems": 1,
-          "title": "Targets",
-          "type": "array"
-        },
-        "check": {
-          "const": "sufficiency-target",
-          "description": "`sufficiency-target`: Judges `sufficiency`'s output: warns when a metric's target is not reached at the largest size measured and the fitted curve needs more data than the training set holds, or never reaches it.",
-          "title": "Check",
-          "type": "string"
-        },
-        "name": {
-          "description": "The step's name, which is the address of its output.",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$",
-          "title": "Name",
-          "type": "string"
-        },
-        "optional": {
-          "default": false,
-          "description": "Whether a failure is recorded as a skip that does not fail the task.",
-          "title": "Optional",
-          "type": "boolean"
-        },
-        "pairs": {
-          "default": false,
-          "description": "Run once per unordered pair of the elements of the one list `input` names, in list order, keyed `a_vs_b`: for a step that reads two Datasets through one input.",
-          "title": "Pairs",
-          "type": "boolean"
-        },
-        "by": {
-          "anyOf": [
-            {
-              "enum": [
-                "class",
-                "predicted"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Run this evaluate step or check once per key inside one Output: `class`, `predicted`, or with settings, `{class: {groups: ..., min_items: ...}}`.",
-          "title": "By"
-        }
-      },
-      "required": [
-        "input",
-        "targets",
-        "check",
-        "name"
-      ],
-      "title": "CheckStep_sufficiency-target",
       "type": "object"
     },
     "CheckStep_target-outliers": {
@@ -4413,10 +4413,10 @@
                 "$ref": "#/$defs/CheckStep_ood-agreement"
               },
               {
-                "$ref": "#/$defs/CheckStep_shortcut-risk"
+                "$ref": "#/$defs/CheckStep_performance-sufficiency"
               },
               {
-                "$ref": "#/$defs/CheckStep_sufficiency-target"
+                "$ref": "#/$defs/CheckStep_shortcut-risk"
               },
               {
                 "$ref": "#/$defs/CheckStep_target-outliers"
