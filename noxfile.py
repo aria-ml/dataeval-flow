@@ -28,6 +28,12 @@ def available_cpus(cgroup: Path = Path("/sys/fs/cgroup")) -> int:
 
 # pytest-xdist workers: TEST_WORKERS (default 4), never more than the CPUs the container may use.
 TEST_WORKERS = min(int(os.environ.get("TEST_WORKERS") or 4), available_cpus())
+# BLAS, OpenMP and joblib size their thread pools from every core on the node, not the container's CPU quota, so each
+# xdist worker spawns a node-sized pool that the quota then throttles: a scipy fit that takes 1s runs 60x slower in CI.
+# The tests are small, so one thread per worker loses nothing.
+SINGLE_THREADED = dict.fromkeys(
+    ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "LOKY_MAX_CPU_COUNT"), "1"
+)
 
 nox.options.default_venv_backend = "uv"
 nox.options.reuse_venv = "always"
@@ -224,6 +230,7 @@ def test(session: nox.Session) -> None:
         f"--cov-report=html:output/htmlcov.{py}",
         "--cov-fail-under=90",
         f"--junitxml=output/junit.{py}.xml",
+        env=SINGLE_THREADED,
     )
     session.run("mv", ".coverage", f"output/.coverage.{py}", external=True)
 
@@ -265,7 +272,16 @@ def deps(session: nox.Session) -> None:
     """
     session.run_install("uv", "pip", "install", "--quiet", ".[cpu]", "--resolution=lowest-direct")
     session.run_install("uv", "pip", "install", "--quiet", "pytest", "pytest-asyncio", "pytest-xdist")
-    session.run("pytest", "-q", "-m", "not optional", "--ignore=tests/app", f"-n{TEST_WORKERS}", "--dist=loadscope")
+    session.run(
+        "pytest",
+        "-q",
+        "-m",
+        "not optional",
+        "--ignore=tests/app",
+        f"-n{TEST_WORKERS}",
+        "--dist=loadscope",
+        env=SINGLE_THREADED,
+    )
 
 
 @nox_uv.session(uv_only_groups=["docs"], uv_no_install_project=True)
@@ -545,4 +561,5 @@ def docker_smoke(session: nox.Session) -> None:
         f"-n{TEST_WORKERS}",
         "--dist=loadscope",
         "-x",
+        env=SINGLE_THREADED,
     )
