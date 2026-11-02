@@ -54,6 +54,22 @@
 # - Ensure network access for the initial dataset download.
 
 # %% [markdown]
+# ## Lay out the data root
+#
+# The data root is the folder you run this notebook from. After a first run it holds:
+#
+# ```text
+# project/
+# ├── data/
+# │   ├── militaryvehicles/                    # downloaded on the first run (~141 MB); the export is made from it
+# │   └── militaryvehicles_datamaite_train/    # exported on the first run; read: the config points at its train/
+# └── cache/                                   # written: statistics, embeddings and clusters, shared by all nine runs
+# ```
+#
+# The config's dataset path, `data/militaryvehicles_datamaite_train/train`, is relative to the data root. It ends in
+# `train/` because the export nests its images under the split name.
+
+# %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]

@@ -56,6 +56,24 @@
 # - Ensure network access for the initial dataset download.
 
 # %% [markdown]
+# ## Lay out the data root
+#
+# The data root is the folder you run this notebook from. After a first run it holds:
+#
+# ```text
+# project/
+# ├── data/
+# │   ├── militaryvehicles/                    # downloaded on the first run; the export is made from it
+# │   └── militaryvehicles_datamaite_train/    # exported on the first run; read: both pools are views of it
+# ├── models/
+# │   └── vehiclenet.pt                        # written in step 1: the trained classifier; read back by the extractor
+# └── cache/                                   # written: embeddings and image statistics, reused on a re-run
+# ```
+#
+# The config's `model_path`, `models/vehiclenet.pt`, is relative to the data root. The ResNet-18 weights the
+# classifier starts from download the first time into torchvision's own cache, outside this folder.
+
+# %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]

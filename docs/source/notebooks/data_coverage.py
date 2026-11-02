@@ -63,6 +63,22 @@
 # - Ensure network access for the initial dataset download.
 
 # %% [markdown]
+# ## Lay out the data root
+#
+# The data root is the folder you run this notebook from. After a first run it holds:
+#
+# ```text
+# project/
+# ├── data/
+# │   ├── militaryvehicles/                    # downloaded on the first run; the export is made from it
+# │   └── militaryvehicles_datamaite_train/    # exported on the first run; read: its images sit under train/
+# └── cache/                                   # written: image statistics and embeddings, reused on a re-run
+# ```
+#
+# The notebook loads the export in Python and hands the pipeline the dataset in memory, so no configuration path
+# points at it.
+
+# %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]
