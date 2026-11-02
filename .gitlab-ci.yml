@@ -383,6 +383,8 @@ install:conda:
 docs:preview:
   extends: [.nox, .aria_rules_mr_only]
   stage: publish
+  # The default small runner OOM-kills the build while the notebooks execute.
+  tags: [k8s-single-gpu]
   cache:
     - key:
         files:
