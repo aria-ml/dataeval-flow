@@ -182,6 +182,9 @@ url = "https://download.pytorch.org/whl/cu130"
 explicit = true
 
 [tool.uv.sources]
+# TEMPORARY: DataEval main at b1895dd5d, which adds Sufficiency's `progress_callback`. Drop this entry and raise the
+# floor in `dependencies` to the release that ships it (1.2.0rc3 or later) before this merges.
+dataeval = { git = "https://github.com/aria-ml/dataeval.git", rev = "b1895dd5d95d71b598048fb5dcbb00259aaa2e79" }
 torch = [
   { index = "pytorch-cpu", extra = "cpu" },
   { index = "pytorch-cu126", extra = "cu126" },

@@ -2,10 +2,12 @@
 
 __all__ = ["SufficiencyEvaluator"]
 
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
+import numpy as np
 from dataeval.performance import Sufficiency, SufficiencyOutput
 
 from dataeval_flow._input_spec import InputKind
@@ -14,8 +16,32 @@ from dataeval_flow.evaluators._fields import dataeval_arguments, require
 from dataeval_flow.evaluators._inputs import EvaluatorInputs
 from dataeval_flow.evaluators.performance._config import SufficiencyConfig
 
+_logger: logging.Logger = logging.getLogger(__name__)
+
 # DataEval's default schedule starts at 1% of the training set, so a smaller one has a first size of 0 items.
 _DEFAULT_SCHEDULE_FLOOR = 100
+
+
+def _log_progress(
+    step: int,
+    *,
+    total: int | None = None,
+    desc: str | None = None,  # noqa: ARG001
+    extra_info: Mapping[str, Any] | None = None,
+) -> None:
+    """Log a line for each training size DataEval measures. A size can train for minutes, and the line is the only sign
+    of life in a service run's logs, which run at INFO. Metrics that are not single numbers stay in the output."""
+    info = extra_info or {}
+    metrics = ", ".join(f"{name}={value:.4g}" for name, value in info.get("metrics", {}).items() if np.ndim(value) == 0)
+    _logger.info(
+        "Sufficiency %d/%s: run %d of %d, %d items%s",
+        step,
+        total,
+        info["run"] + 1,
+        info["runs"],
+        info["size"],
+        f", {metrics}" if metrics else "",
+    )
 
 
 @dataclass(repr=False)
@@ -67,7 +93,7 @@ class SufficiencyEvaluator(Evaluator[SufficiencyConfig, SufficiencyOutput]):
                 reset_strategy=kit.reset_strategy,
                 **arguments,
             )
-            measured = sufficiency.evaluate(train_data, test_data, schedule=schedule)
+            measured = sufficiency.evaluate(train_data, test_data, schedule=schedule, progress_callback=_log_progress)
         output = _TrainedSufficiencyOutput(
             steps=measured.steps,
             measures=measured.measures,
