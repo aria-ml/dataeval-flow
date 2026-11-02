@@ -48,7 +48,7 @@ example assumes the pipeline defines
 | `ood` | `input`: an OOD evaluator's Output | one finding: the images flagged of those assessed |
 | `ood-agreement` | `input`: an `ood-union` Output | OOD Agreement: the share every detector flagged, and the images one alone flagged |
 | `factor-issues` | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
-| `sufficiency-target` (experimental) | `input`: a `sufficiency` Output | Sufficiency Target, with a section per target |
+| `performance-sufficiency` (experimental) | `input`: a `sufficiency` Output | Performance Sufficiency, with a section per target |
 
 ## How thresholds work
 
@@ -1055,13 +1055,13 @@ workflows:
 
 ## How much training data does the model need?
 
-### `sufficiency-target`
+### `performance-sufficiency`
 
 Judges `sufficiency`'s output: warns when a metric's target is not reached at the largest size measured and the
 fitted curve needs more data than the training set holds, or never reaches it.
 
 :::{note}
-`sufficiency-target` is experimental: it may change or be removed in any release without a deprecation cycle, as the
+`performance-sufficiency` is experimental: it may change or be removed in any release without a deprecation cycle, as the
 `sufficiency` Output it judges may. The first run in a process to use it warns with `ExperimentalWarning`.
 :::
 
@@ -1082,11 +1082,11 @@ measure fails the step, listing the metrics it did. A metric where lower is bett
 scope.
 
 - **Reads:** `input`, a `sufficiency` Output, and the size of the training set it was computed on.
-- **Makes:** a finding titled Sufficiency Target, briefed with how many targets were reached, with a section per
+- **Makes:** a finding titled Performance Sufficiency, briefed with how many targets were reached, with a section per
   target: the value at the largest size measured, whether it is reached, and where not, the projected size and its
   ratio to the largest size measured.
 
-**Settings** ({py:class}`~dataeval_flow.steps.checks.SufficiencyTargetConfig`):
+**Settings** ({py:class}`~dataeval_flow.steps.checks.PerformanceSufficiencyConfig`):
 
 | Field | Takes | Default | Description |
 | --- | --- | --- | --- |
@@ -1107,5 +1107,5 @@ workflows:
     inputs: [train, test]
     steps:
       - {name: sufficiency, evaluator: sufficiency, input: [train, test]}
-      - {name: target, check: sufficiency-target, input: sufficiency, targets: [{metric: accuracy, value: 0.9}]}
+      - {name: target, check: performance-sufficiency, input: sufficiency, targets: [{metric: accuracy, value: 0.9}]}
 ```

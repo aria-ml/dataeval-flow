@@ -81,7 +81,7 @@ def test_the_catalog_marks_parity_sufficiency_and_the_checks_judging_them() -> N
         ("evaluator", "parity"),
         ("check", "factor-parity"),
         ("evaluator", "sufficiency"),
-        ("check", "sufficiency-target"),
+        ("check", "performance-sufficiency"),
     }
 
 

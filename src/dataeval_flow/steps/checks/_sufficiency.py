@@ -1,7 +1,7 @@
-"""The `sufficiency-target` check: whether a model reached each metric's target, and how much data the fitted curve says
-it would take."""
+"""The `performance-sufficiency` check: whether a model reached each metric's target, and how much data the fitted
+curve says it would take."""
 
-__all__ = ["SufficiencyTarget", "SufficiencyTargetCheck", "SufficiencyTargetConfig"]
+__all__ = ["SufficiencyTarget", "PerformanceSufficiencyCheck", "PerformanceSufficiencyConfig"]
 
 from collections.abc import Mapping
 from typing import Any, ClassVar
@@ -26,8 +26,8 @@ class SufficiencyTarget(BaseModel):
     value: float = Field(description="The value the metric should reach or pass; higher is better.")
 
 
-class SufficiencyTargetConfig(CheckConfig):
-    """A `sufficiency-target` step's input, and the target each metric should reach."""
+class PerformanceSufficiencyConfig(CheckConfig):
+    """A `performance-sufficiency` step's input, and the target each metric should reach."""
 
     input: str = Field(description="A `sufficiency` Output.")
     targets: list[SufficiencyTarget] = Field(
@@ -39,20 +39,25 @@ class SufficiencyTargetConfig(CheckConfig):
     )
 
 
-class SufficiencyTargetCheck(Check[SufficiencyTargetConfig]):
-    """``sufficiency-target``: whether each metric reached its target at the largest training-set size measured, and,
-    where not, the size the fitted curve projects for it (DataEval's ``inv_project``)."""
+class PerformanceSufficiencyCheck(Check[PerformanceSufficiencyConfig]):
+    """``performance-sufficiency``: whether each metric reached its target at the largest training-set size measured,
+    and, where not, the size the fitted curve projects for it (DataEval's ``inv_project``)."""
 
-    name: ClassVar[str] = "sufficiency-target"
+    name: ClassVar[str] = "performance-sufficiency"
     description: ClassVar[str] = (
         "Judges `sufficiency`'s output: warns when a metric's target is not reached at the largest size measured and "
         "the fitted curve needs more data than the training set holds, or never reaches it."
     )
     experimental: ClassVar[bool] = True  # judges `sufficiency`, which is experimental
-    title: ClassVar[str] = "Sufficiency Target"
+    title: ClassVar[str] = "Performance Sufficiency"
     inputs: ClassVar[tuple[Port, ...]] = (Port("input", DataType.OUTPUT, classes=(SufficiencyOutput,)),)
 
-    def run(self, config: SufficiencyTargetConfig, inputs: Mapping[str, Any], context: CheckContext) -> list[Finding]:  # noqa: ARG002
+    def run(
+        self,
+        config: PerformanceSufficiencyConfig,
+        inputs: Mapping[str, Any],
+        context: CheckContext,  # noqa: ARG002
+    ) -> list[Finding]:
         """A block per target: its value at the largest size measured, whether it is reached, and where not, the size
         the curve projects and its ratio to that largest size.
 

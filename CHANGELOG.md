@@ -4,7 +4,7 @@
 
 ### Added
 
-- `sufficiency` evaluator and `sufficiency-target` check, both experimental: how much training data a model needs
+- `sufficiency` evaluator and `performance-sufficiency` check, both experimental: how much training data a model needs
   - `sufficiency` runs DataEval's `Sufficiency` on two sources, by position: the training set, then the test set
   - Your training code is a `Trainer` subclass in a Python file under the data root's `trainers/` folder, named by
     the entry's `trainer: {path, class, params}` and loaded only when the run starts
@@ -12,7 +12,7 @@
   - The result records the trainer's `path`, `class` and `sha256`, and the fitted curve's `params`, under `extras`
   - Flow checks the schedule DataEval does not: strictly increasing, not with `substeps`, no size past the training
     set, and set where the training set has under 100 items
-  - `sufficiency-target` reads each `{metric, value}` target at the largest size measured, and where it is not
+  - `performance-sufficiency` reads each `{metric, value}` target at the largest size measured, and where it is not
     reached, the size the fitted curve projects; it warns where that is past the training set or never comes
   - A how-to, "Measure how much training data a model needs", mounts a trainer and reads the check
 - Preset decomposition: a preset entry copied, or one of its steps inlined, into a custom workflow an editor can change

@@ -256,11 +256,11 @@ dataeval_flow.steps.checks:OODConfig
 dataeval_flow.steps.checks:OODThresholds
 dataeval_flow.steps.checks:OntologyStructureCheck
 dataeval_flow.steps.checks:OntologyStructureConfig
+dataeval_flow.steps.checks:PerformanceSufficiencyCheck
+dataeval_flow.steps.checks:PerformanceSufficiencyConfig
 dataeval_flow.steps.checks:ShortcutRiskCheck
 dataeval_flow.steps.checks:ShortcutRiskConfig
 dataeval_flow.steps.checks:SufficiencyTarget
-dataeval_flow.steps.checks:SufficiencyTargetCheck
-dataeval_flow.steps.checks:SufficiencyTargetConfig
 dataeval_flow.steps.checks:TargetOutliersCheck
 dataeval_flow.steps.checks:TargetOutliersConfig
 dataeval_flow.steps.checks:UncoveredItemsCheck

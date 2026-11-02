@@ -243,6 +243,11 @@ Output
     {term}`check<Check>` reads. An Output judges nothing; the check's {term}`findings<Finding>` do. See the
     [Evaluator Catalog](evaluators.md).
 
+Performance Target
+    A value a model's metric should reach, such as 0.9 accuracy: what `performance-sufficiency` reads off a
+    `sufficiency` learning curve, set in its `targets:`. Not an annotated object (a detection or a track), which is a
+    *target* in the sense of `target-outliers` and the item or target level.
+
 Pipeline
     The full sequence executed in a single DataEval Flow run: one or more
     {term}`sources<Source>` flow through {term}`preprocessing<Preprocessor>` and

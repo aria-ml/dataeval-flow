@@ -74,7 +74,7 @@ class SufficiencyEvaluator(Evaluator[SufficiencyConfig, SufficiencyOutput]):
         """Check the schedule against the training set, load the trainer, and measure; the trainer is unloaded after.
 
         The power law is fitted once, when the output is serialized, so ``extras.params`` holds the parameters the
-        ``sufficiency-target`` check projects from.
+        ``performance-sufficiency`` check projects from.
         """
         from dataeval_flow.config._loader import running_data_dir
         from dataeval_flow.evaluators.performance._trainer import load_trainer
