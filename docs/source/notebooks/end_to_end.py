@@ -69,6 +69,26 @@
 # - Install Docker if you plan to run the containerized execution section.
 
 # %% [markdown]
+# ## Lay out the data root
+#
+# The data root is the folder you run this notebook from. After a first run it holds:
+#
+# ```text
+# project/
+# ├── end_to_end.yaml                    # read: the pipeline, loaded in step 3 and run in step 4
+# ├── data/
+# │   ├── skysealand/                    # downloaded on the first run; the exports are made from it
+# │   ├── skysealand_datamaite_train/    # exported on the first run; read: the train split
+# │   └── skysealand_datamaite_test/     # exported on the first run; read: the test split
+# ├── cache/                             # written: embeddings and image statistics, reused on a re-run
+# └── output/end_to_end/                 # written in step 6: one .json result and one .html report per task
+# ```
+#
+# The dataset paths in `end_to_end.yaml` are relative to the data root, so `data/skysealand_datamaite_train` finds
+# the export. Step 7 copies the YAML file and the two exports into a fresh root and mounts it read-only in the
+# container, which writes to `/output` and `/cache`.
+
+# %% [markdown]
 # ## Step 1: Load the dataset
 #
 # [SkySeaLand](https://www.kaggle.com/datasets/mdzahidhasanriad/skysealand) is an overhead

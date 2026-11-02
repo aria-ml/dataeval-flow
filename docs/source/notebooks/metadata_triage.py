@@ -64,6 +64,20 @@
 # ```
 
 # %% [markdown]
+# ## Lay out the data root
+#
+# The data root is the folder you run this notebook from. This notebook touches one folder in it:
+#
+# ```text
+# project/
+# └── data/
+#     └── seadrone/    # downloaded on the first run (~1.2 GB, validation split); read in memory
+# ```
+#
+# SeaDrone reaches the pipeline in memory, so no configuration file or path points at it. The notebook sets no cache
+# or output folder, so nothing else is written.
+
+# %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]

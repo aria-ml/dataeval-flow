@@ -59,6 +59,23 @@
 # - Ensure network access for the initial dataset download.
 
 # %% [markdown]
+# ## Lay out the data root
+#
+# The data root is the folder you run this notebook from. After a first run it holds:
+#
+# ```text
+# project/
+# ├── data/
+# │   ├── milco/                          # downloaded on the first run; both exports are made from it
+# │   ├── milco_datamaite_train/          # exported on the first run; read: the reference (2015, 2017, 2021)
+# │   └── milco_datamaite_operational/    # exported on the first run; read: the incoming data (2010, 2018)
+# └── cache/                              # written: embeddings and image statistics, reused on a re-run
+# ```
+#
+# The config's dataset paths, such as `data/milco_datamaite_train`, are relative to the data root. The notebook also
+# reads `annotations/instances.json` in each export to count frames by year.
+
+# %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]

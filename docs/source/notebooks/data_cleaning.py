@@ -60,6 +60,24 @@
 # - Ensure network access for the initial dataset download (~262 MB).
 
 # %% [markdown]
+# ## Lay out the data root
+#
+# The data root is the folder you run this notebook from. After a first run it holds:
+#
+# ```text
+# project/
+# ├── data_cleaning.yaml                # read by the dataeval-flow command in step 3, not by the notebook's code
+# ├── data/
+# │   ├── skysealand/                   # downloaded on the first run (~262 MB); the export is made from it
+# │   └── skysealand_datamaite_base/    # exported on the first run; read: the COCO export the pipeline loads
+# ├── cache/                            # written: embeddings and image statistics, reused on a re-run
+# └── output/                           # written only by the command: its results and the cleaned dataset
+# ```
+#
+# The notebook builds its pipeline in Python. `data_cleaning.yaml` holds the same pipeline for the command, and its
+# dataset path, `data/skysealand_datamaite_base`, is relative to the data root.
+
+# %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]

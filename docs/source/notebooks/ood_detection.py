@@ -58,6 +58,26 @@
 # - Ensure network access for initial dataset downloads.
 
 # %% [markdown]
+# ## Lay out the data root
+#
+# The data root is the folder you run this notebook from. After a first run it holds:
+#
+# ```text
+# project/
+# ├── data/
+# │   ├── militaryvehicles/                    # downloaded on the first run; the export is made from it
+# │   ├── militaryvehicles_datamaite_train/    # exported on the first run; read: its images sit under train/
+# │   └── ships/                               # downloaded on the first run: satellite images for the incoming data
+# ├── models/
+# │   └── resnet18.pt                          # written on the first run: pretrained ResNet-18; read by the extractor
+# └── cache/                                   # written: embeddings, reused on a re-run
+# ```
+#
+# The notebook hands the pipeline its datasets in memory, so no configuration path points at them. The config's
+# `model_path`, `models/resnet18.pt`, is relative to the data root. Torchvision downloads the weights the first time
+# into its own cache, outside this folder.
+
+# %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]

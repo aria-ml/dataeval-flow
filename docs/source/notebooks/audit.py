@@ -58,6 +58,23 @@
 # - Ensure network access for the initial dataset download (~262 MB).
 
 # %% [markdown]
+# ## Lay out the data root
+#
+# The data root is the folder you run this notebook from. After a first run it holds:
+#
+# ```text
+# project/
+# ├── data/
+# │   ├── skysealand/                    # downloaded on the first run (~262 MB); the three exports are made from it
+# │   ├── skysealand_datamaite_train/    # exported on the first run; read: the train split, the first source
+# │   ├── skysealand_datamaite_val/      # exported on the first run; read: the validation split
+# │   └── skysealand_datamaite_test/     # exported on the first run; read: the test split
+# └── cache/                             # written: embeddings and image statistics, reused on a re-run
+# ```
+#
+# The config's dataset paths, such as `data/skysealand_datamaite_train`, are relative to the data root.
+
+# %% [markdown]
 # ### Step-by-step guide
 
 # %% [markdown]
