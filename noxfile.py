@@ -222,6 +222,7 @@ def test(session: nox.Session) -> None:
     py = python_version(session)
     session.run(
         "pytest",
+        "-q",
         f"-n{TEST_WORKERS}",
         "--dist=loadscope",
         "--cov=src/dataeval_flow",
