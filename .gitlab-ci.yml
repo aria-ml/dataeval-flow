@@ -408,6 +408,8 @@ docs:preview:
 pages:
   extends: [.nox, .rules_main_only]
   stage: publish
+  # The default small runner OOM-kills the build while the notebooks execute.
+  tags: [k8s-single-gpu]
   cache:
     - key:
         files:
