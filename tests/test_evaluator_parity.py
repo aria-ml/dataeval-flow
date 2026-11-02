@@ -48,6 +48,9 @@ _WIRING: dict[str, frozenset[str]] = {
     "ontology-validation": frozenset(),
     # The trainer file builds the model and these three; `trainer` is Flow's field (`FLOW_FIELDS`).
     "sufficiency": frozenset({"training_strategy", "evaluation_strategy", "reset_strategy"}),
+    # Flow's extractor, its batch size and the embeddings it makes come from the task; video classification, which
+    # `max_sequence_length` serves, is not offered. `target` and `allowances` are `evaluate`'s parameters.
+    "feasibility": frozenset({"extractor", "batch_size", "max_sequence_length"}),
 }
 
 # Flow's own evaluators: their settings are Flow's, not a DataEval `Config`'s, so they have no wiring list.

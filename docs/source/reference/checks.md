@@ -49,6 +49,7 @@ example assumes the pipeline defines
 | `ood-agreement` | `input`: an `ood-union` Output | OOD Agreement: the share every detector flagged, and the images one alone flagged |
 | `factor-issues` | `input`: a `factor-triage` Output | one finding per kind of issue, Suggested policy, Verified, Recommended policy |
 | `performance-sufficiency` (experimental) | `input`: a `sufficiency` Output | Performance Sufficiency: a curve per metric, a row per target |
+| `performance-feasibility` (experimental) | `input`: a `feasibility` Output | Performance Feasibility, with a row per target |
 
 ## How thresholds work
 
@@ -1109,4 +1110,71 @@ workflows:
     steps:
       - {name: sufficiency, evaluator: sufficiency, input: [train, test]}
       - {name: target, check: performance-sufficiency, input: sufficiency, targets: [{metric: accuracy, value: 0.9}]}
+```
+
+## Can a model reach this performance target?
+
+### `performance-feasibility`
+
+Judges `feasibility`'s output: warns for each performance target that is not demonstrated reachable, and draws the
+bounds behind every answer.
+
+:::{note}
+`performance-feasibility` is experimental: it may change or be removed in any release without a deprecation cycle, as
+the `feasibility` Output it judges may. The first run in a process to use it warns with `ExperimentalWarning`.
+:::
+
+The finding is `ok` only where every target is `demonstrated_feasible`. Every other answer warns, a ruled-out target
+included, since it holds only under the assumptions recorded with its evidence: the check fails closed under
+`--fail-on-warning`. The targets live on the `feasibility` evaluator, not on the check.
+
+The finding is a table of a row per target, in the order the evaluator was given them: a mark for the answer (`✓`
+demonstrated, `✗` ruled out, `?` insufficient evidence, `~` not ruled out, `!` evidence conflict); the target, such as
+`accuracy ≥ 90%`; a bar of the interval the bounds leave on a scale from 0 to 100% (`█` shown, `░` open, `▒` ruled out);
+and the bounds, `≥42.4%` where only a lower bound was found and `41.6–75.1%` between two. A lower bound is rounded down
+and an upper bound up to 0.1%, as DataEval's printout rounds them, so that rounding never overstates a bound, and an
+upper bound that rules a target out carries `*`. Below the table, a line each gives the key to the marks in use, the
+confidence the bounds hold at together, and the allowances the call assumed; the population (the labeled items, and the
+declared classes with none) follows when it is not simply every item the source holds. The rest stays in the evaluator's
+output: the unrounded bounds, the evidence behind each with its assumptions, and DataEval's whole printout, which
+`str(output)` prints.
+
+Every answer carries one assumption, which DataEval's printout states: no evaluation image was used to train or choose a
+model, or to set a target. Flow cannot check it. Each bound's evidence records the rest, such as that the embeddings
+were fitted without the labels, and any allowances.
+
+What settles a target that is not demonstrated depends on what holds it back, which each row of `determinations`
+records as `limiting_factor`, with DataEval's `recommendation`:
+
+- `?` insufficient evidence: to show it, test a stronger model; to rule it out, get repeated labels or allowances you can
+  justify.
+- `~` not ruled out: nothing rules the target out and no tested model has shown it; test a stronger model.
+- `!` evidence conflict: a tested model's lower bound is above an upper bound, so something assumed is wrong. Trust
+  neither bound until you find it.
+
+- **Reads:** `input`, a `feasibility` Output.
+- **Makes:** a finding titled Performance Feasibility, briefed with how many targets were demonstrated and the others'
+  answers, with the table of targets and the lines under it.
+
+**Settings** ({py:class}`~dataeval_flow.steps.checks.PerformanceFeasibilityConfig`):
+
+| Field | Takes | Default | Description |
+| --- | --- | --- | --- |
+| `input` | an address | required | A `feasibility` Output |
+
+- **Judges:** [`feasibility`](evaluators.md#feasibility)
+- **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
+
+```yaml
+evaluators:
+  - name: feasibility
+    type: feasibility
+    target: {accuracy: 0.9}
+
+workflows:
+  - name: example
+    inputs: [train]
+    steps:
+      - {name: feasibility, evaluator: feasibility, input: train}
+      - {name: reachable, check: performance-feasibility, input: feasibility}
 ```

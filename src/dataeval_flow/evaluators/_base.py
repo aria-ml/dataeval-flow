@@ -49,6 +49,9 @@ class EvaluatorConfig(KindConfig, Generic[R]):
     ``metadata`` may mix in :class:`~dataeval_flow.config.MetadataConfigMixin` to read it under a metadata policy
     the pipeline names.
 
+    Set ``matrix_refusal`` to a reason to have the config load refuse a task's ``matrix:`` that varies anything but
+    ``sources`` where the task reads this evaluator.
+
     A config has no entry point of its own: Flow finds it through its evaluator's ``config_type`` (see
     :class:`Evaluator`).
 
@@ -83,6 +86,12 @@ class EvaluatorConfig(KindConfig, Generic[R]):
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    matrix_refusal: ClassVar[str | None] = None
+    """The reason a task's ``matrix:`` may vary only ``sources`` where this evaluator is read; ``None``, the default,
+    lets it vary any setting. An evaluator sets it when choosing among its runs needs a correction Flow cannot make, as
+    several calls on one population need an error budget shared among them: the config load refuses the matrix,
+    quoting this."""
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:

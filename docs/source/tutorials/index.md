@@ -62,13 +62,15 @@ Assessing and conditioning a dataset before it is used to train or evaluate.
 
 ## Curating and tuning
 
-Deciding what to label next, and choosing the parameters an evaluation runs with.
+Deciding what to label next, whether the data can support a performance target, and choosing the parameters an
+evaluation runs with.
 
 ```{toctree}
 :hidden:
 
 ../notebooks/data_prioritization
 ../notebooks/measure_data_sufficiency
+../notebooks/check_target_feasibility
 ../notebooks/tune_data_cleaning
 ```
 
@@ -81,6 +83,9 @@ Deciding what to label next, and choosing the parameters an evaluation runs with
 - - {doc}`Measure how much training data a model needs <../notebooks/measure_data_sufficiency>`
   - Train a model on growing subsets of a training set, and learn whether more data would reach a target score and how
     much it would take.
+- - {doc}`Check whether a performance target is reachable <../notebooks/check_target_feasibility>`
+  - Ask whether your labeled images show that a model can reach an accuracy you need, and read each answer with the
+    proof and the assumptions it rests on.
 - - {doc}`Tune data cleaning with a matrix <../notebooks/tune_data_cleaning>`
   - Run data cleaning across a grid of thresholds, compare every run's findings in one table, and choose settings.
 

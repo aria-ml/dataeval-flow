@@ -18,7 +18,8 @@ class InputKind(StrEnum):
     values use the names proposed for DataEval's own input protocols.
 
     ``DATASET`` hands over the Dataset itself, after its view, for an evaluator that must read every item as it is,
-    with no cache between them: ``content-digest`` digests each item, and ``sufficiency`` trains a model on them.
+    with no cache between them: ``content-digest`` digests each item, ``sufficiency`` trains a model on them, and
+    ``feasibility`` has DataEval read their labels and find the independent units.
     """
 
     STATS = "stats"

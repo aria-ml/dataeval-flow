@@ -323,7 +323,10 @@ relies on them. The load refuses:
 - the settings of an extractor given as a Python object, not by its settings;
 - a setting the entry does not have: `` quality has no setting `outlier_thresh` ``;
 - the `datasets:`, `sources:`, `views:`, `preprocessors:`, `metadata:`, `stats:` and `ontologies:` pools. An entry's
-  reference to one of them by name can vary, such as a `quality` entry's `stats:`.
+  reference to one of them by name can vary, such as a `quality` entry's `stats:`;
+- anything but `sources`, where the task reads an evaluator that allows only that. `feasibility` does: its runs would
+  be separate calls over the same data, and choosing among them needs `alpha` divided by their number, which Flow cannot
+  know you mean. Separate sources are separate populations, so `sources` may still vary.
 
 ### A key must reach every run
 

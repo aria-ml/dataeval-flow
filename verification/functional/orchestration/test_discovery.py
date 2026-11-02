@@ -42,6 +42,7 @@ EVALUATORS = [
     "factor-leakage",
     "factor-summary",
     "factor-triage",
+    "feasibility",
     "label-alignment",
     "label-health",
     "label-reconciliation",
