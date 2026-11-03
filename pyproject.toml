@@ -18,7 +18,7 @@ classifiers = [
 ]
 dependencies = [
     "click>=8.0",
-    "dataeval>=1.2.0rc2",
+    "dataeval>=1.2.0",
     "datamaite[ic,od]>=0.4.1",
     "maite>=0.9.4,<0.10.0",
     "numpy>=1.24.2",
@@ -53,7 +53,7 @@ onnx-cu130 = [
 opencv = ["opencv-python-headless>=4.8.0,<4.13.0"]  # OpenCV 4.13 and higher are not FIPS compliant
 app = ["textual>=3.0"]
 service = ["fastapi>=0.116", "uvicorn>=0.35"]
-ontology = ["dataeval[ontology]>=1.2.0rc2"]
+ontology = ["dataeval[ontology]>=1.2.0"]
 
 [project.urls]
 Homepage = "https://github.com/aria-ml/dataeval-flow"
@@ -182,9 +182,6 @@ url = "https://download.pytorch.org/whl/cu130"
 explicit = true
 
 [tool.uv.sources]
-# TEMPORARY: DataEval main at b1895dd5d, which adds Sufficiency's `progress_callback`. Drop this entry and raise the
-# floor in `dependencies` to the release that ships it (1.2.0rc3 or later) before this merges.
-dataeval = { git = "https://github.com/aria-ml/dataeval.git", rev = "b1895dd5d95d71b598048fb5dcbb00259aaa2e79" }
 torch = [
   { index = "pytorch-cpu", extra = "cpu" },
   { index = "pytorch-cu126", extra = "cu126" },
@@ -198,7 +195,7 @@ torchvision = [
 
 [tool.pyproject2conda.dependencies]
 datamaite = { pip = true }
-dataeval = { pip = true }  # conda-forge has no DataEval 1.2 prerelease
+dataeval = { pip = true }  # conda-forge has no DataEval 1.2
 
 # --- Build System ---
 

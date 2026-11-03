@@ -197,7 +197,16 @@ _LEFT_OUT = {
         _FRAMES,
     ),
     **dict.fromkeys(
-        ["SequenceFrames", "VideoSegments", "VideoStitch", "SegmentPlanner", "Cuts", "Window", "build_tracks"],
+        [
+            "SequenceFrames",
+            "FrameMetadata",
+            "VideoSegments",
+            "VideoStitch",
+            "SegmentPlanner",
+            "Cuts",
+            "Window",
+            "build_tracks",
+        ],
         _VIDEO,
     ),
     **dict.fromkeys(
