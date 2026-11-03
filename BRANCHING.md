@@ -87,6 +87,15 @@ While not strictly enforced, the following patterns are recommended for clarity:
    A release branch carries patches only, so the script refuses `[feat]`,
    `[major]` and `[depr]` commits there and names them. Land those on `main`.
 
+   Each prerelease turns `## Unreleased` into its own section, holding the changes
+   since the tag before it. The release folds those sections into one, merging
+   their `### Added`, `### Changed`, ... subsections, so its section, and its
+   GitHub Release, lists everything since the last full release.
+
+   A patch release writes its changelog section on its release branch only. The
+   next release cut from `main` copies that section in from the patch's tag, so
+   the changelog on `main` lists every published version, newest first.
+
 6. The tag triggers:
    - **GitLab CI** ([.gitlab-ci.yml](.gitlab-ci.yml)), builds and signs the
      three Docker variants (cpu / cu126 / cu130), pushes them to
