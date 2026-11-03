@@ -1,18 +1,24 @@
-"""Datasets the docs notebooks download, in one place.
+"""Download the datasets the docs notebooks use, as listed in docs/datasets.toml.
 
-`nox -s docs_data` runs this to fetch every raw dataset the notebooks use. The docs
-CI job uses it to fill the Harbor dataset cache (docs/harbor-datasets-cache.sh), and
-the cache key is a hash of this file, so add a dataset here when a notebook starts
-using a new one. The notebooks still call the loaders with `download=True` themselves,
-which finds the files already on disk and downloads nothing.
+`nox -s docs_data` runs this to fetch them without building the docs. The docs CI jobs
+restore the same datasets from the Harbor dataset cache first (docs/datasets.toml is the
+manifest they read, too), after which the loaders find the files on disk and download
+nothing. The notebooks still call the loaders with `download=True` themselves, for the same
+reason.
 
-Only raw downloads belong here. The `as_datamaite=True` exports are derived, and the
-notebooks regenerate them.
+Only raw downloads belong in the manifest. The `as_datamaite=True` exports are derived, and
+the notebooks regenerate them. FashionMNIST is downloaded here as well but is not in the
+manifest: it comes from torchvision, which the cache's download environment does not install,
+and it is small, so the notebooks fetch it themselves in CI.
 """
 
+import tomllib
 from collections.abc import Iterator
 from contextlib import contextmanager
+from importlib import import_module
 from os import chdir, getcwd, makedirs, path
+
+MANIFEST = path.join(path.dirname(__file__), "..", "datasets.toml")
 
 
 @contextmanager
@@ -31,17 +37,17 @@ def cd(rel_path: str) -> Iterator[None]:
 
 
 def download() -> None:
-    from maite_datasets.image_classification import MilitaryVehicles, Ships
-    from maite_datasets.object_detection import MILCO, SeaDrone, SkySeaLand
     from torchvision.datasets import FashionMNIST
+
+    with open(MANIFEST, "rb") as f:
+        datasets = tomllib.load(f)["dataset"]
 
     # Notebooks execute with docs/source/notebooks as the working directory and use root="./data".
     with cd("notebooks"):
-        MilitaryVehicles(root="./data", image_set="base", download=True)
-        Ships(root="./data", download=True)
-        SkySeaLand(root="./data", image_set="base", download=True)
-        MILCO(root="./data", image_set="base", download=True)
-        SeaDrone(root="./data", image_set="val", download=True)
+        for entry in datasets:
+            module, name = entry["loader"].rsplit(".", 1)
+            kwargs = {k: v for k, v in entry.items() if k != "loader"}
+            getattr(import_module(module), name)(root="./data", download=True, **kwargs)
         FashionMNIST(root="./data", train=True, download=True)
 
 
