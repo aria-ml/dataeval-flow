@@ -3,12 +3,12 @@
 Each evaluator runs one DataEval evaluator and reports its determinations, with no health status (see [Workflows and
 Evaluators](../concepts/WorkflowsAndEvaluators.md)). An evaluator's `type` names what it computes, in kebab case, after
 DataEval's class where there is one (`drift-mmd` runs `DriftMMD`). To run one, see [Run a single
-evaluator](../how_to/run_a_single_evaluator.md); for worked examples, see [Evaluator
-recipes](../how_to/evaluator_recipes.md). Each entry's **Combined by**, where it has one, names the combines that read
-its Output, and its **Used in** names the presets that run the evaluator; where it names none, run it as a task, or
-chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md). Each example assumes the pipeline defines
-`datasets:`, the sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor
-`bovw_ext`, as [Evaluator recipes](../how_to/evaluator_recipes.md) does.
+evaluator](../how_to/run_a_single_evaluator.md); for worked examples, see [Running one
+evaluator](../how_to/index.md#running-one-evaluator). Each entry's **Combined by**, where it has one, names the combines
+that read its Output, and its **Used in** names the presets that run the evaluator; where it names none, run it as a
+task, or chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md). Each example assumes the pipeline
+defines `datasets:`, the sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the
+extractor `bovw_ext`, as [Run a single evaluator](../how_to/run_a_single_evaluator.md) does.
 
 ## At a glance
 
@@ -729,7 +729,7 @@ corrected for the sample sizes, and drift is declared when the mean of those rat
 drifted, so it can disagree with `drifted`. It is unusable on constant or discrete dimensions, noisy with fewer than 5
 dimensions, where [`drift-univariate`](#drift-univariate) suits better, and blind to a shift confined to a few of many
 dimensions. It runs `dataeval.shift.DriftWasserstein`. `shift` takes no validation source and refuses it, so chain it
-as [Drift in a model's uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty) does.
+as [Monitor a model's uncertainty](../how_to/monitor_model_uncertainty.md) does.
 
 - **Reads:** `input`: three Datasets, the reference, an in-distribution validation set (the task's middle source, which
   DataEval requires), then the data to test; Flow derives their embeddings through the task's extractor.

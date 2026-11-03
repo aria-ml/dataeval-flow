@@ -6,7 +6,7 @@ of Steps](../concepts/WorkflowsAsChains.md) for how steps chain, and [Chain step
 own](../how_to/write_a_custom_workflow.md) for a worked example. Each entry's **Used in** names the presets that run the
 transform; where it names none, chain it in a workflow of your own. Each example assumes the pipeline defines
 `datasets:`, the sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor
-`bovw_ext`, as [Evaluator recipes](../how_to/evaluator_recipes.md) does.
+`bovw_ext`, as [Run a single evaluator](../how_to/run_a_single_evaluator.md) does.
 
 ## At a glance
 

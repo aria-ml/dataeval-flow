@@ -379,7 +379,7 @@ What the candidate holds:
 - `derived_from` gains an entry as for a copy, with `steps` listing the inlined steps by their new names.
 
 A scope named after the step (an entry of the workflow's `scopes:`, see
-[Judge some steps together](../how_to/write_a_custom_workflow.md#13-judge-some-steps-together)) is written over the
+[Judge some steps together](../how_to/judge_a_workflow_like_a_preset.md#judge-some-steps-together)) is written over the
 inlined steps in two cases. Where the preset declares any of a verdict, reference, record, report groups, next steps
 and preflight, the scope holds each of those the preset declares, on the step's inputs; as with a nested preset, the
 record, groups and next steps reach the result only where the scope gives a verdict. Otherwise, where an input of the

@@ -12,11 +12,11 @@ your own](../how_to/write_a_custom_workflow.md). See the [Preset Catalog](preset
 [`audit`](presets.md#audit) runs up to sixteen of these checks to audit a set of splits before training, among them
 `class-sufficiency`, `untrained-classes`, `shortcut-risk`, `leakage`, `eval-coverage` and `embedding-divergence`; its
 chain table lists them all. [Check a set of
-splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) runs `audit` as a step after `splits`
+splits](../how_to/check_a_set_of_splits.md) runs `audit` as a step after `splits`
 and gives every one of these checks to the splits; chain the checks yourself only to audit one fold or a subset. Each
 example assumes the pipeline defines
 `datasets:`, the sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor
-`bovw_ext`, as [Evaluator recipes](../how_to/evaluator_recipes.md) does.
+`bovw_ext`, as [Run a single evaluator](../how_to/run_a_single_evaluator.md) does.
 
 ## At a glance
 
@@ -73,11 +73,10 @@ with that reason in the step's `not_assessed`, and never as skipped. `class-suff
 `shortcut-risk` do so, as their sections say.
 
 A check with `by: class` runs once per class, or per group of classes, of an Output made with the same `by:`, and rolls
-the findings up into one, titled with the first's title and " by class". Its brief counts the classes that warn, as
-`1/3 classes warn`, and its description names those that warned and those not assessed. See [Write a custom
-workflow](../how_to/write_a_custom_workflow.md) for how to set it up, and [Drift in a model's
-uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty) for `by: predicted`, which keys by the class a
-model predicts.
+the findings up into one, titled with the first's title and " by class". Its brief counts the classes that warn, as `1/3
+classes warn`, and its description names those that warned and those not assessed. See [Write a custom
+workflow](../how_to/write_a_custom_workflow.md) for how to set it up, and [Monitor a model's
+uncertainty](../how_to/monitor_model_uncertainty.md) for `by: predicted`, which keys by the class a model predicts.
 
 ## Is the data clean?
 
@@ -941,11 +940,11 @@ workflows:
 
 Judges an `ood-*` detector's output: the share of a test source's images it flagged.
 
-The share is a percent of the images the detector assessed. On a detector's `uncertainty` rows ([Drift in a model's
-uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty)), which `ood-kneighbors` reads only with
-`distance_metric: euclidean`, an image with no detection at the confidence is not assessed, and the brief also counts
-the detections flagged. The finding warns past `warning` percent, is `info` past `info` percent, and is `ok` at or below
-it; a `null` threshold judges nothing at its level, and with both `null` the finding is `info`.
+The share is a percent of the images the detector assessed. On a detector's `uncertainty` rows ([Monitor a model's
+uncertainty](../how_to/monitor_model_uncertainty.md)), which `ood-kneighbors` reads only with `distance_metric:
+euclidean`, an image with no detection at the confidence is not assessed, and the brief also counts the detections
+flagged. The finding warns past `warning` percent, is `info` past `info` percent, and is `ok` at or below it; a `null`
+threshold judges nothing at its level, and with both `null` the finding is `info`.
 
 - **Reads:** `input`, an OOD evaluator's Output.
 - **Makes:** one finding, titled with the detector's subject (see `subject`): the images flagged of those assessed.

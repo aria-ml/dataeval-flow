@@ -1,17 +1,21 @@
 # Chain steps into a workflow of your own
 
-A workflow type such as `quality` runs one fixed analysis. When the analysis you need is a sequence, such as
-relabelling two collections onto one vocabulary, merging them, dropping the duplicates and then checking what is left,
-write it as a custom workflow: a `workflows:` entry whose `steps:` each read what an earlier step made. This guide
-builds one section by section. [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) explains the ideas
-behind it.
+A workflow type such as [`quality`](../reference/presets.md#quality) runs one fixed analysis. When the analysis you need
+is a sequence, such as relabeling two datasets onto one vocabulary, merging them, dropping the duplicates and then
+checking what is left, write it as a custom workflow: a `workflows:` entry whose `steps:` each read what an earlier step
+made. This guide builds one section by section. It aligns classes with
+[`label-alignment`](../reference/evaluators.md#label-alignment), then chains the
+[`conform`](../reference/transforms.md#conform), [`merge`](../reference/transforms.md#merge),
+[`remove`](../reference/transforms.md#remove) and [`export`](../reference/transforms.md#export) transforms.
+[Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) explains the ideas behind it. You need two
+object-detection datasets in COCO format.
 
-## 1. Conform two datasets and merge them
+## Conform two datasets and merge them
 
-Two object-detection collections name their classes differently: `street_2024` labels `car` and `person`, and
-`drone_2025` labels `car`, `truck` and `pedestrian`. To merge them, relabel both onto one vocabulary first. Declare the
-datasets, an ontology for the vocabulary, the evaluator that aligns a dataset's classes to it, and a workflow that
-aligns, conforms and merges:
+Two object-detection datasets name their classes differently: `street_2024` labels `car` and `person`, and `drone_2025`
+labels `car`, `truck` and `pedestrian`. To merge them, relabel both onto one vocabulary first. Declare the datasets, an
+ontology for the vocabulary ([Declare an ontology](declare_an_ontology.md) covers it), the evaluator that aligns a
+dataset's classes to it, and a workflow that aligns, conforms and merges:
 
 ```yaml
 datasets:
@@ -55,19 +59,19 @@ tasks:
     sources: [street_2024, drone_2025]
 ```
 
-Notice:
+Keep these points in mind:
 
-- `inputs:` names the workflow's own slots. The task's `sources:` bind to them in order: `street_2024` to `street`,
-  and `drone_2025` to `aerial`.
-- Each step has a `name`, one kind key (`evaluator:` or `transform:`), and what it reads. `input:` takes an address:
-  an input, or an earlier step by its name.
+- `inputs:` names the workflow's own slots. The task's `sources:` bind to them in order: `street_2024` to `street`, and
+  `drone_2025` to `aerial`.
+- Each step has a `name`, one kind key (`evaluator:` or `transform:`), and what it reads. `input:` takes an address: an
+  input, or an earlier step by its name.
 - The `align` entry is defined once and runs twice. Its settings live in the entry, and each step says only what it
   reads.
 - `conform` reads a Dataset and the alignment computed on that Dataset, under `alignment:`. Naming an alignment of any
   other Dataset fails the config load.
 - `merge` takes two or more Datasets that share a label vocabulary, which conforming both onto `vehicles` gives them.
 
-## 2. Run it
+## Run the workflow
 
 ```bash
 dataeval-flow -c pipeline.yaml -o out/
@@ -75,8 +79,8 @@ dataeval-flow -c pipeline.yaml -o out/
 
 The config is checked as it loads: every address must name an input or an earlier step, and every setting must be one
 its transform takes. Then the steps run in order, and `aerial_conformed` fails. The console prints the report's short
-form: how many steps ran, the summary, and a line per step with why it made nothing where it did not. Below its
-banner and above its configuration:
+form: how many steps ran, the summary, and a line per step with why it made nothing where it did not. Below its banner
+and above its configuration:
 
 ```text
   Steps: 5 (3 ran, 1 failed, 1 skipped)
@@ -112,8 +116,8 @@ banner and above its configuration:
 ```
 
 The note is too long for its column, so the table wraps its cells and leaves a blank line between rows.
-`out/results/result.txt`, and the console with `-v`, hold the full report, which gives each step a section headed by
-its type's title and its name:
+`out/results/result.txt`, and the console with `-v`, hold the full report, which gives each step a section headed by its
+type's title and its name:
 
 ```text
 ================================================================================
@@ -136,7 +140,7 @@ its type's title and its name:
 refuses until the config says it accepts that. `merged` reads the failed step, so it is skipped. The steps that do not
 depend on it, such as `align_street` and `street_conformed`, still ran. The task has failed, so the run exits 1.
 
-## 3. Accept the collapse, clean, and export
+## Accept the collapse, clean, and export
 
 Add a duplicates evaluator, and grow the workflow:
 
@@ -176,27 +180,25 @@ workflows:
 | `partial` | Several classes may collapse onto one concept, and classes that align to nothing are dropped; the report says what was dropped |
 
 `class_remap:` on the step overrides the alignment for a class, mapping it to a concept by its id, or by a label no
-other concept shares. An override can settle a class that aligned to nothing, and so change how much loss the step needs
-to accept. An override for a class the Dataset does not have fails the step, naming the classes it has, so a misspelled
-class cannot pass unnoticed.
+other concept shares. The [`conform`](../reference/transforms.md#conform) entry covers what an override can settle and
+the error for a class the Dataset does not have.
 
 `plans:` names the evaluator steps whose findings `remove` applies, by address. Each must be a `duplicates` or
-`outliers` step computed on the same Dataset as the `remove` step's `input`. Each holds the arguments of
-DataEval's plan method: `deduplicate` for duplicates (`dup_types`, `keep`, `exclude_groups`, `levels`), and `prune` for
-outliers (`metrics`, `min_flags`). Their names and values are checked when the config loads. `{}` takes DataEval's
-defaults, which for duplicates removes every exact copy but the first. Several plans combine: whatever any of them
-names is removed.
+`outliers` step computed on the same Dataset as the `remove` step's `input`. Each holds the arguments of DataEval's plan
+method: `deduplicate` for duplicates (`dup_types`, `keep`, `exclude_groups`, `levels`), and `prune` for outliers
+(`metrics`, `min_flags`). Their names and values are checked when the config loads. `{}` takes DataEval's defaults,
+which for duplicates removes every exact copy but the first. Several plans combine: whatever any of them names is
+removed.
 
 `export` writes `clean` under the run's output directory, at `out/datasets/<task>.<step>/`: here
 `out/datasets/build.dataset/`. Handed a list, such as `kfold.train`, it writes each element under its key:
 `out/datasets/build.dataset/0/` and so on. `to:` names another directory, and `mode:` says what to do when it already
-holds a dataset (`error` by default, `replace` or `append`). Beside the dataset, `provenance.json` records the sources it
-came from, with the dataset and view each read, and the lineage of what was written. Its `label_space` list holds each
-source's Relabel, then each conform on the way, with its remap and ontology digest. A Dataset a chain made is written
-with its pixels encoded, not by reference to the image files, even where no step changed them. A run without `-o`
-writes nothing, and the export step is skipped with the reason "the run has no output directory".
+holds a dataset (`error` by default, `replace` or `append`). A run without `-o` writes nothing, and the export step is
+skipped with the reason "the run has no output directory". The [`export`](../reference/transforms.md#export) entry
+covers the `provenance.json` beside the dataset and how its pixels are written, and
+[Export a dataset](export_a_dataset.md) covers the formats and the modes.
 
-## 4. Check coverage and bias, and split
+## Check coverage and bias, then split
 
 Add an extractor, two evaluators, and the steps that read the cleaned dataset:
 
@@ -246,23 +248,23 @@ tasks:
     extractor: bovw_ext
 ```
 
-Notice:
+Keep these points in mind:
 
-- `wrap` turns each detection into an item of its own, which is what makes coverage per detection and per class. On
-  the detection dataset itself, `coverage` would measure whole images as one class, and warn that it has no class
-  breakdown.
+- `wrap` turns each detection into an item of its own, which is what makes coverage per detection and per class. On the
+  detection dataset itself, `coverage` would measure whole images as one class, and warn that it has no class breakdown.
 - `params:` passes DataEval's `DetectionCrops` arguments. `min_size: 32` drops boxes whose shorter side is under 32
-  pixels; `scope` passes its `wrap.params.min_size` to its own `wrap` step the same way. A tiny crop carries
-  no SIFT features for BoVW to describe.
-- Coverage embeds the crops with the task's extractor, which every step uses unless it names its own `extractor:`.
-  BoVW needs no model file; [an ONNX model](../notebooks/onnx_embeddings.py) is the higher-fidelity choice once you
-  have one.
+  pixels. The [`scope`](../reference/presets.md#scope) preset passes its `wrap.params.min_size` to its own `wrap` step
+  the same way. A tiny crop carries no SIFT features for BoVW to describe.
+- Coverage embeds the crops with the task's extractor, which every step uses unless it names its own `extractor:`. BoVW
+  needs no model file. [An ONNX model](../notebooks/onnx_embeddings.py) is the higher-fidelity choice once you have one.
 - `balance` and `train_balance` run one evaluator entry on two Datasets. Each derives the metadata of the Dataset it
   reads, so `train_balance` measures the training split alone.
 - `split` has three outputs, so a step names the one it reads: `split.train`, `split.val` or `split.test`. With
   `test_frac` alone, `val` is empty, and a step that reads `split.val` fails the config load.
 
-## 5. Judge what it found
+To judge the parts of a split as an audit does, see [Check a set of splits](check_a_set_of_splits.md).
+
+## Judge what the workflow found
 
 The evaluators report, and nothing judges. Checks do: add a label-health evaluator, and three steps at the end of the
 workflow:
@@ -305,15 +307,16 @@ workflows:
 `merged_duplicates` judges the duplicates in the merged dataset, before `remove`. It warns where more than 0% of the
 images are exact duplicates, or 5% near duplicates. `imbalance` warns where the cleaned dataset's largest class
 outnumbers its smallest by more than 3 to 1. The task's health now says `warning` where either does, and
-`--fail-on-warning` fails the run. The report gives each finding a section, with the step it judged below it: the
-Image Duplicates finding holds `dupes`' duplicate groups, and the Class Imbalance finding holds `labels`' class counts.
-The [Check Catalog](../reference/checks.md) lists every check and its thresholds.
+`--fail-on-warning` fails the run. The report gives each finding a section, with the step it judged below it: the Image
+Duplicates finding holds `dupes`' duplicate groups, and the Class Imbalance finding holds `labels`' class counts. The
+[Check Catalog](../reference/checks.md) lists every check and its thresholds. To group the findings under headings or
+give the workflow a verdict, see [Judge a custom workflow like a preset](judge_a_workflow_like_a_preset.md).
 
-## 6. Run quality as a step
+## Run `quality` as a step
 
-A workflow type that is a preset, such as `quality`, runs as a step with its whole chain: its evaluators, the
-checks that judge them against its `checks`, and a `clean` step that removes each flagged image and box,
-and each duplicate but the first. Name the entry with `workflow:`, and read the cleaned Dataset as `cleaning.clean`:
+A workflow type that is a preset, such as `quality`, runs as a step with its whole chain: its evaluators, the checks
+that judge them against its `checks`, and a `clean` step that removes each flagged image and box, and each duplicate but
+the first. Name the entry with `workflow:`, and read the cleaned Dataset as `cleaning.clean`:
 
 ```yaml
 workflows:
@@ -338,21 +341,22 @@ tasks:
 `cleaning` runs quality's steps as `cleaning/outliers`, `cleaning/duplicates` and so on, to `cleaning/clean`. In the
 report, each of its checks' findings has a section, with the steps it judged below it, headed such as
 `From Outliers · cleaning/outliers`, and `cleaning/clean` has one of its own, `Remove · cleaning/clean`. Its checks'
-findings count toward the task's health, as section 5's do.
-Only `clean` can be read from outside, and only as `cleaning.clean`: `cleaning` alone and `cleaning.duplicates` fail the
+findings count toward the task's health, as the findings of the checks in "Judge what the workflow found" do. Only
+`clean` can be read from outside, and only as `cleaning.clean`: `cleaning` alone and `cleaning.duplicates` fail the
 config load. [Workflow types as presets](../concepts/WorkflowsAsChains.md#workflow-types-as-presets) says more.
 
-## 7. Read the result
+## Read the result
 
-The output below comes from running the workflow as section 3 leaves it, through `dataset`, on two small synthetic
-datasets of 24 images each: `street_2024` names `car` and `person` and copies one image, and `drone_2025` names `car`,
-`truck` and `pedestrian`. The steps sections 4 and 5 add were not part of that run, so nothing here reports coverage,
-balance or a split, and no check judges a finding.
+The output below comes from running the workflow as "Accept the collapse, clean, and export" leaves it, through
+`dataset`, on two small synthetic datasets of 24 images each: `street_2024` names `car` and `person` and copies one
+image, and `drone_2025` names `car`, `truck` and `pedestrian`. The steps that "Check coverage and bias, then split" and
+"Judge what the workflow found" add were not part of that run, so nothing here reports coverage, balance or a split, and
+no check judges a finding.
 
 The console prints `Steps: 8 ran`, `No findings to report.` and a line per step, each `ok`: with no finding and no
-failed step, there is no health to state. The full report, in `out/results/result.txt`, gives each step a section of
-its own, since no finding shows any as evidence. `clean`'s says what it kept and what each plan named, and
-`dataset`'s where it wrote:
+failed step, there is no health to state. The full report, in `out/results/result.txt`, gives each step a section of its
+own, since no finding shows any as evidence. The section of `clean` says what it kept and what each plan named, and the
+section of `dataset` says where it wrote:
 
 ```text
 ================================================================================
@@ -368,8 +372,8 @@ its own, since no finding shows any as evidence. `clean`'s says what it kept and
   Images: 47
 ```
 
-A Steps table follows the steps' sections, before the configuration. It gives each step's type and status, why it
-made nothing where it did not, and each Dataset it read, walked back to its source: `dataset` reads
+A Steps table follows the steps' sections, before the configuration. It gives each step's type and status, why it made
+nothing where it did not, and each Dataset it read, walked back to its source: `dataset` reads
 `` `clean` ← `merged` ← `street_conformed` ← `street` (street_2024) ``. The HTML report's table adds each step's title,
 which the text report leaves to the step's section.
 
@@ -396,7 +400,8 @@ each Dataset in the chain. Trimmed to the `clean` step:
 something. Plans may name the same item, so their counts can add up to more than `removed`.
 
 That run's health status is `ok`: it ran evaluators and transforms only, and evaluators judge nothing. A chain's health
-rolls up its checks' findings and those of the workflow types it runs as steps, and is `failed` when a required step fails.
+rolls up its checks' findings and those of the workflow types it runs as steps, and is `failed` when a required step
+fails.
 
 From Python, a custom workflow's task returns a `ChainResult`. Its `steps` hold each step's live output, and hold every
 step that ran even when a later one failed:
@@ -420,7 +425,7 @@ for record in result.metadata.lineage:
 `clean` is a DataEval `View` over the merged dataset, so you can go on to train on it or evaluate it from Python.
 Without `output_dir`, the export step is skipped and nothing is written.
 
-## 8. See which steps you can chain
+## List the steps you can chain
 
 ```bash
 dataeval-flow steps
@@ -428,286 +433,18 @@ dataeval-flow steps
 
 Each line names a step's kind and type, the ports it reads and makes, and what it does. `dataeval-flow steps remove`
 prints one step's catalog entry, including its friendly title, the one its report headings use, and the schema of its
-settings, and `--json` prints the whole catalog. When two
-kinds share a name, write it as `KIND:NAME`, as in `transform:split`. From Python, `list_steps()` in
-`dataeval_flow.steps` returns the same catalog.
+settings, and `--json` prints the whole catalog. When two kinds share a name, write it as `KIND:NAME`, as in
+`transform:split`. From Python, `list_steps()` in `dataeval_flow.steps` returns the same catalog.
 
-## 9. Save a workflow from Python
+The catalogs list each step with its settings: the [Evaluator Catalog](../reference/evaluators.md), the
+[Transform Catalog](../reference/transforms.md), the [Check Catalog](../reference/checks.md) and the
+[Combine Catalog](../reference/combines.md). An evaluate step or a check also takes `by:`, which runs it once per class:
+see [Run a step once per class](run_a_step_once_per_class.md).
 
-`CustomWorkflowConfig` builds a workflow in Python, and `save` writes it into a config file:
+## Next steps
 
-```python
-from dataeval_flow.steps import CustomWorkflowConfig, StepEntry
-
-workflow = CustomWorkflowConfig(
-    name="clean_and_export",
-    inputs=["data"],
-    steps=[
-        StepEntry(name="dupes", evaluator="dupes", input="data"),
-        StepEntry(name="clean", transform="remove", input="data", plans={"dupes": {"keep": "first"}}),
-        StepEntry(name="dataset", transform="export", input="clean", format="coco"),
-    ],
-)
-workflow.save("config/workflows.yaml")  # the config/ directory must already exist
-```
-
-`save` adds the workflow to the file, or replaces the entry of the same name, and keeps the file's other keys and
-workflows. It creates a file that does not exist, but not a missing directory, so save to a path whose directory
-exists. It refuses a file that is not a pipeline config. PyYAML keeps no comments, so a file `save` rewrites loses
-them. `workflow.to_yaml()` returns the same entry as text:
-
-```yaml
-workflows:
-- name: clean_and_export
-  inputs:
-  - data
-  steps:
-  - name: dupes
-    evaluator: dupes
-    input: data
-  - name: clean
-    transform: remove
-    input: data
-    plans:
-      dupes:
-        keep: first
-  - name: dataset
-    transform: export
-    input: clean
-    format: coco
-```
-
-Building the workflow checks its slots, its step names, and each transform's settings. Whether `dupes` names a real
-`evaluators:` entry, and whether the steps connect, is checked when the file loads into a pipeline. `load_config`
-reads a folder as one pipeline, so `dataeval-flow -c config/` runs a `workflows.yaml` beside your other config files.
-Loading a config and saving it, from the TUI or the config builder, keeps every custom workflow as written.
-
-`save` and `to_yaml` also take `definitions`, the entries the steps name, as `run` does:
-`workflow.save("config/workflows.yaml", definitions=[DuplicatesConfig(name="dupes")])` writes the `dupes` entry
-beside the workflow, so the file loads and runs on its own. [Reuse a cleaning chain on new data](reuse_a_workflow.md)
-keeps a chain that way and runs it on each new dataset.
-
-## 10. Run a step once per class
-
-An evaluate step or a check with `by:` runs once per class, or once per group of classes, and keeps every run in one
-Output. It suits an evaluator that compares two sources, such as a drift detector, when you want to know which
-classes differ:
-
-```yaml
-evaluators:
-  - {name: mmd, type: drift-mmd}
-
-workflows:
-  - name: class_drift
-    inputs: [reference, {name: tests, list: true}]
-    steps:
-      - {name: mmd-classes, evaluator: mmd, input: [reference, tests], by: class}
-      - {name: mmd-classes-check, check: drift, input: mmd-classes, by: class}
-      - name: mmd-groups
-        evaluator: mmd
-        input: [reference, tests]
-        by:
-          class:
-            groups: {vehicles: [car, truck, van], people: [person]}
-            min_items: 2
-      - {name: mmd-groups-check, check: drift, input: mmd-groups, by: class}
-```
-
-Notice:
-
-- `by: class` keys each class by its name, taken from the first input's `index2label`, and runs the step on that
-  class's items alone, in ascending class index.
-- `groups:` keys each named group instead, in the order written. A group lists classes by name or by index, and a name
-  that resolves to nothing fails the step. Groups may overlap, and a class in no group is left out and listed as
-  skipped.
-- With several inputs, a key runs only where every input holds at least `min_items` of it, 2 unless you set it.
-  Otherwise the key is skipped, and the Output says why.
-- A key whose run raises, such as a class too small for the evaluator, is skipped with its error, and the other keys
-  still run. The step fails only when every key raises.
-- The step's output is a `PerClassOutput`: `outputs` holds each key's own Output, and `skipped` holds each key left
-  out with its reason. Only a check with `by:` can read it.
-- A check's `by: class` takes no settings, since its keys come from the step it reads. It runs once for each key and
-  rolls the findings into one, titled with the per-key title and `by class` or `by group`, which names the keys that
-  warned and each key it did not assess.
-- `by:` slices embeddings and labels, so it needs a Dataset with one label per item, as image classification has.
-  The load refuses an evaluator that reads statistics, metadata or clusters. For detection data, run `wrap` with
-  `DetectionCrops` first.
-
-[Monitor drift with steps](monitor_drift.md) uses `by:` with drift detectors, and compares one group against another.
-
-## 11. Check a set of splits
-
-`splits` splits a Dataset and judges each part's class shares. To judge the parts as an audit does, for
-leakage, shift, coverage and each split's labels and cleanliness, gather the evaluation parts with `collect` and run
-`audit` as a step on them:
-
-```yaml
-workflows:
-  - name: splitting
-    type: splits
-    split_on: [scene]
-
-  - name: release-audit
-    type: audit
-    outliers: {flags: [pixel], outlier_threshold: zscore}
-    factor-leakage: {factors: [scene]}
-
-  - name: split_and_audit
-    inputs: [data]
-    steps:
-      - {name: splits, workflow: splitting, input: data}
-      - {name: evals, transform: collect, input: [splits.val, splits.test]}
-      - {name: audit, workflow: release-audit, input: [splits.train, evals]}
-
-tasks:
-  - {name: split-and-audit, workflow: split_and_audit, sources: [train], extractor: bovw_ext}
-```
-
-Notice:
-
-- The task's result carries the audit's verdict, record and five questions, as an `audit` task's does, so
-  `dataeval-flow --require ready-with-caveats` gates it (see [Gate training on an audit](gate_training_on_an_audit.md)).
-  Its steps run as `audit/label-health-train`, `audit/leakage` and so on, and the verdict names them that way. In the
-  entry's `accepted:`, write a step without the prefix: `image-outliers-evals[test]` covers
-  `audit/image-outliers-evals[test]`.
-- `collect` keys each part by its output's name, so the evaluation splits are `val` and `test`. A train/test split
-  (`val_frac: 0`) collects `test` alone: `input: [splits.test]`.
-- The record has a column `train` and one per key of `evals`: `val` and `test` here. A key of `evals` that is also
-  the name of audit's single slot, `train`, is refused, so do not give `keys:` that name it.
-- If the `audit` step never starts, because a step before it failed or was skipped, the task gives no verdict. The
-  report and the JSON's `no_verdict` say so, and `--require` refuses the task and names the step that did not run.
-- Every part's metadata is encoded like train's, as in an `audit` task.
-- A workflow gives one verdict, so it runs one audit step, and the step may not be `optional:`.
-- With `folds` of 2 or more, `splits.train` and `splits.val` are lists keyed by fold, and the audit step refuses
-  them. Audit one fold by naming its elements, `splits.train[0]` with `collect: [splits.val[0], splits.test]`, or
-  chain the checks yourself, as the [Check Catalog](../reference/checks.md#leakage) examples do. That collect keys
-  the evaluation splits `0` and `test`, so the verdict reads `audit/...-evals[0]` and `accepted:` says `[0]`; give
-  `keys: [val, test]` to name them as above.
-- With `rebalance:`, `splits.train` is a rebalanced view that may repeat items, which the audit's duplicates check
-  then reports.
-- Don't embed `data` before the split with the extractor the audit uses: a stateful extractor such as BoVW is fitted
-  once per task, on the first Dataset that asks for embeddings, so it would have seen the evaluation items.
-
-Where the splits are already on disk, give them to an [`audit`](../reference/presets.md#audit) task as sources, train
-first: `sources: [train, val, test]`. That is also the route when a training job will load exported splits, so its
-digests match the audit's; whether a part's digest survives export and reload is not yet checked.
-
-## 12. Group the report's findings under headings
-
-A preset's report holds its findings under headings, such as audit's questions. A custom workflow does the same with
-`groups:`: each group has a heading, and the check types whose findings it holds, as the steps' `check:` names them.
-
-```yaml
-evaluators:
-  - {name: dupes, type: duplicates}
-  - {name: labels, type: label-health}
-
-workflows:
-  - name: clean-check
-    inputs: [data]
-    steps:
-      - {name: dupes, evaluator: dupes, input: data}
-      - {name: labels, evaluator: labels, input: data}
-      - {name: duplicates, check: image-duplicates, input: dupes}
-      - {name: imbalance, check: class-imbalance, input: labels}
-    groups:
-      - {heading: "Is the data clean?", checks: [image-duplicates]}
-      - {heading: "Are the labels sound?", checks: [class-imbalance]}
-```
-
-Each heading's status line counts its checks' warnings, and the findings of check types no heading names follow the
-groups. A group that names a check type no step runs is refused when the config loads. Groups change only the report. A
-group's `evidence:` lists step types shown under it after its findings, such as `diversity`.
-
-A custom workflow can also declare what a preset's chain declares, so it reads and reports like `audit`:
-
-```yaml
-workflows:
-  - name: clean-check
-    inputs: [data]
-    steps:
-      - {name: dupes, evaluator: dupes, input: data}
-      - {name: labels, evaluator: labels, input: data}
-      - {name: duplicates, check: image-duplicates, input: dupes}
-      - {name: imbalance, check: class-imbalance, input: labels}
-    reference: data
-    record: {title: What was read, steps: [label-health]}
-    verdict:
-      blocking: [image-duplicates]
-      accepted: {class-imbalance: Rare classes by design.}
-    next_steps:
-      by_check: {image-duplicates: Remove them with a `remove` step.}
-    preflight: {nonempty: true, one_kind: true}
-```
-
-- `reference` encodes every Dataset's metadata like the named input's.
-- `record` adds a section recording what the run read.
-- `verdict` gives a verdict: an unaccepted warning of a `blocking` check type makes it not ready.
-- `next_steps` says what to do about each warning, by check type, and each check left unassessed, by reason. Advice
-  by check type needs a `verdict`, whose warnings it advises on.
-- `preflight` refuses an input with no items, or inputs of different kinds, before any step runs.
-
-A workflow with an `audit` step (section 11) takes its verdict, reference, record and next steps from that step, so it
-declares none of them itself.
-
-## 13. Judge some steps together
-
-A workflow's `verdict`, `preflight`, `reference`, `record`, `groups` and `next_steps` cover all its steps. A `scopes:`
-entry holds some of them instead, judged on inputs of its own, as a [preset run as a step](#11-check-a-set-of-splits)
-is judged on its own:
-
-```yaml
-workflows:
-  - name: split_and_check
-    inputs: [data]
-    steps:
-      - {name: splits, workflow: splitting, input: data}
-      - {name: dupes, evaluator: dupes, input: splits.train}
-      - {name: labels, evaluator: labels, input: splits.train}
-      - {name: duplicates, check: image-duplicates, input: dupes}
-      - {name: imbalance, check: class-imbalance, input: labels}
-    scopes:
-      - name: train-checks
-        inputs: {train: splits.train}
-        steps: [dupes, labels, duplicates, imbalance]
-        reference: train
-        record: {title: What was read, steps: [label-health]}
-        verdict:
-          blocking: [image-duplicates]
-          accepted: {class-imbalance: Rare classes by design.}
-        next_steps:
-          by_check: {image-duplicates: Remove them with a `remove` step.}
-        preflight: {nonempty: true}
-```
-
-- `inputs` names each input of the scope and binds it to an address of the workflow, which must hold a Dataset made
-  before the scope's first step. The scope's steps still read the workflow's addresses: an input's name is what
-  `reference` names, and what preflight messages and the record's columns call it. `steps` names steps of the
-  workflow, each in one scope at most, and no preset step: inline it first. `groups`, `reference`, `record`,
-  `verdict`, `next_steps` and `preflight` are declared as in section 12, over the scope's steps and inputs; `reference`
-  names one of the scope's inputs.
-- The scope starts as a preset step does, before its first step runs: it binds its inputs, and its `preflight` and
-  `reference` can fail it there. If an input held nothing, because a step before it failed or was skipped, every step
-  of the scope is skipped and the scope gives no verdict, which the report and the JSON's `no_verdict` say.
-- Only a scope that gives a `verdict` has its verdict, record, groups and next steps reported, as a nested preset's are.
-  A workflow gives one verdict, so it may not declare `verdict:` itself, or its own `reference`, `record` or
-  `next_steps`, beside a verdict scope.
-- A matrix can't vary a scope's `name`, `inputs` or `steps`: they wire the chain every run shares.
-
-The service's `inline_step` writes a scope when it inlines a preset step whose preset declares more than its steps (a
-verdict, preflight, reference, record, groups or next steps), so the inlined steps keep what it declared. It writes one
-holding only `inputs` and `steps` when the step reads another step's output, so the inlined steps still skip together
-when that output held nothing. See [Preset decomposition](../reference/service.md#inline).
-
-## See also
-
-- [Monitor drift with steps](monitor_drift.md) — merge test sources, compare classes or groups, and drift on crops
-- [Reuse a cleaning chain on new data](reuse_a_workflow.md) — keep a chain and run it on each new dataset
-- [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) — steps, addresses and lists, derived data,
-  failures and lineage
-- [Declare an ontology](declare_an_ontology.md) — the vocabulary `label-alignment` aligns to
-- [Export a dataset](export_a_dataset.md) — formats, modes, and what an export records and drops
-- [Evaluator Catalog](../reference/evaluators.md) — every evaluator a step can run
-- [Transform Catalog](../reference/transforms.md) — every transform a step can run, with its settings
-- [Check Catalog](../reference/checks.md) — every check a step can run, with its thresholds
-- [Combine Catalog](../reference/combines.md) — every combine a step can run, with its settings
+- [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) — Learn how steps, addresses and lists, derived data,
+  failures and lineage work.
+- [Reuse a cleaning chain on new data](reuse_a_workflow.md) — Keep a chain in your config and run it on each new
+  dataset.
+- [Save a workflow from Python](save_a_workflow_from_python.md) — Build a chain in Python and save it as YAML.

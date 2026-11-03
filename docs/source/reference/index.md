@@ -110,7 +110,7 @@ needs a validation set as a third source, which the preset does not take, so it 
   [`drift-domain-classifier`](evaluators.md#drift-domain-classifier)
 - **Checks:** [`drift`](checks.md#drift)
 - **In a workflow of your own:** [`drift-wasserstein`](evaluators.md#drift-wasserstein); see
-  [Drift in a model's uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty)
+  [Monitor a model's uncertainty](../how_to/monitor_model_uncertainty.md)
 
 ## Which items are out of distribution?
 

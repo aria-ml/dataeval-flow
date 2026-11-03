@@ -1,18 +1,14 @@
 # Narrow a dataset with views
 
-A first pass over 500 images, a run restricted to two classes, a reproducible random sample — all of these are
-{term}`views <View>`: named, ordered pipelines of dataset operations applied before a workflow sees the data. A view
-also conforms a dataset to a shared vocabulary, which lets two datasets be merged into one dataset.
-
-## Used in these tutorials
-
-- {doc}`Clean a dataset <../notebooks/data_cleaning>`
-- {doc}`Audit a set of splits before training <../notebooks/audit>`
-- {doc}`Run a full evaluation pipeline end to end <../notebooks/end_to_end>`
+A first pass over 500 images, a run restricted to two classes and a reproducible random sample are all
+{term}`views <View>`. A view is a named, ordered pipeline of dataset operations that a source applies before a workflow
+sees the data. The [`view`](../reference/transforms.md#view) transform applies the same operations inside a chain of
+steps. A view also conforms a dataset to a shared vocabulary, which lets you
+[merge sources into one dataset](merge_sources.md). This guide needs a pipeline with a dataset and a source.
 
 ## Define a view and reference it
 
-Views are declared once and referenced by name from a `source`:
+Declare a view once and reference it by name from a `source`:
 
 ```yaml
 datasets:
@@ -37,9 +33,9 @@ Operations run in the order listed. Each consumes the output of the previous one
 the whole dataset.
 
 :::{warning}
-**`Limit` on its own samples the storage order, not the dataset.** Collections are often written grouped, by capture
-site, class, or acquisition date. A bare `Limit` keeps whatever is at the front. On SkySeaLand, the first 500 frames
-put `ship` at 11% of annotations against 20% for the whole split — enough to move every statistic computed after.
+`Limit` on its own samples the storage order, not the dataset. Collections are often written grouped, by capture
+site, class or acquisition date. A bare `Limit` keeps whatever is at the front. On SkySeaLand, the first 500 frames
+put `ship` at 11% of annotations against 20% for the whole split, enough to move every statistic computed after.
 
 Put a seeded `Shuffle` in front of the `Limit`:
 
@@ -55,17 +51,17 @@ views:
           size: 500
 ```
 
-`Shuffle` without a `seed` is not reproducible, and a pipeline-level `seed:` does not reach view operations — declare
-it here.
+`Shuffle` without a `seed` is not reproducible. A pipeline-level `seed:` does not reach view operations, so declare
+the seed here.
 :::
 
-## Available operations
+## Choose an operation
 
 Operations are pass-throughs to `dataeval.data`, so the type names and parameters are DataEval's:
 
 | Operation | Effect |
 | --- | --- |
-| `Limit` | Keep the first *n* items |
+| `Limit` | Keep the first `n` items |
 | `Indices` | Keep an explicit set of positions |
 | `Filter` | Keep the listed classes, the items whose metadata factors match a `where` predicate, or both |
 | `ClassBalance` | Even out per-class counts |
@@ -78,19 +74,21 @@ Operations are pass-throughs to `dataeval.data`, so the type names and parameter
 | `SelectChannels` | Keep a chosen subset of channels |
 | `TorchvisionTransform` | Apply a `torchvision` transform as a view operation |
 
-The `type` is resolved by name against `dataeval.data`, not checked against a fixed list. **Anything that module
-exports is usable**, including operations added by a DataEval release newer than this table. `ClassBalance` had a
-counting bug fixed in DataEval v1.1, so a view using it can select differently than under v0.1. `ClassFilter` still
-works but is deprecated in favor of `Filter`: `{type: ClassFilter, params: {classes: [0, 3]}}` becomes
-`{type: Filter, params: {classes: [0, 3]}}`, and `filter_detections: false` becomes `drop: items`.
+Flow resolves the `type` by name against `dataeval.data`. It does not check the name against a fixed list, so any
+operation that module exports is usable, including operations added by a DataEval release newer than this table.
 
-See the [DataEval `dataeval.data` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/data/index.html)
-for the full parameter list of each.
+`ClassBalance` had a counting bug fixed in DataEval v1.1, so a view that uses it can select differently than under
+v0.1. `ClassFilter` still works but is deprecated in favor of `Filter`. Replace
+`{type: ClassFilter, params: {classes: [0, 3]}}` with `{type: Filter, params: {classes: [0, 3]}}`, and replace
+`filter_detections: false` with `drop: items`.
 
-## Combine operations
+The [DataEval `dataeval.data` reference](https://dataeval.readthedocs.io/en/latest/reference/autoapi/dataeval/data/index.html)
+lists the parameters of each operation.
 
-Order matters. Filtering before limiting gives 500 items *of the classes you care about*. Limiting first gives
-whatever 500 is at the front of the file.
+## Order the operations
+
+Order matters. Filtering before limiting gives 500 items of the classes you care about. Limiting first gives whatever
+500 is at the front of the file.
 
 ```yaml
 views:
@@ -107,11 +105,11 @@ views:
           size: 500
 ```
 
-Always pass a `seed` to `Shuffle`. Without one the view differs between runs. The result is non-reproducible, and
-caching is defeated as well, because the cache key includes the view.
+Always pass a `seed` to `Shuffle`. Without one the view differs between runs, so the result is not reproducible. It
+also defeats caching, because the [cache key](reuse_results_with_cache.md) includes the view.
 
-A `Shuffle` seed pins only that operation's ordering. To pin every stochastic component of the run — clustering,
-random splits, sampling — set the pipeline-level `seed` as well:
+A `Shuffle` seed pins only that operation's ordering. To pin every stochastic component of the run, such as clustering,
+random splits and sampling, set the pipeline-level `seed` as well:
 
 ```yaml
 seed: 42
@@ -137,14 +135,14 @@ views:
           classes: [1]
 ```
 
-An item missing a factor never matches; `altitude IS NULL` keeps those items. Double-quote a factor name that holds
-spaces (`"time of day" = 'night'`). For detections, `drop` decides what a detection-level predicate removes: `both`
+An item missing a factor never matches. `altitude IS NULL` keeps those items. Double-quote a factor name that holds
+spaces (`"time of day" = 'night'`). For detections, `drop` decides what a detection-level predicate removes. `both`
 (the default) keeps the images holding a match and only their matching detections, `items` keeps those images whole,
 and `detections` keeps every image but only its matching detections.
 
-## Select an index range without enumerating it
+## Select an index range
 
-`Indices` accepts a range shorthand:
+`Indices` accepts a range shorthand, so you do not enumerate the positions:
 
 ```yaml
       - type: Indices
@@ -161,6 +159,9 @@ still accepted. A range that expands past 1,000,000 elements is rejected. Load t
 
 ## Build a view in Python
 
+`ViewConfig` and `ViewOperation` build the same view. The {doc}`API Reference <../reference/autoapi/dataeval_flow/index>`
+lists their fields.
+
 ```python
 from dataeval_flow.config import PipelineConfig, SourceConfig, ViewConfig, ViewOperation
 
@@ -174,112 +175,9 @@ view = ViewConfig(
 source = SourceConfig(name="skysealand_src", dataset="skysealand_train", view="sample500")
 ```
 
-## Merge sources into one dataset
+## Next steps
 
-Merging composes sources, not datasets, because each operand needs its own `Relabel`. Two datasets almost never
-number their classes the same way. Each is conformed to a shared vocabulary before concatenation, and the `Relabel`
-lives in a view the source references.
-
-Name the operands under `merge:` on a source. A source names either `dataset:` or `merge:`, never both, and a `merge:`
-names at least two sources:
-
-```yaml
-datasets:
-  - name: m3fd
-    format: coco
-    path: m3fd
-    annotations_file: annotations/instances_train.json
-    images_dir: images
-  - name: drone
-    format: yolo
-    path: drone
-    split: train
-
-views:
-  - name: conform_m3fd
-    operations:
-      - type: Relabel
-        params:
-          class_remap: { people: Person, car: Vehicle, truck: Vehicle }
-          target: [Person, Vehicle]
-  - name: conform_drone
-    operations:
-      - type: Relabel
-        params:
-          class_remap: { pedestrian: Person, van: Vehicle }
-          target: [Person, Vehicle]
-
-sources:
-  - name: m3fd_conformed
-    dataset: m3fd
-    view: conform_m3fd
-  - name: drone_conformed
-    dataset: drone
-    view: conform_drone
-  - name: merged
-    merge: [m3fd_conformed, drone_conformed]
-```
-
-An operand's view is applied before the merge, so it is part of the dataset. Everything else a view can do applies to
-an operand too: filter, limit, crop.
-
-### Give every operand the identical target
-
-`target` is the integer indexing of the merged label space. Operands conformed against differently ordered targets
-carry labels that denote different classes. The merge is refused:
-
-```text
-merge_datasets requires all datasets to share the same 'index2label'.
-```
-
-Fix it in the config. Pass every operand's `Relabel` the same `target` list, in the same order. The `class_remap`
-differs per operand; the `target` does not.
-
-### Expect re-keyed ids
-
-A merge re-keys every datum's id to `<position>:<id>`, where `position` is the operand's place in the `merge:` list.
-Two operands that both number an item `0` stay distinguishable. A merged run's ids therefore differ from the ids the
-same dataset produces on its own. Strip the prefix to match them back.
-
-### Apply a view after the merge
-
-A merged source may carry its own `view:`, applied to the concatenated dataset:
-
-```yaml
-sources:
-  - name: merged
-    merge: [m3fd_conformed, drone_conformed]
-    view: two_classes_sample
-```
-
-Use it to sample, limit, or shuffle across both operands at once, or to `Relabel` the shared target into a coarser
-one. Operand views run first, then the merge, then this one.
-
-### Nest a merge inside a merge
-
-An operand may itself be a merged source. A source that merges itself through any path is refused:
-
-```text
-Source 'a' merges itself through: a -> b -> a.
-```
-
-So is nesting more than eight deep. Flatten a config that hits the bound: name the leaf sources in one `merge:`.
-
-## How views interact with the cache
-
-The {term}`cache <Caching>` key includes a hash of the applied view, so two sources that differ only by view do not
-collide, and changing a view invalidates only that view's artifacts. This is why a seeded `Shuffle` is worth the
-keystrokes: an unseeded one produces a new view on every run and nothing is ever reused. See
-{doc}`reuse_results_with_cache`.
-
-A merged source's key covers every operand and the view it was merged under, so narrowing one operand's view
-invalidates that dataset and nothing else.
-
-## Related material
-
-- [Reproducibility](../concepts/Reproducibility.md) — why a seeded, declarative view is part of a defensible result
-- {doc}`reuse_results_with_cache` — how the view participates in the cache key
-- {doc}`export_a_dataset` — write a conformed or merged dataset out as a dataset on disk
-- [Provenance](../concepts/Provenance.md) — what the envelope records about a merged dataset and the label
-  space it was read under
-- {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — `ViewConfig` and `ViewOperation`
+- [Clean a dataset](../notebooks/data_cleaning.py) — Sample a dataset with a seeded view, then remove its outliers and
+  duplicates.
+- [Reproducibility](../concepts/Reproducibility.md) — Why a seeded, declarative view is part of a defensible result.
+- [Merge sources into one dataset](merge_sources.md) — Conform two datasets to a shared vocabulary and combine them.

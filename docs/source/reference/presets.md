@@ -6,7 +6,8 @@ an example. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md#
 preset runs. The chain tables show the chain that the settings above each table build; other settings add, drop or
 retune steps. A block's row lists every field the block takes; it may take fewer than its step does, and refuses any
 other. Each example assumes the pipeline defines `datasets:`, the sources `train`, `test`, `validation`, `operational`,
-`labeled` and `unlabeled`, and the extractor `bovw_ext`, as [Evaluator recipes](../how_to/evaluator_recipes.md) does.
+`labeled` and `unlabeled`, and the extractor `bovw_ext`, as [Run a single
+evaluator](../how_to/run_a_single_evaluator.md) does.
 
 ## Settings every preset shares
 
@@ -65,7 +66,7 @@ The result's `verdict`, `result.verdict` in Python and `verdict` in the JSON, ho
 A task that fails has no verdict: `result.verdict` is `None`, and the JSON has no `verdict`. Run as a step of a custom
 workflow, on splits a chain made, it gives the task the same verdict, record and questions. The verdict names its steps
 `audit/...`; write `accepted:` keys without the prefix. A workflow runs one such step, and it may not be `optional:`.
-See [Check a set of splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits).
+See [Check a set of splits](../how_to/check_a_set_of_splits.md).
 
 **Chain**, from `outliers: {flags: [pixel], outlier_threshold: zscore}`, `ontology: {animal: {cat: null}}`,
 `factor-leakage: {factors: [site]}` and `coverage: {method: naive}`, with an extractor for `ood-kneighbors`,
@@ -501,7 +502,7 @@ whole. Its findings are Class Stratification for each fold. The whole set's clas
 indices into the source are in `result.steps["split"].details["indices"]`. Run as a step of a custom workflow, the
 entry hands on three Datasets: `<step>.train` (the rebalanced train, where the entry sets `rebalance:`), `<step>.val`
 and `<step>.test`. The preset does not judge coverage, leakage or shift: run [`audit`](#audit) as a step after it, as
-[Check a set of splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) does, or give the parts to an
+[Check a set of splits](../how_to/check_a_set_of_splits.md) does, or give the parts to an
 `audit` task as sources, train first. See [Dataset Splitting](../concepts/DatasetSplitting.md).
 
 ```yaml
@@ -555,7 +556,7 @@ of them.
 | `metadata` | a metadata policy name, or `null` | `null` | The metadata policy; see [Settings every preset shares](#settings-every-preset-shares) |
 | `ontology` | an ontology name, a path, or a nested mapping, or `null` | `null` | The label space; see [Settings every preset shares](#settings-every-preset-shares) |
 | `detectors` | a list of drift and OOD evaluator entries | `[drift-univariate, ood-kneighbors]` | Drift (`drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-domain-classifier`) and OOD (`ood-kneighbors`, `ood-domain-classifier`) evaluator entries, each testing every test source against the reference. An entry's `name` names its step. An entry may name its own `extractor:`. |
-| `classwise` | a mapping of drift detector name to `by:` | `{}` | Drift detectors to also run per key, unchunked, each with its `by:`: `{drift-mmd: class}`, `{uncertainty: predicted}` (see [Drift in a model's uncertainty](../how_to/monitor_drift.md#6-drift-in-a-models-uncertainty)), or with settings; `min_items` is 2 unless written. An OOD detector here is refused. |
+| `classwise` | a mapping of drift detector name to `by:` | `{}` | Drift detectors to also run per key, unchunked, each with its `by:`: `{drift-mmd: class}`, `{uncertainty: predicted}` (see [Monitor a model's uncertainty](../how_to/monitor_model_uncertainty.md)), or with settings; `min_items` is 2 unless written. An OOD detector here is refused. |
 | `factor-predictors` | `false`, or `null` | `null` | `false` leaves out the `factor-predictors` step; it takes no settings. |
 | `factor-deviation` | a block, or `false` | `max_items: 50` | [`factor-deviation`](combines.md#factor-deviation)'s `max_items`; `false` leaves it out. |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |

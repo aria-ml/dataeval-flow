@@ -1,23 +1,20 @@
 # Declare an ontology
 
-The `taxonomy` workflow judges a dataset's labels against a declared {term}`ontology <Ontology>` — the sanctioned
-label space. It can name a missing class because the ontology says that class was supposed to exist. It is the only
-workflow that judges labels against an ontology: `scope` refuses `ontology:`, so run a `taxonomy` entry on
-the same source beside it. This guide covers declaring an ontology inline, loading one from an RDF file, and the
+The [`taxonomy`](../reference/presets.md#taxonomy) workflow judges a dataset's labels against a declared
+{term}`ontology <Ontology>`, the sanctioned label space. The ontology says which classes were supposed to exist, so
+`taxonomy` can name a class that was never collected. A class shortfall list that
+[`class-shortfall`](../reference/checks.md#class-shortfall) builds from the dataset's own `index2label` cannot. It can
+only name classes the dataset already declares, and a class that was never collected has no label, no count and no row
+in the report. [Dataset Coverage](../concepts/Coverage.md) explains the gap. The
+[DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html) covers ontologies and
+the reconciliation, alignment and validation operations over them.
+
+`taxonomy` requires an ontology, because `ontology:` has no default. It is the only workflow that judges labels against
+one: [`scope`](../reference/presets.md#scope) refuses `ontology:`, so run a `taxonomy` entry on the same source beside
+it. This guide declares an ontology inline, loads one from an RDF file, shares one across workflows, and reads the
 findings `taxonomy` makes from it.
 
-## Used in these tutorials
-
-- {doc}`Assess dataset coverage <../notebooks/data_coverage>`
-
-## Why counting labels is not enough
-
-A Class Shortfall list, which `class-shortfall` builds from the dataset's own `index2label`, is circular: it can only
-name classes the dataset already declares. A class that was never collected has no label, no count, and no row in the
-report. Declaring the label space externally is what breaks the circle, and `taxonomy` requires one: `ontology:` has
-no default.
-
-## Option 1: inline hierarchy
+## Declare an inline hierarchy
 
 For a small, stable label space, write the hierarchy directly into the workflow config as a nested mapping of concept
 to children. Leaves are lists.
@@ -54,9 +51,9 @@ workflows:
           vowel: ["A", "E", "I", "O", "U"]
 ```
 
-## Option 2: a versioned RDF artifact
+## Load a versioned RDF artifact
 
-For a label space that is shared across datasets, teams, or programs, keep it in a file and reference it by path:
+For a label space shared across datasets, teams or programs, keep it in a file and reference it by path:
 
 ```yaml
 workflows:
@@ -65,8 +62,8 @@ workflows:
     ontology: config/taxonomy.ttl
 ```
 
-Supported serializations are inferred from the suffix: `.ttl` (Turtle), `.rdf` / `.owl` / `.xml` (RDF/XML), `.nt`
-(N-Triples), and `.jsonld` / `.json` (JSON-LD). Relative paths resolve against the data root.
+Flow infers the serialization from the suffix: `.ttl` (Turtle), `.rdf` / `.owl` / `.xml` (RDF/XML), `.nt` (N-Triples),
+and `.jsonld` / `.json` (JSON-LD). Relative paths resolve against the data root.
 
 This path needs `rdflib`, which arrives with the `ontology` extra:
 
@@ -75,14 +72,14 @@ pip install "dataeval-flow[ontology]"
 ```
 
 An RDF artifact carries what an inline mapping cannot: synonyms, definitions, and stable concept identifiers that
-survive a class being renamed. A config-declared concept (see Option 3) carries the same three fields without a
-file. Reach for an RDF artifact when the label space is authored or reviewed outside this config.
+survive a class being renamed. A config-declared concept (see the "Share an ontology across workflows" section) carries
+the same three fields without a file. Use an RDF artifact when the label space is authored or reviewed outside this
+config.
 
-## Option 3: a shared `ontologies:` block
+## Share an ontology across workflows
 
-A label space is a decision, not a per-workflow setting. Two workflows reading different ontologies produce
-worklists you cannot compare. Define it once under `ontologies:` and reference it by name, the same way `datasets`,
-`views`, `sources`, `extractors`, and `metadata` work:
+Two workflows that read different ontologies produce worklists you cannot compare. Define the label space once under
+`ontologies:` and reference it by name, the same way `datasets`, `views`, `sources`, `extractors` and `metadata` work:
 
 ```yaml
 ontologies:
@@ -112,13 +109,14 @@ A declared concept replaces one the artifact defines under the same id. Replacem
 it, or the concept becomes a root and detaches from the hierarchy.
 
 A workflow's `ontology:` value is read as a name in the pool first, and as a path second, so a config that already
-names a file keeps working unchanged. A string that matches both a pool entry and a readable file is refused.
-Rename one of them.
+names a file keeps working unchanged. A string that matches both a pool entry and a readable file is refused. Rename
+one of them.
 
 ## Set expected class shares
 
 By default every sanctioned class is held to a uniform share of the dataset. When some classes are legitimately rarer
-than others, give them explicit floors with `representation.expected` — a mapping of class name to its minimum expected
+than others, give them explicit floors with `representation.expected` (see
+[`representation`](../reference/evaluators.md#representation)). It is a mapping of class name to its minimum expected
 share as a fraction in `[0, 1]`:
 
 ```yaml
@@ -134,8 +132,9 @@ is ignored and noted in the result.
 
 ## Lint the label names
 
-`ontology-validation.label_pattern` is a regex every concept label should match. It catches a vocabulary that
-has drifted into mixed conventions:
+`ontology-validation.label_pattern` (see [`ontology-validation`](../reference/evaluators.md#ontology-validation)) is a
+regex every concept label should match. It catches a vocabulary that has
+drifted into mixed conventions:
 
 ```yaml
     ontology-validation:
@@ -144,22 +143,24 @@ has drifted into mixed conventions:
 
 Labels that fail are reported in the ontology's structure.
 
-## What `taxonomy` finds
+## Read what `taxonomy` finds
 
 `taxonomy` runs four evaluators, each followed by the check that judges it:
 
-- Leaf coverage and the worklist, by `leaf-coverage`: how many sanctioned leaf concepts have examples, what to collect,
-  the wholly empty branches, and the `expected` shares not met.
-- Conformance, by `label-conformance`: which class names resolve to exactly one concept. It warns on an unmatched or
-  an ambiguous name.
-- Alignment, by `label-mergeability`: whether the dataset's classes carry over to the ontology, with the `Relabel`
-  stanza to paste into a view that conforms it.
-- Structure, by `ontology-structure`: the ontology's size, depth and naming. It warns on a label several concepts
-  share.
+- Leaf coverage and the worklist, by [`leaf-coverage`](../reference/checks.md#leaf-coverage): how many sanctioned leaf
+  concepts have examples, what to collect, the wholly empty branches, and the `expected` shares not met.
+- Conformance, by [`label-conformance`](../reference/checks.md#label-conformance): which class names resolve to exactly
+  one concept. It warns on an unmatched or an ambiguous name.
+- Alignment, by [`label-mergeability`](../reference/checks.md#label-mergeability): whether the dataset's classes carry
+  over to the ontology, with the `Relabel` stanza to paste into a view that conforms it.
+- Structure, by [`ontology-structure`](../reference/checks.md#ontology-structure): the ontology's size, depth and
+  naming. It warns on a label several concepts share.
 
-Two of the checks have thresholds, set under `checks` and keyed by check type: `leaf-coverage`'s `coverage`, the
-least fraction of sanctioned leaf concepts with any examples, and its `empty_branches`, the wholly unpopulated branches
-tolerated before it warns; and `label-conformance`'s `warning`, the class names that may fail to resolve to a concept.
+## Set the check thresholds
+
+Two of the checks have thresholds. Set them under `checks`, keyed by check type. `leaf-coverage` takes `coverage`, the
+least fraction of sanctioned leaf concepts with any examples, and `empty_branches`, the wholly unpopulated branches
+tolerated before it warns. `label-conformance` takes `warning`, the class names that may fail to resolve to a concept.
 `null` turns a threshold off. The values below are the defaults, which the
 [Preset Catalog](../reference/presets.md#taxonomy) lists with the rest of the preset's settings:
 
@@ -169,20 +170,20 @@ tolerated before it warns; and `label-conformance`'s `warning`, the class names 
       label-conformance: {warning: 0}
 ```
 
-Leaf coverage and empty branches catch the class you never collected. Unmatched names catch the opposite problem — a
-label in the data that the sanctioned vocabulary does not contain, which is usually a typo, a stale name, or a class
+Leaf coverage and empty branches catch the class you never collected. Unmatched names catch the opposite problem: a
+label in the data that the sanctioned vocabulary does not contain. It is usually a typo, a stale name, or a class
 someone added without updating the taxonomy.
 
-## The label space digest
+## Check which label space a result judged
 
 The result's `label_space_digest` is the alignment's: the value a dataset conformed by the alignment's `Relabel`
 stanza carries. Two results with the same digest judged the same label space. If a source's `Relabel` already recorded
 a label space, that record's digest is used instead.
 
-## Related material
+## Next steps
 
-- [Dataset Coverage](../concepts/Coverage.md) — the label-space and embedding-space axes coverage measures
-- [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html) — the
-  authoritative treatment of ontologies and the reconciliation, alignment, and validation operations over them
-- [Preset Catalog: `taxonomy`](../reference/presets.md#taxonomy) — every setting and `checks:` default of
-  `taxonomy`, from `TaxonomyConfig` and `TaxonomyChecks`
+- [Assess dataset coverage](../notebooks/data_coverage.py) — Run `taxonomy` beside `scope` on one source to name the
+  classes a dataset is missing.
+- [Dataset Coverage](../concepts/Coverage.md) — The label-space and embedding-space axes that coverage measures.
+- [Merge sources into one dataset](merge_sources.md) — Conform two datasets to a shared vocabulary with `Relabel` and
+  combine them.

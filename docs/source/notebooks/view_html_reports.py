@@ -16,22 +16,13 @@
 # %% [markdown]
 # # View a report as HTML
 #
-# You can render any result's report as one self-contained HTML page with `to_html()`. The page holds everything the
-# text report holds, laid out for reading on screen: a card per finding, which in a chain of steps holds the evidence
-# the finding judged, tables you can sort and filter, and each flagged item's measurements on hover.
-# It loads nothing, so it opens offline, attaches to a ticket as it is, and prints to PDF from the browser.
+# To read a result on screen, render its report as one self-contained HTML page with `to_html()`. The page holds
+# everything the text report holds, laid out for reading on screen: a card per finding, which in a chain of steps holds
+# the evidence the finding judged, tables you can sort and filter, and each flagged item's measurements on hover. It
+# loads nothing, so it opens offline, attaches to a ticket as it is, and prints to PDF from the browser.
 #
 # This guide vets a side-scan sonar survey's reference campaigns and checks its operational archive for drift, then
 # shows each report's page below as it renders, so you can try the page here.
-
-# %% [markdown]
-# ## Used in these tutorials
-#
-# You can reference this guide from:
-#
-# - {doc}`Clean a dataset <data_cleaning>`: read the flagged images and boxes, and their limits, on one page.
-# - {doc}`Monitor incoming data for drift <drift_monitoring>`: see each chunk's distance against its thresholds.
-# - {doc}`Run a full evaluation pipeline end to end <end_to_end>`: export a page next to each result envelope.
 
 # %% [markdown]
 # ## Run two workflows
@@ -39,10 +30,10 @@
 # The page draws whatever a result's findings hold. To show most of what it can draw, you will run two workflows on
 # MILCO, side-scan sonar imagery of mine-like objects collected over several survey campaigns:
 #
-# - `quality` on the reference campaigns. It runs as a chain of steps, and its `outliers` step lists every
-#   flagged image and every flagged bounding box with the metrics that flagged it;
-# - `shift` tests the operational archive against the reference, in chunks of 50 frames, so each chunk's
-#   distance is drawn against the drift thresholds, and its finding is drawn as a card.
+# - `quality` on the reference campaigns. It runs as a chain of steps, and its `outliers` step lists every flagged image
+#   and every flagged bounding box with the metrics that flagged it.
+# - `shift` tests the operational archive against the reference, in chunks of 50 frames, so each chunk's distance is
+#   drawn against the drift thresholds, and its finding is drawn as a card.
 #
 # {doc}`Monitor incoming data for drift <drift_monitoring>` walks through the same drift configuration in depth.
 
@@ -141,12 +132,12 @@ def show(page: str, height: int = 720) -> None:
 
 
 # %% [markdown]
-# ## The same report, as text and as HTML
+# ## Write the text report and the HTML page
 #
-# `report()` gives the text report, 80 columns wide, for a terminal or a log. The quality report opens with its
-# banner, `Quality`, then the run's metadata, which opens with `Workflow: clean (quality)`, how many of its
-# steps ran, and a summary line per finding. Then it gives each finding a section, with the steps it judged below it,
-# and ends with the `clean` step's section, a table of every step, and the configuration:
+# `report()` gives the text report, 80 columns wide, for a terminal or a log. The quality report opens with its banner,
+# `Quality`, then the run's metadata, which opens with `Workflow: clean (quality)`, how many of its steps ran, and a
+# summary line per finding. Then it gives each finding a section, with the steps it judged below it, and ends with the
+# `clean` step's section, a table of every step, and the configuration:
 
 # %% tags=["hide-output"]
 print(clean.report())
@@ -171,53 +162,53 @@ for name, result in results.items():
 show(clean.to_html())
 
 # %% [markdown]
-# ## Reading the page
+# ## Read the page
 #
 # Try each of these on the page above:
 #
-# - **The header.** The header names what ran, with the entry and type id below it, and gives the report's health:
-#   the number of warnings, `passed`, or `failed` and the steps that failed where a required step did.
-# - **The findings.** `quality` runs as a chain of steps. Under the header come how many steps ran, then a card
-#   per finding, badged with its severity, so the cards read as the report's summary. Each card holds the steps its
-#   finding judged, each headed *From* and the step's title, with its name where that differs from its type:
-#   *From Duplicates*. The Image Outliers card lists the `outliers` step's flagged images and boxes, and the
-#   Image Duplicates card the `duplicates` step's duplicate groups. A finding that judged a step another card already holds
-#   names that card. The `clean` section after the cards says how many images it kept, and what each plan named.
-# - **Reference.** The Steps table and the configuration close the report as panels, closed until opened. The Steps
-#   table gives each step's title, type and status, what it read, and why it made nothing where it did not.
-#   *Expand all* and *Collapse all*, top right, act on every card and panel at once.
-# - **Sorting.** Click a column's header to sort the table by it: ascending, descending, then back to the original
-#   order. A column of numbers sorts as numbers. The *Flagged by* column sorts by how many flags each row holds.
-# - **Filtering.** A table of more than ten rows gets a box above it. Type in it to keep the rows whose visible
-#   text matches, such as `brightness` for the images that metric flagged.
-# - **Flags.** Each tag reads a value against the limit it crossed, such as `brightness 44 > 39.3`. Hover a tag,
-#   or reach it with the keyboard, to see where the value ranks in its population and the population's mean and
-#   standard deviation.
-# - **Limits.** Under the flagged images, and again under the flagged boxes, the limits table gives each metric's
-#   lower and upper limit and its population, so the page keeps them when printed without hover cards.
-# - **Thumbnails.** Each flagged image and box, and each duplicate group, shows its sonar frames in its row. Click one
-#   to enlarge it, and click anywhere, or press Esc, to put it back.
+# - The header names what ran, with the entry and type id below it, and gives the report's health: the number of
+#   warnings, `passed`, or `failed` and the steps that failed where a required step did.
+# - `quality` runs as a chain of steps. Under the header come how many steps ran, then a card per finding, badged with
+#   its severity, so the cards read as the report's summary. Each card holds the steps its finding judged, each headed
+#   "From" and the step's title, with its name where that differs from its type: "From Duplicates". The Image
+#   Outliers card lists the `outliers` step's flagged images and boxes, and the Image Duplicates card the `duplicates`
+#   step's duplicate groups. A finding that judged a step another card already holds names that card. The `clean`
+#   section after the cards says how many images it kept, and what each plan named.
+# - The Steps table and the configuration close the report as panels, closed until opened. The Steps table gives each
+#   step's title, type and status, what it read, and why it made nothing where it did not. "Expand all" and "Collapse
+#   all", top right, act on every card and panel at once.
+# - Click a column's header to sort the table by it: ascending, descending, then back to the original order. A column
+#   of numbers sorts as numbers. The "Flagged by" column sorts by how many flags each row holds.
+# - A table of more than ten rows gets a box above it. Type in it to keep the rows whose visible text matches, such as
+#   `brightness` for the images that metric flagged.
+# - Each flag is a tag that reads a value against the limit it crossed, such as `brightness 44 > 39.3`. Hover a tag, or
+#   reach it with the keyboard, to see where the value ranks in its population and the population's mean and standard
+#   deviation.
+# - Under the flagged images, and again under the flagged boxes, the limits table gives each metric's lower and upper
+#   limit and its population, so the page keeps them when printed without hover cards.
+# - Each flagged image and box, and each duplicate group, shows its sonar frames in its row. Click one to enlarge it,
+#   and click anywhere, or press Esc, to put it back.
 
 # %% [markdown]
-# ## Finding cards, and thresholds on a scale
+# ## Read the thresholds on a drift report
 #
-# A workflow such as `shift` draws each finding as a card headed by its title, its value and its severity,
-# so the cards read as the report's summary. A warning starts open, and the rest start closed as one line each.
+# A workflow such as `shift` draws each finding as a card headed by its title, its value and its severity, so the cards
+# read as the report's summary. A warning starts open, and the rest start closed as one line each.
 #
 # A bar chart with thresholds draws each one as a dashed line across the bars, and labels it on a scale below the
 # table. In the drift report, each chunk's distance is a bar, and the two dashed lines are the lower and upper drift
-# thresholds: a chunk whose distance falls outside them counts as drifted. The last two chunks drifted, one after
-# the other, so the finding is a warning and its card starts open.
+# thresholds: a chunk whose distance falls outside them counts as drifted. The last two chunks drifted, one after the
+# other, so the finding is a warning and its card starts open.
 
 # %% tags=["remove_input"]
 show(drift.to_html())
 
 # %% [markdown]
-# Labels that would overlap take a second or third line, and any that still don't fit are listed under the scale,
-# so no two are drawn on top of each other.
+# Labels that would overlap take a second or third line, and any that still do not fit are listed under the scale, so
+# no two are drawn on top of each other.
 
 # %% [markdown]
-# ## A short page
+# ## Write the short page
 #
 # `to_html(detailed=False)` gives the summary page, as `report(detailed=False)` gives the summary text. For the drift
 # report, it keeps the header's health and the summary table, without the card:
@@ -230,27 +221,31 @@ show(drift.to_html(detailed=False))
 # steps, open, giving each step's status and why it made nothing where it did not.
 
 # %% [markdown]
-# ## Printing, dark mode, and blocked scripts
+# ## Print the page, or use it in dark mode or without scripts
 #
-# - **Printing.** The page prints (or saves as PDF from the browser's print dialog) in its light palette. Before it
-#   prints, it opens every card and panel and shows every row a filter hid.
-# - **Dark mode.** The page follows the system's setting. It has no toggle of its own.
-# - **Scripts blocked.** One inline script adds the sorting, the filter boxes and the *Expand all* buttons. Where
-#   scripts are blocked, as some mail viewers and locked-down browsers block them, the page shows the same report
-#   without those controls, rather than with buttons that do nothing.
+# - The page prints (or saves as PDF from the browser's print dialog) in its light palette. Before it prints, it opens
+#   every card and panel and shows every row a filter hid.
+# - The page follows the system's dark mode setting. It has no toggle of its own.
+# - One inline script adds the sorting, the filter boxes and the "Expand all" buttons. Where scripts are blocked, as
+#   some mail viewers and locked-down browsers block them, the page shows the same report without those controls,
+#   rather than with buttons that do nothing.
 
 # %% [markdown]
-# ## Several tasks on one page
+# ## Put several tasks on one page
 #
-# From the command line, `--output` writes `result.html` next to `result.json` and `result.txt`. It holds every
-# task's report on one page, with a list of the reports at the top linking each one:
+# From the command line, `--output` writes `result.html` next to `result.json` and `result.txt`. It holds every task's
+# report on one page, with a list of the reports at the top linking each one:
 #
 # ```bash
 # dataeval-flow --config params.yaml --output ./results
 # ```
+#
+# The {doc}`Run a full evaluation pipeline end to end <end_to_end>` tutorial exports a page next to each result
+# envelope.
 
 # %% [markdown]
-# ## Related
+# ## Next steps
 #
-# - {doc}`Read evaluation outputs <../how_to/read_evaluation_outputs>`: the text report, its severities, the result
-#   envelope, and the JSON form a page is drawn from.
+# - {doc}`data_cleaning` — Read the flagged images and boxes, and their limits, on one page.
+# - {doc}`../how_to/read_evaluation_outputs` — Read the text report and its severities.
+# - {doc}`../how_to/read_the_result_envelope` — Read the JSON a page is drawn from.

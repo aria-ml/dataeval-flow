@@ -1,15 +1,14 @@
 # Use a PyTorch model for embeddings
 
-You have a trained PyTorch model — often the very model under test — and want the evaluators to measure in *its*
-representation space. This guide covers configuring the `torch` extractor, choosing which layer to read, and the
-device and container implications.
+To make the evaluators measure in the representation space of your own trained PyTorch model, often the model
+under test, configure the `torch` extractor, choose the layer to read and add the preprocessing the model expects.
+[Preprocessing and Feature Extraction](../concepts/PreprocessingAndExtraction.md) explains why the representation a
+workflow measures in matters, and DataEval's
+[Embeddings explanation](https://dataeval.readthedocs.io/en/latest/concepts/Embeddings.html) is the authoritative
+treatment of embeddings. You need a `.pt` model file under your data root. The
+{doc}`API Reference <../reference/autoapi/dataeval_flow/index>` lists every field on `TorchExtractorConfig`.
 
-## Used in these tutorials
-
-- {doc}`Prioritize unlabeled data for labeling <../notebooks/data_prioritization>` — trains a small CNN, saves it, and
-  reads its `embed` layer through a `torch` extractor
-
-## Minimal configuration
+## Set the model path
 
 ```yaml
 extractors:
@@ -19,9 +18,9 @@ extractors:
     batch_size: 64
 ```
 
-`model_path` is required and must be relative — it resolves against the data root, and a path not found directly is
-also looked up under the conventional `models/` subfolder. Absolute paths in a config are rejected so that a config
-stays portable between a laptop and a container.
+`model_path` is required and must be relative. It resolves against the data root, and a path not found directly is also
+looked up under the conventional `models/` subfolder. A config rejects absolute paths so that it stays portable between
+a laptop and a container.
 
 ## Choose the layer to read
 
@@ -38,7 +37,8 @@ extractors:
     use_output: true         # capture the layer's output (false = its input)
 ```
 
-`layer_name` must match the attribute path of a module in the loaded model. If you are unsure what is available:
+`layer_name` must match the attribute path of a module in the loaded model. If you are unsure what is available, list
+the modules:
 
 ```python
 import torch
@@ -48,16 +48,16 @@ for name, _ in model.named_modules():
     print(name)
 ```
 
-`use_output: false` captures what was fed *into* the named layer. That is the easier way to grab the input to a
-classifier head when the head itself is what you want to bypass.
+`use_output: false` captures what was fed into the named layer. That is the easier way to grab the input to a
+classifier head when you want to bypass the head itself.
 
 ## Select a device
 
-The device is chosen once for the whole run, not per extractor, and by the machine rather than the config: DataEval
+The device is chosen once for the whole run, not per extractor, and by the machine rather than the config. DataEval
 Flow computes on CUDA when PyTorch sees a GPU and on the CPU otherwise. Each result's `metadata.device` records the
 device its task ran on.
 
-To choose, hide or pick GPUs with `CUDA_VISIBLE_DEVICES`: empty runs on the CPU, and `1` on the second GPU. From
+To choose, hide or pick GPUs, set `CUDA_VISIBLE_DEVICES`: empty runs on the CPU, and `1` on the second GPU. From
 Python, `set_device` chooses for every task run after it:
 
 ```python
@@ -66,8 +66,9 @@ from dataeval_flow import set_device
 set_device("cuda:1")  # or "cpu"; None returns to the default
 ```
 
-A GPU needs a CUDA image variant (`cu126` / `cu130`) run with `--gpus all`; the `cpu` image computes on the CPU. A GPU
-is not required — it only speeds up extraction, and matters most on embedding-heavy workflows over large datasets.
+A GPU needs a CUDA image variant (`cu126` or `cu130`) run with `--gpus all`, and the `cpu` image computes on the CPU.
+See [Run workflows in containers](containerized_workflows.md). A GPU is not required. It only speeds up extraction, and
+it matters most on embedding-heavy workflows over large datasets.
 
 ## Add preprocessing
 
@@ -96,11 +97,10 @@ extractors:
     preprocessor: resnet_preprocess
 ```
 
-A `preprocessor` reference must name a preprocessor defined in the same configuration. Getting normalization wrong
-is the most common cause of embeddings that look plausible but produce nonsense distances — see
-[Preprocessing and Feature Extraction](../concepts/PreprocessingAndExtraction.md).
+A `preprocessor` reference must name a preprocessor defined in the same configuration. Getting normalization wrong is
+the most common cause of embeddings that look plausible but produce nonsense distances.
 
-## PyTorch, ONNX, or BoVW?
+## Choose an extractor
 
 | Extractor | Needs | Use when |
 | --- | --- | --- |
@@ -109,14 +109,15 @@ is the most common cause of embeddings that look plausible but produce nonsense 
 | `bovw` | nothing | no trained model is available and you need a model-free baseline |
 | `flatten` | nothing | the images are small and raw pixels are an acceptable representation |
 
-Prefer `onnx` when the model is a fixed, shared artifact — it pins the graph and the input contract. Prefer `torch`
-when the model is yours, still moving, or when you need a layer that the exported ONNX graph does not expose. See
-{doc}`../notebooks/onnx_embeddings` for the ONNX path.
+Prefer `onnx` when the model is a fixed, shared artifact, because it pins the graph and the input contract. Prefer
+`torch` when the model is yours, still moving, or when you need a layer that the exported ONNX graph does not expose.
+[Use an ONNX model for embeddings](../notebooks/onnx_embeddings.py) shows the ONNX path.
 
-## Related material
+## Next steps
 
-- [Preprocessing and Feature Extraction](../concepts/PreprocessingAndExtraction.md) — why the representation a
-  workflow measures in matters
-- [DataEval Embeddings explanation](https://dataeval.readthedocs.io/en/latest/concepts/Embeddings.html) — the
-  authoritative treatment of embeddings
-- {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field on `TorchExtractorConfig`
+- [Prioritize unlabeled data for labeling](../notebooks/data_prioritization.py) — Train a small CNN, save it, and read
+  its `embed` layer through a `torch` extractor.
+- [Preprocessing and Feature Extraction](../concepts/PreprocessingAndExtraction.md) — Learn why the representation a
+  workflow measures in matters.
+- [Use an ONNX model for embeddings](../notebooks/onnx_embeddings.py) — Configure a pretrained ONNX model in place of
+  a PyTorch model.

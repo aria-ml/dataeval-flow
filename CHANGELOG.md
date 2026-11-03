@@ -602,6 +602,14 @@ you upgrade. It covers each change that a v0.2 config or script needs.
 - `audit`'s empty-split and mixed-kind refusals name the input, not the split, as a custom workflow's declared preflight
   does
 - PyPI releases carry a signed PEP 740 attestation for each file, made with the publish workflow's identity
+- The how-to guides follow the documentation style guide, and the long ones are split so that each covers one task
+  - "Evaluator recipes" is replaced by six guides, one per question, from "Look for shortcuts in your metadata" to
+    "Flag out-of-distribution items"
+  - "Read evaluation outputs", "Run workflows in containers", "Sweep settings with a matrix", "Monitor drift with steps",
+    "Chain steps into a workflow of your own", "Configure metadata binning" and "Narrow a dataset with views" each hand
+    part of their content to new guides
+  - The numbered anchors of those guides, such as `#11-check-a-set-of-splits`, are gone; links to them now point at
+    the new guides
 
 ### Fixed
 
