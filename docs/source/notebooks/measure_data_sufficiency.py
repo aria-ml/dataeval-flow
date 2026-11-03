@@ -16,18 +16,21 @@
 # %% [markdown]
 # # Measure how much training data a model needs
 #
-# Train a model on growing parts of a training set, see how its score rises with the data, and find out whether it
-# would reach a target score with more data, using the `sufficiency` evaluator and the `performance-sufficiency` check.
+# Train a model on growing parts of the MilitaryVehicles training set, see how its score rises with the data, and find
+# out whether it would reach a target score with more data, using the
+# [`sufficiency`](../reference/evaluators.md#sufficiency) evaluator and the
+# [`performance-sufficiency`](../reference/checks.md#performance-sufficiency) check.
 
 # %% [markdown]
-# **Target audience**: You are a T&E engineer or data scientist deciding whether to collect or label more training
-# data, or whether the model, rather than the data, is what limits its score.
+# You are a T&E engineer or data scientist deciding whether to collect or label more training data, or whether the
+# model, rather than the data, is what limits its score.
 #
-# **Workflow role**: You should run this once you have a model and training code that work, and before you commit to
-# collecting or labeling more data. It trains your model on subsets of the training set, scores each on a test set, and
-# fits a curve to the scores. The check then says, for each target score, whether the model reached it and, if not,
-# about how much data the curve says it would take. If more data would help, see
-# {doc}`Prioritize unlabeled data for labeling <data_prioritization>` to choose which to label first.
+# You should run this once you have a model and training code that work, and before you commit to collecting or labeling
+# more data. It trains your model on subsets of the training set, scores each on a test set, and fits a curve to the
+# scores. The check then says, for each target score, whether the model reached it and, if not, about how much data the
+# curve says it would take. {doc}`check_target_feasibility` comes before it: it asks whether your labeled images show
+# that a model can reach an accuracy you need. If more data would help, see {doc}`data_prioritization` to choose which
+# to label first.
 #
 # :::{note}
 # `sufficiency` and `performance-sufficiency` are experimental: they may change or be removed in any release without a
@@ -62,29 +65,29 @@
 # - Ensure network access for the first run: the dataset (~100 MB) and the ResNet-18 weights (~45 MB).
 
 # %% [markdown]
-# ### Step-by-step guide
-
-# %% [markdown]
 # ## Lay out the data root
 #
-# A run reads everything it needs from one folder, the data root: datasets under `data/`, model files under
-# `models/`, and your training code under `trainers/`. Here the data root is the folder this notebook sits in, and the
-# notebook fills it as it goes:
+# A run reads everything it needs from one folder, the data root: datasets under `data/`, model files under `models/`,
+# and your training code under `trainers/`. Here the data root is the folder this notebook sits in, and the notebook
+# fills it as it goes:
 #
 # ```text
 # .                                  the data root
 # ├── measure_data_sufficiency.yaml  the pipeline: datasets, trainer, steps and targets
 # ├── data/militaryvehicles/         MilitaryVehicles, as train_fine/ and test_fine/ (downloaded below)
 # ├── models/resnet18.onnx           the pretrained model the trainer reads (exported below)
-# └── trainers/backbone.py           your training code (written in step 1)
+# └── trainers/backbone.py           your training code (written in "Write a trainer")
 # ```
 #
-# A trainer path must start with `trainers/`, and the file, once symlinks are followed, must sit inside that folder.
-# A path outside it fails when the config loads; a symlink out of it fails the run. The same layout works in a
-# container, where you mount the project as the data root.
+# A trainer path must start with `trainers/`, and the file, once symlinks are followed, must sit inside that folder. A
+# path outside it fails when the config loads; a symlink out of it fails the run. The same layout works in a container,
+# where you mount the project as the data root.
+
+# %% [markdown]
+# ## Download the dataset and export the model
 #
-# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles) holds 24 kinds of military
-# vehicle, a folder of photographs for each. The first cell downloads it into `data/`; Flow reads those folders as they are.
+# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles) holds 24 kinds of military vehicle,
+# a folder of photographs for each. The next cell downloads it into `data/`, and Flow reads those folders as they are.
 
 # %% tags=["remove_output"]
 from pathlib import Path
@@ -97,9 +100,9 @@ data_root = Path(".")
 MilitaryVehicles(root=data_root / "data", image_set="base", download=True)
 
 # %% [markdown]
-# The trainer scores each image with a pretrained ResNet-18, an ImageNet model. The next cell exports it to ONNX
-# under `models/`, without its last layer, so that the model's output is a 512-number description of the image rather
-# than a score for each of ImageNet's 1,000 classes. It also makes the `trainers/` folder the trainer goes in.
+# The trainer scores each image with a pretrained ResNet-18, an ImageNet model. The next cell exports it to ONNX under
+# `models/`, without its last layer, so that the model's output is a 512-number description of the image rather than a
+# score for each of ImageNet's 1,000 classes. It also makes the `trainers/` folder the trainer goes in.
 
 # %% tags=["remove_output"]
 import warnings
@@ -133,7 +136,7 @@ onnxruntime.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
 
 
 # %% [markdown]
-# What the data root holds now:
+# Check what the data root holds now:
 
 # %%
 for name in ("train_fine", "test_fine"):
@@ -142,11 +145,11 @@ for name in ("train_fine", "test_fine"):
 print(f"{onnx_path.relative_to(data_root)}: {onnx_path.stat().st_size / 1e6:.0f} MB")
 
 # %% [markdown]
-# ## Step 1: Write a trainer
+# ## Write a trainer
 #
-# Your training code is a trainer: a subclass of {py:class}`~dataeval_flow.evaluators.performance.Trainer` in one
-# Python file under `trainers/`. Flow constructs it with the entry's `params` as keyword arguments and calls its
-# `build()`, which returns a {py:class}`~dataeval_flow.evaluators.performance.TrainerKit`:
+# Your training code is a trainer: a subclass of {py:class}`~dataeval_flow.evaluators.performance.Trainer` in one Python
+# file under `trainers/`. Flow constructs it with the entry's `params` as keyword arguments and calls its `build()`,
+# which returns a {py:class}`~dataeval_flow.evaluators.performance.TrainerKit`:
 #
 # - the untrained model;
 # - a training strategy, with `train(model, dataset, indices)`;
@@ -155,9 +158,9 @@ print(f"{onnx_path.relative_to(data_root)}: {onnx_path.stat().st_size / 1e6:.0f}
 #   of the model as built.
 #
 # This trainer describes each image once with the ONNX model, and its "model" is a nearest-centroid head: the average
-# description of each class. At each training size it refits the head on the images drawn, and scores it by the share
-# of test images whose nearest class average is their own. It reads the ONNX file from the data root through `params`.
-# The cell below shows the file and writes it to `trainers/backbone.py`.
+# description of each class. At each training size it refits the head on the images drawn, and scores it by the share of
+# test images whose nearest class average is their own. It reads the ONNX file from the data root through `params`. The
+# cell below shows the file and writes it to `trainers/backbone.py`.
 
 # %%
 # %%writefile trainers/backbone.py
@@ -271,19 +274,19 @@ class BackboneTrainer(Trainer):
 # %% [markdown]
 # Keep these in mind when you write your own:
 #
-# - **One file.** Flow runs it under a private module name, so it cannot import a sibling file in `trainers/`. It can
-#   import what the environment has: in a container, what the variant's `requirements.<variant>.txt` lists, which
-#   includes PyTorch, torchvision, ONNX Runtime, OpenCV, scikit-learn, SciPy, LightGBM, and Polars.
-# - **Items come as stored**: `(image, target, metadata)`, the image channels first, at the dataset's own size.
-# - **Device.** Take it from `dataeval.config.get_device()`, which the result's `metadata.device` records.
-# - **No network.** Read pretrained weights from the data root, as `weights` does here.
-# - **DataLoader workers.** A `torch.utils.data.DataLoader` with workers needs `num_workers=0` or
-#   `multiprocessing_context="fork"`: a worker started any other way cannot import a file Flow loaded by path.
-# - **Process-wide settings stay set.** Something the file sets for the whole process, such as a torch flag, holds for
-#   the later tasks of the same run.
+# - Write the trainer as one file. Flow runs it under a private module name, so it cannot import a sibling file in
+#   `trainers/`. It can import what the environment has: in a container, what the variant's `requirements.<variant>.txt`
+#   lists, which includes PyTorch, torchvision, ONNX Runtime, OpenCV, scikit-learn, SciPy, LightGBM, and Polars.
+# - Expect items as stored: `(image, target, metadata)`, the image channels first, at the dataset's own size.
+# - Take the device from `dataeval.config.get_device()`, which the result's `metadata.device` records.
+# - Use no network. Read pretrained weights from the data root, as `weights` does here.
+# - Give a `torch.utils.data.DataLoader` either `num_workers=0` or `multiprocessing_context="fork"`: a worker started
+#   any other way cannot import a file Flow loaded by path.
+# - Expect process-wide settings to stay set. Something the file sets for the whole process, such as a torch flag, holds
+#   for the later tasks of the same run.
 
 # %% [markdown]
-# ## Step 2: Chain the evaluator and the check
+# ## Chain the evaluator and the check
 #
 # The pipeline file holds both steps. The `sufficiency` evaluator trains the trainer's model on growing subsets of the
 # training set and scores it on the test set at each size. The `performance-sufficiency` check reads what it measured
@@ -293,25 +296,24 @@ class BackboneTrainer(Trainer):
 print(Path("measure_data_sufficiency.yaml").read_text())
 
 # %% [markdown]
-# Notice:
+# Note these points about the file:
 #
-# - **Order decides the roles.** The evaluator's first input is the training set and its second the test set.
-# - **The sizes are the `schedule`.** Left out, the default schedule measures five sizes, from 1% of the training set to
-#   all of it, and needs a training set of at least 100 items. Here five sizes stop at 3,200 of the training set's 7,823
+# - Order decides the roles. The evaluator's first input is the training set, and its second is the test set.
+# - The sizes are the `schedule`. Left out, the default schedule measures five sizes, from 1% of the training set to all
+#   of it, and needs a training set of at least 100 items. Here five sizes stop at 3,200 of the training set's 7,823
 #   items, so that the check can tell data you already hold from data you would have to find.
-# - **A size counts draws**, made with replacement, not distinct items: 3,200 draws cover fewer than 3,200 different
-#   images. `seed` makes the draws repeatable.
-# - **`params` reach the trainer.** They are not checked when the config loads; the trainer checks them when the run
-#   starts.
-# - **The four targets are chosen to show each answer the check can give**, as step 4 reads them. They are not goals
-#   for this model. A real target comes from what your mission needs.
+# - A size counts draws, made with replacement, not distinct items: 3,200 draws cover fewer than 3,200 different images.
+#   `seed` makes the draws repeatable.
+# - `params` reach the trainer. They are not checked when the config loads; the trainer checks them when the run starts.
+# - The four targets are chosen to show each answer the check can give, as the "Read the report" section reads them.
+#   They are not goals for this model. A real target comes from what your mission needs.
 
 # %% [markdown]
-# ## Step 3: Run it
+# ## Run it
 #
-# `run_task()` runs the task the pipeline names. The trainer's backbone describes each image once, so the first size
-# is the slowest; the run takes from half a minute to a few minutes, depending on the CPU. Flow logs a line as each size
-# is measured, which the cell below prints. On the command line, add `-vv` to see them.
+# `run_task()` runs the task the pipeline names. The trainer's backbone describes each image once, so the first size is
+# the slowest; the run takes from half a minute to a few minutes, depending on the CPU. Flow logs a line as each size is
+# measured, which the cell below prints. On the command line, add `-vv` to see them.
 
 # %%
 import logging
@@ -334,14 +336,13 @@ result = run_task(config, "sufficiency", data_dir=data_root)
 assert result.success, result.errors
 
 # %% [markdown]
-# In a container, mount the project as the data root, `trainers/` and all, and the run reads the trainer from there.
-# The data root is read-only there, and anything the trainer writes outside `/output` or `/cache` is lost when the
-# container exits. A GPU variant trains on the GPU with `--gpus all`. See
-# [Run workflows in containers](../how_to/containerized_workflows.md) and the
-# [container reference](../reference/containers.md).
+# In a container, mount the project as the data root, `trainers/` and all, and the run reads the trainer from there. The
+# data root is read-only there, and anything the trainer writes outside `/output` or `/cache` is lost when the container
+# exits. A GPU variant trains on the GPU with `--gpus all`. See {doc}`../how_to/containerized_workflows` and the
+# [Container Reference](../reference/containers.md).
 
 # %% [markdown]
-# ## Step 4: Read the report
+# ## Read the report
 #
 # `result.report()` is the text report. The check's finding is the section titled Performance Sufficiency, and the
 # evaluator's own section below it names the trainer that made the numbers.
@@ -352,11 +353,11 @@ print(result.report())
 # %% [markdown]
 # The banner counts the targets reached at the largest size measured. Under it:
 #
-# - **The learning curve.** A row per training size: the accuracy there, and a bar for it. The bars stop at the highest
+# - The learning curve is a row per training size: the accuracy there, and a bar for it. The bars stop at the highest
 #   target, and the line under them marks the lowest and the highest, `(0.27)` and `(0.35)`. The score rises quickly
-#   with the first sizes, then each size adds less than the one before. The check fits a curve to that, a power law,
-#   and projects it.
-# - **The targets.** A row for each, with whether it is reached, and where it is not, the size the fitted curve reaches
+#   with the first sizes, then each size adds less than the one before. The check fits a curve to that, a power law, and
+#   projects it.
+# - The targets are a row for each, with whether it is reached, and where it is not, the size the fitted curve reaches
 #   it at and how many times the largest size measured that is.
 #
 # The four targets each get a different answer:
@@ -373,8 +374,8 @@ print(result.report())
 # nears its limit. On another machine the numbers differ in the last digits, but the four answers should not change.
 #
 # The finding is a warning because a target is beyond the training set or never reached. A finding is `ok` where every
-# target is reached, `info` where one is projected within the training set, and `warning` where one is projected past
-# it or never. A target on a per-class metric, which the trainer returns as an array, is listed as not assessed. A target
+# target is reached, `info` where one is projected within the training set, and `warning` where one is projected past it
+# or never. A target on a per-class metric, which the trainer returns as an array, is listed as not assessed. A target
 # naming a metric the run did not measure fails the step, listing the metrics it did.
 
 # %% [markdown]
@@ -385,10 +386,10 @@ for finding in result.findings:
     print(f"{finding.severity:<8} {finding.title:<24} {finding.brief}")
 
 # %% [markdown]
-# ### The same report as HTML
+# ### Read the report as HTML
 #
-# `result.to_html()` draws the same tables as a page. Each bar's scale shows the targets as dashed lines, labeled
-# below it. {doc}`View a report as HTML <view_html_reports>` shows what else the page does.
+# `result.to_html()` draws the same tables as a page. Each bar's scale shows the targets as dashed lines, labeled below
+# it. {doc}`view_html_reports` shows what else the page does.
 
 # %% tags=["remove_cell"]
 # The page styles its whole document, so the docs show it in an iframe of its own rather than
@@ -411,7 +412,7 @@ def show(page: str, height: int = 640) -> None:
 show(result.to_html())
 
 # %% [markdown]
-# ## Step 5: Read the measurements in Python
+# ## Read the measurements in Python
 #
 # The report holds the measurements as a picture. The step's `output` holds them as numbers, and is DataEval's own
 # `SufficiencyOutput`: its `steps` are the training sizes measured, and `averaged_measures` holds each metric at each
@@ -470,19 +471,23 @@ print(extras["params"])
 # %% [markdown]
 # ## Next steps
 #
-# - **Your own model**: Replace the trainer's backbone and head with your model, and keep the shape: a model, a `train`
-#   that fits it on the indices it is given, and an `evaluate` that returns each metric by name.
-# - **Steadier curves**: Set `runs` to average several training runs at each size, or name more sizes in `schedule`.
-#   With no `schedule`, the default measures five sizes up to the whole training set.
-# - **Choose what to label**: If more data would help, {doc}`Prioritize unlabeled data for labeling <data_prioritization>`
-#   ranks an unlabeled pool so the most informative samples are annotated first.
+# - {doc}`data_prioritization` — Rank an unlabeled pool so the most informative samples are annotated first.
+# - {doc}`../how_to/write_a_custom_workflow` — Learn the workflow's parts and chain steps into a workflow of your own.
 
 # %% [markdown]
-# ## Related guides
+# ## On your own
 #
-# - **Reference**: [`sufficiency`](../reference/evaluators.md#sufficiency) and
-#   [`performance-sufficiency`](../reference/checks.md#performance-sufficiency) list every setting.
-# - **How-to**: [Chain steps into a workflow of your own](../how_to/write_a_custom_workflow.md) explains the workflow's
-#   parts.
-# - **How-to**: [Run workflows in containers](../how_to/containerized_workflows.md) covers the mounts and the variants.
-# - **Guide**: {doc}`View a report as HTML <view_html_reports>` shows what the HTML page does.
+# To repeat the measurement with your own data, model and settings, change these entries:
+#
+# - To use your own model, replace the trainer's backbone and head with your model, and keep the shape: a model, a
+#   `train` that fits it on the indices it is given, and an `evaluate` that returns each metric by name. Point the
+#   evaluator's `trainer` at your file with `path`, `class` and `params`.
+# - To use your own data, change the `path` of the entries under `datasets`, and keep the training set first and the
+#   test set second in the task's `sources`.
+# - To measure other sizes, edit `schedule`: strictly increasing numbers, none larger than your training set. With no
+#   `schedule`, the default measures five sizes up to the whole training set. Set `substeps` to change how many, and not
+#   together with `schedule`.
+# - To steady the curve, set `runs` to average several training runs at each size, or name more sizes in `schedule`.
+# - To judge other targets, edit `targets` in the `performance-sufficiency` step: a `metric` that the trainer's
+#   `evaluate` returns and a `value` that the metric should reach, where higher is better.
+# - To repeat the same draws, keep `seed`.

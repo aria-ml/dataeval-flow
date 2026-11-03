@@ -16,41 +16,37 @@
 # %% [markdown]
 # # Assess dataset coverage
 #
-# Detect class imbalance, metadata gaps, missing label-space regions, and
-# embedding blind spots with three config-driven presets: `bias`, `scope` and `taxonomy`.
+# Detect class imbalance, metadata gaps, missing label-space regions, and embedding blind spots with three config-driven
+# presets: [`bias`](../reference/presets.md#bias), [`scope`](../reference/presets.md#scope) and
+# [`taxonomy`](../reference/presets.md#taxonomy).
 
 # %% [markdown]
-# **Target audience**: You are a T&E engineer or data scientist who needs to verify
-# that a dataset covers required operational conditions and label taxonomies before
-# model training or certification.
+# You are a T&E engineer or data scientist who needs to verify that a dataset covers required operational conditions and
+# label taxonomies before model training or certification.
 #
-# **Workflow role**: You should run coverage assessment during early data preparation
-# alongside {doc}`Clean a dataset <data_cleaning>`. While data cleaning checks data quality,
-# coverage evaluates completeness across classes, metadata factors, and feature spaces.
-# Gaps identified here inform data collection and establish trustworthy baselines for
-# {doc}`Monitor incoming data for drift <drift_monitoring>` and
-# {doc}`Detect out-of-distribution samples <ood_detection>`. See [Dataset coverage](../concepts/Coverage.md)
-# for background.
+# Run coverage assessment during early data preparation alongside {doc}`data_cleaning`. While data cleaning checks data
+# quality, coverage evaluates completeness across classes, metadata factors, and feature spaces. Gaps identified here
+# inform data collection and establish trustworthy baselines for {doc}`drift_monitoring` and {doc}`ood_detection`. See
+# {doc}`../concepts/Coverage` for background.
 
 # %% [markdown]
 # ## What you will do
 #
-# - Load MilitaryVehicles and filter out the Air Defense category using `Filter` to
-#   simulate missing collection categories.
+# - Load MilitaryVehicles and filter out the Air Defense category using `Filter` to simulate missing collection
+#   categories.
 # - Run `bias` and `scope` without an extractor for a fast label and metadata pass.
 # - See why class counts alone do not reveal a missing category.
-# - Run `taxonomy` on the same source, with the dataset's taxonomy as its ontology, to name
-#   the unsampled concepts.
+# - Run `taxonomy` on the same source, with the dataset's taxonomy as its ontology, to name the unsampled concepts.
 # - Re-run `scope` with a BoVW extractor to evaluate embedding coverage and dimensional completeness.
 # - Read each step's output from the result, and tune the checks' thresholds.
+# - Export the structured coverage results to JSON.
 
 # %% [markdown]
 # ## What you will learn
 #
-# - How to configure and run the `bias`, `scope` and `taxonomy` presets with `run_task()` and
-#   `run_tasks()`.
-# - How coverage evaluates two axes: taxonomic representation (`taxonomy`, against an ontology) and visual
-#   variation (`scope`, in embedding space).
+# - How to configure and run the `bias`, `scope` and `taxonomy` presets with `run_task()` and `run_tasks()`.
+# - How coverage evaluates two axes: taxonomic representation (`taxonomy`, against an ontology) and visual variation
+#   (`scope`, in embedding space).
 # - Why count-based distributions fail to detect unsampled classes when loaders drop missing categories.
 # - How to distinguish genuine collection gaps from intentional ontology scope boundaries.
 # - How to adjust each check's thresholds for varying domain risk tolerances.
@@ -58,9 +54,9 @@
 # %% [markdown]
 # ## Prerequisites
 #
-# - Install `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`).
+# - Install `dataeval-flow`, which includes `dataeval`, `datamaite` and `pydantic`.
 # - Install `maite-datasets` to download MilitaryVehicles.
-# - Ensure network access for the initial dataset download.
+# - Make sure you have network access for the initial dataset download.
 
 # %% [markdown]
 # ## Lay out the data root
@@ -75,22 +71,18 @@
 # └── cache/                                   # written: image statistics and embeddings, reused on a re-run
 # ```
 #
-# The notebook loads the export in Python and hands the pipeline the dataset in memory, so no configuration path
-# points at it.
+# The notebook loads the export in Python and hands the pipeline the dataset in memory, so no configuration path points
+# at it. The notebook builds its pipeline in Python and reads no configuration file.
 
 # %% [markdown]
-# ### Step-by-step guide
-
-# %% [markdown]
-# ## Data Preparation: a collection with a hole in it
+# ## Simulate a collection with a missing category
 #
-# Operational recognition systems require predefined label taxonomies. MilitaryVehicles
-# provides a `hierarchy` attribute categorizing tanks, BMPs, BTRs, self-propelled
-# artillery, air defense systems, and related vehicle types.
+# Operational recognition systems require predefined label taxonomies. MilitaryVehicles provides a `hierarchy` attribute
+# categorizing tanks, BMPs, BTRs, self-propelled artillery, air defense systems, and related vehicle types.
 #
-# You will drop the Air Defense category using `Filter` to simulate a collection
-# cycle that missed a required category. All remaining class counts and imagery remain
-# unmodified.
+# You will drop the Air Defense category using `Filter` to simulate a collection cycle that missed a required category.
+# All remaining class counts and imagery remain unmodified. See {doc}`../how_to/build_dataset_views` for view operations
+# such as `Filter`, `Shuffle`, and `Limit`.
 
 # %% tags=["remove_output"]
 from pathlib import Path
@@ -120,9 +112,9 @@ print(f"After the gap:    {len(collected)} frames, {len(collected_classes)} type
 print(f"Never collected:  {sorted(AIR_DEFENSE)}")
 
 # %% [markdown]
-# ### Look at the class distribution
+# ### Check the class distribution
 #
-# Before running anything, the obvious first check: are the classes balanced?
+# Start with the obvious check. Are the classes balanced?
 
 # %%
 labels = np.array([int(np.argmax(collected[i][1])) for i in range(len(collected))])
@@ -153,28 +145,30 @@ plt.tight_layout()
 plt.show()
 
 # %% [markdown]
-# The sample distribution shows an imbalance ratio of 1.77:1. Count-based checks
-# indicate a balanced dataset, but cannot identify missing categories absent an
-# external ontology definition.
+# The sample distribution shows an imbalance ratio of 1.77:1. Count-based checks indicate a balanced dataset, but cannot
+# identify missing categories absent an external ontology definition.
 
 # %% [markdown]
-# ## Step 1: Run bias and coverage without an extractor (metadata only)
+# ## Run `bias` and `scope` without an extractor
 #
-# You can run `bias` and `scope` without an extractor for a fast initial pass.
-# Each is a preset: its settings expand to a chain of steps, each an evaluator, a check that
-# judges one, or a transform. `bias` reads only labels and metadata: `label-health`,
-# `factor-summary`, `balance`, `diversity`, `parity` and `factor-gaps` (the gap analysis).
-# Without an extractor, `scope` skips the steps that embed the images, `coverage` and
-# `completeness`, and runs `representation` (what each class lacks of an even spread). The two
-# run as two tasks of one pipeline, on the same source.
+# You can run both presets without an extractor for a fast initial pass. Each preset's settings expand to a chain of
+# steps, each an evaluator, a check that judges one, or a transform. `bias` reads only labels and metadata:
+# [`label-health`](../reference/evaluators.md#label-health),
+# [`factor-summary`](../reference/evaluators.md#factor-summary), [`balance`](../reference/evaluators.md#balance),
+# [`diversity`](../reference/evaluators.md#diversity), [`parity`](../reference/evaluators.md#parity) and
+# [`factor-gaps`](../reference/combines.md#factor-gaps) (the gap analysis). Without an extractor, `scope` skips the
+# steps that embed the images, [`coverage`](../reference/evaluators.md#coverage) and
+# [`completeness`](../reference/evaluators.md#completeness), and runs
+# [`representation`](../reference/evaluators.md#representation) (what each class lacks of an even spread). The two run
+# as two tasks of one pipeline, on the same source.
 #
-# You will evaluate intrinsic image factors (such as brightness, contrast, and
-# sharpness) as metadata conditions. The gap analysis cross-tabulates class labels against
-# binned factors to detect whether particular vehicle classes were imaged under
-# limited operational conditions.
+# You will evaluate intrinsic image factors (such as brightness, contrast, and sharpness) as metadata conditions. The
+# gap analysis cross-tabulates class labels against binned factors to detect whether particular vehicle classes were
+# imaged under limited operational conditions.
 #
-# `checks` is keyed by the type of the check it sets: on `bias`, `class-imbalance` judges
-# the label distribution, and `factor-coverage-gaps` the gap analysis.
+# `checks` is keyed by the type of the check it sets: on `bias`, `class-imbalance` judges the label distribution, and
+# `factor-coverage-gaps` the gap analysis. To run coverage tasks in a container, see
+# {doc}`../how_to/containerized_workflows`.
 
 # %%
 from dataeval_flow import run_task, run_tasks
@@ -247,19 +241,44 @@ result_bias, result_metadata = results["vehicles-bias"], results["vehicles-cover
 # %% [markdown]
 # ### Bias report
 #
-# The `bias` report gives each finding a section: Class Imbalance, Shortcut Risk,
-# Factor Parity and Factor Coverage Gaps. The metadata summary, balance and diversity are
-# report sections, not findings.
+# The `bias` report gives each finding a section: Class Imbalance, Shortcut Risk, Factor Parity and Factor Coverage
+# Gaps. The metadata summary, balance and diversity are report sections, not findings.
 
 # %%
 print(result_bias.report())
 
 # %% [markdown]
+# ### View the HTML report
+#
+# `result_bias.to_html()` renders the same report as one HTML page. It holds everything the text report holds, laid out
+# for reading on screen, with tables you can sort and filter. Every result has a `to_html()`. The page follows your
+# system's dark mode setting, so here it may not match this site's theme. See {doc}`view_html_reports` for the rest of
+# the page.
+
+# %% tags=["remove_cell"]
+# The page styles its whole document, so the docs show it in an iframe of its own.
+import html
+
+from IPython.display import display
+
+
+def show(page: str, height: int = 560) -> None:
+    """*page* in an iframe, so its stylesheet and script stay inside it."""
+    frame = (
+        f'<iframe srcdoc="{html.escape(page, quote=True)}" title="HTML report" loading="lazy" '
+        f'style="width:100%;height:{height}px;border:1px solid #d1d9e0;border-radius:6px"></iframe>'
+    )
+    display({"text/html": frame}, raw=True)
+
+
+# %% tags=["remove_input"]
+show(result_bias.to_html())
+
+# %% [markdown]
 # ### Coverage report (metadata only)
 #
-# The `scope` report gives the Class Shortfall. Class Coverage and Dimensional
-# Completeness are reported as not assessed, and the Steps table at the end says why each
-# embedding step was skipped.
+# The `scope` report gives the Class Shortfall. Class Coverage and Dimensional Completeness are reported as not
+# assessed, and the Steps table at the end says why each embedding step was skipped.
 
 # %%
 print(result_metadata.report())
@@ -267,9 +286,8 @@ print(result_metadata.report())
 # %% [markdown]
 # ### Drill into each step's output
 #
-# The result is a `ChainResult`. `result.steps` holds each step's output by step name,
-# for programmatic inspection. The `bias` run's `label-health` step's output is a count of
-# every class the dataset declares, at 0 where it has no labels.
+# The result is a `ChainResult`. `result.steps` holds each step's output by step name, for programmatic inspection. The
+# `bias` run's `label-health` step's output is a count of every class the dataset declares, at 0 where it has no labels.
 
 # %%
 label_health = result_bias.steps["label-health"].output.data()
@@ -311,39 +329,34 @@ for row in worklist.data().iter_rows(named=True):
     print(f"  {row['label']:>14}  {row['action']:<8} have {row['count']:>4}, want {row['target']:>4}")
 
 # %% [markdown]
-# ### Interpreting the findings
+# ### Interpret the findings
 #
-# In this output, the imbalance ratio (1.8:1) satisfies the configured threshold of 3.0.
-# The Class Imbalance finding warns anyway, because four declared classes, the Air
-# Defense types, have zero samples. `class-imbalance` takes its ratio over the classes with
-# labels, and a declared class with none always warns.
+# In this output, the imbalance ratio (1.8:1) satisfies the configured threshold of 3.0. The Class Imbalance finding
+# warns anyway, because four declared classes, the Air Defense types, have zero samples. `class-imbalance` takes its
+# ratio over the classes with labels, and a declared class with none always warns.
 #
-# The gap analysis finds nothing. A factor is searched for gaps only when its mutual
-# information with the class reaches `mi_threshold`, 0.1 by default, and the strongest
-# here, `contrast`, scores 0.0027. The measured image statistics barely vary with the
-# vehicle class in this sample, so Factor Coverage Gaps is `ok`.
+# The gap analysis finds nothing. A factor is searched for gaps only when its mutual information with the class reaches
+# `mi_threshold`, 0.1 by default, and the strongest here, `contrast`, scores 0.0027. The measured image statistics
+# barely vary with the vehicle class in this sample, so Factor Coverage Gaps is `ok`.
 #
-# Shortcut Risk and Factor Parity agree: no factor tells much about the class. No factor's
-# mutual information passes 0.1, and no factor's Cramér's V passes 0.3; the strongest,
-# `darkness`, scores 0.066. Factor Parity also names ten factors whose binned tables hold
-# cells too sparse for the chi-square p-value to be trusted, 1,500 items being spread over
-# 24 classes and five bins.
+# Shortcut Risk and Factor Parity agree that no factor tells much about the class. No factor's mutual information passes
+# 0.1, and no factor's Cramér's V passes 0.3. The strongest, `darkness`, scores 0.066. Factor Parity also names ten
+# factors whose binned tables hold cells too sparse for the chi-square p-value to be trusted, 1,500 items being spread
+# over 24 classes and five bins.
 #
-# The worklist cell lists six classes short of an even spread over the 24 declared
-# classes, 266 labels in all: the four Air Defense types have 0 of a target of 62, and
-# `BTR-70` and `T-90` have 53.
+# The worklist cell lists six classes short of an even spread over the 24 declared classes, 266 labels in all: the four
+# Air Defense types have 0 of a target of 62, and `BTR-70` and `T-90` have 53.
 #
-# `Filter` removed samples while leaving `index2label` intact in the dataset
-# metadata. If a dataset loader drops unused category entries completely, count-based
-# workflows cannot detect missing categories. To guarantee detection of missing
-# classes regardless of dataset metadata formatting, you should declare an ontology.
+# `Filter` removed samples while leaving `index2label` intact in the dataset metadata. If a dataset loader drops unused
+# category entries completely, count-based workflows cannot detect missing categories. To guarantee detection of missing
+# classes regardless of dataset metadata formatting, you should declare an ontology. See
+# {doc}`../how_to/declare_an_ontology` for how to define a label space with an inline dictionary or a SKOS/OWL file.
 
 # %% [markdown]
-# ## Step 2: Judge the labels against the sanctioned label space
+# ## Judge the labels against the sanctioned label space
 #
-# The `taxonomy` preset compares a dataset's labels against a declared ontology, the
-# full taxonomy specification. It runs on the same source as `bias` and `scope`,
-# as a task of its own.
+# The `taxonomy` preset compares a dataset's labels against a declared ontology, the full taxonomy specification. It
+# runs on the same source as `bias` and `scope`, as a task of its own.
 #
 # You will load the hierarchy attribute from MilitaryVehicles as your ontology:
 
@@ -353,8 +366,8 @@ import json
 print(json.dumps(MilitaryVehicles.hierarchy, indent=2)[:900] + "\n...")
 
 # %% [markdown]
-# The hierarchy defines `land vehicle` along with `watercraft` and `aircraft`.
-# When evaluated against this taxonomy, unsampled concepts will be identified.
+# The hierarchy defines `land vehicle` along with `watercraft` and `aircraft`. When evaluated against this taxonomy,
+# unsampled concepts will be identified.
 
 # %%
 from dataeval_flow.workflows.taxonomy import TaxonomyConfig
@@ -381,9 +394,8 @@ result_vocab = run_task(config_vocab, task_vocab, cache_dir=Path("./cache"))
 print(result_vocab.report())
 
 # %% [markdown]
-# The `representation` step's output is DataEval's collection worklist against the
-# ontology, one row per leaf concept short of its expected share. Its leaf coverage,
-# total deficit and dark branches hang off it as attributes.
+# The `representation` step's output is DataEval's collection worklist against the ontology, one row per leaf concept
+# short of its expected share. Its leaf coverage, total deficit and dark branches are attributes of it.
 
 # %%
 representation = result_vocab.steps["representation"].output
@@ -403,38 +415,35 @@ for row in representation.data().head(8).iter_rows(named=True):
 #
 # `taxonomy` makes four findings:
 #
-# - **Leaf Coverage**: Identifies leaf coverage (76.9%, 20 of the ontology's 26
-#   leaves) and specific missing concepts. In addition to the four held-out Air Defense
-#   classes, it surfaces `aircraft` and `watercraft` concepts defined in the taxonomy. It
-#   warns: the coverage is under the default 0.9, and Air Defense is a wholly empty branch.
-# - **Label Conformance**: Verifies whether all collected dataset classes exist in the
-#   ontology. All 24 class names resolve to exactly one concept.
-# - **Mergeability**: Shows mapping between dataset class names and ontology concepts,
-#   providing relabeling rules where names differ. Here every class carries over one-to-one.
-# - **Ontology Structure**: Reports concept hierarchy size, leaf counts, and depth: 34
-#   concepts, 26 leaves, depth 4, and one single-child link, which it notes.
+# - Leaf Coverage reports the leaf coverage (76.9%, 20 of the ontology's 26 leaves) and names the specific missing
+#   concepts. In addition to the four held-out Air Defense classes, it surfaces `aircraft` and `watercraft` concepts
+#   defined in the taxonomy. It warns: the coverage is under the default 0.9, and Air Defense is a wholly empty branch.
+# - Label Conformance verifies whether all collected dataset classes exist in the ontology. Each of the 24 class names
+#   resolves to one concept.
+# - Mergeability shows the mapping between dataset class names and ontology concepts, and provides relabeling rules
+#   where names differ. Here every class carries over one-to-one.
+# - Ontology Structure reports the concept hierarchy size, leaf counts, and depth: 34 concepts, 26 leaves, depth 4, and
+#   one single-child link, which it notes.
 #
-# The two worklists differ in what they spread the 1,500 labels over. `scope`'s
-# Class Shortfall spreads them over the 24 classes the dataset declares, a target of
-# 62 each, 266 labels short. `taxonomy` spreads them over the ontology's 26 leaves, a
-# target of 58 each, 358 labels short, and so adds `aircraft` and `watercraft`.
+# The two worklists differ in what they spread the 1,500 labels over. `scope`'s Class Shortfall spreads them over the 24
+# classes the dataset declares, a target of 62 each, 266 labels short. `taxonomy` spreads them over the ontology's 26
+# leaves, a target of 58 each, 358 labels short, and so adds `aircraft` and `watercraft`.
 
 # %% [markdown]
 # ### Read the worklist with scope in mind
 #
-# The report flags `Air Defense` as a dark branch (4 leaves, 0 samples), an in-scope
-# gap that requires targeted data collection.
+# The report flags `Air Defense` as a dark branch (4 leaves, 0 samples), an in-scope gap that requires targeted data
+# collection.
 #
-# The report also flags `aircraft` and `watercraft`. For a ground-vehicle system,
-# these categories represent ontology concepts outside operational scope. You should
-# scope your ontology to match operational requirements so check thresholds track valid
-# system targets.
+# The report also flags `aircraft` and `watercraft`. For a ground-vehicle system, these categories represent ontology
+# concepts outside operational scope. You should scope your ontology to match operational requirements so check
+# thresholds track valid system targets.
 
 # %% [markdown]
 # ### When a label does not reconcile
 #
-# Label conformance performs exact matching against ontology concepts. Any misspellings
-# or unsanctioned classes are flagged as unmatched:
+# Label conformance performs exact matching against ontology concepts. Any misspellings or unsanctioned classes are
+# flagged as unmatched:
 
 # %%
 from dataeval import Ontology
@@ -448,14 +457,14 @@ print("matched:  ", dict(check["matched"]))
 print("unmatched:", list(check["unmatched"]))
 
 # %% [markdown]
-# `T-72` and `BTR-80` match successfully. `T72` fails due to the missing hyphen,
-# and `technical` fails because it is absent from the ontology.
+# `T-72` and `BTR-80` match successfully. `T72` fails due to the missing hyphen, and `technical` fails because it is
+# absent from the ontology.
 
 # %% [markdown]
-# ### Sharing one ontology across tasks
+# ### Share one ontology across tasks
 #
-# You can define ontologies centrally under `ontologies:` in YAML and reference them
-# by name. The presets run as tasks on one source:
+# You can define ontologies centrally under `ontologies:` in YAML and reference them by name. The presets run as tasks
+# on one source:
 #
 # ```yaml
 # ontologies:
@@ -489,20 +498,20 @@ print("unmatched:", list(check["unmatched"]))
 # ```
 
 # %% [markdown]
-# ## Step 3: Run coverage with an extractor (full analysis)
+# ## Run `scope` with an extractor
 #
-# You can add an extractor to evaluate embedding coverage and dimensional completeness.
+# You can add an extractor to evaluate embedding coverage and dimensional completeness. To use a pretrained ONNX model
+# for the embeddings, see {doc}`onnx_embeddings`.
 #
-# Embedding coverage identifies low-density or uncovered regions in feature space.
-# Dimensional completeness evaluates how uniformly samples span embedding dimensions.
+# Embedding coverage identifies low-density or uncovered regions in feature space. Dimensional completeness evaluates
+# how uniformly samples span embedding dimensions.
 #
-# You will configure a BoVW extractor with a 256-word vocabulary. Note that `isotropy`
-# requires more samples per class than embedding dimensions. For classes with fewer
-# than 256 samples, isotropy reports `null`, while `dispersion` and `near_duplicate_fraction`
-# evaluate fully.
+# You will configure a BoVW extractor with a 256-word vocabulary. The `isotropy` metric requires more samples per class
+# than embedding dimensions. For classes with fewer than 256 samples, isotropy reports `null`, while `dispersion` and
+# `near_duplicate_fraction` evaluate fully.
 #
-# The `coverage` settings are the `coverage` step's. `dimensional-completeness` judges the
-# completeness step, and `class-coverage` reports the classes the `coverage` step flagged.
+# The `coverage` settings are the `coverage` step's. `dimensional-completeness` judges the completeness step, and
+# `class-coverage` reports the classes the `coverage` step flagged.
 
 # %%
 from dataeval_flow.config.extractors import BoVWExtractorConfig
@@ -547,10 +556,10 @@ result_full = run_task(config_full, task_full, cache_dir=Path("./cache"))
 # %% [markdown]
 # ### Full coverage report
 #
-# Now the report judges Class Coverage and Dimensional Completeness beside the Class
-# Shortfall. The Class Shortfall's evidence repeats Step 1's, so this cell prints the short form, `report(detailed=False)`: the summary of findings,
-# the health and the Steps table. `report()` gives the full evidence; the cells below read
-# it from the steps.
+# Now the report judges Class Coverage and Dimensional Completeness beside the Class Shortfall. The Class Shortfall's
+# evidence repeats the report of the earlier `scope` run, so this cell prints the short form, `report(detailed=False)`,
+# which holds the summary of findings, the health and the Steps table. `report()` gives the full evidence. The cells
+# below read it from the steps.
 
 # %%
 print(result_full.report(detailed=False))
@@ -558,8 +567,8 @@ print(result_full.report(detailed=False))
 # %% [markdown]
 # ### Inspect embedding results
 #
-# The `coverage` step's output is DataEval's `Coverage` output: a table with one row per
-# class, and the indices of the uncovered items. The method is the entry's setting.
+# The `coverage` step's output is DataEval's `Coverage` output: a table with one row per class, and the indices of the
+# uncovered items. The method is the entry's setting.
 
 # %%
 import polars as pl
@@ -578,33 +587,30 @@ with pl.Config(tbl_rows=-1, tbl_hide_dataframe_shape=True, tbl_hide_column_data_
     print(per_class.select("class", *flags).sort("class"))
 
 # %% [markdown]
-# ### Reading the per-class columns
+# ### Read the per-class columns
 #
-# You should evaluate the per-class embedding metrics:
+# Evaluate the per-class embedding metrics:
 #
-# - **dispersion**: Class variance relative to average class variance. Values near 1.0
-#   indicate typical spread; low values indicate tight clustering.
-# - **isotropy**: Directional variance across embedding dimensions. Low values indicate
-#   variation concentrated along few principal axes.
-# - **near_duplicate_fraction**: Proportion of samples whose nearest neighbor in the class is
-#   unusually close, judged against a typical class's spacing.
+# - `dispersion` is the class variance relative to the average class variance. Values near 1.0 indicate typical spread,
+#   and low values indicate tight clustering.
+# - `isotropy` is the directional variance across embedding dimensions. Low values indicate variation concentrated along
+#   few principal axes.
+# - `near_duplicate_fraction` is the proportion of samples whose nearest neighbor in the class is unusually close,
+#   judged against a typical class's spacing.
 #
-# DataEval turns each into a verdict per class: `is_clustered` (dispersion under
-# `dispersion_factor`, 0.5 by default), `is_one_dimensional` (isotropy under
-# `isotropy_factor` times the median class's, 0.5 by default) and `has_near_duplicates`
-# (near-duplicate fraction over `near_duplicate_threshold`, 0.1 by default). A verdict is
-# `null` where DataEval cannot judge, such as an isotropy it did not measure.
+# DataEval turns each into a verdict per class: `is_clustered` (dispersion under `dispersion_factor`, 0.5 by default),
+# `is_one_dimensional` (isotropy under `isotropy_factor` times the median class's, 0.5 by default) and
+# `has_near_duplicates` (near-duplicate fraction over `near_duplicate_threshold`, 0.1 by default). A verdict is `null`
+# where DataEval cannot judge, such as an isotropy it did not measure.
 #
-# Across all 20 classes, dispersion is balanced (0.96 to 1.03) and near-duplicate fractions
-# are 0.00, so the sampled classes cover feature space well. Isotropy is `null`
-# for every class, since none has more than 256 samples, and so is `is_one_dimensional`.
-# DataEval flags no class clustered or padded with near duplicates.
+# Across all 20 classes, dispersion is balanced (0.96 to 1.03) and near-duplicate fractions are 0.00, so the sampled
+# classes cover feature space well. Isotropy is `null` for every class, since none has more than 256 samples, and so is
+# `is_one_dimensional`. DataEval flags no class clustered or padded with near duplicates.
 #
-# Adaptive coverage flags its `percent` of the items by construction, so 15 of 1,500
-# uncovered (1.0%) is the setting at work rather than a finding. The 15 fall in 12 classes,
-# no more than 2 in any one. The Class Coverage finding informs while any item is
-# uncovered, and warns only on a class DataEval flags clustered, one-dimensional or
-# duplicate-padded: there is none.
+# Adaptive coverage flags its `percent` of the items by construction, so 15 of 1,500 uncovered (1.0%) is the setting at
+# work rather than a finding. The 15 fall in 12 classes, no more than 2 in any one. The Class Coverage finding informs
+# while any item is uncovered, and warns only on a class DataEval flags clustered, one-dimensional or duplicate-padded:
+# there is none.
 
 # %%
 completeness = result_full.steps["completeness"].output.data()
@@ -613,17 +619,15 @@ print(f"  Score: {completeness['completeness']:.3f}")
 print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}")
 
 # %% [markdown]
-# Dimensional completeness is 0.572, between the warning band (0.5) and the info band
-# (0.8), so its finding informs. On visual variation, this sample shows no weakness the
-# default thresholds warn on: its gap is in the taxonomy.
+# Dimensional completeness is 0.572, between the warning band (0.5) and the info band (0.8), so its finding informs. On
+# visual variation, this sample shows no weakness the default thresholds warn on: its gap is in the taxonomy.
 
 # %% [markdown]
-# ## Step 4: Tune check thresholds
+# ## Tune the check thresholds
 #
-# Check thresholds control when a finding warns, as the glossary's Severity
-# entry describes. Each preset keys its `checks` by check type, and the cutoffs
-# that flag a class for `class-coverage` are the `coverage` step's settings. The right
-# thresholds depend on your domain:
+# Check thresholds control when a finding warns, as the Severity entry of the {doc}`../reference/glossary` describes.
+# Each preset keys its `checks` by check type, and the cutoffs that flag a class for `class-coverage` are the `coverage`
+# step's settings. The right thresholds depend on your domain:
 #
 # | Preset | Check | Field | Default | Safety-critical | Web-scraped data |
 # |---|---|---|---|---|---|
@@ -638,15 +642,14 @@ print(f"  Nearest neighbor pairs: {len(completeness['nearest_neighbor_pairs'])}"
 # | `taxonomy` | `leaf-coverage` | `empty_branches` | 0 | 0 | 2–5 |
 # | `taxonomy` | `label-conformance` | `warning` | 0 | 0 | 3–10 |
 #
-# `class-imbalance` (on `bias`) and `dimensional-completeness` also take `info`, the band between `ok` and
-# a warning: a ratio over 2.0, or a score under 0.8, informs by default. `null` turns a
-# threshold off. The `coverage` factors are DataEval's and take no `null`: each must be
-# between 0 and 1, and isotropy is judged against the median class, not on an absolute
-# scale. `near_duplicate_threshold: 1` turns that flag off.
+# `class-imbalance` (on `bias`) and `dimensional-completeness` also take `info`, the band between `ok` and a warning: a
+# ratio over 2.0, or a score under 0.8, informs by default. `null` turns a threshold off. The `coverage` factors are
+# DataEval's and take no `null`: each must be between 0 and 1, and isotropy is judged against the median class, not on
+# an absolute scale. `near_duplicate_threshold: 1` turns that flag off.
 #
-# `uncovered-items` judges only `naive` coverage, since adaptive coverage flags its
-# `percent` of the items by construction. The bias and taxonomy thresholds go on their
-# own entries, as `TaxonomyConfig(..., checks={"leaf-coverage": {"coverage": 0.95}})`.
+# `uncovered-items` judges only `naive` coverage, since adaptive coverage flags its `percent` of the items by
+# construction. The bias and taxonomy thresholds go on their own entries, as `TaxonomyConfig(...,
+# checks={"leaf-coverage": {"coverage": 0.95}})`.
 
 # %%
 from dataeval_flow.workflows.scope import ScopeChecks
@@ -689,17 +692,19 @@ for default, strict in zip(result_full.findings, result_strict.findings, strict=
     print(f"{default.title:<28} {default.severity:<8} -> {strict.severity:<8} {strict.brief}")
 
 # %% [markdown]
-# Exactly one additional warning triggers: Dimensional Completeness (0.572) falls below
-# the strict 0.6 threshold. The stricter `coverage` factors flag no class: no class's
-# dispersion is under 0.7, every class's near-duplicate fraction prints as 0.00, and
-# isotropy is not measured.
+# Only one additional warning triggers: Dimensional Completeness (0.572) falls below the strict 0.6 threshold. The
+# stricter `coverage` factors flag no class: no class's dispersion is under 0.7, every class's near-duplicate fraction
+# prints as 0.00, and isotropy is not measured.
 #
-# You can adjust individual check thresholds to match your domain tolerance without
-# altering underlying data calculations. The `coverage` factors only change where DataEval
-# draws its verdicts; `dispersion`, `isotropy` and `near_duplicate_fraction` stay the same.
+# You can adjust individual check thresholds to match your domain tolerance without altering underlying data
+# calculations. The `coverage` factors only change where DataEval draws its verdicts. `dispersion`, `isotropy` and
+# `near_duplicate_fraction` stay the same.
 
 # %% [markdown]
-# ## Results Exploration: Export results
+# ## Export the results
+#
+# `result_full.export()` returns the result as a JSON string. See {doc}`../how_to/read_evaluation_outputs` for how to
+# read reports and result envelopes.
 
 # %%
 json_str = result_full.export(fmt="json")
@@ -712,39 +717,39 @@ print(json_str[:500] + "\n...")
 # In this tutorial, you learned how to:
 #
 # - Simulate missing categories using `Filter` view operations.
-# - Run `bias` to assess class balance, shortcut factors and cross-tabulated factor gaps, and
-#   `scope` without an extractor for the class worklist.
+# - Run `bias` to assess class balance, shortcut factors and cross-tabulated factor gaps, and `scope` without an
+#   extractor for the class worklist.
 # - Run `taxonomy` on the same source to benchmark the labels against an ontology and name missing categories.
 # - Reconcile label names against an ontology.
 # - Configure feature extractors to evaluate embedding dispersion and dimensional completeness.
 # - Read each step's output from `result.steps`.
 # - Tune check thresholds to enforce strict domain requirements.
 # - Export structured coverage results to JSON.
-#
-# You should assess both label completeness against an ontology and feature diversity
-# in embedding space to ensure comprehensive dataset coverage.
+# - Assess both label completeness against an ontology and feature diversity in embedding space to ensure comprehensive
+#   dataset coverage.
 
 # %% [markdown]
 # ## Next steps
 #
-# - **Data cleaning**: Use {doc}`Clean a dataset <data_cleaning>` to detect outliers and duplicates.
-# - **Drift monitoring**: Use {doc}`Monitor incoming data for drift <drift_monitoring>` to track
-#   operational distribution shifts.
-# - **Targeted prioritization**: Feed coverage gap targets into {doc}`Prioritize unlabeled data <data_prioritization>`
-#   to prioritize acquisition of missing concepts.
+# - {doc}`data_prioritization` — Feed coverage gap targets into a ranking that prioritizes acquisition of missing
+#   concepts.
+# - {doc}`drift_monitoring` — Track operational distribution shifts against a reference dataset.
+# - {doc}`../concepts/Coverage` — Learn how label-space and embedding-space coverage work.
 
 # %% [markdown]
-# ## Related guides
+# ## On your own
 #
-# - **Concept**: [Dataset coverage](../concepts/Coverage.md) covers label-space
-#   and embedding-space coverage theory.
-# - **How-to**: [Declare an ontology](../how_to/declare_an_ontology.md) explains
-#   defining label spaces via inline dictionaries or SKOS/OWL files, and what `taxonomy` finds.
-# - **How-to**: [Build dataset views](../how_to/build_dataset_views.md) covers
-#   view operations such as `Filter`, `Shuffle`, and `Limit`.
-# - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) explains
-#   running coverage tasks in Docker.
-# - **Guide**: [Use an ONNX model for embeddings](onnx_embeddings) covers configuring
-#   pretrained ONNX models for coverage feature extraction.
-# - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) details
-#   how to parse reports and export envelopes.
+# Repeat the analysis on your own data by changing these settings:
+#
+# - Set `dataset` on the `DatasetProtocolConfig` to your own dataset in MAITE format. Change the classes that the
+#   `Filter` operation keeps, or remove it, to assess the whole collection.
+# - Set `intrinsic_factors` in the `vehicle_factors` metadata policy to the image statistics you want as factors. Set
+#   `exclude` to the metadata columns that name items instead of describing them, and `continuous_factor_bins` to the
+#   number of bins for each factor.
+# - Change `min_representation` in `factor-gaps`, which is 5 here, and `method` in `diversity`, which is `simpson` here.
+# - Change the values under `checks` of the `bias` entry and the `scope` entry, using the table in the "Tune the check
+#   thresholds" section.
+# - Change `method`, `percent` and `num_observations` in the `coverage` settings of `scope`. They are `adaptive`, 0.01
+#   and 50 here.
+# - Change `vocab_size` on `BoVWExtractorConfig`, which is 256 here, or replace the extractor config.
+# - Set `ontology` on `TaxonomyConfig` to your own hierarchy, or in YAML to the name of an `ontologies:` entry.
