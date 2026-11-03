@@ -147,6 +147,13 @@ The tips below help maintainers:
 Ideas for new workflows, extractors, or improvements are welcome. Reach out to
 <dataeval-flow@ariacoustics.com>.
 
+### Writing documentation
+
+Tutorials, how-to guides, explanations, reports and docstrings follow the
+[documentation style guide](docs/STYLE_GUIDE.md). It covers which kind of page to write, the voice, the structure of a
+tutorial and a how-to, headings, code cells, links and the checks to run before you open a merge request. Run
+`uv run nox -s docs` to build the documentation and execute the notebooks you changed.
+
 ## Branching Strategy
 
 See [BRANCHING.md](BRANCHING.md) for the project's branching and release
