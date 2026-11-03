@@ -9,9 +9,7 @@ a line can receive patches without pulling in everything that has landed on
 
 This document describes the **current state** of the project's branching and
 release process. [scripts/release.py](scripts/release.py) picks the version,
-promotes the changelog and tags. Label-driven bumps, where `release::*`
-merge-request labels choose major/minor/patch, are still planned. See
-[ROADMAP.md](ROADMAP.md#v030--release-automation--container-hardening).
+promotes the changelog and tags.
 
 ## Table of Contents
 
@@ -21,7 +19,7 @@ merge-request labels choose major/minor/patch, are still planned. See
 - [Release Lines and Hotfixes](#release-lines-and-hotfixes)
 - [CI/CD Gates](#cicd-gates)
 - [Best Practices](#best-practices)
-- [Planned Improvements](#planned-improvements)
+- [Tooling History](#tooling-history)
 
 ## Overview
 
@@ -226,19 +224,15 @@ green pipeline and approval before merging.
 4. **Validate signatures** of published container images (cosign verify with
    the public key at [docker/cosign.pub](docker/cosign.pub))
 
-## Planned Improvements
+## Tooling History
 
 `hatch-vcs` dynamic versioning, which removed the manual `pyproject.toml`
 version bump and the risk of skew between the file and the git tag, shipped in
-v0.1.1. The following enhancements are still planned (see
-[ROADMAP.md](ROADMAP.md) for targets):
-
-- **Label-driven semver releases**: `release::major | feature | improvement
-  | deprecation | fix | misc` MR labels drive automatic version bumps,
-  changelog generation, and tag creation. Mirrors the `dataeval` library's
-  approach. *(planned: v0.3.0)*
-- **`release::*` label validation in CI**: ensures every MR carries a valid
-  release label so the changelog is always derivable. *(planned: v0.3.0)*
+v0.1.1. [scripts/release.py](scripts/release.py) shipped in v0.3.0 and replaced
+the label-driven releases once planned here, in which `release::*` merge-request
+labels would choose the bump and generate the changelog. The branch and the
+commits' `[tag]` prefixes decide the bump instead, and the changelog is written
+by hand.
 
 ## References
 

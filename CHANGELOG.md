@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+v0.3 breaks more than v0.2 did: every workflow type is now a preset, a chain of steps, and several are renamed or
+removed. Read [What's New in v0.3](https://dataeval-flow.readthedocs.io/en/latest/home/whats_new/v0.3.html) before
+upgrading; it covers each change a v0.2 config or script needs.
+
 ### Added
 
 - `sufficiency` evaluator and `performance-sufficiency` check, both experimental: how much training data a model needs
@@ -162,7 +166,7 @@
   - One row per detection for a detector; only drift and OOD evaluators read it
 - `by: predicted` keys a step by the class a model predicts
 - A shift detector may name its own `extractor:`, used instead of the task's
-- Top-level `evaluators:` key running one DataEval evaluator, any of the catalog's twenty-five types
+- Top-level `evaluators:` key running one evaluator, of any type in the catalog
 - `evaluator:` on tasks as an alternative to `workflow:`, checked against the evaluator when the config loads
 - `kind` on `TaskConfig`, recording whether `workflow:` or `evaluator:` named the task's target
 - `dataeval-flow evaluators` lists evaluator types, what each consumes, and their parameter schemas
@@ -303,14 +307,14 @@
   - `dispersion` → `dispersion_factor`, which must be in (0, 1): a share of the median class's spread
   - `isotropy` → `isotropy_factor`, which means something else: the old cutoff was an absolute isotropy, and the
     factor, in (0, 1), is a share of the median isotropy of the classes that report one
-  - `near_duplicates` → `near_duplicate_threshold`; DataEval 1.2.0rc2 also measures `near_duplicate_fraction` anew,
+  - `near_duplicates` → `near_duplicate_threshold`; DataEval 1.2 also measures `near_duplicate_fraction` anew,
     each item against a typical class's nearest-neighbor spacing, so a fraction from an earlier run is not comparable
   - `null` no longer turns a criterion off, though `near_duplicate_threshold: 1` still turns its flag off; a flag
     DataEval can't judge is null, and a null is no flag
   - The `coverage` Output's table adds the three columns, after `assessable`
 - A drift report's "Features drifted" is "Features flagged (diagnostic)": each feature judged alone says where to look,
   and can disagree with "Drifted", which DataEval decides on its own statistic
-  - `drift-wasserstein` reports the statistic that decided as "Mean ratio" (was "Distance"): DataEval 1.2.0rc2 decides
+  - `drift-wasserstein` reports the statistic that decided as "Mean ratio" (was "Distance"): DataEval 1.2 decides
     on the mean ratio over the dimensions, corrected for sample sizes, and its docs no longer say drift is decided per
     dimension
 - Metadata keeps missing values null, and drops factors mixing booleans with numbers or text as `mixed_types`
@@ -439,7 +443,7 @@
 - The TUI draws each finding's evidence natively: data tables as tables, the rest as text at the window's width
 - Data cleaning lists duplicate groups with their items, largest first, and duplicate boxes separately
 - OOD detection lists its samples in tables, each named in its own test source
-- Pillow (`>=12.2.0`) is a core dependency, used to encode thumbnails
+- Pillow (`>=13.0.0`) is a core dependency, used to encode thumbnails
 - In the console, an evaluator report cuts lists of over ten values to ten and a count; `-v` and `result.txt` show all
 - `scope` passes its embeddings to `Coverage` unscaled, since DataEval rescales them itself
   - Flow's own per-dimension rescale had shifted `dispersion` and the coverage radius
@@ -573,8 +577,8 @@
       - `min_dispersion` → `coverage.dispersion_factor`, which must be under 1
       - `min_isotropy` → `coverage.isotropy_factor`, which is relative where legacy's was absolute: a share, in
         (0, 1), of the median isotropy of the classes that report one
-      - `max_near_duplicate_fraction` → `coverage.near_duplicate_threshold`, over a fraction DataEval 1.2.0rc2
-        measures anew
+      - `max_near_duplicate_fraction` → `coverage.near_duplicate_threshold`, over a fraction DataEval 1.2 measures
+        anew
       - `uncovered_rate` → `uncovered-items.warning`
       - `completeness_score` → `dimensional-completeness.warning`; legacy's band at 0.8 → `.info`
       - An unset `info` follows `warning` as legacy's band did; two written bounds that cross are refused

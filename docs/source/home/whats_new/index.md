@@ -11,6 +11,7 @@ one before it has been applied.
 
 | Release | Date | Headline |
 | --- | --- | --- |
+| {doc}`v0.3 <v0.3>` | 2026-11-03 | Presets as chains of steps, the `audit` verdict, HTML reports, DataEval v1.2 |
 | {doc}`v0.2.1 <v0.2.1>` | 2026-08-21 | CUDA container variants renamed; YOLO per-split loading restored |
 | {doc}`v0.2 <v0.2>` | 2026-08-19 | DataEval v1.1, data coverage workflow, metadata encoding policies |
 | {doc}`v0.1 <v0.1>` | 2026-03-30 | First release — the workflow orchestration framework |
@@ -18,6 +19,7 @@ one before it has been applied.
 ```{toctree}
 :hidden:
 
+v0.3
 v0.2.1
 v0.2
 v0.1
@@ -27,6 +29,10 @@ v0.1
 :widths: 25 75
 :header-rows: 0
 
+- - {doc}`v0.3 <v0.3>`
+  - Every workflow type becomes a preset, a chain of steps you can read and change; `audit` gives a verdict a
+    training job can gate on; HTML reports, content digests, a preview HTTP service, and DataEval v1.2.
+    **Breaking**: read this one before upgrading from v0.2.
 - - {doc}`v0.2.1 <v0.2.1>`
   - A patch release. The published CUDA image tags moved to `cu126` / `cu130`, and YOLO datasets can select a
     single split again.
