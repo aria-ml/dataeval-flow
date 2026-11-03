@@ -20,51 +20,53 @@
 :child-align: justify
 :class: sd-fs-5
 
-DataEval Flow wraps DataEval's analytics in a containerized workflow engine.
-Its steps compose into pipelines that run identically locally or in a CUDA-
-enabled container. Cleaning, audit, coverage, drift, OOD, splitting, and
-prioritization ship as presets, driven by YAML or JSON from a headless or
-interactive CLI, or queued over HTTP to a long-running service.
+DataEval Flow is a containerized workflow engine for DataEval analytics within
+the JATIC suite, providing native MAITE interoperability. It allows T&E engineers
+to configure multi-stage pipelines in YAML or JSON without writing Python glue
+code.
 
 :::
 ::::
 
-DataEval Flow turns DataEval's analytics into a composable workflow engine, in
-two complementary ways:
-
-- **Composable.** Each capability, such as duplicate detection, outlier detection,
-  splitting, or export, is a self-contained step with declared inputs and
-  outputs. Users compose steps into their own workflows in configuration, and
-  the built-in workflows are presets made from the same steps. The set is
-  extensible: new steps can be added as plugins.
-- **Containerized.** Steps run in a reproducible, CUDA-enabled container (or
-  locally), so a pipeline behaves the same on a laptop, a cluster, or an
-  air-gapped system, and emits the same machine-readable results.
-
-DataEval Flow lets T&E engineers compose and run multi-stage data evaluation
-pipelines without Python glue code. Pipelines are described in YAML or
-JSON, executed locally or in a CUDA-enabled container, and produce both
-human-readable reports and machine-readable result envelopes that satisfy JATIC
-interoperability requirements. It is part of the JATIC suite of tools and builds
-directly on the [DataEval](https://dataeval.readthedocs.io/) library; the
-underlying evaluators are the same algorithms DataEval exposes, wrapped in a
-reproducible orchestration layer with native MAITE interoperability.
+- **Modular & Extensible:** Use turnkey presets for cleaning, metadata triage, label checks, coverage, bias, splitting,
+  prioritization, audit, and drift and OOD monitoring, or compose your own workflows from the same steps and add more
+  with plugins.
+- **Flexible Runtime:** Trigger workflows headlessly or interactively via CLI, or queue jobs over HTTP (preview).
+- **Deploy Anywhere:** Runs unchanged on laptops, CUDA containers, clusters, or air-gapped systems, outputting
+  human-readable reports and result envelopes that satisfy JATIC interoperability requirements.
 
 ## T&E tasks and the workflows that support them
+
+The tasks follow the machine-learning lifecycle, as DataEval's own guides do, with data engineering split into
+assessing a dataset and preparing it for training.
+
+### Assess the data
 
 | T&E task | Workflow type | What it produces |
 | --- | --- | --- |
 | Find and flag dataset quality issues | [`quality`](reference/presets.md#quality) | Outliers and duplicates, removed |
-| Audit a set of splits before training | [`audit`](reference/presets.md#audit) | A verdict, a record of what was audited, and findings under five questions; also a step after a split ([how-to](how_to/write_a_custom_workflow.md#11-check-a-set-of-splits)) |
+| Find metadata the run could not read | [`triage`](reference/presets.md#triage) | Unreadable and unpinned metadata factors, with suggested corrections |
 | Check labels against a declared ontology | [`taxonomy`](reference/presets.md#taxonomy) | Leaf coverage, conformance, alignment and structure findings |
 | Find gaps in dataset coverage before training | [`scope`](reference/presets.md#scope) | Embedding blind spots and what to acquire per class |
 | Find shortcuts and imbalance in labels and metadata | [`bias`](reference/presets.md#bias) | Class imbalance, metadata factors tied to the class, and under-represented class-factor combinations |
+
+### Prepare data for training
+
+| T&E task | Workflow type | What it produces |
+| --- | --- | --- |
 | Build stratified or grouped train/val/test splits | [`splits`](reference/presets.md#splits) | Train, val and test splits, stratified or grouped, or k folds, with each part's stratification judged |
+| Rank abundant/unlabeled data for labeling | [`prioritization`](reference/presets.md#prioritization) | Ranked sample ordering |
+| Audit a set of splits before training | [`audit`](reference/presets.md#audit) | A verdict, a record of what was audited, and findings under five questions; also a step after a split ([how-to](how_to/write_a_custom_workflow.md#11-check-a-set-of-splits)) |
+
+### Monitoring
+
+| T&E task | Workflow type | What it produces |
+| --- | --- | --- |
 | Monitor operational data for population drift | [`shift`](reference/presets.md#shift) | Per-batch drift flags and p-values |
 | Flag anomalous individual samples | [`shift`](reference/presets.md#shift) | Per-sample out-of-distribution scores |
-| Rank abundant/unlabeled data for labeling | [`prioritization`](reference/presets.md#prioritization) | Ranked sample ordering |
-| Find metadata the run could not read | [`triage`](reference/presets.md#triage) | Unreadable and unpinned metadata factors, with suggested corrections |
-| Tune workflow parameters across a grid | Any workflow, with a task matrix | One table comparing every run's findings |
+
+Any task can be tuned across a grid of settings with a task matrix, which gives one table comparing every run's
+findings ([how-to](how_to/run_a_matrix.md)).
 
 See [Find the Right Step](reference/index.md) to go from a question to the preset or steps that answer it, the
 [Tutorials](tutorials/index.md) for end-to-end walkthroughs and the [Explanations](concepts/index.md) for the concepts
@@ -81,8 +83,8 @@ behind each workflow.
   detection, and prioritization require a feature extractor or precomputed
   embeddings.
 - **Drift and OOD need a representative reference dataset.**
-- **Batch execution**: the container runs a pipeline to completion and exits; it
-  is not a long-running service.
+- **Batch execution**: the container runs a pipeline to completion and exits. The
+  optional `serve` HTTP service (preview) queues pipelines and runs each the same way.
 
 Starting here? The [Quickstart](home/quickstart.md) installs the package and runs a first
 evaluation end to end. See the [Installation guide](home/installation.md) for every
