@@ -30,9 +30,9 @@ v0.1
 :header-rows: 0
 
 - - {doc}`v0.3 <v0.3>`
-  - Every workflow type becomes a preset, a chain of steps you can read and change; `audit` gives a verdict a
-    training job can gate on; HTML reports, content digests, a preview HTTP service, and DataEval v1.2.
-    **Breaking**: read this one before upgrading from v0.2.
+  - Every workflow type becomes a preset, a chain of steps that you can read and change. `audit` gives a verdict
+    that a training job can gate on. The release also adds HTML reports, content digests, a preview HTTP service and
+    DataEval v1.2. It breaks v0.2 configs and scripts, so read it before you upgrade from v0.2.
 - - {doc}`v0.2.1 <v0.2.1>`
   - A patch release. The published CUDA image tags moved to `cu126` / `cu130`, and YOLO datasets can select a
     single split again.

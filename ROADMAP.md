@@ -104,23 +104,24 @@ loading for the object-detection formats.
 
 ### v0.3.0 — Readiness verdicts and composable chains (shipped 2026-11-03)
 
-Built around one question, whether a dataset is ready to train on. Every workflow type became a preset, a chain of
-steps a custom workflow can reuse, and `audit` gives a verdict a training job can gate on. It also brought the DataEval
-v1.2 upgrade and the release tooling; see [CHANGELOG.md](CHANGELOG.md) and the
-[What's New](docs/source/home/whats_new/v0.3.md) guide. Targeted for October 2026, it waited for DataEval v1.2.0,
-released 2026-11-03.
+v0.3.0 asks whether a dataset is ready to train on. Every workflow type became a preset, a chain of steps that a
+custom workflow can reuse. The `audit` preset gives a verdict that a training job can gate on. The release also brought
+the DataEval v1.2 upgrade and the release tooling. See [CHANGELOG.md](CHANGELOG.md) and
+[What's new in v0.3](docs/source/home/whats_new/v0.3.md). The release was targeted for October 2026 and waited for
+DataEval v1.2.0, which was released on 2026-11-03.
 
 - [x] Depend on a released `dataeval>=1.2.0` in place of DataEval `main`
-- [x] Presets: every workflow type expands into a chain of evaluators, checks and transforms, and custom workflows
-      chain those steps, and presets, directly
-- [x] `audit` preset: a verdict over train and its evaluation splits, which `--require` gates on
-- [x] `bias`, `taxonomy` and `triage` presets; `drift-monitoring` and `ood-detection` merged into `shift`
-- [x] Task `matrix:` runs any task across a grid of settings, replacing `parameter-sweep`
-- [x] HTML report with thumbnails of the items each finding names; JUnit and Markdown summaries for CI
+- [x] Every workflow type is a preset that expands into a chain of evaluators, checks and transforms, and custom
+      workflows chain those steps and presets directly
+- [x] The `audit` preset gives a verdict over train and its evaluation splits, and `--require` gates on it
+- [x] New `bias`, `taxonomy` and `triage` presets, and one `shift` preset in place of `drift-monitoring` and
+      `ood-detection`
+- [x] A task `matrix:` runs any task across a grid of settings, and replaces `parameter-sweep`
+- [x] An HTML report with thumbnails of the items each finding names, and JUnit and Markdown summaries for CI
 - [x] Content digests, per-item manifests and `dataeval-flow verify`
 - [x] Plugin entry points for workflows, evaluators, transforms, extractors and image transforms
-- [x] `ExperimentalWarning`, and experimental `sufficiency`, `feasibility` and `parity` steps
-- [x] PyPI releases carry a signed PEP 740 attestation for each file
+- [x] `ExperimentalWarning`, and the experimental `sufficiency`, `feasibility` and `parity` steps
+- [x] A signed PEP 740 attestation for each file of a PyPI release
 - [x] Poetry support dropped: `poetry.lock` and the `poetry install` lane removed; v0.2.2 is the
       last release to support it. uv, pip, and conda remain (supersedes SR-3-H-2..4)
 - [x] `scripts/release.py` cuts a release from `main` or a `release/vX.Y` branch: it promotes the hand-written

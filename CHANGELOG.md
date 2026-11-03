@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-v0.3 breaks more than v0.2 did: every workflow type is now a preset, a chain of steps, and several are renamed or
-removed. Read [What's New in v0.3](https://dataeval-flow.readthedocs.io/en/latest/home/whats_new/v0.3.html) before
-upgrading; it covers each change a v0.2 config or script needs.
+v0.3 breaks more than v0.2 did. Every workflow type is now a preset, a chain of steps, and several types are renamed
+or removed. Read [What's new in v0.3](https://dataeval-flow.readthedocs.io/en/latest/home/whats_new/v0.3.html) before
+you upgrade. It covers each change that a v0.2 config or script needs.
 
 ### Added
 
@@ -139,6 +139,7 @@ upgrading; it covers each change a v0.2 config or script needs.
   - `dataeval_flow.set_device` picks the device from Python, and `CUDA_VISIBLE_DEVICES` hides GPUs
   - Configs don't name a device
 - Find the Right Step: a docs index from a question to the presets and steps that answer it
+- What's new in v0.3: a guide to upgrading from v0.2, with an upgrade checklist
 - Config Reference: a docs page per top-level config key, its every key's type and default, from the JSON Schema
   - Preset, combine and naming-convention reference pages
   - Evaluator and check catalogs grouped by question, each entry with ports, settings, checks, presets and an example

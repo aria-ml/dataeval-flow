@@ -19,7 +19,7 @@ promotes the changelog and tags.
 - [Release Lines and Hotfixes](#release-lines-and-hotfixes)
 - [CI/CD Gates](#cicd-gates)
 - [Best Practices](#best-practices)
-- [Tooling History](#tooling-history)
+- [Tooling history](#tooling-history)
 
 ## Overview
 
@@ -85,14 +85,15 @@ While not strictly enforced, the following patterns are recommended for clarity:
    A release branch carries patches only, so the script refuses `[feat]`,
    `[major]` and `[depr]` commits there and names them. Land those on `main`.
 
-   Each prerelease turns `## Unreleased` into its own section, holding the changes
-   since the tag before it. The release folds those sections into one, merging
-   their `### Added`, `### Changed`, ... subsections, so its section, and its
-   GitHub Release, lists everything since the last full release.
+   Each prerelease turns `## Unreleased` into a section of its own. That section
+   holds the changes since the tag before it. The release then merges the
+   sections of its prereleases into one, subsection by subsection, such as
+   `### Added` and `### Changed`. The section of the release, and its GitHub
+   Release, list everything since the last full release.
 
    A patch release writes its changelog section on its release branch only. The
-   next release cut from `main` copies that section in from the patch's tag, so
-   the changelog on `main` lists every published version, newest first.
+   next release cut from `main` copies that section from the tag of the patch.
+   The changelog on `main` then lists every published version, newest first.
 
 6. The tag triggers:
    - **GitLab CI** ([.gitlab-ci.yml](.gitlab-ci.yml)), builds and signs the
@@ -224,15 +225,15 @@ green pipeline and approval before merging.
 4. **Validate signatures** of published container images (cosign verify with
    the public key at [docker/cosign.pub](docker/cosign.pub))
 
-## Tooling History
+## Tooling history
 
-`hatch-vcs` dynamic versioning, which removed the manual `pyproject.toml`
-version bump and the risk of skew between the file and the git tag, shipped in
-v0.1.1. [scripts/release.py](scripts/release.py) shipped in v0.3.0 and replaced
-the label-driven releases once planned here, in which `release::*` merge-request
-labels would choose the bump and generate the changelog. The branch and the
-commits' `[tag]` prefixes decide the bump instead, and the changelog is written
-by hand.
+`hatch-vcs` dynamic versioning shipped in v0.1.1. It removed the manual version
+bump in `pyproject.toml`, and with it the risk that the file and the git tag
+disagree. [scripts/release.py](scripts/release.py) shipped in v0.3.0. It
+replaced the label-driven releases that this section once planned, in which
+`release::*` merge-request labels would choose the bump and generate the
+changelog. The branch and the `[tag]` prefixes of the commits now decide the
+bump, and the changelog is written by hand.
 
 ## References
 
