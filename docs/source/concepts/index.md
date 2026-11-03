@@ -1,72 +1,59 @@
 # Explanations
 
-These pages explain the concepts behind DataEval Flow's workflows — what each is
-for, why it works the way it does, and how the pieces fit together.
+These pages explain the concepts behind DataEval Flow's workflows: what each is for, why it works the way it does, and
+how the pieces fit together.
 
-DataEval Flow is an orchestration layer over the
-[DataEval](https://dataeval.readthedocs.io/) library. These explanations
-divide into two kinds. The **cross-cutting concepts** — what makes a
-DataEval Flow evaluation trustworthy: reproducibility, provenance, and the
-representation it measures in — are unique to DataEval Flow and are explained here
-in full. The **task-framing concepts** — data cleaning, distribution shift,
-splitting, prioritization — frame each evaluation at the orchestration level and
-then defer to DataEval for the underlying science, which is covered in the
-[DataEval explanation library](https://dataeval.readthedocs.io/en/latest/concepts/index.html)
-and linked from each page.
+DataEval Flow is an orchestration layer over the [DataEval](https://dataeval.readthedocs.io/) library. These
+explanations divide into two kinds. The **cross-cutting concepts** are the ideas that make a DataEval Flow evaluation
+trustworthy: reproducibility, provenance, and the representation it measures in. They are unique to DataEval Flow and
+are explained here in full. The **task-framing concepts** are data cleaning, distribution shift, splitting and
+prioritization. They frame each evaluation at the orchestration level and then defer to DataEval for the underlying
+science, which is covered in the [DataEval explanation
+library](https://dataeval.readthedocs.io/en/latest/concepts/index.html) and linked from each page.
 
 ## Cross-cutting concepts
 
-- [Workflows and Evaluators](WorkflowsAndEvaluators.md) — the two things DataEval
-  Flow runs: evaluators make determinations, and the checks in workflows judge them
-- [Workflows as Chains of Steps](WorkflowsAsChains.md) — custom workflows: steps
-  that make and evaluate Datasets, addressed by name, with each Dataset's lineage
-- [Reproducibility](Reproducibility.md) — why the same evaluation on the same data
-  must yield the same result, and how declarative configuration, validation, and
-  config-keyed caching deliver it
-- [Provenance](Provenance.md) — why a result must carry its lineage, and how the
-  result envelope records the resolved configuration, identities, and versions that
-  make a finding auditable and interoperable
-- [Preprocessing and Feature Extraction](PreprocessingAndExtraction.md) — transform
-  pipelines, extractor types, and why the representation a workflow measures in
-  matters
-- [Execution Modes](ExecutionModes.md) — running a pipeline as a library call, a
-  batch command or a queued service run, and why the service runs each as the batch
-  command
+- [Workflows and Evaluators](WorkflowsAndEvaluators.md): the two things DataEval Flow runs, evaluators that make
+  determinations and the checks in workflows that judge them
+- [Workflows as Chains of Steps](WorkflowsAsChains.md): custom workflows built from steps that make and evaluate
+  Datasets, addressed by name, with each Dataset's lineage
+- [Reproducibility](Reproducibility.md): why the same evaluation on the same data must yield the same result, and how
+  declarative configuration, validation, and config-keyed caching deliver it
+- [Provenance](Provenance.md): why a result must carry its lineage, and how the result envelope records the resolved
+  configuration, identities, and versions that make a finding auditable and interoperable
+- [Preprocessing and Feature Extraction](PreprocessingAndExtraction.md): transform pipelines, extractor types, and why
+  the representation a workflow measures in matters
+- [Execution Modes](ExecutionModes.md): running a pipeline as a library call, a batch command or a queued service run,
+  and why the service runs each as the batch command
 
 ## Task-framing concepts
 
-- [Data Quality and Cleaning](DataQualityAndCleaning.md) — outliers, duplicates,
-  and label issues
-- [Dataset Coverage](Coverage.md) — label-space gaps checked against an ontology,
-  and embedding-space blind spots
-- [Distribution Shift](DistributionShift.md) — population-level drift,
-  instance-level OOD, and classwise drift
-- [Dataset Splitting](DatasetSplitting.md) — stratified versus random splits and
-  leakage avoidance
-- [Data Prioritization](Prioritization.md) — ranking abundant data for labeling and
-  review
+- [Data Quality and Cleaning](DataQualityAndCleaning.md): outliers, duplicates, and label issues
+- [Dataset Coverage](Coverage.md): label-space gaps checked against an ontology, and embedding-space blind spots
+- [Distribution Shift](DistributionShift.md): population-level drift, instance-level OOD, and classwise drift
+- [Dataset Splitting](DatasetSplitting.md): stratified versus random splits and leakage avoidance
+- [Data Prioritization](Prioritization.md): ranking abundant data for labeling and review
 
 ## Underlying evaluator science (DataEval)
 
-The evaluators these workflows run are DataEval's, and DataEval documents their
-science in depth. The most relevant explanation pages are:
+The evaluators these workflows run are DataEval's, and DataEval documents their science in depth. The most relevant
+explanation pages are:
 
-- [Data Integrity](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html)
-  — outliers, duplicates, and label issues
-- [Dataset Bias and Coverage](https://dataeval.readthedocs.io/en/latest/concepts/DatasetBias.html)
-  — coverage, balance, and bias measures
-- [Ontology](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html)
-  — label-space vocabularies and the operations performed over them
-- [Distribution Shift](https://dataeval.readthedocs.io/en/latest/concepts/DistributionShift.html)
-  — drift and out-of-distribution detection
-- [Embeddings](https://dataeval.readthedocs.io/en/latest/concepts/Embeddings.html)
-  — the representation space evaluators operate in
-- [Data Leakage](https://dataeval.readthedocs.io/en/latest/concepts/Leakage.html)
-  — leakage and dataset splitting
-- [Performance Limits](https://dataeval.readthedocs.io/en/latest/concepts/PerformanceLimits.html)
-  — achievable performance and hard samples
-- [Acting on Results](https://dataeval.readthedocs.io/en/latest/concepts/ActingOnResults.html)
-  — interpreting and responding to findings
+- [Data integrity](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html): outliers, duplicates, and
+  label issues
+- [Dataset bias and coverage](https://dataeval.readthedocs.io/en/latest/concepts/DatasetBias.html): coverage, balance,
+  and bias measures
+- [Ontology](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html): label-space vocabularies and the
+  operations performed over them
+- [Distribution shift](https://dataeval.readthedocs.io/en/latest/concepts/DistributionShift.html): drift and
+  out-of-distribution detection
+- [Embeddings](https://dataeval.readthedocs.io/en/latest/concepts/Embeddings.html): the representation space evaluators
+  operate in
+- [Data leakage](https://dataeval.readthedocs.io/en/latest/concepts/Leakage.html): leakage and dataset splitting
+- [Performance limits](https://dataeval.readthedocs.io/en/latest/concepts/PerformanceLimits.html): achievable
+  performance and hard samples
+- [Acting on results](https://dataeval.readthedocs.io/en/latest/concepts/ActingOnResults.html): interpreting and
+  responding to findings
 
 :::{toctree}
 :hidden:
