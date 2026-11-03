@@ -1,6 +1,6 @@
 # DataEval Flow Roadmap
 
-**Last updated:** 2026-10-08
+**Last updated:** 2026-11-03
 
 This roadmap reflects shipped capabilities and a six-month forward outlook (through
 January 2027). Future-work entries marked **TBD** are placeholders for the team to
@@ -18,7 +18,7 @@ refine.
 Library
   v0.1.x ✓     [#]
   v0.2.x ✓     [#]
-  v0.3.0              [############]
+  v0.3.0 ✓            [############]
   v0.4.0                            [############]
   v1.0.0 (target)                                 [############]
 
@@ -29,7 +29,7 @@ Compliance
   Validation                              [############]
 
 Workflows
-  Existing 8   ──────────────────────────────────────────── (maintained)
+  Existing 9   ──────────────────────────────────────────── (maintained)
   FMV + Ontology                    [############]
   New (TBD)           [########################]
 ```
@@ -102,11 +102,26 @@ loading for the object-detection formats.
 - [x] `split`, `yaml_file`, and `ann_dir` on YOLO dataset configs
 - [x] `opencv` pinned below OpenCV 4.13 for FIPS-enabled systems
 
-### v0.3.0 — Release automation + container hardening
+### v0.3.0 — Readiness verdicts and composable chains (shipped 2026-11-03)
 
-**Target:** October 2026, once DataEval v1.2.0 is released
+v0.3.0 asks whether a dataset is ready to train on. Every workflow type became a preset, a chain of steps that a
+custom workflow can reuse. The `audit` preset gives a verdict that a training job can gate on. The release also brought
+the DataEval v1.2 upgrade and the release tooling. See [CHANGELOG.md](CHANGELOG.md) and
+[What's new in v0.3](docs/source/home/whats_new/v0.3.md). The release was targeted for October 2026 and waited for
+DataEval v1.2.0, which was released on 2026-11-03.
 
-- [ ] Depend on a released `dataeval>=1.2.0` in place of DataEval `main`
+- [x] Depend on a released `dataeval>=1.2.0` in place of DataEval `main`
+- [x] Every workflow type is a preset that expands into a chain of evaluators, checks and transforms, and custom
+      workflows chain those steps and presets directly
+- [x] The `audit` preset gives a verdict over train and its evaluation splits, and `--require` gates on it
+- [x] New `bias`, `taxonomy` and `triage` presets, and one `shift` preset in place of `drift-monitoring` and
+      `ood-detection`
+- [x] A task `matrix:` runs any task across a grid of settings, and replaces `parameter-sweep`
+- [x] An HTML report with thumbnails of the items each finding names, and JUnit and Markdown summaries for CI
+- [x] Content digests, per-item manifests and `dataeval-flow verify`
+- [x] Plugin entry points for workflows, evaluators, transforms, extractors and image transforms
+- [x] `ExperimentalWarning`, and the experimental `sufficiency`, `feasibility` and `parity` steps
+- [x] A signed PEP 740 attestation for each file of a PyPI release
 - [x] Poetry support dropped: `poetry.lock` and the `poetry install` lane removed; v0.2.2 is the
       last release to support it. uv, pip, and conda remain (supersedes SR-3-H-2..4)
 - [x] `scripts/release.py` cuts a release from `main` or a `release/vX.Y` branch: it promotes the hand-written
@@ -136,7 +151,7 @@ code per format.
 - [ ] **Full Motion Video (FMV) workflow**: wrap the FMV evaluation
       surface from `dataeval` (frame-level drift / OOD / quality) behind a
       `dataeval-flow` workflow type with the same config / orchestration /
-      caching contract as the existing eight.
+      caching contract as the nine existing presets.
 - [ ] **Standalone ontology workflow**: the `taxonomy` preset already
       consumes an ontology (inline hierarchy or RDF artifact) for label-space gap
       analysis (`scope` refuses one); this promotes the remaining `dataeval` taxonomy surface
@@ -144,7 +159,7 @@ code per format.
 - [ ] **`databridge` integration**: depend on the new `databridge`
       package for on-disk format interop (HuggingFace ↔ COCO ↔ YOLO ↔
       MAITE). Replaces the per-format adapter code currently in
-      `src/dataeval_flow/dataset.py` with a single `databridge`-backed
+      `src/dataeval_flow/_dataset.py` with a single `databridge`-backed
       loader.
 - [ ] Container / CI plumbing: new optional `fmv` extra for the FMV
       decoder stack (likely `decord` / `pyav`); document GPU requirements
@@ -180,11 +195,9 @@ The following workflow ideas are under consideration for v0.4 / v1.0. **Specific
 to be refined by the team and reflected here.**
 
 - [ ] **Data Validation workflow**, TBD: define data-card output format and
-      validation checks beyond what Data Cleaning currently surfaces.
+      validation checks beyond what `quality` currently surfaces.
 - [ ] **Monitoring workflow**, TBD: streaming / batch model + data drift
       monitoring with cached baselines (parallel to dataeval App Phase 2).
-- [ ] **Custom extractor plugin API**, TBD: stable contract for third parties
-      to register additional `*ExtractorConfig` types.
 
 ---
 
@@ -196,6 +209,7 @@ to be refined by the team and reflected here.**
 - **Models / extractors:** ONNX, PyTorch, BoVW (SIFT), Flatten, Uncertainty
 - **MAITE protocols:** consumes MAITE-compatible image classification and object detection datasets
 - **MAITE entry-points:** declared in `pyproject.toml` for dataset protocols and `maite.tasks` (IR-1-H-3)
+- **Exports:** COCO, YOLO, Hugging Face and VisDrone, each with a `provenance.json`
 - **Distribution:** PyPI (`dataeval-flow`), Harbor container images (cpu / cu126 / cu130), ReadtheDocs
 - **Service:** `dataeval-flow serve` takes pipelines over a versioned HTTP API (`/v1`)
 

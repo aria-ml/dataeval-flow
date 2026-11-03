@@ -151,7 +151,7 @@ docker pull harbor.jatic.net/aria/dataeval-flow:latest-cu126   # cpu / cu126 / c
 Use these for reproducible workloads.
 
 ```bash
-docker pull harbor.jatic.net/aria/dataeval-flow:0.2.1-cu126
+docker pull harbor.jatic.net/aria/dataeval-flow:0.3.0-cu126
 ```
 
 **Rolling channel**: `main-<variant>` tracks the latest commit on `main` and is

@@ -14,6 +14,10 @@ commits, and tags. It does not generate release notes from commit subjects:
 Release body, and BRANCHING.md asks for that prose to be written by hand.
 Commit `[tag]` prefixes are still read, to enforce what a release branch may carry.
 
+A release folds its prereleases' sections into its own, so it lists everything since the
+last full release, and the sections of releases cut on other branches, such as patches
+from a release branch, are copied in from their tags in version order.
+
 It never pushes: review the commit, then `git push --follow-tags` to publish. Pushing
 the tag is what triggers PyPI publication and the container build.
 
@@ -36,14 +40,13 @@ VERSION_RE = re.compile(rf"^v(\d+)\.(\d+)\.(\d+)(?:-({'|'.join(PRERELEASE_KINDS)
 # Commit titles this script writes for its own bookkeeping - never changelog entries.
 RELEASE_COMMIT_RE = re.compile(r"^(Release|Prerelease) v\d+\.\d+\.\d+")
 
-# The section a maintainer writes during the cycle, renamed in place at release time.
-UNRELEASED_RE = re.compile(r"^## Unreleased[ \t]*$", re.MULTILINE)
-HEADING_RE = re.compile(r"^## ", re.MULTILINE)
+# The section a maintainer writes during the cycle, which becomes the release's section.
+UNRELEASED = "Unreleased"
 
-# Commit message `[tag]` prefix -> release category. Only the categories in
-# API_CHANGING below are acted on; everything else is informational. An unrecognized
-# prefix falls through to misc rather than being rejected, so reading old history is
-# forgiving.
+# Commit message `[tag]` prefix -> release category, the vocabulary dataeval's
+# `validate_commit_prefix.py` accepts. Only the categories in API_CHANGING below are
+# acted on; everything else is informational. An unrecognized prefix falls through to
+# misc rather than being rejected, so reading old history is forgiving.
 TAG_CATEGORIES = {
     "major": "major",
     "feat": "feature",
@@ -58,16 +61,12 @@ TAG_CATEGORIES = {
     "fix": "fix",
     "bugfix": "fix",
     # Housekeeping - real changes, but not ones that move the public API
-    "ci": "misc",
-    "cleanup": "misc",
     "deps": "misc",
     "devops": "misc",
     "devsecops": "misc",
     "docs": "misc",
     "lint": "misc",
     "misc": "misc",
-    "refactor": "misc",
-    "standards": "misc",
     "test": "misc",
     "type": "misc",
 }
@@ -114,11 +113,13 @@ def parse_version(tag: str) -> tuple[int, int, int, int, int]:
     return (int(major), int(minor), int(patch), kind_rank, int(number or 0))
 
 
-def latest_tag(series: str | None = None) -> str | None:
-    """Highest version tag reachable from HEAD, optionally limited to a `vN.N` series."""
+def latest_tag(series: str | None = None, final: bool = False) -> str | None:
+    """Highest version tag reachable from HEAD, optionally limited to a `vN.N` series or to full releases."""
     tags = [t for t in git("tag", "--merged", "HEAD").splitlines() if is_version_tag(t)]
     if series is not None:
         tags = [t for t in tags if t.startswith(f"{series}.")]
+    if final:
+        tags = [t for t in tags if "-" not in t]
     return max(tags, key=parse_version, default=None)
 
 
@@ -181,23 +182,86 @@ def resolve_kind(bump: str | None, kind: str | None) -> str | None:
     return "rc" if bump == "prerelease" and kind is None else kind
 
 
-def unreleased_body(text: str) -> tuple[re.Match[str], str]:
-    """The `## Unreleased` heading and the prose under it, up to the next `##` heading."""
-    heading = UNRELEASED_RE.search(text)
-    if heading is None:
-        fail("CHANGELOG.md has no '## Unreleased' section - write the release notes first")
-    following = HEADING_RE.search(text, heading.end())
-    body = text[heading.end() : following.start()] if following else text[heading.end() :]
-    if not body.strip():
-        fail("CHANGELOG.md's '## Unreleased' section is empty - write the release notes first")
-    return heading, body.strip("\n")
+def changelog_sections(text: str, source: str) -> tuple[str, dict[str, str]]:
+    """Split a changelog into its preamble and its `## ` sections, keyed by version or `Unreleased`.
+
+    Each section keeps every line of its block. A heading that is neither `Unreleased` nor one
+    unique version stops the release rather than losing its lines when the file is rewritten.
+    """
+    first = re.search(r"^## ", text, flags=re.M)
+    if first is None:
+        return text.rstrip(), {}
+    sections: dict[str, str] = {}
+    for block in re.split(r"^(?=## )", text[first.start() :], flags=re.M):
+        if not block:
+            continue
+        name = block.split("\n", 1)[0].removeprefix("## ").strip()
+        if not (name == UNRELEASED or is_version_tag(name)) or name in sections:
+            fail(f"{source} has a '## {name}' section that is not one unique version - fix it by hand")
+        sections[name] = block.rstrip()
+    return text[: first.start()].rstrip(), sections
 
 
-def promote_changelog(version: str) -> None:
-    """Rename `## Unreleased` to `## <version>`, leaving the prose untouched."""
-    text = CHANGELOG_FILE.read_text()
-    heading, _ = unreleased_body(text)
-    CHANGELOG_FILE.write_text(f"{text[: heading.start()]}## {version}{text[heading.end() :]}")
+def section_body(section: str) -> str:
+    """A section's prose, without its `## ` heading."""
+    return section.partition("\n")[2].strip("\n")
+
+
+def merge_bodies(bodies: list[str]) -> str:
+    """One body from several, in order: their lead prose, then each `###` subsection's entries together.
+
+    Subsections keep the order they first appear in, so a release folding its prereleases
+    reads as one Added, one Changed, ... rather than one of each per prerelease.
+    """
+    leads: list[str] = []
+    subsections: dict[str, list[str]] = {}
+    for body in bodies:
+        lead, *parts = re.split(r"^(?=### )", body, flags=re.M)
+        if lead.strip():
+            leads.append(lead.strip("\n"))
+        for part in parts:
+            heading, _, entries = part.partition("\n")
+            subsections.setdefault(heading.strip(), []).append(entries.strip("\n"))
+    merged = [f"{heading}\n\n" + "\n".join(filter(None, entries)) for heading, entries in subsections.items()]
+    return "\n\n".join(leads + merged)
+
+
+def release_section(version: str, sections: dict[str, str]) -> str:
+    """`version`'s section: the `## Unreleased` prose, after that of the prereleases a full release finalizes."""
+    folded = [] if "-" in version else sorted((v for v in sections if v.startswith(f"{version}-")), key=parse_version)
+    bodies = [body for name in [*folded, UNRELEASED] if name in sections and (body := section_body(sections[name]))]
+    if not bodies:
+        fail(f"CHANGELOG.md's '## {UNRELEASED}' section is missing or empty - write the release notes first")
+    return f"## {version}\n\n" + (bodies[0] if len(bodies) == 1 else merge_bodies(bodies))
+
+
+def branch_sections(version: str) -> dict[str, str]:
+    """Sections of the releases cut on other branches that CHANGELOG.md lacks, by version.
+
+    A patch release is cut on its release branch, so its section reaches only that branch's
+    changelog. Each comes from the changelog at its own tag; later releases are left out.
+    """
+    _, present = changelog_sections(CHANGELOG_FILE.read_text(), CHANGELOG_FILE.name)
+    sections = {}
+    for tag in git("tag", "--no-merged", "HEAD").splitlines():
+        if not is_version_tag(tag) or "-" in tag or tag in present or parse_version(tag) > parse_version(version):
+            continue
+        _, at_tag = changelog_sections(git_ok("show", f"{tag}:CHANGELOG.md") or "", f"CHANGELOG.md at {tag}")
+        if tag not in at_tag:
+            print(f"warning: CHANGELOG.md at {tag} has no '## {tag}' section - it stays out of the changelog")
+            continue
+        sections[tag] = at_tag[tag]
+    return sections
+
+
+def update_changelog(version: str, section: str, pulled: dict[str, str]) -> None:
+    """Replace `## Unreleased`, and a full release's prerelease sections, with `section`; add `pulled`."""
+    preamble, sections = changelog_sections(CHANGELOG_FILE.read_text(), CHANGELOG_FILE.name)
+    sections = {v: s for v, s in sections.items() if v != UNRELEASED and not v.startswith(f"{version}-")}
+    sections |= pulled | {version: section}
+    ordered = sorted(sections, key=parse_version, reverse=True)
+    body = "\n\n".join(sections[v] for v in ordered)
+    CHANGELOG_FILE.write_text(f"{preamble}\n\n{body}\n" if preamble else f"{body}\n")
 
 
 def main() -> None:
@@ -274,16 +338,24 @@ def main() -> None:
     if git_ok("rev-parse", "-q", "--verify", f"refs/tags/{version}") is not None:
         fail(f"tag {version} already exists - fetch tags and check what has been released")
 
-    _, notes = unreleased_body(CHANGELOG_FILE.read_text())
+    # Finalizing a prerelease: the release counts everything since the last full release,
+    # as its section folds in its prereleases' sections.
+    if current and "-" in current and "-" not in version:
+        entries = collect_entries(latest_tag(series, final=True))
+    _, sections = changelog_sections(CHANGELOG_FILE.read_text(), CHANGELOG_FILE.name)
+    section = release_section(version, sections)
+    pulled = branch_sections(version)
+
     counts = ", ".join(f"{len(entries[n])} {n}" for n in CATEGORY_ORDER if n in entries)
-    print(f"{branch}: {current or 'no tag'} -> {version}  ({counts})\n")
-    print(f"## {version}\n\n{notes}\n")
+    print(f"{branch}: {current or 'no tag'} -> {version}  ({counts})\n\n{section}\n")
+    if pulled:
+        print(f"Also adds the sections of {', '.join(pulled)}, released from other branches.\n")
 
     if args.dry_run:
         print("--dry-run: nothing written.")
         return
 
-    promote_changelog(version)
+    update_changelog(version, section, pulled)
 
     label = "Prerelease" if args.bump == "prerelease" else "Release"
     git("add", str(CHANGELOG_FILE))
