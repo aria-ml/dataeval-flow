@@ -93,8 +93,9 @@ While not strictly enforced, the following patterns are recommended for clarity:
      Harbor, and creates per-variant release tags.
    - **GitHub Actions** ([.github/workflows/publish.yml](.github/workflows/publish.yml)),
      builds the Python package with `uv build`, extracts the matching
-     CHANGELOG section as the release body, creates the GitHub Release, and
-     publishes to PyPI via Trusted Publisher.
+     CHANGELOG section as the release body, creates the GitHub Release with the
+     wheel and sdist, and publishes to PyPI via Trusted Publisher with a signed
+     PEP 740 attestation for each file.
 
 ### Version Increment Guidance
 

@@ -596,6 +596,7 @@
   - `info` is a ratio at or under which the finding is `ok`; evidence adds each class's share and unlabelled images
 - `audit`'s empty-split and mixed-kind refusals name the input, not the split, as a custom workflow's declared preflight
   does
+- PyPI releases carry a signed PEP 740 attestation for each file, made with the publish workflow's identity
 
 ### Fixed
 
@@ -636,6 +637,7 @@
 - A chain refused before any step ran says why in its report, instead of only `Steps: 0 ran`
 - A report's health line and HTML badge say `failed` when a required step failed, instead of claiming checks passed
 - A "not assessed" finding's description ends in one full stop when its cause already ends in one
+- A GitHub Release attaches only the wheel and the sdist, not the `.gitignore` that `uv build` writes into `dist/`
 
 ### Removed
 

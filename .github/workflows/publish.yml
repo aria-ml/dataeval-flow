@@ -56,8 +56,11 @@ jobs:
           # `release.py prerelease` cuts vX.Y.Z-rcN / -aN; only those carry a hyphen,
           # so a candidate is never published as the latest stable release.
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: dist/*
+          files: dist/dataeval_flow-*  # the wheel and sdist, not the .gitignore uv writes into dist/
           generate_release_notes: true
 
       - name: Publish to PyPI
-        run: uv publish --trusted-publishing always
+        # Signs a PEP 740 attestation for each distribution with the workflow's OIDC identity and uploads it with the file
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          attestations: true
