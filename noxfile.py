@@ -314,8 +314,9 @@ def docsync(session: nox.Session) -> None:
 def docs_data(session: nox.Session) -> None:
     """Download the datasets the docs notebooks use, without building the docs.
 
-    The docs CI jobs run this to fill the Harbor dataset cache (docs/harbor-datasets-cache.sh).
-    The list of datasets is docs/source/data.py.
+    The docs CI jobs restore the datasets from the Harbor dataset cache instead (the
+    jatic/aria/ci docs-datasets component); this fetches them without CI. The list of datasets is
+    docs/datasets.toml.
     """
     session.run("python", "docs/source/data.py")
 

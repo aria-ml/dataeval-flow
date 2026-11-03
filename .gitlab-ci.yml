@@ -18,6 +18,9 @@ stages:
 include:
   - component: gitlab.jatic.net/jatic/aria/ci/workflow-rules@0.11.1
 
+  # Restores the docs notebooks' datasets from the Harbor cache, one artifact per dataset, for the docs jobs below.
+  - component: gitlab.jatic.net/jatic/aria/ci/docs-datasets@0.12.0
+
   # git_depth 0 on every job that installs the project: `uv sync` runs hatch-vcs,
   # which derives __version__ via `git describe` and needs the tagged commit in
   # history. The runner fetches tags at any depth, so depth alone is enough.
@@ -361,22 +364,19 @@ install:conda:
 # Documentation — runs in parallel with container jobs
 # -----------------------------------------------------------------------------
 
-# Harbor cache of the notebook datasets, kept outside the docs build: the notebooks
-# download whatever is missing, so a miss or a Harbor failure only costs time.
-# Runs before `nox -s docs` and only when a notebook is about to execute (the cache
-# check exits non-zero then) or on a clean build. After a miss it downloads every
-# dataset listed in docs/source/data.py and stores them, so the stored copy is
-# complete and holds nothing the notebooks generate. See docs/harbor-datasets-cache.sh.
+# Harbor cache of the notebook datasets (jatic/aria/ci `docs-datasets`), kept outside the docs
+# build: the notebooks download whatever is missing, so a miss or a Harbor failure only costs
+# time. Runs before `nox -s docs` and only when a notebook is about to execute (the cache
+# check exits non-zero then) or on a clean build. Restores each dataset listed in
+# docs/datasets.toml, and downloads and stores the ones Harbor lacks, so the stored copies
+# hold nothing the notebooks generate.
 .docs_datasets:
   script:
+    - !reference [.aria_docs_datasets, script]
     - if [ -z "$DOCS_ARG" ]; then bash docs/fetch-docs-cache.sh || true; fi
     - |
       if [ -n "$DOCS_ARG" ] || ! uv run --no-project --with jupytext --with nbformat python docs/check_notebook_cache.py >/dev/null 2>&1; then
-        apt-get install -y -qq --no-install-recommends curl >/dev/null || true
-        bash docs/harbor-datasets-cache.sh pull
-        if [ -e "${TMPDIR:-/tmp}/harbor-datasets-missed" ]; then
-          uvx --with nox-uv nox -s docs_data && bash docs/harbor-datasets-cache.sh push || echo "dataset pre-download failed, the notebooks will download their own"
-        fi
+        aria_docs_datasets
       fi
 
 # Docs preview - Build docs on MRs for review
