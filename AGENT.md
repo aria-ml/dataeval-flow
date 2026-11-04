@@ -1,4 +1,4 @@
-# Agent Instructions
+# Agent instructions
 
 Use `nox` sessions `lint` `schema` `type` `test` to validate changes
 Ensure test coverage of newly created files is >=90%, targeting 100%
