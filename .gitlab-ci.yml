@@ -146,11 +146,9 @@ include:
       image: mambaorg/micromamba:2-ubuntu24.04
       module_name: dataeval_flow
       cli_name: dataeval-flow
-      pip_spec: ".[cpu]"
-      # dataeval is pinned to github main in environment.yml, so micromamba
-      # clones it during the create's pip phase -- that phase only sees the new
-      # env's PATH, so git must be created into the env itself.
-      conda_create_deps: git
+      # The documented conda path: environment.yml, then `pip install -e .`. conda-forge
+      # supplies DataEval and the PyTorch it depends on, so no extra or wheel index.
+      pip_spec: "."
       python_version: "3.11"
 
   # Merges the per-interpreter coverage data files from the test matrix into one

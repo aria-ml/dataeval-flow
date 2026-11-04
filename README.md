@@ -538,9 +538,9 @@ pip install -e .         # install the package itself; conda manages deps
 
 Notes:
 
-- PyTorch is installed from PyPI/`download.pytorch.org` in every path (it is no longer maintained on conda-forge).
-- GPU variants (`cu126`, `cu130`) are only wired through `uv` and `pip` today. The conda path installs the CPU build of
-  PyTorch.
+- The `pip` and `uv` paths install PyTorch from PyPI or `download.pytorch.org`. The conda path installs DataEval from
+  conda-forge, and the PyTorch it depends on with it.
+- The GPU variants (`cu126`, `cu130`) are wired through `uv` and `pip` only.
 
 ### CLI usage
 

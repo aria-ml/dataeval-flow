@@ -108,9 +108,9 @@ The PyTorch variant extras are mutually exclusive, as are the three `onnx` extra
 
 ### Install with conda or mamba
 
-Conda manages the environment from the committed `environment.yml`. The package itself is then installed into that
-environment. PyTorch is installed from PyPI / `download.pytorch.org` (it is no longer maintained on conda-forge), so
-the conda path installs the CPU build of PyTorch.
+Conda manages the environment from the committed `environment.yml`. It installs DataEval from conda-forge, and the
+PyTorch that DataEval depends on comes from conda-forge too. You then install the package itself into that
+environment.
 
 ```bash
 conda env create -f environment.yml

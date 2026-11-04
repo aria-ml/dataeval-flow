@@ -440,6 +440,9 @@ def _export_dependency_files(session: nox.Session) -> None:
         "infer",
         "-n",
         "dataeval-flow",
+        # DataEval is on conda-forge, not Anaconda's default channel.
+        "--channel",
+        "conda-forge",
         "-o",
         "environment.yml",
     )

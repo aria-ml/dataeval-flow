@@ -299,6 +299,7 @@ you upgrade. It covers each change that a v0.2 config or script needs.
 ### Changed
 
 - Requires DataEval 1.2.0 or newer; the lock files and container images resolve DataEval 1.2.0
+- `environment.yml` installs DataEval from conda-forge, with the PyTorch it depends on, and names that channel
 - `class-coverage` flags the classes DataEval's Coverage flags, by its `is_clustered`, `is_one_dimensional` and
   `has_near_duplicates` columns, instead of judging `dispersion`, `isotropy` and `near_duplicate_fraction` itself
   - Breaking: the check's `dispersion`, `isotropy` and `near_duplicates` are removed, and with them
