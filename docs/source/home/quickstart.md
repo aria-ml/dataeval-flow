@@ -1,39 +1,39 @@
 # Quickstart
 
-Run your first DataEval Flow evaluation — install the package, describe a pipeline in YAML, and read the result.
+Run your first DataEval Flow evaluation. You will install the package, describe a pipeline in YAML, and read the
+result.
 
-## Step 1: Check your machine
+## Check your machine
 
-DataEval Flow is developed and tested on **Linux** (Ubuntu 22.04 and 24.04, including WSL2) on **linux/amd64
-(x86-64)**, against **Python 3.11–3.14** (CI runs all four). macOS and Windows are supported only through
-Docker or WSL2 and are not part of the CI test matrix — if you hit a problem on those hosts, the OS or hardware may be
-the root cause. arm64 / Apple Silicon is not built or tested.
+DataEval Flow is developed and tested on Linux (Ubuntu 22.04 and 24.04, including WSL2) on linux/amd64 (x86-64),
+against Python 3.11–3.14 (CI runs all four). macOS and Windows are supported only through Docker or WSL2 and are not
+part of the CI test matrix. If you hit a problem on those hosts, the OS or hardware may be the root cause. arm64 /
+Apple Silicon is not built or tested.
 
-A GPU is never required; it only accelerates model-based embedding extraction. Plan on **2 CPU cores and 8 GB of
-memory** as a floor, and remember that datasets and embeddings are held in memory during a run, so **memory is the
-primary limit on dataset size**.
+A GPU is never required. It only accelerates model-based embedding extraction. Plan on 2 CPU cores and 8 GB of memory
+as a floor. Datasets and embeddings are held in memory during a run, so memory is the primary limit on dataset size.
 
 The {doc}`Container Reference <../reference/containers>` has the full hardware, architecture, and network requirements
 for both the container and the Python-library forms.
 
-## Step 2: Install
+## Install DataEval Flow
 
 ```bash
 pip install dataeval-flow --extra-index-url https://download.pytorch.org/whl/cpu
 ```
 
-PyTorch lives on a separate wheel index; that flag selects the CPU build. Without it, pip resolves the much larger
+PyTorch lives on a separate wheel index, and that flag selects the CPU build. Without it, pip resolves the much larger
 CUDA-bundled build from PyPI.
 
-For a **CUDA** build, install `torch` from its index first, then DataEval Flow; `--extra-index-url` is not reliable
-for the CUDA variants. The `cpu` / `cu126` / `cu130` extras do *not* select a PyTorch variant under pip — they exist
-for uv source installs. See {doc}`installation` for both points in full, plus the uv, conda, source, and Docker paths.
+For a CUDA build, install `torch` from its index first, then DataEval Flow. `--extra-index-url` is not reliable for
+the CUDA variants. The `cpu` / `cu126` / `cu130` extras do not select a PyTorch variant under pip. They exist for uv
+source installs. See {doc}`installation` for both points in full, plus the uv, conda, source, and Docker paths.
 
-## Step 3: Describe a pipeline
+## Describe a pipeline
 
-A pipeline is a YAML (or JSON) file using a define-once, reference-by-name pattern: name your `datasets`, optionally
-narrow them with `views`, bundle them into `sources`, choose an `extractor` if the workflow needs embeddings,
-configure a `workflow`, and compose it all in a `task`.
+A pipeline is a YAML (or JSON) file that follows a define-once, reference-by-name pattern. You name your `datasets`,
+optionally narrow them with `views`, bundle them into `sources`, choose an `extractor` if the workflow needs
+embeddings, configure a `workflow`, and compose it all in a `task`.
 
 Save this as `params.yaml` next to your data:
 
@@ -68,7 +68,7 @@ tasks:
     extractor: bovw_ext
 ```
 
-## Step 4: Run it
+## Run the pipeline
 
 From the command line:
 
@@ -76,7 +76,7 @@ From the command line:
 dataeval-flow --config params.yaml --data . --output ./results
 ```
 
-Or from Python — the same config, executed through the public API:
+Or run the same config from Python through the public API:
 
 ```python
 from pathlib import Path
@@ -92,18 +92,18 @@ result.export("./results")  # machine-readable result envelope (JSON)
 ```
 
 `report()` prints the findings, their severities, and an overall health line. `export()` writes the JSON **result
-envelope**: the findings plus provenance metadata (timestamp, tool version, dataset and model identifiers, fully
-resolved configuration) that makes each finding auditable and interoperable with other JATIC tools.
+envelope**. The envelope holds the findings plus provenance metadata (timestamp, tool version, dataset and model
+identifiers, fully resolved configuration) that makes each finding auditable and interoperable with other JATIC tools.
 
 To build a config without writing YAML by hand, `dataeval-flow config` walks you through it on the command line and
 `dataeval-flow app` opens an interactive TUI dashboard (needs the `app` extra).
 
 ## Where to go next
 
-- {doc}`Tutorials <../tutorials/index>` — end-to-end walkthroughs of each T&E task, from cleaning a dataset to
+- {doc}`Tutorials <../tutorials/index>` — Follow an end-to-end walkthrough of each T&E task, from cleaning a dataset to
   monitoring a deployed model for drift.
-- {doc}`How-to Guides <../how_to/index>` — focused answers to specific problems: tuning outlier detection, reading
-  evaluation outputs, using your own model for embeddings, running in a container.
-- {doc}`Explanations <../concepts/index>` — the concepts behind the workflows, and how reproducibility and provenance
-  are built into every result.
-- {doc}`Glossary <../reference/glossary>` — the vocabulary used throughout the documentation.
+- {doc}`How-to guides <../how_to/index>` — Find focused answers to specific problems, such as tuning outlier detection,
+  reading evaluation outputs, using your own model for embeddings and running in a container.
+- {doc}`Explanations <../concepts/index>` — Read the concepts behind the workflows, and how reproducibility and
+  provenance are built into every result.
+- {doc}`Glossary <../reference/glossary>` — Look up the vocabulary used throughout the documentation.
