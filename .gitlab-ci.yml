@@ -149,6 +149,9 @@ include:
       # The documented conda path: environment.yml, then `pip install -e .`. conda-forge
       # supplies DataEval and the PyTorch it depends on, so no extra or wheel index.
       pip_spec: "."
+      # The component runs `git fetch --tags` after activating the new env, whose PATH
+      # does not reach the base env's git, so git is created into the env itself.
+      conda_create_deps: git
       python_version: "3.11"
 
   # Merges the per-interpreter coverage data files from the test matrix into one
