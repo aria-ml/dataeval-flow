@@ -38,7 +38,7 @@ The verdict is one of three levels, worst first:
 | Verdict | `level` | When |
 | --- | --- | --- |
 | Not ready | `not-ready` | A check that `blocking` names warned, and no `accepted` key covers that run. |
-| Ready with caveats | `ready-with-caveats` | Any other check warned and isn't accepted, an accepted check warned, or a check was not assessed. |
+| Ready with caveats | `ready-with-caveats` | Any other check warned and is not accepted, an accepted check warned, or a check was not assessed. |
 | Ready | `ready` | No check warned, and every check was assessed. |
 
 A blocking check that could not run is a caveat, not a block. An acceptance keyed by check type covers that check on
@@ -139,7 +139,7 @@ splits. `crops` crops detection data and passes other Datasets through:
 | `divergence` | a block | `method: mst` | [`divergence`](evaluators.md#divergence)'s `method`; the step runs when the task names an extractor |
 | `ood-kneighbors` | a block | unset: DataEval's defaults, with `threshold_perc` 95 | [`ood-kneighbors`](evaluators.md#ood-kneighbors)'s `k`, `distance_metric` and `threshold_perc`; the step is fitted on train and runs on each evaluation split when the task names an extractor |
 | `blocking` | a list of check types | `[leakage, untrained-classes]` | The check types whose unaccepted warning makes the verdict "Not ready"; each must name a check the chain runs |
-| `accepted` | a mapping of a check type, check step or `step[split]` to a reason | `{}` | Why each warning is accepted, by check type (`image-outliers`), by check step for all its runs (`image-outliers-evals`), or by `step[split]` for one run of a step that runs once per evaluation split (`image-outliers-evals[test]`), as the verdict's `warnings[].step` names it: an accepted warning can't make the verdict not ready, but it still leaves it ready with caveats; each key must name a check or check step the chain runs, and a reason may not be blank |
+| `accepted` | a mapping of a check type, check step or `step[split]` to a reason | `{}` | Why each warning is accepted, by check type (`image-outliers`), by check step for all its runs (`image-outliers-evals`), or by `step[split]` for one run of a step that runs once per evaluation split (`image-outliers-evals[test]`), as the verdict's `warnings[].step` names it: an accepted warning cannot make the verdict not ready, but it still leaves it ready with caveats; each key must name a check or check step the chain runs, and a reason may not be blank |
 | `checks` | a block | the defaults below | When findings warn, keyed by check type |
 
 **Checks**, under `checks:` ({py:class}`~dataeval_flow.workflows.audit.AuditChecks`):
@@ -164,13 +164,13 @@ splits. `crops` crops detection data and passes other Datasets through:
 
 A check over each split applies its settings to every split. The settings of a check the chain does not run, such as
 `checks.uncovered-items` under adaptive coverage, are unused. `coverage`, `completeness`, `divergence` and
-`ood-kneighbors` are optional: with no extractor they are skipped with "requires an extractor", and their checks are
-not assessed. `balance`, `diversity` and `factor-gaps` are optional too, since DataEval refuses them on metadata with
-no factors. Any other step that fails fails the task, which then has no verdict. With one source, `evals` is empty,
-and every check of *Are the splits fit to evaluate on?* is not assessed, with "no evaluation split given", so a
+`ood-kneighbors` are optional: with no extractor they are skipped with "requires an extractor", and their checks are not
+assessed. `balance`, `diversity` and `factor-gaps` are optional too, since DataEval refuses them on metadata with no
+factors. Any other step that fails fails the task, which then has no verdict. With one source, `evals` is empty, and
+every check of the question "Are the splits fit to evaluate on?" is not assessed, with "no evaluation split given", so a
 one-split audit is at best Ready with caveats. A check over each split then judges train alone, and its check over
-`evals`, which judged nothing, is left out of the verdict and the questions. `class-sufficiency` and
-`untrained-classes` still judge train.
+`evals`, which judged nothing, is left out of the verdict and the questions. `class-sufficiency` and `untrained-classes`
+still judge train.
 
 The report gives the verdict, then a record of what was audited: a column per split, with its items, labels, classes,
 metadata factors and the digests of its content and metadata, then the run and the criteria: the settings of each

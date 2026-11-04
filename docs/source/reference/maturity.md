@@ -10,7 +10,7 @@ software, and the program's draft release, validation, and deployment standards.
 Version 1.3 has not been released. A release's maturity is governed by the
 standards in force when that release was assessed, not by this draft.
 
-## Maturity Levels
+## Maturity levels
 
 ```{list-table}
 :widths: 15 85
@@ -30,7 +30,7 @@ standards in force when that release was assessed, not by this draft.
   - Product is mature. Validated and adopted by many users.
 ```
 
-## Current Status
+## Current status
 
 ```{list-table}
 :widths: 35 65
@@ -42,10 +42,10 @@ standards in force when that release was assessed, not by this draft.
   - Maturity Level I, planned for the `v1.0.0` release. See the
     [roadmap](https://github.com/aria-ml/dataeval-flow/blob/main/ROADMAP.md).
 * - Latest release
-  - `v0.2.4`, maintained on the `release/v0.2` branch
+  - `v0.3.0`, with the `v0.2` line maintained on the `release/v0.2` branch
 ```
 
-## Maturity by Release
+## Maturity by release
 
 A release carries the maturity label `JATIC Maturity I` only if the product has
 reached Maturity Level I and the release was assessed and approved by the
@@ -60,7 +60,7 @@ Maturity Level I, so no DataEval Flow release carries a label.
   - Maturity level
   - Label
   - Basis
-* - `v0.2.0` through `v0.2.4`
+* - `v0.2.0` through `v0.3.0`
   - Below Level I
   - None
   - Not program-assessed
@@ -78,11 +78,12 @@ If DataEval Flow reaches Maturity Level I, this table records each release
 approved as a mature release. Releases not approved as mature releases carry no
 label.
 
-## Requirements by Level
+## Requirements by level
 
 The SDP Requirements v1.3 draft maps each software requirement area to the
-maturity levels at which it applies. At Maturity S, the program requires only
-the interoperability standards.
+maturity levels at which it applies. At Maturity S, the program requires the
+interoperability standards in full (IR-1 and IR-2) and part of each other software
+area.
 
 ```{list-table}
 :widths: 25 15 15 15 15 15
@@ -228,7 +229,7 @@ of its functional requirements and standards compliance (RS-5-H-1, RS-5-H-2). A
 mature release receives CI and critical hotfixes for at least six months, or until
 a newer mature release is published (RS-5-S-1).
 
-## Assessment Records
+## Assessment records
 
 Self-assessments, requirement exceptions, and the verification cross-reference
 matrix for each release are kept in the DataEval-Flow directory of the ARiA

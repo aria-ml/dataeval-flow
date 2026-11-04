@@ -1,12 +1,12 @@
 # Find the Right Step
 
 The steps are grouped by the question a user brings. Under each question, the page names the presets that answer it,
-then the evaluators, combines, checks and transforms on that question that their chains run, so a step can appear under
+then the evaluators, combines, checks and transforms that their chains run on that question. A step can appear under
 several questions. A last bullet names the steps on the question that no listed preset runs, which you chain in a
-[workflow of your own](../how_to/write_a_custom_workflow.md). Each name links its catalog entry. With no preset, chain
-the steps in a workflow of your own.
+[workflow of your own](../how_to/write_a_custom_workflow.md). Each name links to its catalog entry. Where no preset
+answers the question, chain the steps in a workflow of your own.
 
-To ask whether a set of splits is ready to train on, run [`audit`](presets.md#audit). One task answers
+To ask whether a set of splits is ready to train on, run [`audit`](presets.md#audit). One `audit` task answers
 [Is the data clean?](#is-the-data-clean), [Are the labels sound?](#are-the-labels-sound),
 [Does the data cover what the model must handle?](#does-the-data-cover-what-the-model-must-handle),
 [Could the model learn a shortcut?](#could-the-model-learn-a-shortcut) and
@@ -55,7 +55,7 @@ Dataset onto the ontology.
 
 ## Does the data cover what the model must handle?
 
-Judges how a Dataset's embeddings cover their space and which classes fall short of their expected share; detections are
+Judges how a Dataset's embeddings cover their space and which classes fall short of their expected share. Detections are
 cropped first. Among the metadata factors tied to the class, `bias` and `audit` list the class-factor-value
 combinations held too rarely.
 
