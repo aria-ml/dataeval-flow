@@ -85,6 +85,10 @@ for a list-item label, a heading or stress. Use `*` for emphasis markup and neve
 These rules cover the cells of a table too. Do not bold a row label, and do not put an em dash in a cell. Write a column
 heading in sentence case, with a capital on the first word only.
 
+One exception covers the reference catalogs. The `- **Label:**` bullets of a catalog entry, such as `Combined by` and
+`Used in`, are the entry template, and `tests/test_catalog_docs.py` reads them by their bold label. Keep them bold. A
+catalog entry's heading is the step's type name and is not cased as prose.
+
 markdownlint (MD049 and MD050) flags a Markdown page that mixes `*` and `_`. It does not read the Markdown cells of a
 notebook. Review checks the rest.
 
@@ -179,6 +183,34 @@ Keep a how-to short (review):
   be useful is a tutorial.
 - Do not close with `Introduction`, `Summary`, `Conclusion`, `See also` or `Related material`. Put the links the reader
   needs in the lead, in the step that uses them, or in `Next steps`.
+
+## Structure an explanation
+
+An explanation is a Markdown page in `docs/source/concepts`. It explains one idea, the reasoning behind it and its
+limits, and it does not walk through a task. End it with these sections, in this order, when they apply:
+
+| Section | Level | Content |
+| ------- | ----- | ------- |
+| `Related concept pages` | H2 | The explanations a reader needs next, each a link and a one-line description |
+| `See this in practice` | H2 | Lists headed `Tutorials`, `How-to guides` and `Reference` at H3, each entry a link and a one-line description |
+| `References` | H2 | The papers and sources the page cites, numbered |
+
+Write each entry in these lists as a link, a colon and a one-line description, such as
+`[Check a set of splits](../how_to/check_a_set_of_splits.md): Run an audit step on the parts of a split.` The em dash
+belongs to `Next steps` and `Where to go next` entries only. Link a tutorial or how-to guide by its exact title.
+
+Review checks the order and the endings. Do not close an explanation with `Summary` or `See also`.
+
+## Structure a home page
+
+Home pages orient a new reader: the installation, the quickstart, the changelog and the release highlights.
+
+- Name each section of the installation and the quickstart for the action it covers, such as `Install DataEval Flow` or
+  `Describe a pipeline`. Position carries the order, so write no `Step N:` and no numbering.
+- End the quickstart with `Where to go next`, in place of `Next steps`. Write each entry in the form of a Next steps
+  entry: a link, an em dash and one sentence.
+- The release notes in `home/whats_new` are a record. Bring the formatting of an older page into line with this guide
+  and leave what it says as it is.
 
 ## Write headings
 
@@ -332,11 +364,6 @@ once, in the [Glossary](source/reference/glossary.md), and link it with `{term}`
 - A rename changes the published address. `README.md` links to published pages, and the `linkchecker` job checks those
   links against `docs/source`.
 - Check the open merge requests for new links to the old name before you merge the rename.
-
-### Explanation page structure
-
-End an explanation with `Related concept pages`, then `See this in practice` (with lists of tutorials, how-to guides and
-reference pages), when they apply.
 
 ## Write docstrings and descriptions
 
