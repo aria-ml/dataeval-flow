@@ -14,21 +14,19 @@
 # ---
 
 # %% [markdown]
-# # Detect classwise drift: Which classes are changing?
+# # Detect classwise drift
 #
-# Detect distribution drift that affects specific classes. This tutorial
-# simulates progressive sensor degradation
-# across three vehicle types and uses classwise drift detection to identify
-# affected classes.
+# In this tutorial, you will simulate progressive sensor degradation across three vehicle types in MilitaryVehicles. You
+# will use classwise drift detection with the `shift` workflow to identify the affected classes.
 
 # %% [markdown]
-# Target audience: You are a T&E engineer diagnosing which classes drive the
-# drift signal so you can target data collection and model retraining.
+# You are a T&E engineer diagnosing which classes drive the drift signal so you can target data collection and model
+# retraining.
 #
-# Workflow role: Classwise drift provides a diagnostic follow-up to
-# {doc}`Monitor incoming data for drift <drift_monitoring>`. After an initial check
-# detects drift, you can evaluate per-class drift to identify affected categories.
-# See [Distribution shift](../concepts/DistributionShift.md) for conceptual background.
+# Classwise drift provides a diagnostic follow-up to {doc}`drift_monitoring`. After an initial check detects drift, you
+# can evaluate per-class drift to identify affected categories. You should confirm high-level drift first, then isolate
+# the affected classes for targeted retraining. The next tutorial, {doc}`ood_detection`, flags individual images. See
+# {doc}`../concepts/DistributionShift` for conceptual background.
 
 # %% [markdown]
 # ## What you will do
@@ -37,9 +35,9 @@
 # - Build a wrapper dataset that applies progressive Gaussian blur to three target vehicle classes.
 # - Generate embeddings using a pretrained ResNet-18 model.
 # - Partition reference and incoming subsets using `ViewConfig` and `Indices`.
-# - **Phase 1**: Run overall drift detection with chunked K-Neighbors to confirm drift and identify onset timing.
-# - **Phase 2**: Run classwise drift detection using MMD and Univariate CVM to pinpoint affected classes.
-# - **Phase 3**: Compare the degraded classes with the rest as two groups, in a custom workflow.
+# - In phase 1, run overall drift detection with chunked K-Neighbors to confirm drift and identify onset timing.
+# - In phase 2, run classwise drift detection using MMD and Univariate CVM to pinpoint affected classes.
+# - In phase 3, compare the degraded classes with the rest as two groups, in a custom workflow.
 
 # %% [markdown]
 # ## What you will learn
@@ -59,7 +57,7 @@
 # - Install `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`).
 # - Install `maite-datasets[datamaite]` to download and export MilitaryVehicles.
 # - Install `torch` and `torchvision` for ResNet-18 feature extraction.
-# - Ensure network access for the initial dataset download.
+# - Make sure you have network access for the initial dataset download.
 
 # %% [markdown]
 # ## Lay out the data root
@@ -76,24 +74,19 @@
 # └── cache/                                   # written: embeddings, reused on a re-run
 # ```
 #
-# The notebook hands the pipeline its datasets in memory, so no configuration path points at them. The config's
-# `model_path`, `models/resnet18.pt`, is relative to the data root. Torchvision downloads the weights the first time
-# into its own cache, outside this folder.
+# The notebook hands the pipeline its datasets in memory, so no configuration path points at them. The pipeline is the
+# Python this notebook builds, so no YAML file sits next to it. The config's `model_path`, `models/resnet18.pt`, is
+# relative to the data root. Torchvision downloads the weights the first time into its own cache, outside this folder.
 
 # %% [markdown]
-# ### Step-by-step guide
-
-# %% [markdown]
-# ## Data Preparation: Load the dataset
+# ## Load the dataset
 #
-# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles)
-# contains 9,444 images across 24 vehicle types. Setting `as_datamaite=True` writes the
-# dataset as a class-per-directory ImageFolder tree readable by datamaite's `huggingface_vision`
-# loader.
+# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles) contains 9,444 images across 24
+# vehicle types. Setting `as_datamaite=True` writes the dataset as a class-per-directory ImageFolder tree readable by
+# datamaite's `huggingface_vision` loader.
 #
-# Because raw directories are ordered alphabetically by class, apply a seeded
-# shuffle to simulate chronological collection order. Progressive degradation will be applied
-# along this sequence.
+# Because raw directories are ordered alphabetically by class, apply a seeded shuffle to simulate chronological
+# collection order. Progressive degradation will be applied along this sequence.
 
 # %% tags=["remove_output"]
 from collections.abc import Mapping
@@ -129,17 +122,16 @@ print(f"Loaded {len(vehicles)} images across {len(index2label)} classes")
 print(f"Degrading: {[index2label[c] for c in sorted(DEGRADED)]}")
 
 # %% [markdown]
-# ## Data Preparation: Build a degradation wrapper
+# ## Build a degradation wrapper
 #
-# Create a dataset wrapper that applies progressive Gaussian blur to
-# three selected classes: `BMP-1`, `BTR-80`, and `T-72`. This models localized sensor
-# degradation over time.
+# Create a dataset wrapper that applies progressive Gaussian blur to three selected classes: `BMP-1`, `BTR-80`, and
+# `T-72`. This models localized sensor degradation over time.
 #
-# The wrapper passes the wrapped dataset's `metadata` through. A classwise run names each class from
-# its `index2label`, so a dataset without `metadata` could not be run by class.
+# The wrapper passes the wrapped dataset's `metadata` through. A classwise run names each class from its `index2label`,
+# so a dataset without `metadata` could not be run by class.
 #
-# The blur radius scales linearly with sample index: early samples have negligible blur,
-# while later samples receive heavy blurring.
+# The blur radius scales linearly with sample index: early samples have negligible blur, while later samples receive
+# heavy blurring.
 
 # %%
 from PIL import Image, ImageFilter
@@ -197,15 +189,15 @@ class DegradedDataset:
 
 
 # %% [markdown]
-# You can now construct the reference and incoming datasets. Both share the same
-# images, partitioned with `ViewConfig` and `Indices`:
+# You can now construct the reference and incoming datasets. Both share the same images, partitioned with `ViewConfig`
+# and `Indices`:
 #
-# - **Reference dataset**: First 2,000 samples (clean, unmodified).
-# - **Incoming dataset**: Next 2,000 samples (positions 2,000 to 3,999) with progressive blur on target classes.
+# - The reference dataset is the first 2,000 samples (clean, unmodified).
+# - The incoming dataset is the next 2,000 samples (positions 2,000 to 3,999) with progressive blur on target classes.
 
 # %% tags=["remove_output"]
 
-# Wrap the incoming slice with degradation for classes 1, 4, 7
+# Wrap the incoming slice with degradation for the classes in DEGRADED
 incoming_maite = View(vehicles_raw, [Indices(_order[2000:4000])])
 incoming_dataset = DegradedDataset(
     incoming_maite,
@@ -217,8 +209,7 @@ print(f"Reference: {len(vehicles)} total frames (will select first 2000)")
 print(f"Incoming:  {len(incoming_dataset)} frames ({len(DEGRADED)} classes progressively blurred)")
 
 # %% [markdown]
-# Inspect the degradation across positions in the incoming dataset, from
-# early (nearly clean) to late (heavily blurred):
+# Inspect the degradation across positions in the incoming dataset, from early (nearly clean) to late (heavily blurred):
 
 # %%
 import matplotlib.pyplot as plt
@@ -249,18 +240,16 @@ plt.tight_layout()
 plt.show()
 
 # %% [markdown]
-# ## Step 1: Phase 1: Overall drift detection with chunking
+# ## Configure overall drift detection with chunking
 #
-# You will first execute overall drift detection.
-# Use the K-Neighbors detector with chunking enabled. K-Neighbors performs
-# a Mann-Whitney U test on distances to nearest reference neighbors. Chunking divides
-# incoming samples into sequential time windows to pinpoint when drift began.
+# In phase 1, you first run overall drift detection. Use the K-Neighbors detector with chunking enabled. K-Neighbors
+# performs a Mann-Whitney U test on distances to nearest reference neighbors. Chunking divides incoming samples into
+# sequential time windows to pinpoint when drift began.
 #
 # :::{important}
-# Use a pretrained feature extractor for natural images. Raw pixel vectors
-# reflect scene lighting, backgrounds, and framing rather than semantic distribution.
-# Pretrained models such as ResNet-18 provide stable semantic representations where
-# distributional distances correspond to genuine image shifts.
+# Use a pretrained feature extractor for natural images. Raw pixel vectors reflect scene lighting, backgrounds, and
+# framing rather than semantic distribution. Pretrained models such as ResNet-18 provide stable semantic representations
+# where distributional distances correspond to genuine image shifts.
 # :::
 
 # %% tags=["remove_output"]
@@ -368,35 +357,33 @@ overall_config = PipelineConfig(
 )
 
 # %% [markdown]
-# ## Step 2: Run overall drift detection
+# ## Run overall drift detection
 
 # %%
 overall_result = run_task(overall_config, overall_task, cache_dir=Path("./cache"))
 
 # %% [markdown]
-# ### Review the overall report
+# ### Read the overall report
 #
-# Inspect `result.report()` to evaluate chunk drift progression. Early chunks fall
-# within the reference threshold, while later chunks exceed thresholds with steadily
-# increasing distances as degradation accumulates.
+# Inspect `result.report()` to evaluate chunk drift progression. Early chunks fall within the reference threshold, while
+# later chunks exceed thresholds with steadily increasing distances as degradation accumulates.
 
 # %%
 print(overall_result.report())
 
 # %% [markdown]
-# ## Step 3: Phase 2: Classwise drift detection
+# ## Configure classwise drift detection
 #
-# Once overall drift is confirmed, you can identify affected classes. Set
-# `classwise:` to the names of the detectors to run once per class. A detector is named for its type
-# unless its entry sets `name`. This phase configures MMD and Univariate CVM:
+# Once overall drift is confirmed, you can identify affected classes in phase 2. Set `classwise:` to the names of the
+# detectors to run once per class. A detector is named for its type unless its entry sets `name`. This phase configures
+# MMD and Univariate CVM:
 #
-# - **MMD**: Evaluates distribution distance per class using kernel maximum mean discrepancy.
-# - **Univariate CVM**: Runs Cramer-von Mises tests on individual embedding dimensions.
+# - MMD evaluates distribution distance per class using kernel maximum mean discrepancy.
+# - Univariate CVM runs Cramer-von Mises tests on individual embedding dimensions.
 #
 # Each named detector keeps its whole-set step, `drift-mmd`, and gains a step that runs it by class,
-# `drift-mmd-by-class`. A `drift` check judges each, as `drift-mmd-check` and `drift-mmd-by-class-check`.
-# A class needs 2 or more items in the reference and in the incoming data to be tested; the step
-# lists any it leaves out as skipped.
+# `drift-mmd-by-class`. A `drift` check judges each, as `drift-mmd-check` and `drift-mmd-by-class-check`. A class needs
+# 2 or more items in the reference and in the incoming data to be tested; the step lists any it leaves out as skipped.
 
 # %%
 from dataeval_flow.evaluators.shift import DriftMMDConfig, DriftUnivariateConfig
@@ -430,31 +417,53 @@ classwise_config = PipelineConfig(
 )
 
 # %% [markdown]
-# ## Step 4: Run classwise drift detection
+# ## Run classwise drift detection
 
 # %%
 classwise_result = run_task(classwise_config, classwise_task, cache_dir=Path("./cache"))
 
 # %% [markdown]
-# ### Review the classwise report
+# ### Read the classwise report
 #
-# The report contains a classwise pivot table. Inspect both detection flags
-# and distance values. The degraded classes (`BMP-1`, `BTR-80`, `T-72`) exhibit distances
-# substantially higher than unaffected classes.
+# The report contains a classwise pivot table. Inspect both detection flags and distance values. The degraded classes
+# (`BMP-1`, `BTR-80`, `T-72`) exhibit distances substantially higher than unaffected classes.
 #
-# In this run, five of the 24 classes warn for each detector. `BMP-1`, `BTR-80` and `T-72` are
-# the degraded ones, with MMD distances near 0.13 to 0.17 against about zero for most others.
-# The other warnings sit just under the significance threshold: MMD flags `BMP-T15` and `T-64`
-# at a p-value of 0.04, and CVM flags `BM-30` and `Tornado` on distances close to the unaffected
-# classes'. A detector tested at `p_val` flags about that share of unaffected classes by luck, and
-# 24 classes is 24 tests, so read the size of a class's distance, not only its flag. The
-# [drift how-to](../how_to/monitor_drift.md) says more about reading many verdicts.
+# In this run, five of the 24 classes warn for each detector. `BMP-1`, `BTR-80` and `T-72` are the degraded ones, with
+# MMD distances near 0.13 to 0.17 against about zero for most others. The other warnings sit just under the significance
+# threshold: MMD flags `BMP-T15` and `T-64` at a p-value of 0.04, and CVM flags `BM-30` and `Tornado` on distances close
+# to the unaffected classes'. A detector tested at `p_val` flags about that share of unaffected classes by luck, and 24
+# classes is 24 tests, so read the size of a class's distance, not only its flag. {doc}`../how_to/monitor_drift` says
+# more about reading many verdicts.
 
 # %%
 print(classwise_result.report())
 
 # %% [markdown]
-# ## Results Exploration: Classwise results
+# `classwise_result.to_html()` draws the same report as a page, including the classwise tables. Each finding is a card
+# headed by its title and severity, and you can sort and filter its tables. {doc}`view_html_reports` covers the rest of
+# the page.
+
+# %% tags=["remove_cell"]
+# The page styles its whole document, so the docs show it in an iframe of its own.
+import html
+
+from IPython.display import display
+
+
+def show(page: str, height: int = 560) -> None:
+    """*page* in an iframe, so its stylesheet and script stay inside it."""
+    frame = (
+        f'<iframe srcdoc="{html.escape(page, quote=True)}" title="HTML report" loading="lazy" '
+        f'style="width:100%;height:{height}px;border:1px solid #d1d9e0;border-radius:6px"></iframe>'
+    )
+    display({"text/html": frame}, raw=True)
+
+
+# %% tags=["remove_input"]
+show(classwise_result.to_html())
+
+# %% [markdown]
+# ## Inspect the classwise results
 #
 # A classwise step's output is a `PerClassOutput`. Its `outputs` hold DataEval's `DriftOutput` for each class, in
 # ascending class index, and its `skipped` holds each class left out, with why. The incoming source is named
@@ -494,10 +503,9 @@ for name in ("drift-mmd", "drift-univariate"):
     print(f"  Skipped: {per_class[name].skipped}")
 
 # %% [markdown]
-# ### Visualize classwise drift
+# ### Plot classwise drift
 #
-# Plot per-class distances in a horizontal bar chart to contrast drifting
-# and stable classes.
+# Plot per-class distances in a horizontal bar chart to contrast drifting and stable classes.
 
 # %%
 fig, axes = plt.subplots(1, len(per_class), figsize=(6 * len(per_class), 4))
@@ -518,13 +526,12 @@ plt.tight_layout()
 plt.show()
 
 # %% [markdown]
-# ## Step 5: Phase 3: Compare groups of classes
+# ## Compare groups of classes
 #
-# The preset workflow runs each class on its own. A custom workflow can run a detector once per group
-# of classes instead, with `by:` on its evaluate step and on the check that judges it. Here the three
-# degraded classes are one group
-# and the other classes are the other, so each group's distances are tested as one population. A class is listed by
-# name or by index, and a name resolves through the first input's `index2label`.
+# In phase 3, you compare groups of classes. The preset workflow runs each class on its own. A custom workflow can run a
+# detector once per group of classes instead, with `by:` on its evaluate step and on the check that judges it. Here the
+# three degraded classes are one group and the other classes are the other, so each group's distances are tested as one
+# population. A class is listed by name or by index, and a name resolves through the first input's `index2label`.
 
 # %%
 from dataeval_flow.steps import CustomWorkflowConfig, StepEntry
@@ -568,43 +575,49 @@ grouped_result = run_task(grouped_config, grouped_task, cache_dir=Path("./cache"
 print(grouped_result.report())
 
 # %% [markdown]
-# The check's `by:` takes no settings, since its keys come from the step it reads. It rolls the groups into one
-# finding that names the drifted groups. Where a group holds fewer than `min_items` items (2 by default) in
-# either source, it is skipped and the finding says why.
+# The check's `by:` takes no settings, since its keys come from the step it reads. It rolls the groups into one finding
+# that names the drifted groups. Where a group holds fewer than `min_items` items (2 by default) in either source, it is
+# skipped and the finding says why.
 
 # %% [markdown]
 # ## Conclusion
 #
-# This tutorial shows how to:
+# In this tutorial, you learned how to:
 #
 # - Load datasets with datamaite's `huggingface_vision` loader into `DatasetProtocolConfig`.
 # - Subset datasets using `ViewConfig` with `Indices`.
 # - Simulate progressive class-specific degradation using custom dataset wrappers.
-# - Execute Phase 1 overall drift detection with chunked K-Neighbors.
-# - Execute Phase 2 classwise drift detection with MMD and Univariate CVM detectors.
+# - Execute phase 1 overall drift detection with chunked K-Neighbors.
+# - Execute phase 2 classwise drift detection with MMD and Univariate CVM detectors.
 # - Run a detector once per group of classes with `by:` in a custom workflow.
 # - Configure pretrained extractors to evaluate semantic distribution shifts.
-#
-# Apply this two-phase methodology to confirm high-level drift and isolate
-# specific affected classes for targeted retraining.
 
 # %% [markdown]
 # ## Next steps
 #
-# - **Automated scheduling**: Run chunked overall detection periodically as a fast filter,
-#   triggering classwise diagnostics only when warnings appear.
-# - **Alternative backbones**: Evaluate larger pretrained models or ONNX extractors via
-#   [Use an ONNX model for embeddings](onnx_embeddings).
-# - **Check thresholds**: Tune `checks` to control warning triggers.
-# - **More recipes**: [Monitor drift with steps](../how_to/monitor_drift.md) merges test sources, compares
-#   one group of classes against another, and drifts on detection crops.
+# - {doc}`ood_detection` — Flag individual incoming images that fall outside the reference distribution.
+# - {doc}`../how_to/monitor_drift` — Merge test sources, compare one group of classes against another, and drift on
+#   detection crops.
+# - {doc}`../concepts/DistributionShift` — Read about drift monitoring methodologies and detector algorithms.
+# - {doc}`onnx_embeddings` — Evaluate larger pretrained models through ONNX extractors.
 
 # %% [markdown]
-# ## Related guides
+# ## On your own
 #
-# - **Concept**: [Distribution shift](../concepts/DistributionShift.md) explains
-#   drift monitoring methodologies and detector algorithms.
-# - **Tutorial**: {doc}`Monitor incoming data for drift <drift_monitoring>` covers full
-#   dataset drift monitoring.
-# - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) explains
-#   how to run drift pipelines in containers.
+# To repeat this analysis with your own data, model, or settings, change one of these:
+#
+# - Replace `vehicles` and `incoming_dataset` in `ref_config` and `incoming_config` with your own reference and incoming
+#   datasets. A classwise run needs a dataset whose `metadata` holds `index2label`.
+# - Change `DEGRADED` or `max_blur_radius` to degrade other classes, or to degrade them harder.
+# - Change the `Indices` ranges that cut the reference and incoming slices.
+# - Change `model_path`, `layer_name` and the preprocessor steps in `TorchExtractorConfig` to evaluate another
+#   pretrained model.
+# - Change `chunk_count` or `threshold` in `ChunkedDriftConfig`, or `k` in `DriftKNeighborsConfig`, to change the
+#   chunked overall detection.
+# - Change `n_permutations` in `DriftMMDConfig` or `method` in `DriftUnivariateConfig`, or name other detectors in
+#   `classwise`, to change which detectors run once per class.
+# - Change `chunk_percent`, `consecutive_chunks` or `warn_on_drift` in `DriftThresholds` to tune the `checks` that
+#   control when a finding warns.
+# - Change the lists under `groups` to compare other groups of classes.
+# - Run the chunked overall detection periodically as a fast filter, and run the classwise diagnostics only when
+#   warnings appear.

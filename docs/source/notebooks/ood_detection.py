@@ -16,18 +16,17 @@
 # %% [markdown]
 # # Detect out-of-distribution images
 #
-# Find individual images in incoming data that fall outside the reference
-# distribution using the config-driven `shift` workflow.
+# In this tutorial, you will find individual images in incoming data that fall outside the reference distribution, using
+# the config-driven `shift` workflow on MilitaryVehicles.
 
 # %% [markdown]
-# **Target audience**: You are a T&E engineer who needs to flag individual incoming
-# images that fall outside the operational reference distribution.
+# You are a T&E engineer who needs to flag individual incoming images that fall outside the operational reference
+# distribution.
 #
-# **Workflow role**: OOD detection complements {doc}`Monitor incoming data for drift <drift_monitoring>`.
-# While drift monitoring evaluates aggregate distribution shift, OOD detection
-# identifies anomalous individual images for quarantine or routing before model
-# inference. See [Distribution shift](../concepts/DistributionShift.md) for conceptual
-# details.
+# Out-of-distribution (OOD) detection complements {doc}`drift_monitoring`. While drift monitoring evaluates aggregate
+# distribution shift, OOD detection identifies anomalous individual images for quarantine or routing before model
+# inference. {doc}`classwise_drift` comes before this tutorial and finds the classes behind a drift signal. See
+# {doc}`../concepts/DistributionShift` for conceptual details.
 
 # %% [markdown]
 # ## What you will do
@@ -55,7 +54,7 @@
 # - Install `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`).
 # - Install `maite-datasets[datamaite]` to access MilitaryVehicles and Ships.
 # - Install `torch` and `torchvision` for ResNet-18 feature extraction.
-# - Ensure network access for initial dataset downloads.
+# - Make sure you have network access for initial dataset downloads.
 
 # %% [markdown]
 # ## Lay out the data root
@@ -73,22 +72,17 @@
 # └── cache/                                   # written: embeddings, reused on a re-run
 # ```
 #
-# The notebook hands the pipeline its datasets in memory, so no configuration path points at them. The config's
-# `model_path`, `models/resnet18.pt`, is relative to the data root. Torchvision downloads the weights the first time
-# into its own cache, outside this folder.
+# The notebook hands the pipeline its datasets in memory, so no configuration path points at them. The pipeline is the
+# Python this notebook builds, so no YAML file sits next to it. The config's `model_path`, `models/resnet18.pt`, is
+# relative to the data root. Torchvision downloads the weights the first time into its own cache, outside this folder.
 
 # %% [markdown]
-# ### Step-by-step guide
-
-# %% [markdown]
-# ## Data Preparation: Load the dataset
+# ## Load the dataset
 #
-# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles)
-# contains 9,444 images across 24 vehicle types. Setting `as_datamaite=True` writes
-# the dataset in class-per-directory ImageFolder format.
+# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles) contains 9,444 images across 24
+# vehicle types. Setting `as_datamaite=True` writes the dataset in class-per-directory ImageFolder format.
 #
-# You will apply a seeded shuffle to draw reference and incoming images evenly across
-# all vehicle classes.
+# You will apply a seeded shuffle to draw reference and incoming images evenly across all vehicle classes.
 
 # %% tags=["remove_output"]
 from collections.abc import Mapping
@@ -121,13 +115,13 @@ print(f"Reference: {len(ref_maite)} frames")
 print(f"Sample shape: image={ref_maite[0][0].shape}, dtype={ref_maite[0][0].dtype}")
 
 # %% [markdown]
-# ### Build the incoming dataset: right label, wrong image
+# ### Build an incoming dataset with misaligned images
 #
-# You will create an incoming dataset where a subset of images contains satellite
-# imagery of ships paired with vehicle labels.
+# You will create an incoming dataset where a subset of images contains satellite imagery of ships paired with vehicle
+# labels.
 #
-# This setup simulates data ingestion errors where labels remain syntactically valid
-# while underlying image content is out of distribution.
+# This setup simulates data ingestion errors where labels remain syntactically valid while underlying image content is
+# out of distribution.
 
 # %%
 ships = Ships(root=data_root, download=True)
@@ -205,22 +199,23 @@ plt.tight_layout()
 plt.show()
 
 # %% [markdown]
-# ## Step 1: Build the workflow configuration
+# ## Build the workflow configuration
 #
-# To configure the `shift` workflow, specify:
+# To configure the `shift` workflow, you set four parts:
 #
-# 1. **Datasets**: A reference dataset and incoming test datasets.
-# 2. **Extractor**: Pretrained models or algorithms to produce embeddings.
-# 3. **Detectors**: Statistical or classifier-based OOD detectors.
-# 4. **Check thresholds**: Percentage thresholds that trigger warnings.
+# | Part | What you set |
+# |---|---|
+# | Datasets | A reference dataset and incoming test datasets. |
+# | Extractor | Pretrained models or algorithms to produce embeddings. |
+# | Detectors | Statistical or classifier-based OOD detectors. |
+# | Check thresholds | Percentage thresholds that trigger warnings. |
 #
-# You will extract 512-dimensional features from a pretrained ResNet-18 model and evaluate
-# two complementary detectors:
+# You will extract 512-dimensional features from a pretrained ResNet-18 model and evaluate two complementary detectors:
 #
 # | Detector | How it works | Strengths |
 # |---|---|---|
-# | **K-Neighbors** | Flags images whose k nearest reference neighbors are unusually distant | Fast, non-parametric, effective in high dimensions |
-# | **Domain Classifier** | Trains a LightGBM model to separate reference from incoming data | Captures complex non-linear decision boundaries |
+# | K-Neighbors | Flags images whose k nearest reference neighbors are unusually distant | Fast, non-parametric, effective in high dimensions |
+# | Domain Classifier | Trains a LightGBM model to separate reference from incoming data | Captures complex non-linear decision boundaries |
 
 # %%
 import torch
@@ -279,19 +274,17 @@ extractor_config = TorchExtractorConfig(
 # %% [markdown]
 # ### Configure OOD detectors
 #
-# **K-Neighbors** uses cosine distance with k=10 to evaluate distance to reference
-# neighbors. Setting `threshold_perc=99.0` establishes the detection boundary at the
-# 99th percentile of reference baseline distances.
+# K-Neighbors uses cosine distance with k=10 to evaluate distance to reference neighbors. Setting `threshold_perc=99.0`
+# establishes the detection boundary at the 99th percentile of reference baseline distances.
 #
-# **Domain Classifier** uses LightGBM with 3-fold cross-validation repeated 3 times.
-# Images consistently predicted as incoming data receive high OOD probabilities.
+# Domain Classifier uses LightGBM with 3-fold cross-validation repeated 3 times. Images consistently predicted as
+# incoming data receive high OOD probabilities.
 #
-# The `factor-predictors` and `factor-deviation` steps run by default and analyze the metadata factors
-# that correlate with flagged OOD images; `false` under either key leaves that step out.
+# The `factor-predictors` and `factor-deviation` steps run by default and analyze the metadata factors that correlate
+# with flagged OOD images; `false` under either key leaves that step out.
 #
-# Each detector is an evaluator entry, which becomes a step, and the preset adds a check
-# per detector, an `ood-union` step combining their flags, and two steps explaining the
-# flagged images by their metadata.
+# Each detector is an evaluator entry, which becomes a step, and the preset adds a check per detector, an `ood-union`
+# step combining their flags, and two steps explaining the flagged images by their metadata.
 
 # %%
 from dataeval_flow import run_task
@@ -333,32 +326,53 @@ config = PipelineConfig(
 )
 
 # %% [markdown]
-# ## Step 2: Run the OOD detection workflow
+# ## Run the OOD detection workflow
 
 # %%
 result = run_task(config, task, cache_dir=Path("./cache"))
 
 # %% [markdown]
-# ## Results Exploration: OOD report
+# ## Read the OOD report
 #
-# Call `result.report()` to view OOD image counts, detector summaries, and
-# metadata factor correlations.
+# Call `result.report()` to view OOD image counts, detector summaries, and metadata factor correlations.
 
 # %%
 print(result.report())
 
 # %% [markdown]
-# ## Understanding the results
+# `result.to_html()` draws the same report as a page. Each finding is a card headed by its title and severity, and you
+# can sort and filter its tables. {doc}`view_html_reports` covers the rest of the page.
+
+# %% tags=["remove_cell"]
+# The page styles its whole document, so the docs show it in an iframe of its own.
+import html
+
+from IPython.display import display
+
+
+def show(page: str, height: int = 560) -> None:
+    """*page* in an iframe, so its stylesheet and script stay inside it."""
+    frame = (
+        f'<iframe srcdoc="{html.escape(page, quote=True)}" title="HTML report" loading="lazy" '
+        f'style="width:100%;height:{height}px;border:1px solid #d1d9e0;border-radius:6px"></iframe>'
+    )
+    display({"text/html": frame}, raw=True)
+
+
+# %% tags=["remove_input"]
+show(result.to_html())
+
+# %% [markdown]
+# ## Evaluate detection performance
 #
-# You can evaluate detection performance by comparing flagged images against
-# ground truth and analyzing score distributions.
+# You can evaluate detection performance by comparing flagged images against ground truth and analyzing score
+# distributions.
 
 # %% [markdown]
 # ### Per-detector summary
 #
-# Each detector scores incoming images independently and flags those scoring above
-# a threshold set from the reference. The `ood-union` step reports each threshold as
-# derived from the flags: the highest score the detector did not flag.
+# Each detector scores incoming images independently and flags those scoring above a threshold set from the reference.
+# The `ood-union` step reports each threshold as derived from the flags: the highest score the detector did not flag.
 
 # %%
 DETECTORS = ("ood-kneighbors", "ood-domain-classifier")
@@ -387,11 +401,11 @@ for name in DETECTORS:
 # %% [markdown]
 # ### Benchmark detector recall and precision
 #
-# Because image replacement positions are known, you can evaluate detector
-# recall and precision directly against ground-truth labels.
+# Because image replacement positions are known, you can evaluate detector recall and precision directly against
+# ground-truth labels.
 #
-# **Recall** is the share of planted frames a detector flagged; **precision** is the
-# share of its flags that were actually planted.
+# **Recall** is the share of planted frames a detector flagged; **precision** is the share of its flags that were
+# planted.
 
 # %%
 truth = [incoming_dataset.swapped(i) for i in range(len(incoming_dataset))]
@@ -409,9 +423,8 @@ for method in DETECTORS:
 # %% [markdown]
 # ### Visualize OOD scores
 #
-# You can plot score histograms to evaluate separation between in-distribution
-# and out-of-distribution images relative to the threshold, drawn dashed as the
-# `ood-union` step derives it from the flags (the highest score not flagged).
+# You can plot score histograms to evaluate separation between in-distribution and out-of-distribution images relative
+# to the threshold, drawn dashed as the `ood-union` step derives it from the flags (the highest score not flagged).
 
 # %%
 fig, axes = plt.subplots(1, len(DETECTORS), figsize=(6 * len(DETECTORS), 4))
@@ -438,8 +451,7 @@ plt.show()
 # %% [markdown]
 # ### Inspect OOD images by score
 #
-# You can display images with the highest OOD scores alongside borderline images
-# closest to the threshold.
+# You can display images with the highest OOD scores alongside borderline images closest to the threshold.
 
 # %%
 cols = 4
@@ -479,10 +491,9 @@ for method in DETECTORS:
 # %% [markdown]
 # ### Metadata insights
 #
-# When the factor steps run (the default), the workflow computes correlations between
-# metadata factors and OOD status. **Factor predictors** report mutual information
-# with OOD flags. **Factor deviations** show per-factor metric deviations for individual
-# OOD images.
+# When the factor steps run (the default), the workflow computes correlations between metadata factors and OOD status.
+# Factor predictors report mutual information with OOD flags. Factor deviations show per-factor metric deviations for
+# individual OOD images.
 
 # %%
 predictors = output("factor-predictors").factors
@@ -504,11 +515,10 @@ if deviations:
         print(f"  Image {dev.index:4d}: {factors_str}")
 
 # %% [markdown]
-# ## A second failure: Corrupted imagery and detector differences
+# ## Test corrupted imagery
 #
-# You can evaluate how detectors perform when incoming frames undergo sensor
-# degradation rather than semantic substitution. In this experiment, you will add
-# heavy Gaussian noise to five selected vehicle classes.
+# You can evaluate how detectors perform when incoming frames undergo sensor degradation rather than semantic
+# substitution. In this experiment, you will add heavy Gaussian noise to five selected vehicle classes.
 
 # %%
 NOISY_CLASSES = [1, 5, 11, 16, 23]
@@ -574,26 +584,24 @@ for method in DETECTORS:
     )
 
 # %% [markdown]
-# ### Evaluating detector complementarity
+# ### Evaluate detector complementarity
 #
-# On misaligned images, both detectors showed high recall. Under sensor noise, the
-# Domain Classifier maintains high recall, whereas K-Neighbors detects fewer corrupted
-# images.
+# On misaligned images, both detectors showed high recall. Under sensor noise, the Domain Classifier maintains high
+# recall, whereas K-Neighbors detects fewer corrupted images.
 #
-# K-Neighbors flags images that fall outside reference embedding clusters. When
-# noise moves images along dimensions where reference embeddings already have broad
-# variance, K-Neighbors may not exceed distance thresholds. In contrast, the Domain
-# Classifier trains a supervised model to separate reference and incoming distributions,
-# capturing consistent feature patterns induced by noise.
+# K-Neighbors flags images that fall outside reference embedding clusters. When noise moves images along dimensions
+# where reference embeddings already have broad variance, K-Neighbors may not exceed distance thresholds. In contrast,
+# the Domain Classifier trains a supervised model to separate reference and incoming distributions, capturing consistent
+# feature patterns induced by noise.
 #
-# You should combine multiple detectors in operational workflows to detect diverse
-# anomaly types.
+# You should combine multiple detectors in operational workflows to detect diverse anomaly types.
 
 # %% [markdown]
-# ## Results Exploration: Export results
+# ## Export the results
 #
-# You can export raw detector outputs, per-image scores, and factor-step outputs
-# to JSON format.
+# You can export raw detector outputs, per-image scores, and factor-step outputs to JSON format.
+# {doc}`../how_to/read_evaluation_outputs` explains how to parse per-image OOD scores and export envelopes. To schedule
+# the task in Docker, see {doc}`../how_to/containerized_workflows`.
 
 # %%
 json_str = result.export(fmt="json")
@@ -616,19 +624,28 @@ print(json_str[:600] + "\n...")
 # %% [markdown]
 # ## Next steps
 #
-# - **Threshold tuning**: Adjust `threshold_perc` to tune the balance between detection
-#   recall and false-positive rates.
-# - **Integrated pipelines**: List drift and OOD detectors together
-#   in one `shift` configuration to track both batch drift and individual anomalies.
+# - {doc}`../how_to/monitor_drift` — Run drift and OOD detectors together in one `shift` workflow, and merge test
+#   sources.
+# - {doc}`../concepts/DistributionShift` — Read how OOD detection relates to drift monitoring.
+# - {doc}`onnx_embeddings` — Configure ONNX models for feature extraction.
 
 # %% [markdown]
-# ## Related guides
+# ## On your own
 #
-# - **Concept**: [Distribution shift](../concepts/DistributionShift.md) explains
-#   relationships between OOD detection and drift monitoring.
-# - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) details
-#   how to parse per-image OOD scores and export envelopes.
-# - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) explains
-#   how to schedule OOD monitoring tasks in Docker.
-# - **Guide**: [Use an ONNX model for embeddings](onnx_embeddings) shows how to configure
-#   ONNX models for feature extraction.
+# To repeat this analysis with your own data, model, or settings, change one of these:
+#
+# - Replace `ref_maite` and `incoming_dataset` in `ref_config` and `incoming_config` with your own reference and
+#   incoming datasets.
+# - Change `start` and `count` in `MisalignedImages`, or `NOISY_CLASSES` and `sigma` in `NoisyClasses`, to plant a
+#   different number of foreign or noisy frames.
+# - Change `model_path`, `layer_name` and the preprocessor steps in `TorchExtractorConfig` to extract features with
+#   another pretrained model.
+# - Change `k`, `distance_metric` and `threshold_perc` of the `ood-kneighbors` detector. Adjust `threshold_perc` to tune
+#   the balance between detection recall and false-positive rates.
+# - Change `n_folds`, `n_repeats` and `threshold_perc` of the `ood-domain-classifier` detector.
+# - Change `warning` and `info` under `ood` and `ood-agreement` in `checks` to set the percentages that trigger
+#   warnings.
+# - Change `max_items` under `factor-deviation`, or set `factor-predictors` or `factor-deviation` to `false`, to change
+#   the factor steps.
+# - List drift detectors with the OOD detectors in `detectors` to track both batch drift and individual anomalies in one
+#   `shift` configuration.

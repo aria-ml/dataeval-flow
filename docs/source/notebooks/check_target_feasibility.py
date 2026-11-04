@@ -16,17 +16,17 @@
 # %% [markdown]
 # # Check whether a performance target is reachable
 #
-# Ask whether your labeled images show that a model can reach an accuracy you need, using the `feasibility`
-# evaluator and the `performance-feasibility` check on MilitaryVehicles.
+# Ask whether your labeled images show that a model can reach an accuracy you need, using the
+# [`feasibility`](../reference/evaluators.md#feasibility) evaluator and the
+# [`performance-feasibility`](../reference/checks.md#performance-feasibility) check on MilitaryVehicles.
 
 # %% [markdown]
-# **Target audience**: You are a T&E engineer or data scientist who has been given a performance requirement for an
-# image classifier, such as "name the vehicle in the photo correctly 85% of the time", and who needs to know whether
-# your data can support it before you spend months training.
+# You are a T&E engineer or data scientist who has been given a performance requirement for an image classifier, such as
+# "name the vehicle in the photo correctly 85% of the time", and who needs to know whether your data can support it
+# before you spend months training.
 #
-# **Workflow role**: You should run this check after your data is clean and before you commit to training. See
-# {doc}`Clean a dataset <data_cleaning>` and {doc}`Split a dataset <dataset_splitting>` for the steps before it, and
-# {doc}`Measure how much training data a model needs <measure_data_sufficiency>` for the question that comes
+# You should run this check after your data is clean and before you commit to training. See {doc}`data_cleaning` and
+# {doc}`dataset_splitting` for the steps before it, and {doc}`measure_data_sufficiency` for the question that comes
 # after: how much data a model you train needs. Both `feasibility` and `performance-feasibility` are experimental.
 
 # %% [markdown]
@@ -43,7 +43,7 @@
 #
 # - How to ask whether a performance target is reachable, and what the evaluator needs to answer.
 # - How to read an answer: what has been shown, at what confidence, and what it assumes.
-# - Why a target can come back *not demonstrated* without being *ruled out*.
+# - Why a target can come back not demonstrated without being ruled out.
 # - What allowances are, why they are your assertions, and how DataEval checks them against its evidence.
 # - Why running the evaluator more than once on the same data costs confidence.
 
@@ -57,8 +57,8 @@
 # %% [markdown]
 # ## Lay out the data root
 #
-# Flow reads and writes files relative to a *data root*. Here that is the notebook's own folder. This is
-# what it holds once the tutorial has run:
+# Flow reads and writes files relative to a **data root**. Here that is the notebook's own folder. This is what it holds
+# once the tutorial has run:
 #
 # ```text
 # check_target_feasibility/                   # the data root: where this notebook runs
@@ -73,14 +73,12 @@
 #
 # The download also holds a `test_fine/` folder of test images, which this tutorial does not read.
 #
-# There is no pipeline file: step 3 builds the pipeline in Python. Every setting there has the same name in a YAML
-# pipeline, which `dataeval-flow --config pipeline.yaml --output output/` would read from the data root as well.
+# There is no pipeline file. The "Set the targets and chain the steps" section builds the pipeline in Python. Every
+# setting there has the same name in a YAML pipeline, which `dataeval-flow --config pipeline.yaml --output output/`
+# would read from the data root as well.
 
 # %% [markdown]
-# ### Step-by-step guide
-
-# %% [markdown]
-# ## Step 1: Get the images
+# ## Get the images
 #
 # [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles) holds photos of 24 types of
 # military vehicle, such as the T-72 tank or the BMP-2 fighting vehicle. You will use its training images: 7,823 of
@@ -104,25 +102,24 @@ data_path = data_root / "militaryvehicles" / "train_fine"
 print(f"Reading from {data_path}")
 
 # %% [markdown]
-# ## Step 2: Describe each image with a pretrained model
+# ## Describe each image with a pretrained model
 #
 # The evaluator does not look at pixels. It looks at a list of numbers that describes each image, called an
-# *embedding*, which a pretrained image model makes. Similar-looking images get similar numbers, and the evaluator
-# trains two simple models on them, a *nearest-neighbor* model and a *linear* model, to see how well they name the
-# vehicle.
+# **embedding**, which a pretrained image model makes. Similar-looking images get similar numbers, and the evaluator
+# trains two simple models on them, a nearest-neighbor model and a linear model, to see how well they name the vehicle.
 #
-# You will use ViT-B/16 from `torchvision`, a general-purpose model trained on the ImageNet photo collection. It has
-# a final layer that turns its description into 1,000 ImageNet class scores. You replace that layer so the model hands
+# You will use ViT-B/16 from `torchvision`, a general-purpose model trained on the ImageNet photo collection. It has a
+# final layer that turns its description into 1,000 ImageNet class scores. You replace that layer so the model hands
 # back the 768-number description instead: the class scores would describe each image by ImageNet's categories, not by
 # what the image shows.
 #
 # :::{important}
-# The model must not have seen the labels of the images you judge. ImageNet's categories are not these 24 vehicle
-# types, and its training set does not hold these photos as far as we know, so this model has not seen their labels.
-# Flow cannot check this for you. You also have to choose the model *before* you look at how well it does. We chose
-# ViT-B/16 after an informal comparison of a few models on these images, made while writing this tutorial, so its
-# answers may be somewhat more favorable than those of a model chosen in advance. If you compare `k` models on your own
-# data, divide `alpha` by `k` for each.
+# The model must not have seen the labels of the images you judge. ImageNet's categories are not these 24 vehicle types,
+# and its training set does not hold these photos as far as we know, so this model has not seen their labels. Flow
+# cannot check this for you. You also have to choose the model before you look at how well it does. We chose ViT-B/16
+# after an informal comparison of a few models on these images, made while writing this tutorial, so its answers may be
+# somewhat more favorable than those of a model chosen in advance. If you compare `k` models on your own data, divide
+# `alpha` by `k` for each.
 # :::
 
 # %% tags=["remove_output"]
@@ -138,50 +135,51 @@ if not model_path.exists():
     torch.save(backbone.eval(), model_path)
 
 # %% [markdown]
-# ## Step 3: Set the targets and chain the steps
+# ## Set the targets and chain the steps
 #
-# A *target* is a number you want a model to reach, written as a metric and a threshold. The evaluator takes them as
+# A **target** is a number you want a model to reach, written as a metric and a threshold. The evaluator takes them as
 # `target:`, a mapping from metric to threshold. This tutorial sets two:
 #
-# - `accuracy: 0.40`: the share of images a model names right, for **any** model, including one that reads the whole
+# - `accuracy: 0.40` is the share of images a model names right, for any model, including one that reads the whole
 #   image. The key's default scope is `full_input`.
-# - `accuracy/fixed_representation: 0.50`: the same, but only for a model that reads the 768 numbers of step 2 and
-#   nothing else, such as the models the evaluator tests itself.
+# - `accuracy/fixed_representation: 0.50` is the same, but only for a model that reads the 768 numbers that describe
+#   each image and nothing else, such as the models the evaluator tests itself.
 #
 # :::{note}
-# **How these targets were chosen.** A requirement for a classifier like this one would be 85% or 90%, and these images
-# do not demonstrate it. The best lower bound in step 5 is about 42%: a general-purpose model's 768 numbers do not
-# separate 24 look-alike vehicle types well, and the evaluator tests only the two simple models it builds from them.
-# So the first target is the highest round number that this model demonstrates, 40%, to show a *demonstrated* answer.
-# The second is a harder target, 50%, chosen to show an answer that is not demonstrated and, in step 8, one that is
-# ruled out. The targets were chosen to show each kind of answer, and 40% is not a good requirement for a vehicle
-# classifier.
+# A requirement for a classifier like this one would be 85% or 90%, and these images do not demonstrate it. The best
+# lower bound in the text report is about 42%: a general-purpose model's 768 numbers do not separate 24 look-alike
+# vehicle types well, and the evaluator tests only the two simple models it builds from them. So the first target is the
+# highest round number that this model demonstrates, 40%, to show a demonstrated answer. The second is a harder target,
+# 50%, chosen to show an answer that is not demonstrated and, in the "Rule a target out with allowances" section, one
+# that is ruled out. The targets were chosen to show each kind of answer, and 40% is not a good requirement for a
+# vehicle classifier.
 # :::
 #
 # A few things to know about what you are asking:
 #
-# - **More targets widen every bound.** `alpha` is the share of the time you accept being wrong, 5% unless you set it.
-#   It is one budget for the whole call, so every bound of every target holds together at 95%, and each extra target
-#   takes a share of it.
-# - **One call is one look.** If you run the evaluator twice on the same data, or keep the best of several runs, divide
-#   `alpha` by the number of runs. This tutorial runs it twice, in step 4 and in step 8, so each run sets
-#   `alpha=0.025`: each run holds at 97.5%, and the two hold together at 95%.
-# - **Only labeled items count.** Every answer is about the labeled images. A class the dataset declares but that has no
+# - More targets widen every bound. `alpha` is the share of the time you accept being wrong, 5% unless you set it. It is
+#   one budget for the whole call, so every bound of every target holds together at 95%, and each extra target takes a
+#   share of it.
+# - One call is one look. If you run the evaluator twice on the same data, or keep the best of several runs, divide
+#   `alpha` by the number of runs. This tutorial runs it twice, in the "Run it" section and in the "Rule a target out
+#   with allowances" section, so each run sets `alpha=0.025`: each run holds at 97.5%, and the two hold together at 95%.
+#   A `matrix:` over `feasibility` may vary only `sources`, as {doc}`../how_to/run_a_matrix` explains.
+# - Only labeled items count. Every answer is about the labeled images. A class the dataset declares but that has no
 #   labeled image is no part of any answer, and the report names it.
-# - **Some data is refused.** A dataset made from another, such as the crops of detection boxes that `wrap` makes, is
+# - Some data is refused. A dataset made from another, such as the crops of detection boxes that `wrap` makes, is
 #   refused: its items come from the same photo, so they are not independent, and the evaluator cannot tell which share
 #   one. So is a dataset whose labeled images fall in fewer than two classes.
-# - **Repeated photos distort an answer.** The evaluator treats every image as a separate example. In this training
-#   set, 67 photos appear more than once, 139 images in all, each filed under different classes, so no model can name
-#   all of them right. For a real decision you would remove them first, as {doc}`Clean a dataset <data_cleaning>` does.
-#   They stay here to keep this tutorial short.
-# - **A sample keeps the run short.** You will judge 3,000 images, drawn after a seeded shuffle, because the training
-#   set is stored class by class and the first 3,000 would hold only some of the classes. More images narrow the
-#   bounds, at the price of a longer run.
+# - Repeated photos distort an answer. The evaluator treats every image as a separate example. In this training set, 67
+#   photos appear more than once, 139 images in all, each filed under different classes, so no model can name all of
+#   them right. For a real decision you would remove them first, as {doc}`data_cleaning` does. They stay here to keep
+#   this tutorial short.
+# - A sample keeps the run short. You will judge 3,000 images, drawn after a seeded shuffle, because the training set is
+#   stored class by class and the first 3,000 would hold only some of the classes. More images narrow the bounds, at the
+#   price of a longer run.
 #
 # The workflow has two steps. `measured` runs the evaluator on the images, and `reachable` is the check that turns its
 # answers into a finding. You will run it twice, so the pipeline holds two evaluators, one with allowances, and a
-# workflow and task for each. Step 8 explains the allowances.
+# workflow and task for each. The "Rule a target out with allowances" section explains the allowances.
 
 # %% tags=["remove_output"]
 from dataeval_flow import run_task
@@ -257,11 +255,12 @@ config = PipelineConfig(
 )
 
 # %% [markdown]
-# ## Step 4: Run it
+# ## Run it
 #
 # `run_task()` describes each image with the model, which takes a while on a CPU, and the evaluator then fits its two
-# models and works out the bounds. Flow keeps the embeddings in memory for the rest of the session, so the second run in
-# step 8 does not compute them again.
+# models and works out the bounds. Flow keeps the embeddings in memory for the rest of the session, so the second run,
+# in the "Rule a target out with allowances" section, does not compute them again. To keep embeddings between sessions,
+# which this tutorial does not do, see {doc}`../how_to/reuse_results_with_cache`.
 
 # %% tags=["remove_output"]
 result = run_task(config, config.tasks[0])
@@ -272,41 +271,47 @@ if not result.success:
 assert result.success
 
 # %% [markdown]
-# ## Step 5: Read the text report
+# ## Read the text report
 #
 # The finding, under the summary, is the part to read. It has a row per target, in the order you gave them. Each row
-# holds a mark for the answer, `✓` for *demonstrated* and `?` for *insufficient evidence*, with the key to the marks
-# under the table; the target, such as `accuracy ≥ 40%`; a bar of what the evidence decides, on a scale from 0 to 100%
-# accuracy; and the bound the bar is drawn from, `≥42.4%` where only a lower bound was found. In the bar, `█` is what
-# is *shown*, up to the lower bound; `▒` is what is *ruled out*, above the upper bound; and `░` is what is *open*
-# between them. Under the table, a line each gives the key to the marks and says how confident the bounds are together
-# and about which images, and, where you gave any, which allowances they rest on.
+# holds:
+#
+# - a mark for the answer, `✓` for demonstrated and `?` for insufficient evidence, with the key to the marks under the
+#   table;
+# - the target, such as `accuracy ≥ 40%`;
+# - a bar of what the evidence decides, on a scale from 0 to 100% accuracy;
+# - the bound the bar is drawn from, `≥42.4%` where only a lower bound was found.
+#
+# In the bar, `█` is what is shown, up to the lower bound. `▒` is what is ruled out, above the upper bound. `░` is what
+# is open between them. Under the table, a line each gives the key to the marks, says how confident the bounds are
+# together and about which images, and, where you gave any, names the allowances they rest on.
 
 # %%
 print(result.report())
 
 # %% [markdown]
-# The first target is **demonstrated** (`✓`). The evaluator fitted a simple model, a *linear* model, to the numbers that
+# The first target is **demonstrated** (`✓`). The evaluator fitted a simple model, a linear model, to the numbers that
 # describe half of the images, and tested it on the other half. It named the vehicle right on about 46% of them. After
-# allowing for having tested only 1,500 images, the lower bound is about 42%. So, with 97.5% confidence, a model of
-# this kind names the vehicle right at least 40% of the time on new images from this population, if no evaluation image
-# was used to train or choose a model, or to set a target. There is no upper bound, so no part of the bar is ruled out.
+# allowing for having tested only 1,500 images, the lower bound is about 42%. So, with 97.5% confidence, a model of this
+# kind names the vehicle right at least 40% of the time on new images from this population, if no evaluation image was
+# used to train or choose a model, or to set a target. There is no upper bound, so no part of the bar is ruled out.
 #
 # The second target has **insufficient evidence** (`?`): it is neither shown nor ruled out. The same model is the best
 # one tested, and its lower bound, about 42%, is short of 50%. Nothing bounds from above the models that read only the
 # 768 numbers, so nothing rules 50% out either. To settle it, test a stronger model, to show it, or get repeated labels
-# or allowances you can justify, to rule it out. Step 7 shows where DataEval says so, and step 8 uses the allowances.
+# or allowances you can justify, to rule it out. The "Look at the proof" section shows where DataEval says so, and the
+# "Rule a target out with allowances" section uses the allowances.
 #
 # The finding warns, not passes, because a target is not demonstrated, so `--fail-on-warning` would fail on it. It is
 # `ok` only where every target is demonstrated.
 
 # %% [markdown]
-# ## Step 6: Read the HTML report
+# ## Read the HTML report
 #
 # `to_html()` renders the same finding as a page. The table and the lines under it are the same blocks, drawn for a
-# screen. The bar's legend, *shown*, *open* and *ruled out*, is in the table's header. The page follows your
-# system's dark mode setting, so here it may not match this site's theme.
-# {doc}`View a report as HTML <view_html_reports>` covers the rest of the page. You write it with `encoding="utf-8"`:
+# screen. The bar's legend, shown, open and ruled out, is in the table's header. The page follows your system's dark
+# mode setting, so here it may not match this site's theme. {doc}`view_html_reports` covers the rest of the page. You
+# write it with `encoding="utf-8"`:
 
 # %%
 output_dir = Path("./output")
@@ -336,12 +341,15 @@ def show(page: str, height: int = 560) -> None:
 show(result.to_html())
 
 # %% [markdown]
-# ## Step 7: Look at the proof (optional)
+# ## Look at the proof (optional)
 #
-# The finding is short on purpose. Everything behind it is in the evaluator's step, `measured`. Its `output` is
-# DataEval's own `FeasibilityOutput`, and printing it gives DataEval's full printout, which states the same bounds with
-# the model each one comes from, what would settle each target that is not demonstrated, and the assumption every
-# answer carries:
+# The finding is short on purpose. Everything behind it is in the evaluator's step, `measured`. DataEval's
+# [feasibility tutorial](https://dataeval.readthedocs.io/en/latest/notebooks/tt_assess_ic_feasibility.html) explains the
+# bounds and the five answers, and how to judge a model of your own.
+#
+# The step's `output` is DataEval's own `FeasibilityOutput`. Printing it gives DataEval's full printout, which states
+# the same bounds with the model each one comes from, what would settle each target that is not demonstrated, and the
+# assumption every answer carries:
 
 # %%
 output = result.steps["measured"].output
@@ -370,18 +378,18 @@ for evidence_id, item in output.evidence.items():
         print(f"  - {assumption}")
 
 # %% [markdown]
-# ## Step 8: Rule a target out with allowances
+# ## Rule a target out with allowances
 #
-# In step 5, nothing bounded the second target from above. Without repeated labels, which Flow does not take, the only
-# upper bound the evaluator can set holds for models that give one answer for each group of similar-looking images, and
-# that is a narrower kind of model than either target asks about. You can widen the reach of the bound by asserting an
-# *allowance*. `beta: 0` asserts that no model reading the 768 numbers beats one fixed answer for each group of similar
-# images, so the upper bound then holds for any model that reads only those numbers.
+# In the text report, nothing bounded the second target from above. Without repeated labels, which Flow does not take,
+# the only upper bound the evaluator can set holds for models that give one answer for each group of similar-looking
+# images, and that is a narrower kind of model than either target asks about. You can widen the reach of the bound by
+# asserting an **allowance**. `beta: 0` asserts that no model reading the 768 numbers beats one fixed answer for each
+# group of similar images, so the upper bound then holds for any model that reads only those numbers.
 #
 # :::{important}
-# An allowance is **your assertion**. DataEval does not test it; it records it as assumed, and the report says so.
-# Assert one only where you can justify it as a bound. It is asserted here to show what it changes, not because it is
-# justified for MilitaryVehicles.
+# An allowance is your assertion. DataEval does not test it; it records it as assumed, and the report says so. Assert
+# one only where you can justify it as a bound. It is asserted here to show what it changes, not because it is justified
+# for MilitaryVehicles.
 # :::
 #
 # The pipeline's second evaluator asks about the same two targets with `allowances=AllowancesConfig(beta=0)`. It also
@@ -399,14 +407,14 @@ assert allowed.success
 print(allowed.report())
 
 # %% [markdown]
-# The first target is unchanged: it is demonstrated, and no allowance was needed to show it. The second is now **ruled
-# out** (`✗`). Its upper bound is about 46%, below 50%, so, if the allowance holds, no model that reads only the 768
-# numbers names the vehicle right 50% of the time on new images from this population. The `*` beside the upper bound
+# The first target is unchanged: it is demonstrated, and no allowance was needed to show it. The second is now
+# **ruled out** (`✗`). Its upper bound is about 46%, below 50%, so, if the allowance holds, no model that reads only the
+# 768 numbers names the vehicle right 50% of the time on new images from this population. The `*` beside the upper bound
 # marks an answer that rests on assumptions, and the `Allowances` line names the one you asserted. The finding still
 # warns: a ruled-out target is not a demonstrated one, and it holds only as far as the allowance does.
 #
-# DataEval does check your allowance against what it measured, once. Had a tested model's lower bound been above the
-# upper bound the allowance sets, the answer would have been *evidence conflict* (`!`), which means that something you
+# DataEval checks your allowance against what it measured, once. Had a tested model's lower bound been above the upper
+# bound the allowance sets, the answer would have been **evidence conflict** (`!`), which means that something you
 # assumed is wrong. Here the lower bound, about 42%, is below the upper bound, about 46%, so the allowance survives that
 # test. That does not prove it.
 #
@@ -415,36 +423,21 @@ print(allowed.report())
 # trained on these vehicles could use detail that a general-purpose model's 768 numbers do not carry.
 
 # %% [markdown]
-# ## Reading the output: a short glossary
+# ## Glossary
 #
-# - **Target**: a number you want a model to reach, such as 85% accuracy. The report writes it as `accuracy ≥ 85%`.
-# - **Confidence**: how sure the evaluator is. "95% confidence" means that the method gives a wrong answer at most 5% of
-#   the time. It is one figure for all the targets together, and it is for new images from the same population as the
-#   ones you gave it, not for images from somewhere else.
-# - **Lower bound**: a number the evaluator is confident a model's accuracy on new images is *at least*. It comes from a
-#   model that was really tested, on images it was not trained on, and is rounded down, so a lower bound never claims
-#   more than was found. Only a lower bound can show that a target is reachable.
-# - **Upper bound**: a number that, at the stated confidence, no model of the kind it covers can exceed on new images.
-#   It comes from a ceiling that the data sets: images that look alike but carry different labels cap what any model
-#   can do on them. It is rounded up, so it never claims more than was found. Only an upper bound can rule a target out.
-# - **Demonstrated ✓**: a tested model's lower bound reaches the target. The target is reachable, at the stated
-#   confidence, if no evaluation image was used to train or choose a model, or to set the target.
-# - **Insufficient evidence ?**: the target is neither shown nor ruled out. To show it, test a stronger model; to rule
-#   it out, get repeated labels or allowances you can justify.
-# - **Not ruled out ~**: nothing rules the target out, and no tested model has shown it. DataEval's own printout marks
-#   it `?`, as it does *insufficient evidence*; the report uses `~` so that the two read apart.
-# - **Ruled out ✗**: an upper bound is below the target. This holds only under the assumptions recorded with the
-#   evidence, which include any allowances. A `*` beside the upper bound marks it.
-# - **Evidence conflict !**: a tested model's lower bound is above an upper bound. Something you assumed is wrong, so
-#   neither bound is to be trusted until you find it.
-# - **Allowances**: assumptions that you assert and DataEval does not test, which let it set an upper bound for broader
-#   kinds of model. `beta: 0` asserts that no model reading the embeddings beats one fixed answer for each group of
-#   similar images, which sets the bound for models that read only the embeddings. Adding `gamma: 0` asserts that the
-#   embeddings lose nothing a model reading the whole image could use, which sets it for any model. Assert one only
-#   where you can justify it.
-# - **The bar**: the whole scale from 0 to 100% accuracy, split into what is *shown* (up to the lower bound), what is
-#   *ruled out* (above the upper bound) and what is *open* between them. The best accuracy that a model of the kind
-#   asked about can reach is somewhere in the open part.
+# | Term | Meaning |
+# | --- | --- |
+# | Target | A number you want a model to reach, such as 85% accuracy. The report writes it as `accuracy ≥ 85%`. |
+# | Confidence | How sure the evaluator is. "95% confidence" means that the method gives a wrong answer at most 5% of the time. It is one figure for all the targets together, and it is for new images from the same population as the ones you gave it, not for images from somewhere else. |
+# | Lower bound | A number the evaluator is confident a model's accuracy on new images is at least. It comes from a model that was tested, on images it was not trained on, and is rounded down, so a lower bound never claims more than was found. Only a lower bound can show that a target is reachable. |
+# | Upper bound | A number that, at the stated confidence, no model of the kind it covers can exceed on new images. It comes from a ceiling that the data sets: images that look alike but carry different labels cap what any model can do on them. It is rounded up, so it never claims more than was found. Only an upper bound can rule a target out. |
+# | Demonstrated ✓ | A tested model's lower bound reaches the target. The target is reachable, at the stated confidence, if no evaluation image was used to train or choose a model, or to set the target. |
+# | Insufficient evidence ? | The target is neither shown nor ruled out. To show it, test a stronger model; to rule it out, get repeated labels or allowances you can justify. |
+# | Not ruled out ~ | Nothing rules the target out, and no tested model has shown it. DataEval's own printout marks it `?`, as it does insufficient evidence; the report uses `~` so that the two read apart. |
+# | Ruled out ✗ | An upper bound is below the target. This holds only under the assumptions recorded with the evidence, which include any allowances. A `*` beside the upper bound marks it. |
+# | Evidence conflict ! | A tested model's lower bound is above an upper bound. Something you assumed is wrong, so neither bound is to be trusted until you find it. |
+# | Allowances | Assumptions that you assert and DataEval does not test, which let it set an upper bound for broader kinds of model. `beta: 0` asserts that no model reading the embeddings beats one fixed answer for each group of similar images, which sets the bound for models that read only the embeddings. Adding `gamma: 0` asserts that the embeddings lose nothing a model reading the whole image could use, which sets it for any model. Assert one only where you can justify it. |
+# | The bar | The whole scale from 0 to 100% accuracy, split into what is shown (up to the lower bound), what is ruled out (above the upper bound) and what is open between them. The best accuracy that a model of the kind asked about can reach is somewhere in the open part. |
 
 # %% [markdown]
 # ## Conclusion
@@ -461,21 +454,27 @@ print(allowed.report())
 # %% [markdown]
 # ## Next steps
 #
-# - **Settings**: [`feasibility`](../reference/evaluators.md#feasibility) and
-#   [`performance-feasibility`](../reference/checks.md#performance-feasibility) list every setting. A `target:` can ask
-#   about one class, `ap:<class>`, or about models that read less than the whole image, `/fixed_representation`.
-# - **Training data**: {doc}`Measure how much training data a model needs <measure_data_sufficiency>` asks a
-#   related question of a model you train.
-# - **Your own pipeline**: {doc}`Chain steps into a workflow of your own <../how_to/write_a_custom_workflow>` explains
-#   the workflow's parts, and how to write this one as YAML.
+# - {doc}`measure_data_sufficiency` — Ask how much training data a model you train needs.
+# - {doc}`../how_to/write_a_custom_workflow` — Learn the workflow's parts, and how to write this one as YAML.
 
 # %% [markdown]
-# ## Related guides
+# ## On your own
 #
-# - **Concept**: DataEval's
-#   [feasibility tutorial](https://dataeval.readthedocs.io/en/latest/notebooks/tt_assess_ic_feasibility.html) explains
-#   the bounds and the five answers, and how to judge a model of your own.
-# - **How-to**: {doc}`Reuse results with the disk cache <../how_to/reuse_results_with_cache>` keeps embeddings between
-#   sessions, which this tutorial does not do.
-# - **How-to**: {doc}`Sweep settings with a matrix <../how_to/run_a_matrix>` explains why a `matrix:` over `feasibility`
-#   may vary only `sources`.
+# To ask about your own requirement, images and model, change these entries:
+#
+# - To ask about your own requirement, edit `target`, a mapping from metric to threshold, such as `accuracy: 0.85`. A
+#   `target:` can ask about one class, `ap:<class>`, or about models that read less than the whole image,
+#   `/fixed_representation`. Each extra target widens every bound.
+# - To change the error budget, set `alpha`. It is 5% unless you set it. Divide it by the number of runs, or of models
+#   you compare, as this tutorial does with `alpha=0.025` for two runs.
+# - To rule a target out, assert `allowances`: `beta`, and `gamma` on top of it. Assert one only where you can justify
+#   it as a bound.
+# - To use your own images, point `path` in the `ImageFolderDatasetConfig` at a folder with one subfolder for each
+#   class, and keep `infer_labels=True`.
+# - To judge more images, raise the `size` of the `Limit` operation. More images narrow the bounds, at the price of a
+#   longer run. Keep the `Shuffle` before it if your data is stored class by class, and change its `seed` to draw
+#   another sample.
+# - To use another model, save it as in the "Describe each image with a pretrained model" section, set the extractor's
+#   `model_path`, and match the preprocessor to the model's input size and normalization. The model must not have seen
+#   the labels of the images you judge. Choose it before you look at how well it does, and divide `alpha` by the number
+#   of models you compare.

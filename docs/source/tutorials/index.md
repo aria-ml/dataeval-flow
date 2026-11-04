@@ -1,10 +1,10 @@
 # Tutorials
 
-Guides that walk through a complete T&E task with DataEval Flow. Each states who it is for, where the task fits in a
-larger workflow, and ends with links to the how-to guides for its component steps.
+Each tutorial walks through a complete T&E task with DataEval Flow. It states who it is for and where the task falls in
+a larger workflow. It ends with the guides to read next and the settings to change when you run it on your own data.
 
-New to DataEval Flow, start with the {doc}`Quickstart <../home/quickstart>` — it installs the package and gets one
-evaluation working end to end.
+If you are new to DataEval Flow, start with the {doc}`Quickstart <../home/quickstart>`. It installs the package and gets
+one evaluation working end to end.
 
 The tutorials are grouped by where the task falls in the data lifecycle.
 
@@ -22,9 +22,9 @@ The whole operating loop once, start to finish, before drilling into any single 
 :widths: 35 65
 :header-rows: 0
 
-- - {doc}`Run a full evaluation pipeline end to end <../notebooks/end_to_end>`
-  - Load a dataset, write one config, run three workflows against it, read and export the
-    results — then run the identical pipeline in a container.
+- - {doc}`../notebooks/end_to_end`
+  - Load a dataset, write one config, run three workflows against it, read and export the results, then run the
+    identical pipeline in a container.
 
 :::
 
@@ -46,15 +46,15 @@ Assessing and conditioning a dataset before it is used to train or evaluate.
 :widths: 35 65
 :header-rows: 0
 
-- - {doc}`Triage a dataset's metadata <../notebooks/metadata_triage>`
+- - {doc}`../notebooks/metadata_triage`
   - Find the metadata columns a run silently failed to read, and get a config change for each.
-- - {doc}`Clean a dataset <../notebooks/data_cleaning>`
+- - {doc}`../notebooks/data_cleaning`
   - Flag outliers, duplicates, and label problems before the data is used downstream.
-- - {doc}`Assess dataset coverage <../notebooks/data_coverage>`
+- - {doc}`../notebooks/data_coverage`
   - Find class imbalance, metadata gaps, missing label-space regions, and embedding blind spots.
-- - {doc}`Split a dataset <../notebooks/dataset_splitting>`
+- - {doc}`../notebooks/dataset_splitting`
   - Build defensible, leakage-free train/validation/test splits.
-- - {doc}`Audit a set of splits before training <../notebooks/audit>`
+- - {doc}`../notebooks/audit`
   - The gate before training: get a verdict on train and evaluation splits, accept a risk in writing, and keep a
     record of what was audited.
 
@@ -78,15 +78,15 @@ evaluation runs with.
 :widths: 35 65
 :header-rows: 0
 
-- - {doc}`Prioritize unlabeled data for labeling <../notebooks/data_prioritization>`
+- - {doc}`../notebooks/data_prioritization`
   - Rank an abundant unlabeled pool so the most informative samples are annotated first.
-- - {doc}`Measure how much training data a model needs <../notebooks/measure_data_sufficiency>`
+- - {doc}`../notebooks/measure_data_sufficiency`
   - Train a model on growing subsets of a training set, and learn whether more data would reach a target score and how
     much it would take.
-- - {doc}`Check whether a performance target is reachable <../notebooks/check_target_feasibility>`
+- - {doc}`../notebooks/check_target_feasibility`
   - Ask whether your labeled images show that a model can reach an accuracy you need, and read each answer with the
     proof and the assumptions it rests on.
-- - {doc}`Tune data cleaning with a matrix <../notebooks/tune_data_cleaning>`
+- - {doc}`../notebooks/tune_data_cleaning`
   - Run data cleaning across a grid of thresholds, compare every run's findings in one table, and choose settings.
 
 :::
@@ -107,11 +107,11 @@ Watching operational data for the shifts that degrade a deployed model.
 :widths: 35 65
 :header-rows: 0
 
-- - {doc}`Monitor incoming data for drift <../notebooks/drift_monitoring>`
+- - {doc}`../notebooks/drift_monitoring`
   - Detect population-level shift in operational batches against a reference dataset.
-- - {doc}`Detect classwise drift <../notebooks/classwise_drift>`
+- - {doc}`../notebooks/classwise_drift`
   - Localize a shift to the specific classes responsible for it.
-- - {doc}`Detect out-of-distribution samples <../notebooks/ood_detection>`
-  - Score individual incoming samples rather than a whole batch.
+- - {doc}`../notebooks/ood_detection`
+  - Score individual incoming images rather than a whole batch.
 
 :::

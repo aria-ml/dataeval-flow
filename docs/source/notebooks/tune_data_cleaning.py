@@ -16,19 +16,17 @@
 # %% [markdown]
 # # Tune data cleaning with a matrix
 #
-# Run one `quality` entry over a grid of outlier thresholds and near-duplicate sensitivities, and compare what
-# each combination finds in one table.
+# Run one [`quality`](../reference/presets.md#quality) entry over a grid of outlier thresholds and near-duplicate
+# sensitivities, and compare what each combination finds in one table.
 
 # %% [markdown]
-# **Target audience**: You are a T&E engineer or data scientist tuning a
-# quality configuration who needs to see how sensitive its findings are to the
-# detection thresholds before choosing operational settings.
+# You are a T&E engineer or data scientist who tunes a quality configuration and needs to see how sensitive its findings
+# are to the detection thresholds before choosing operational settings.
 #
-# **Workflow role**: You can run a matrix during the data-quality stage of your T&E
-# workflow. Instead of guessing thresholds for {doc}`data cleaning <data_cleaning>`,
-# you can run a range of them, compare the findings side by side, and choose settings
-# you can defend. See [Reproducibility](../concepts/Reproducibility.md) for how the
-# runs share one draw of the data and one cache.
+# You can run a matrix during the data-quality stage of your T&E workflow. Instead of guessing thresholds for
+# {doc}`data_cleaning`, run a range of them, compare the findings side by side, and choose settings you can defend. You
+# then apply those settings in an operational cleaning run. See {doc}`../concepts/Reproducibility` for how the runs
+# share one draw of the data and one cache.
 
 # %% [markdown]
 # ## What you will do
@@ -49,9 +47,9 @@
 # %% [markdown]
 # ## Prerequisites
 #
-# - Install `dataeval-flow` (includes `dataeval`, `datamaite`, `pydantic`).
+# - Install `dataeval-flow`, which includes `dataeval`, `datamaite` and `pydantic`.
 # - Install `maite-datasets` to download MilitaryVehicles.
-# - Ensure network access for the initial dataset download.
+# - Make sure you have network access for the initial dataset download.
 
 # %% [markdown]
 # ## Lay out the data root
@@ -66,27 +64,23 @@
 # └── cache/                                   # written: statistics, embeddings and clusters, shared by all nine runs
 # ```
 #
-# The config's dataset path, `data/militaryvehicles_datamaite_train/train`, is relative to the data root. It ends in
-# `train/` because the export nests its images under the split name.
+# The notebook builds its pipeline in Python and reads no configuration file. The config's dataset path,
+# `data/militaryvehicles_datamaite_train/train`, is relative to the data root. It ends in `train/` because the export
+# nests its images under the split name.
 
 # %% [markdown]
-# ### Step-by-step guide
-
-# %% [markdown]
-# ## Data Preparation: Load the dataset
+# ## Load the dataset
 #
-# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles) is
-# a classification dataset containing 9,444 images across 24 vehicle types. The dataset
-# includes varying image resolutions, diverse visual backgrounds, and exact duplicate
-# images.
+# [MilitaryVehicles](https://huggingface.co/datasets/leibnitz-lab/military_vehicles) is a classification dataset
+# containing 9,444 images across 24 vehicle types. The dataset includes varying image resolutions, diverse visual
+# backgrounds, and exact duplicate images.
 #
-# You can use `maite-datasets` to download the dataset. Setting `as_datamaite=True`
-# writes the data in class-per-directory ImageFolder format, which you can load with
-# `task="image_classification"`.
+# Use `maite-datasets` to download the dataset. Setting `as_datamaite=True` writes the data in class-per-directory
+# ImageFolder format, which you can load with `task="image_classification"`.
 #
 # :::{note}
-# The download is approximately 141 MB across 9,466 files. You should set `HF_TOKEN`
-# in your environment to enable parallel downloads and avoid anonymous rate limits.
+# The download is approximately 141 MB across 9,466 files. Set `HF_TOKEN` in your environment to enable parallel
+# downloads and avoid anonymous rate limits.
 # :::
 
 # %% tags=["remove_output"]
@@ -105,21 +99,20 @@ data_path = data_root / "militaryvehicles_datamaite_train" / "train"
 print(f"Reading from {data_path}")
 
 # %% [markdown]
-# ## Step 1: Build the configuration
+# ## Build the configuration
 #
-# The `quality` entry is an ordinary one, and must be valid on its own: it sets
-# `outliers.outlier_threshold` and `outliers.flags`, which have no defaults. Its cluster settings,
-# `duplicates.cluster_algorithm` here, turn on cluster-based near-duplicate detection,
-# which reads the BoVW embeddings.
+# The `quality` entry is an ordinary one, and must be valid on its own. It sets `outliers.outlier_threshold` and
+# `outliers.flags`, which have no defaults. Its cluster settings, `duplicates.cluster_algorithm` here, turn on
+# cluster-based near-duplicate detection, which reads the BoVW embeddings.
 #
 # The task's `matrix` names the settings to vary and the values each takes:
 #
-# - `outliers.outlier_threshold`: `adaptive` with the bound 2.5 (aggressive), 3.5 and 4.5 (conservative).
-# - `duplicates.cluster_sensitivity`: 0.5, 2.0 and 3.0, within the 0.1 to 3.0 that DataEval
-#   documents as its typical range.
+# - `outliers.outlier_threshold` takes `adaptive` with the bound 2.5 (aggressive), 3.5 and 4.5 (conservative).
+# - `duplicates.cluster_sensitivity` takes 0.5, 2.0 and 3.0, within the 0.1 to 3.0 that DataEval documents as its
+#   typical range.
 #
-# One grid crosses every key with every other, so the task runs 3 × 3 = 9 times. The
-# entry's own values for these two settings, if it set any, would be replaced in each run.
+# One grid crosses every key with every other, so the task runs 3 × 3 = 9 times. The entry's own values for these two
+# settings, if it set any, would be replaced in each run.
 
 # %%
 from dataeval_flow import run_task
@@ -179,57 +172,77 @@ config = PipelineConfig(
 )
 
 # %% [markdown]
-# ## Step 2: Run the matrix
+# ## Run the matrix
 #
-# `run_task` checks every run's configuration first, then runs the entry once per
-# combination and returns one `MatrixResult`. The runs share one draw of the source's
-# view, and the cache computes the image statistics, the BoVW embeddings and the
-# clusters once for all nine.
+# `run_task` checks every run's configuration first, then runs the entry once per combination and returns one
+# `MatrixResult`. The runs share one draw of the source's view, and the cache computes the image statistics, the BoVW
+# embeddings and the clusters once for all nine. See {doc}`../how_to/reuse_results_with_cache` to persist them across
+# runs. To run a matrix from a YAML configuration in a container, see {doc}`../how_to/containerized_workflows`.
 
 # %%
 result = run_task(config, task, cache_dir=Path("./cache"))
 print(type(result).__name__, len(result.runs), "runs")
 
 # %% [markdown]
-# ## Step 3: Read the comparison table
+# ## Read the comparison table
 #
-# `report(detailed=False)` is the short form the console prints: the matrix's health, then
-# a table with a row per run. Each row gives the run's number, the values it ran with, its
-# health (`[!!]` where it warned), and a column per finding, each cell the finding's
-# severity marker and brief. The table is wide, so `width=160` gives it room; at the
+# `report(detailed=False)` is the short form the console prints: the matrix's health, then a table with a row per run.
+# Each row gives the run's number, the values it ran with, its health (`[!!]` where it warned), and a column per
+# finding, each cell the finding's severity marker and brief. The table is wide, so `width=160` gives it room. At the
 # console's 80 columns it wraps its cells further.
 
 # %%
 print(result.report(detailed=False, width=160))
 
 # %% [markdown]
-# ### Reading the table
-#
-# Every run warns, with 3 warnings each and 27 in all: Image Outliers, Class Outliers
-# and Image Duplicates are past their thresholds in every run, and Class Imbalance is `info`.
-#
-# **`outliers.outlier_threshold` changes the outlier findings.** The adaptive method flags 157
-# images (15.7%) at 2.5, 112 (11.2%) at 3.5 and 96 (9.6%) at 4.5. The count falls by 45
-# images from 2.5 to 3.5, then by 16 from 3.5 to 4.5: it changes less the higher the
-# threshold. The class with the largest share of outliers changes with it: 2S19 MSTA
-# (25.0%) at 2.5, and Tornado at 3.5 (20.4%) and 4.5 (16.3%). Even at 4.5, 9.6% of the
-# sample is flagged, over the 3% at which `image-outliers` warns by default, and 23 of the
-# 24 classes are over the classwise threshold at every setting.
-#
-# **`duplicates.cluster_sensitivity` changes nothing on this sample.** Runs 1, 2 and 3
-# differ only in it, and their rows are identical; so are runs 4 to 6, and runs 7 to 9.
-# Every run counts 4 images as exact duplicates (0.4%) and 6 as near duplicates (0.6%).
-# Step 4 shows why.
-#
-# **The label distribution depends on neither setting**: 24 classes, 1,000 items and an
-# imbalance of 3.0:1 in every run.
+# `result.to_html(detailed=False)` renders the same comparison as one HTML page. `result.to_html()` adds each run's full
+# report below it. The page follows your system's dark mode setting, so here it may not match this site's theme. See
+# {doc}`view_html_reports` for the rest of the page.
+
+# %% tags=["remove_cell"]
+# The page styles its whole document, so the docs show it in an iframe of its own.
+import html
+
+from IPython.display import display
+
+
+def show(page: str, height: int = 560) -> None:
+    """*page* in an iframe, so its stylesheet and script stay inside it."""
+    frame = (
+        f'<iframe srcdoc="{html.escape(page, quote=True)}" title="HTML report" loading="lazy" '
+        f'style="width:100%;height:{height}px;border:1px solid #d1d9e0;border-radius:6px"></iframe>'
+    )
+    display({"text/html": frame}, raw=True)
+
+
+# %% tags=["remove_input"]
+show(result.to_html(detailed=False))
 
 # %% [markdown]
-# ## Step 4: Read one run in full
+# ### What the table shows
 #
-# Each run's result is the result the task would return run alone with those values.
-# `result.runs` holds the runs in order, each with its number, its values and its
-# result, here a `ChainResult`. Run 4 is the fourth:
+# Every run warns, with 3 warnings each and 27 in all. Image Outliers, Class Outliers and Image Duplicates are past
+# their thresholds in every run, and Class Imbalance is `info`.
+#
+# The `outliers.outlier_threshold` setting changes the outlier findings. The adaptive method flags 157 images (15.7%) at
+# 2.5, 112 (11.2%) at 3.5 and 96 (9.6%) at 4.5. The count falls by 45 images from 2.5 to 3.5, then by 16 from 3.5 to
+# 4.5, so it changes less the higher the threshold. The class with the largest share of outliers changes with it: 2S19
+# MSTA (25.0%) at 2.5, and Tornado at 3.5 (20.4%) and 4.5 (16.3%). Even at 4.5, 9.6% of the sample is flagged, over the
+# 3% at which `image-outliers` warns by default, and 23 of the 24 classes are over the classwise threshold at every
+# setting.
+#
+# The `duplicates.cluster_sensitivity` setting changes nothing on this sample. Runs 1, 2 and 3 differ only in it, and
+# their rows are identical. So are runs 4 to 6, and runs 7 to 9. Every run counts 4 images as exact duplicates (0.4%)
+# and 6 as near duplicates (0.6%). The "Read one run in full" section shows why.
+#
+# The label distribution depends on neither setting. It is 24 classes, 1,000 items and an imbalance of 3.0:1 in every
+# run.
+
+# %% [markdown]
+# ## Read one run in full
+#
+# Each run's result is the result the task would return run alone with those values. `result.runs` holds the runs in
+# order, each with its number, its values and its result, here a `ChainResult`. Run 4 is the fourth:
 
 # %%
 run = result.runs[3]
@@ -238,38 +251,35 @@ for finding in run.result.findings:
     print(f"{finding.severity:<8} {finding.title:<20} {finding.brief}")
 
 # %% [markdown]
-# Its findings are row 4 of the table. Its steps hold each step's output, as a lone
-# `quality` run's do. The `duplicates` step's output is DataEval's duplicates output, and
-# its `data()` lists the groups behind the Image Duplicates finding, with the methods that found
-# each:
+# Its findings are row 4 of the table. Its steps hold each step's output, as a lone `quality` run's do. The `duplicates`
+# step's output is DataEval's duplicates output, and its `data()` lists the groups behind the Image Duplicates finding,
+# with the methods that found each:
 
 # %%
 print(run.result.steps["duplicates"].output.data())
 
 # %% [markdown]
-# The two exact groups are pairs that `xxhash` matched. Of the three near groups, one is a
-# pair the perceptual hashes (`dhash`, `phash`) found, and the other two are the same two
-# exact pairs, found again by the cluster pass. The cluster pass is the only part of
-# duplicate detection that `duplicates.cluster_sensitivity` changes, and at 0.5, 2.0 and
-# 3.0 alike it finds the exact copies and nothing else, so the count does not move.
+# The two exact groups are pairs that `xxhash` matched. Of the three near groups, one is a pair the perceptual hashes
+# (`dhash`, `phash`) found, and the other two are the same two exact pairs, found again by the cluster pass. The cluster
+# pass is the only part of duplicate detection that `duplicates.cluster_sensitivity` changes, and at 0.5, 2.0 and 3.0
+# alike it finds the exact copies and nothing else, so the count does not move.
 #
-# `result.report(detailed=True)`, the default, adds each run's full report under the
-# table, in a `Runs` section, each headed with its number and values, as `dataeval-flow -v`
-# prints it.
+# `result.report(detailed=True)`, the default, adds each run's full report under the table, in a `Runs` section, each
+# headed with its number and values, as `dataeval-flow -v` prints it.
 
 # %% [markdown]
-# ### Choosing settings
+# ## Choose the settings
 #
 # From this table:
 #
-# - **`outliers.outlier_threshold` matters.** The count is still falling at 4.5, but by about a
-#   third of what it fell from 2.5 to 3.5, so a value from 3.5 to 4.5 depends less on the
-#   exact choice than one below 3.5. Even 4.5 flags more than the default 3% warning, so
-#   look at the flagged images, as {doc}`Clean a dataset <data_cleaning>` does, before
-#   raising `checks.image-outliers.warning` for a collection this varied.
-# - **`duplicates.cluster_sensitivity` does not matter here**: 0.5, 2.0 and 3.0 give the
-#   same groups. Keep any of them, or leave it and `duplicates.cluster_algorithm` unset to
-#   skip the cluster pass, which found no group the hashes missed.
+# - `outliers.outlier_threshold` matters. The count is still falling at 4.5, but by about a third of what it fell from
+#   2.5 to 3.5, so a value from 3.5 to 4.5 depends less on the exact choice than one below 3.5. Even 4.5 flags more than
+#   the default 3% warning, so look at the flagged images, as {doc}`data_cleaning` does, before raising
+#   `checks.image-outliers.warning` for a collection this varied. See {doc}`../how_to/configure_outlier_detection` for
+#   the outlier settings and how to choose them.
+# - `duplicates.cluster_sensitivity` does not matter here, because 0.5, 2.0 and 3.0 give the same groups. Keep any of
+#   them, or leave it and `duplicates.cluster_algorithm` unset to skip the cluster pass, which found no group the hashes
+#   missed.
 
 # %% [markdown]
 # ## Conclusion
@@ -284,22 +294,26 @@ print(run.result.steps["duplicates"].output.data())
 # %% [markdown]
 # ## Next steps
 #
-# - **Data cleaning**: Apply the chosen settings in an operational {doc}`Clean a dataset <data_cleaning>` run.
-# - **Other settings**: Vary any workflow's or evaluator's settings, its sources or its extractor, as
-#   {doc}`Sweep settings with a matrix <../how_to/run_a_matrix>` shows.
+# - {doc}`data_cleaning` — Apply the chosen settings in an operational cleaning run.
+# - {doc}`../how_to/run_a_matrix` — Vary any workflow's or evaluator's settings, its sources, or its extractor, and
+#   learn every way to write a matrix's values and keys.
+# - {doc}`../concepts/Reproducibility` — Learn how config-keyed caching reuses embeddings and statistics across runs.
 
 # %% [markdown]
-# ## Related guides
+# ## On your own
 #
-# - **How-to**: {doc}`Sweep settings with a matrix <../how_to/run_a_matrix>` covers every
-#   way to write a matrix's values and keys, and what each run shares.
-# - **Concept**: [Reproducibility](../concepts/Reproducibility.md) explains how
-#   config-keyed caching reuses embeddings and statistics across runs.
-# - **Tutorial**: {doc}`Clean a dataset <data_cleaning>` shows how to apply chosen
-#   settings in an operational `quality` run.
-# - **How-to**: [Configure outlier detection](../how_to/configure_outlier_detection.md)
-#   explains outlier settings and how to choose them.
-# - **How-to**: [Reuse results with the disk cache](../how_to/reuse_results_with_cache.md)
-#   shows how to persist embeddings and statistics across runs.
-# - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md)
-#   shows how to run a matrix from a YAML configuration in a container.
+# Repeat the analysis on your own data by changing these settings:
+#
+# - Set `path` on `HuggingFaceDatasetConfig` to your own image classification dataset in class-per-directory format, and
+#   keep `task="image_classification"`.
+# - Change the `size` param of the `Limit` operation in the view, or remove the operation to use every image. Keep the
+#   `Shuffle` operation before it.
+# - Change `seed` on the pipeline, which each run starts from, and the `seed` param of the `Shuffle` operation to draw a
+#   different sample.
+# - Change the values under `matrix`. List a `[method, bound]` pair for each value of `outliers.outlier_threshold`, and
+#   list the values to try for `duplicates.cluster_sensitivity`.
+# - Add a key to `matrix`, such as `checks.image-outliers.warning`. The grid crosses every key with every other, so each
+#   key you add multiplies the number of runs.
+# - Change `flags` in the `outliers` settings of the entry to use fewer of the `dimension`, `pixel` and `visual`
+#   statistics.
+# - Change `vocab_size` on `BoVWExtractorConfig`, which is 256 here, or replace the extractor config.

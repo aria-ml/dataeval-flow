@@ -16,32 +16,32 @@
 # %% [markdown]
 # # Run a full evaluation pipeline end to end
 #
-# Load a dataset, configure three evaluation workflows in one YAML file, run the
-# pipeline in a single call, inspect results, and execute the identical pipeline
-# inside a container.
+# Load SkySeaLand, configure the [`quality`](../reference/presets.md#quality), [`audit`](../reference/presets.md#audit)
+# and [`splits`](../reference/presets.md#splits) workflows in one YAML file, run the pipeline in a single call, inspect
+# the results, and execute the identical pipeline inside a container.
 
 # %% [markdown]
-# **Target audience**: You are a model developer, data scientist, or T&E engineer
-# who wants to run a complete evaluation pipeline from configuration to containerized
-# execution.
+# You are a model developer, data scientist, or T&E engineer who wants to run a complete evaluation pipeline from
+# configuration to containerized execution.
 #
-# **Workflow role**: This guide demonstrates an end-to-end evaluation pipeline:
-# dataset staging, configuration definition, pipeline execution via `run_tasks()`
-# or CLI, result inspection, and containerized execution.
+# This tutorial demonstrates an end-to-end evaluation pipeline: dataset staging, configuration definition, pipeline
+# execution with `run_tasks()` or the command line, result inspection, and containerized execution. It is the first
+# tutorial in the learning path. If you are new to DataEval Flow, start with the {doc}`../home/quickstart`.
+# {doc}`metadata_triage` comes next.
 
 # %% [markdown]
 # ## What you will do
 #
-# 1. **Load a dataset**: Fetch SkySeaLand and export it in a layout supported by DataEval Flow.
-# 2. **Analyze the metadata**: Run `triage` to decide which factors to drop and how to bin the rest.
-# 3. **Write the configuration**: Define datasets, sources, extractor, workflows, and tasks in `end_to_end.yaml`.
-# 4. **Run the pipeline**: Execute all tasks in a single call with `run_tasks()`.
-# 5. **Display results**: Inspect text reports, structured findings, and flagged images.
-# 6. **Export results**: Generate machine-readable result envelopes for downstream tools.
-# 7. **Run in Docker**: Execute the identical pipeline inside a container without Python code.
+# 1. Fetch SkySeaLand and export it in a layout that DataEval Flow supports.
+# 2. Run [`triage`](../reference/presets.md#triage) to decide which factors to drop and how to bin the rest.
+# 3. Define the datasets, sources, extractor, workflows and tasks in `end_to_end.yaml`.
+# 4. Execute all tasks in a single call with `run_tasks()`.
+# 5. Inspect the text reports, the HTML report, the structured findings and the flagged images.
+# 6. Generate machine-readable result envelopes for downstream tools.
+# 7. Execute the identical pipeline inside a container, without Python code.
 
 # %% [markdown]
-# The three tasks demonstrate different evaluation workflows:
+# The three tasks run different evaluation workflows:
 #
 # | Task | Workflow | Sources | Extractor | Answers |
 # | --- | --- | --- | --- | --- |
@@ -55,7 +55,7 @@
 # - How to run `triage` to decide which factors to exclude and how to bin the rest.
 # - How to declare multiple evaluation workflows in a single YAML configuration file.
 # - How to run end-to-end pipelines using `run_tasks()` in Python.
-# - How to inspect text reports and query structured findings programmatically.
+# - How to inspect text reports and HTML reports, and query structured findings programmatically.
 # - How to export auditable result envelopes for CI/CD gates.
 # - How to execute pipelines inside Docker without Python code.
 
@@ -66,7 +66,7 @@
 # - Install `dataeval-plots` to visualize flagged images.
 # - Install `maite-datasets[datamaite]` to download and export SkySeaLand.
 # - Ensure network access for the initial download; subsequent runs read from disk.
-# - Install Docker if you plan to run the containerized execution section.
+# - Install Docker if you plan to follow the "Run the same pipeline in Docker" section.
 
 # %% [markdown]
 # ## Lay out the data root
@@ -75,31 +75,31 @@
 #
 # ```text
 # project/
-# ├── end_to_end.yaml                    # read: the pipeline, loaded in step 3 and run in step 4
+# ├── end_to_end.yaml                    # read: the pipeline
 # ├── data/
 # │   ├── skysealand/                    # downloaded on the first run; the exports are made from it
 # │   ├── skysealand_datamaite_train/    # exported on the first run; read: the train split
 # │   └── skysealand_datamaite_test/     # exported on the first run; read: the test split
 # ├── cache/                             # written: embeddings and image statistics, reused on a re-run
-# └── output/end_to_end/                 # written in step 6: one .json result and one .html report per task
+# └── output/end_to_end/                 # written: one .json result and one .html report per task
 # ```
 #
-# The dataset paths in `end_to_end.yaml` are relative to the data root, so `data/skysealand_datamaite_train` finds
-# the export. Step 7 copies the YAML file and the two exports into a fresh root and mounts it read-only in the
-# container, which writes to `/output` and `/cache`.
+# The dataset paths in `end_to_end.yaml` are relative to the data root, so `data/skysealand_datamaite_train` finds the
+# export. The notebook loads the YAML file in "Load and validate it", runs it in "Run the pipeline", and writes the
+# results in "Export the results". The "Run the same pipeline in Docker" section copies the YAML file and the two
+# exports into a fresh root and mounts it read-only in the container, which writes to `/output` and `/cache`. The triage
+# run in "Analyze the metadata" builds its pipeline in Python. The notebook does not read the `val` split.
 
 # %% [markdown]
-# ## Step 1: Load the dataset
+# ## Load the dataset
 #
-# [SkySeaLand](https://www.kaggle.com/datasets/mdzahidhasanriad/skysealand) is an overhead
-# object-detection dataset containing 1,307 frames from four sites, with 19,102 annotations
-# across `airplane`, `boat`, `car`, and `ship`. The dataset provides `train` (1,048 frames),
-# `val` (132), and `test` (127) splits. In this pipeline, you will evaluate `train` and `test`.
+# [SkySeaLand](https://www.kaggle.com/datasets/mdzahidhasanriad/skysealand) is an overhead object-detection dataset with
+# 1,307 frames from four sites and 19,102 annotations across `airplane`, `boat`, `car`, and `ship`. The dataset provides
+# `train` (1,048 frames), `val` (132), and `test` (127) splits. This pipeline evaluates `train` and `test`.
 
 # %% [markdown]
-# You can use `maite-datasets` with `as_datamaite=True` to export the dataset into standard
-# COCO format for DataEval Flow. Each export directory is named by dataset and `image_set`
-# to keep splits isolated on disk.
+# Use `maite-datasets` with `as_datamaite=True` to export the dataset into standard COCO format for DataEval Flow. Each
+# export directory is named by dataset and `image_set`, which keeps the splits isolated on disk.
 
 # %% tags=["remove_output"]
 from pathlib import Path
@@ -120,8 +120,8 @@ print("\n".join(f"{name}: {path}" for name, path in split_paths.items()))
 # %% [markdown]
 # ### Confirm it loads
 #
-# Before writing configuration, verify that DataEval Flow can read the exported files.
-# `load_dataset()` uses the same loader as the pipeline runtime.
+# Before you write the configuration, verify that DataEval Flow can read the exported files. `load_dataset()` uses the
+# same loader as the pipeline runtime.
 
 # %%
 from dataeval_flow import load_dataset
@@ -135,17 +135,13 @@ print(f"Boxes:       {len(target.boxes)}")
 print(f"Classes:     {train_ds.metadata['index2label']}")
 
 # %% [markdown]
-# ## Step 2: Analyze the metadata
+# ## Analyze the metadata
 #
-# Before you commit to a `metadata:` policy, run the `triage` preset. It flags factors
-# that carry no information and factors whose bin counts would otherwise be derived silently
-# (and unstably) at run time.
+# Before you commit to a `metadata:` policy, run the `triage` preset. It flags factors that carry no information and
+# factors whose bin counts would otherwise be derived silently (and unstably) at run time.
 #
-# ```{seealso}
-# This section only covers the operational checkpoint: run triage, act on its findings, move on.
-# For a full walkthrough of reading triage findings, distribution charts, and remediation
-# policies, see {doc}`Triage a dataset's metadata <metadata_triage>`.
-# ```
+# This section covers only the operational checkpoint: run `triage`, act on its findings, and move on.
+# {doc}`metadata_triage` walks through reading triage findings, distribution charts, and remediation policies.
 
 # %% tags=["remove_output"]
 from dataeval_flow import run_task
@@ -192,21 +188,20 @@ print(f"Degenerate (exclude): {degenerate}")
 print(f"Need explicit bins:   {len(unbinned)} factors")
 
 # %% [markdown]
-# `triage` flags `label_file_exists`, `instance_missing`, and `unit_missing` as
-# degenerate: every frame holds the same value, so the factor separates nothing. It also flags
-# `instance_zeros` for a sentinel-value remap before it can be binned — that judgment call is
-# exactly what the {doc}`metadata triage tutorial <metadata_triage>` covers, so this pipeline excludes
-# it instead. The remaining continuous pixel and visual factors need explicit bin counts. Without
-# them, `audit` derives the counts from whatever sample happens to run, and warns that it did.
+# `triage` flags `label_file_exists`, `instance_missing`, and `unit_missing` as degenerate. Every frame holds the same
+# value for each, so the factor separates nothing. It also flags `instance_zeros` for a sentinel-value remap before it
+# can be binned. That judgment call is covered in {doc}`metadata_triage`, so this pipeline excludes the factor instead.
+# The remaining continuous pixel and visual factors need explicit bin counts. Without them, `audit` derives the counts
+# from whichever sample happens to run, and warns that it did.
 #
-# `end_to_end.yaml`'s `metadata:` section already applies these findings: the four degenerate
-# and unresolved factors are excluded, and every remaining continuous factor has a pinned
-# `continuous_factor_bins` count.
+# The `metadata:` section of `end_to_end.yaml` already applies these findings. It excludes the four degenerate and
+# unresolved factors, and every remaining continuous factor has a pinned `continuous_factor_bins` count.
+# {doc}`../how_to/configure_metadata_binning` explains how to declare cuts and vocabularies.
 
 # %% [markdown]
-# ## Step 3: Set up the configuration
+# ## Set up the configuration
 #
-# You can define pipeline execution in a single YAML file using modular sections:
+# Define pipeline execution in a single YAML file, in modular sections:
 #
 # | Section | What it declares |
 # | --- | --- |
@@ -217,7 +212,7 @@ print(f"Need explicit bins:   {len(unbinned)} factors")
 # | `workflows` | Named parameter sets for evaluations |
 # | `tasks` | Binds a workflow to sources (and an extractor when needed) |
 #
-# You can inspect the configuration file `end_to_end.yaml`:
+# Print the configuration file `end_to_end.yaml`:
 
 # %%
 config_path = Path("end_to_end.yaml")
@@ -226,9 +221,8 @@ print(config_path.read_text())
 # %% [markdown]
 # ### Load and validate it
 #
-# You can call `load_config()` to parse the YAML file and validate it against the
-# pipeline schema. Validation catches invalid parameters, unknown workflow types,
-# and missing references before execution.
+# Call `load_config()` to parse the YAML file and validate it against the pipeline schema. Validation catches invalid
+# parameters, unknown workflow types, and missing references before execution.
 
 # %%
 from dataeval_flow import load_config
@@ -242,16 +236,16 @@ print(f"Workflows:  {[(w.name, w.type) for w in config.workflows]}")
 print(f"Tasks:      {[(t.name, t.workflow, t.sources) for t in config.tasks]}")
 
 # %% [markdown]
-# ## Step 4: Run the pipeline
+# ## Run the pipeline
 #
-# You can execute all enabled tasks using `run_tasks()`. It returns each task's result keyed by
-# task name, in execution order. Two arguments matter here:
+# Call `run_tasks()` to execute all enabled tasks. It returns each task's result keyed by task name, in execution order.
+# Two arguments matter here:
 #
-# - `data_dir`: Base directory for resolving relative paths in configuration.
-# - `cache_dir`: Directory for caching embeddings, image statistics, and metadata
-#   across tasks and runs.
+# - `data_dir` is the base directory for resolving relative paths in the configuration.
+# - `cache_dir` is the directory for caching embeddings, image statistics, and metadata across tasks and runs.
 #
-# Tasks sharing datasets reuse intermediate calculations stored in the cache.
+# Tasks that share datasets reuse the intermediate calculations stored in the cache.
+# {doc}`../how_to/reuse_results_with_cache` explains caching behaviors and invalidation.
 
 # %% tags=["remove_output"]
 from dataeval_flow import run_tasks
@@ -274,32 +268,56 @@ assert all(r.success for r in results.values()), [r.errors for r in results.valu
 clean_result, audit_result, split_result = results["clean_train"], results["audit_splits"], results["split_train"]
 
 # %% [markdown]
-# ## Step 5: Display the results
+# ## Display the results
 #
 # Each task result exposes three primary interfaces:
 #
-# - `result.report()`: Formatted text summary.
-# - `result.findings`: Structured finding objects.
-# - The numbers behind the findings. All three workflows run as chains of steps, so their results hold each step's
-#   output in `result.steps`, by step name. The split's part indices are in `result.steps["split"].details["indices"]`,
-#   and the audit's verdict is `result.verdict`.
+# - `result.report()` returns a formatted text summary.
+# - `result.findings` holds the structured finding objects.
+# - `result.steps` holds the numbers behind the findings. All three workflows run as chains of steps, so their results
+#   hold each step's output in `result.steps`, by step name. The split's part indices are in
+#   `result.steps["split"].details["indices"]`, and the audit's verdict is `result.verdict`.
 #
-# You can call `report(detailed=False)` for high-level summaries, or `report(detailed=True)`
-# for per-finding breakdowns.
+# Call `report(detailed=False)` for high-level summaries, or `report(detailed=True)` for per-finding breakdowns.
 
 # %% [markdown]
-# ### 5a. Summary reports
+# ### Read the summary reports
 
 # %%
 for result in results.values():
     print(result.report(detailed=False))
 
 # %% [markdown]
-# ### 5b. Structured findings
+# ### Read the HTML report
 #
-# Each finding includes a `title`, a `severity` (`ok`, `info`, or `warning`), a short `brief`, a
-# `description` (`None` where the brief says it all), and its evidence as report `blocks`. You can
-# query these programmatically in automated CI/CD gates.
+# `to_html()` draws the same blocks as the text report, as one self-contained page. The cell below shows the audit
+# task's page. {doc}`view_html_reports` shows what else the page does.
+
+# %% tags=["remove_cell"]
+# The page styles its whole document, so the docs show it in an iframe of its own.
+import html
+
+from IPython.display import display
+
+
+def show(page: str, height: int = 560) -> None:
+    """*page* in an iframe, so its stylesheet and script stay inside it."""
+    frame = (
+        f'<iframe srcdoc="{html.escape(page, quote=True)}" title="HTML report" loading="lazy" '
+        f'style="width:100%;height:{height}px;border:1px solid #d1d9e0;border-radius:6px"></iframe>'
+    )
+    display({"text/html": frame}, raw=True)
+
+
+# %% tags=["remove_input"]
+show(audit_result.to_html())
+
+# %% [markdown]
+# ### Query the structured findings
+#
+# Each finding has a `title`, a `severity` (`ok`, `info`, or `warning`), a short `brief`, a `description` (`None` where
+# the brief says it all), and its evidence as report `blocks`. You can query these programmatically in automated CI/CD
+# gates.
 
 # %%
 for result in results.values():
@@ -309,11 +327,11 @@ for result in results.values():
         print(f"  {marker} {finding.title:<34} {finding.brief or ''}")
 
 # %% [markdown]
-# ### 5c. Data cleaning: Inspect flagged images
+# ### Inspect the flagged images
 #
-# The cleaning report summarizes the count of flagged images. You can retrieve specific
-# sample indices from the `outliers` and `duplicates` steps, whose outputs are DataEval's own, and slice
-# `result.sources` directly without reloading data. It holds each source the task read, after its view.
+# The cleaning report summarizes the count of flagged images. Retrieve specific sample indices from the `outliers` and
+# `duplicates` steps, whose outputs are DataEval's own, and slice `result.sources` directly without reloading data. It
+# holds each source the task read, after its view.
 
 # %%
 issues = clean_result.steps["outliers"].output.data()
@@ -337,14 +355,13 @@ if outlier_indices:
     )
 
 # %% [markdown]
-# ### 5d. Audit: The verdict
+# ### Read the audit verdict
 #
-# The audit task judges train and test together. Its verdict says whether the data is ready to
-# train on: a warning from a blocking check, such as leakage between the splits, makes it not
-# ready, and any other warning, or a check it could not assess, is a caveat. The task names the
-# BoVW extractor, so every check is assessed. Train and test share no image, and test has no
-# class train lacks, so nothing blocks. The verdict is ready with caveats: the outlier, metadata,
-# coverage and shortcut warnings.
+# The audit task judges train and test together. Its verdict says whether the data is ready to train on. A warning from
+# a blocking check, such as leakage between the splits, makes it not ready, and any other warning, or a check it could
+# not assess, is a caveat. The task names the BoVW extractor, so every check is assessed. Train and test share no image,
+# and test has no class train lacks, so nothing blocks. The verdict is ready with caveats: the outlier, metadata,
+# coverage and shortcut warnings. {doc}`audit` reads a verdict in depth and keeps a record of what was audited.
 
 # %%
 verdict = audit_result.verdict
@@ -357,12 +374,12 @@ for item in verdict.not_assessed:
     print(f"  [..] {item.step:<32} not assessed: {item.reason}")
 
 # %% [markdown]
-# ### 5e. Dataset splitting: Partition indices
+# ### Read the split indices
 #
-# The splitting task generates explicit index lists for each part, in the split step's
-# details. With `folds: 1`, as here, `train`, `val` and `test` are each one list; with
-# more folds, `train` and `val` are keyed by fold. You can use these indices to
-# construct PyTorch `Subset` or `DataLoader` instances.
+# The splitting task generates explicit index lists for each part, in the split step's details. With `folds: 1`, as
+# here, `train`, `val` and `test` are each one list; with more folds, `train` and `val` are keyed by fold. Use these
+# indices to construct PyTorch `Subset` or `DataLoader` instances. {doc}`dataset_splitting` covers stratification,
+# cross-validation folds, and group-aware splitting.
 
 # %%
 indices = split_result.steps["split"].details["indices"]
@@ -373,13 +390,12 @@ print(f"Val   indices (first 10): {indices['val'][:10]}")
 print(f"Test  indices (first 10): {indices['test'][:10]}")
 
 # %% [markdown]
-# ## Step 6: Export the results
+# ## Export the results
 #
-# You can call `export()` to write the result envelope to disk. Result envelopes
-# contain findings alongside execution metadata: timestamps, tool versions,
-# dataset identifiers, and fully resolved configurations. `to_html()` renders the
-# same report as one self-contained page that you can open in a browser, attach
-# to a ticket, or print to PDF.
+# Call `export()` to write the result envelope to disk. A result envelope holds the findings alongside execution
+# metadata: timestamps, tool versions, dataset identifiers, and fully resolved configurations. `to_html()` renders the
+# same report as one self-contained page that you can open in a browser, attach to a ticket, or print to PDF. The cell
+# below writes both for each task.
 
 # %%
 output_dir = Path("./output/end_to_end")
@@ -402,11 +418,11 @@ print(f"Timestamp:      {envelope['metadata']['timestamp']}")
 print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 
 # %% [markdown]
-# ## Step 7: Run the same pipeline in Docker
+# ## Run the same pipeline in Docker
 #
-# You can execute the same YAML pipeline in Docker without Python dependencies.
-# The container consumes `end_to_end.yaml`, reads datasets from `/dataeval`, and
-# writes result envelopes to `/output`.
+# Run the same YAML pipeline in Docker without Python dependencies. The container consumes `end_to_end.yaml`, reads
+# datasets from `/dataeval`, and writes result envelopes to `/output`. To submit this same `end_to_end.yaml` over HTTP
+# to a long-running service instead, and follow the run to its results, see {doc}`../how_to/run_flow_as_a_service`.
 #
 # The container uses three mount paths:
 #
@@ -449,8 +465,8 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # %% [markdown]
 # ### Run it
 #
-# Use `--user` so `/output` and `/cache` remain writable by your host account.
-# The console prints each report's short form; `-v` prints the full reports instead.
+# Use `--user` so that `/output` and `/cache` remain writable by your host account. The console prints each report's
+# short form, and `-v` prints the full reports instead.
 #
 # ```bash
 # cd dataeval-run
@@ -493,7 +509,7 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # # output/results/result.txt
 # ```
 #
-# You can query the generated results using `jq`:
+# Query the generated results with `jq`:
 #
 # ```bash
 # # Inspect executed tasks
@@ -513,9 +529,9 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # ```
 
 # %% [markdown]
-# ### Running offline
+# ### Run offline
 #
-# Once container images and datasets are staged locally, you can run entirely offline:
+# Once the container images and datasets are staged locally, you can run entirely offline:
 #
 # ```bash
 # docker run --rm --network none \
@@ -544,19 +560,26 @@ print(f"Sources:        {envelope['metadata']['source_descriptions']}")
 # %% [markdown]
 # ## Next steps
 #
-# - {doc}`Triage a dataset's metadata <metadata_triage>`: Reading triage findings,
-#   distribution charts, and remediation policies.
-# - {doc}`Clean a dataset <data_cleaning>`: Outlier and duplicate detection.
-# - {doc}`Audit a set of splits before training <audit>`: A verdict on train and
-#   evaluation splits, and a record of what was audited.
-# - [Split a dataset](dataset_splitting): Stratification, cross-validation folds, and group-aware splitting.
+# - {doc}`metadata_triage` — Read triage findings, distribution charts, and remediation policies.
+# - {doc}`data_cleaning` — Detect outliers and duplicates in a dataset.
+# - {doc}`../how_to/containerized_workflows` — Use the Docker execution options and flags.
+# - {doc}`../how_to/read_evaluation_outputs` — Query the result envelope structure.
 
 # %% [markdown]
-# ## Related guides
+# ## On your own
 #
-# - **How-to**: [Configure metadata binning](../how_to/configure_metadata_binning.md) explains declaring cuts and vocabularies.
-# - **How-to**: [Containerized workflows](../how_to/containerized_workflows.md) covers Docker execution options and flags.
-# - **How-to**: [Run Flow as a service](../how_to/run_flow_as_a_service.md) submits this same `end_to_end.yaml` over
-#   HTTP to a long-running service, and follows the run to its results.
-# - **How-to**: [Reuse results with the disk cache](../how_to/reuse_results_with_cache.md) explains caching behaviors and invalidation.
-# - **How-to**: [Read evaluation outputs](../how_to/read_evaluation_outputs.md) details result envelope structure and querying.
+# To repeat the pipeline with your own data and settings, change these entries in `end_to_end.yaml`:
+#
+# - Point the `path` of each entry under `datasets` at your own data, and set its `format`. Keep one directory for each
+#   split, because a COCO export records no split of its own.
+# - To audit the whole training set, remove the `view` from the `train_src` source. To change the sample, edit the
+#   `size` of the `Limit` operation in the `sample300` view.
+# - To change the factors the analysis reads, edit `exclude` and `continuous_factor_bins` in the `metadata` entry. Run
+#   `triage` on your data to find both.
+# - To change what counts as an outlier, edit `outlier_threshold` and `flags` in the `clean` and `audit` workflows. To
+#   change when the cleaning findings warn, edit the entries under `checks` in the `clean` workflow.
+# - To split differently, edit `folds`, `test_frac`, `val_frac`, and `stratify` in the `split` workflow. `val_frac`
+#   applies with `folds: 1` only, and unset is 0.1.
+# - To change the embeddings, edit `vocab_size` or `batch_size` of `bovw_ext`, or replace it with another entry under
+#   `extractors`, such as one with `model: onnx` and a `model_path`.
+# - To change the seed that pins clustering and splitting, edit `seed` at the top of the file.
