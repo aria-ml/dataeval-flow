@@ -42,6 +42,19 @@ Rules (review):
   ``[`sufficiency`](../reference/evaluators.md#sufficiency)``. Do not write "the sufficiency tool".
   `tests/test_catalog_docs.py` fails when the anchor of such a link in a catalog page differs from the name in its text.
 
+## Write the project files
+
+The Markdown files at the root of the repository, and `docs/CACHE_MANAGEMENT.md`, are not Diataxis pages. They follow
+the prose rules and the heading rules in this guide. CI runs markdownlint over them and checks their links.
+
+- Write `README.md` as a home page. It is the front page on GitHub and PyPI, so keep its links absolute.
+- `CONTRIBUTING.md`, `BRANCHING.md`, `SECURITY.md`, `ROADMAP.md`, `AGENT.md` and `docs/CACHE_MANAGEMENT.md` state a
+  process, a policy or a plan. A policy keeps the strength of each "must", "shall" and "should".
+- Leave `CODE_OF_CONDUCT.md` as the published Contributor Covenant text. Leave `CHANGELOG.md` in the format that
+  `BRANCHING.md` sets, since `scripts/release.py` parses it.
+- Do not edit `ironbank/*/README.md` by hand. `ironbank/generate.py` renders it from `ironbank/README.md.j2`, so change
+  the template and run `nox -s ironbank_gen`.
+
 ## Write the prose
 
 Narrative text is written to the reader in the second person and kept plain. This applies to tutorials, how-to guides,
