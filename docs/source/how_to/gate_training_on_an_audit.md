@@ -1,19 +1,15 @@
 # Gate training on an audit
 
-An `audit` run says whether a dataset is ready to train on, and records a content digest of each split it judged. A
-training job can check both before it starts: that the verdict allows training, and that the data it is about to read
-is the data that was audited. This guide covers running the audit, gating on its verdict with `--require` or by
-reading it, refusing data whose digest doesn't match, and finding which items changed.
-
-## Used in these tutorials
-
-- {doc}`Audit a set of splits before training <../notebooks/audit>`
+An [`audit`](../reference/presets.md#audit) run says whether a dataset is ready to train on, and records a content
+digest of each split it judged. To let a training job check both before it starts, gate on the verdict, refuse data
+whose digest does not match the record, and find which items changed. The job then knows that the verdict allows
+training and that the data it is about to read is the data that was audited. [Provenance](../concepts/Provenance.md)
+explains what a result records about the data it read. You need a pipeline that defines `datasets:`, the sources
+`train`, `validation` and `test`, and the extractor `bovw_ext`, as [Run a single evaluator](run_a_single_evaluator.md) does.
 
 ## Run the audit
 
-Name the splits in order: the first source is train, and every later source is an evaluation split. The example
-assumes the pipeline defines `datasets:`, the sources `train`, `validation` and `test`, and the extractor `bovw_ext`, as
-[Evaluator recipes](evaluator_recipes.md) does.
+Name the splits in order: the first source is train, and every later source is an evaluation split.
 
 ```yaml
 workflows:
@@ -42,8 +38,8 @@ dataeval-flow --config pipeline.yaml --output ./output
 gives the rule for each level, and the verdict's other fields. From Python the level is `result.verdict.level`, and in
 the JSON it is `verdict.level`.
 
-Gate on it with `--require`, or `result: require:` in the config; `DATAEVAL_REQUIRE` sets the requirement too, and the
-flag overrides both. Its value names the worst verdict that passes, and the command exits 4 when a task's verdict is
+Gate on it with `--require`, or with `result: require:` in the config. `DATAEVAL_REQUIRE` sets the requirement too, and
+the flag overrides both. Its value names the worst verdict that passes. The command exits 4 when a task's verdict is
 worse:
 
 ```bash
@@ -63,30 +59,30 @@ jq -e '.["audit-splits"].verdict | .level != "not-ready" and .warnings == [] and
 ```
 
 `ready-with-caveats` refuses only a blocking check that warned with no acceptance covering it.
-`ready-with-accepted-risks` lets through an audit whose only caveats are accepted risks; any other warning, or a check
+`ready-with-accepted-risks` lets through an audit whose only caveats are accepted risks. Any other warning, or a check
 not assessed, stops training until a person fixes the data, accepts the warning under `accepted:`, or gives the check
 what it needs. `ready` refuses those too, and an accepted warning as well: an acceptance whose check warns keeps the
 verdict at `ready-with-caveats`, so once a warning is accepted, this gate refuses until the data stops warning.
 
-A task whose workflow has no verdict-giving step isn't judged. A task that failed has no verdict, and falls short; so
-does one whose `audit` step never started, because a step before it failed or was skipped, and `--require` names the
-step that did not run; each `jq` expression refuses it too. A run in which no task gives a verdict is refused, and exits
-1, before any task starts.
+A task whose workflow has no verdict-giving step is not judged. A task that failed has no verdict, and falls short. So
+does a task whose `audit` step never started because a step before it failed or was skipped, and `--require` names the
+step that did not run. Each `jq` expression refuses such a task too. A run in which no task gives a verdict is refused,
+and exits 1, before any task starts.
 
-Exit codes take this order: 1, for a failed task or export, unless `result: fail_on: never`; then 4; then 3, which
-`fail_on: warning` gives for any warning, an accepted one included, since health counts the warnings the data has and
-the verdict records the decision made about them. So an audit whose only caveats are accepted risks passes
-`--require ready-with-accepted-risks` and still exits 3 under `fail_on: warning`: keep the default `fail_on: failure`
-when you gate with `--require`. Without `--require`, the exit code doesn't read the verdict, and a `not-ready` audit
+Exit codes take this order: 1 for a failed task or export, unless `result: fail_on: never`; then 4; then 3.
+`fail_on: warning` gives 3 for any warning, an accepted one included, because health counts the warnings the data has
+and the verdict records the decision made about them. So an audit whose only caveats are accepted risks passes
+`--require ready-with-accepted-risks` and still exits 3 under `fail_on: warning`. Keep the default `fail_on: failure`
+when you gate with `--require`. Without `--require`, the exit code does not read the verdict, and a `not-ready` audit
 exits 0 under `fail_on: failure`.
 
 ## Refuse data that was not audited
 
-Each split's `content-digest` step records a SHA-256 digest over every item's image and labels, and the class names.
-In the training job, recompute it with `dataeval_flow.dataset_digest()` and refuse a mismatch. The digest matches only
-the dataset as Flow loads it, before any training transform: load it with `load_dataset`, passing the `datasets:`
-entry's format and options. Data in another shape gives another digest: resized or normalized images, `(image, int)`
-tuples, images in height-width-channel order, or a dataset with no `index2label`.
+Each split's `content-digest` step records a SHA-256 digest over every item's image and labels, and the class names. In
+the training job, recompute it with `dataeval_flow.dataset_digest()` and refuse a mismatch. The digest matches only the
+dataset as Flow loads it, before any training transform: load it with `load_dataset`, passing the `datasets:` entry's
+format and options. Data in another shape gives another digest: resized or normalized images, `(image, int)` tuples,
+images in height-width-channel order, or a dataset with no `index2label`.
 
 ```python
 import json
@@ -125,49 +121,50 @@ train = load_source(load_config("pipeline.yaml"), "train")
 draws at random with no `seed`, which is `Shuffle`, or `Stride` and `EvenlySpaced` with `jitter`. An unseeded `Shuffle`
 as the source's last operation only reorders the items, which the digest ignores, so it is allowed.
 
-Notice:
+The digest check has these limits:
 
 - The digest ignores item order, so an unseeded `Shuffle` still matches. Adding, removing or editing any item, or
   renaming a class, changes it.
 - Metadata has a digest of its own, so a loader that yields images and labels with no metadata still matches the
   content digest. Gate on the content digest across machines: the metadata digest covers metadata as stored, paths
   included, so metadata holding an absolute file path digests differently on each machine.
-- An `audit` step after the split judges chain-made parts in the same run (see [Check a set of
-  splits](write_a_custom_workflow.md#11-check-a-set-of-splits)), and its task is gated with `--require` like an
-  `audit` task. Its record's digests cannot be checked against a loaded source in a training job, because the parts
-  exist only in the chain.
-- A split made by a chain step, such as a `splits` step's `split.train`, isn't a source: an audit task can't
-  read it, and `load_source` can't rebuild it. [Export it](export_a_dataset.md#export-the-parts-of-a-split), add the
-  export as a `datasets:` entry in the format it was written, audit that source, and train on the export. `export`
-  writes object-detection Datasets only. The audit's content digest then equals `digest.content` in the last entry of
-  the export's `provenance.json`, and a mismatch means the audit read something else. Gate the training job on the
-  audit's digest, as above: the digest `provenance.json` records proves only that the data is what was exported, not
-  that it was audited.
+- An `audit` step after the split judges chain-made parts in the same run (see
+  [Check a set of splits](check_a_set_of_splits.md)), and its task is gated with `--require` like an `audit` task. Its
+  record's digests cannot be checked against a loaded source in a training job, because the parts exist only in the
+  chain.
+- A split made by a chain step, such as a `splits` step's `split.train`, is not a source: an audit task cannot read it,
+  and `load_source` cannot rebuild it. [Export it](export_a_dataset.md#export-the-parts-of-a-split), add the export as a
+  `datasets:` entry in the format it was written, audit that source, and train on the export. `export` writes
+  object-detection Datasets only. The audit's content digest then equals `digest.content` in the last entry of the
+  export's `provenance.json`, and a mismatch means the audit read something else. Gate the training job on the audit's
+  digest, as above: the digest `provenance.json` records proves only that the data is what was exported, not that it
+  was audited.
 - The digest hashes decoded pixels and targets as Flow reads them. Compare digests made with the same image libraries,
   which the result records in `metadata.library_versions`.
 
 ## Find what changed
 
-A digest mismatch says the data changed, not where. With `--output`, the command writes each split's manifest, one
-hash per item, under `output/results/manifests/<task>/`: `content-digest-train.json`, and
-`content-digest-evals/<split>.json` for each evaluation split, under `run-<n>/` for each run of a matrix. From Python,
-`result.steps["content-digest-train"].output.manifest()` gives a run's own manifest, and `.save(path)` writes it.
-Check a source against one with `verify`:
+A digest mismatch says the data changed, not where. With `--output`, the command writes each split's manifest, one hash
+per item, under `output/results/manifests/<task>/`: `content-digest-train.json`, and `content-digest-evals/<split>.json`
+for each evaluation split, under `run-<n>/` for each run of a matrix. From Python,
+`result.steps["content-digest-train"].output.manifest()` gives a run's own manifest, and `.save(path)` writes it. Check
+a source against one with `verify`:
 
 ```bash
 dataeval-flow verify output/results/manifests/audit-splits/content-digest-train.json --config pipeline.yaml --source train
 ```
 
 It loads the source as `load_source` does, so pass the run's data root with `--data` where the config's paths are
-relative. It exits 0 when the source holds the recorded items. It exits 1 when it doesn't, printing `MISMATCH:` and
-the items that changed, are missing or were added, and also when the manifest can't be read or the source can't be
+relative. It exits 0 when the source holds the recorded items. It exits 1 when it does not, printing `MISMATCH:` and the
+items that changed, are missing or were added, and also when the manifest cannot be read or the source cannot be
 loaded, printing `ERROR:` to standard error. Items are named by `id` where every item has a unique one. Otherwise they
 are named by index, and an edited item shows as one missing, at the manifest's index, and one added, at the dataset's.
 From Python, `dataset_manifest(dataset)` computes a manifest, `DatasetManifest.load(path)` reads one, and
 `recorded.compare(current)` gives the difference.
 
-## See also
+## Next steps
 
-- [Preset Catalog](../reference/presets.md#audit): the audit's chain, settings, checks and verdict rule
-- [Read evaluation outputs](read_evaluation_outputs.md): the result envelope, and the steps the digests are in
-- [Provenance](../concepts/Provenance.md): what a result records about the data it read
+- [Audit a set of splits before training](../notebooks/audit.py) — Run an audit end to end and read its verdict.
+- [Provenance](../concepts/Provenance.md) — Learn what a result records about the data it read.
+- [Get the numbers behind a finding](get_the_numbers_behind_a_finding.md) — Read the steps an audit result holds,
+  including each split's digests.

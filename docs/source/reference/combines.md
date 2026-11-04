@@ -4,8 +4,8 @@ A **combine** is a step, in a preset's chain or a custom workflow, that reads Ou
 computed on, and makes an Output a check reads. See [Workflows as Chains of Steps](../concepts/WorkflowsAsChains.md) for
 how steps chain, the [Check Catalog](checks.md) for the checks that judge a combine's Output, and the [Transform
 Catalog](transforms.md) for the steps that make Datasets. Each example assumes the pipeline defines `datasets:`, the
-sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor `bovw_ext`, as
-[Evaluator recipes](../how_to/evaluator_recipes.md) does.
+sources `train`, `test`, `validation`, `operational`, `labeled` and `unlabeled`, and the extractor `bovw_ext`, as [Run a
+single evaluator](../how_to/run_a_single_evaluator.md) does.
 
 ## At a glance
 

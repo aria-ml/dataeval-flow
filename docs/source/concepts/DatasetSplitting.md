@@ -34,7 +34,7 @@ part's class shares, not coverage or leakage, and not the whole set's class bala
 [`bias`](../reference/presets.md#bias) preset's. On classification data, its `split_on` keeps each value of a
 metadata factor, such as a scene or site, in one part, so correlated groups of samples do not straddle a split. To judge
 coverage, leakage and shift, run [`audit`](../reference/presets.md#audit) as a step after the split, as [Check a set of
-splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits) does, or give exported parts to an `audit` task
+splits](../how_to/check_a_set_of_splits.md) does, or give exported parts to an `audit` task
 as sources, train first.
 
 The result is a `ChainResult`. Each part's indices into the source are in

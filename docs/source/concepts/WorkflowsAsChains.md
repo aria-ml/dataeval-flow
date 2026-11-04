@@ -191,7 +191,7 @@ your chain's, listed at the top of the JSON, each naming its step, such as `clea
 what its chain declares as a step too: its preflight runs on the Datasets the step binds, every split is encoded like
 its reference, and an `audit` step gives the task its verdict, record and questions. A workflow gives one verdict, so it
 runs one such step, which may not be `optional:` (see [Check a set of
-splits](../how_to/write_a_custom_workflow.md#11-check-a-set-of-splits)).
+splits](../how_to/check_a_set_of_splits.md)).
 
 Only a preset's declared outputs can be addressed, and always by name: `cleaning.clean` reads the cleaned Dataset, while
 `cleaning` alone, `cleaning.duplicates` and `cleaning/duplicates` are refused. Handed a list, a preset runs its whole

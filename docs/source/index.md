@@ -56,7 +56,7 @@ assessing a dataset and preparing it for training.
 | --- | --- | --- |
 | Build stratified or grouped train/val/test splits | [`splits`](reference/presets.md#splits) | Train, val and test splits, stratified or grouped, or k folds, with each part's stratification judged |
 | Rank abundant/unlabeled data for labeling | [`prioritization`](reference/presets.md#prioritization) | Ranked sample ordering |
-| Audit a set of splits before training | [`audit`](reference/presets.md#audit) | A verdict, a record of what was audited, and findings under five questions; also a step after a split ([how-to](how_to/write_a_custom_workflow.md#11-check-a-set-of-splits)) |
+| Audit a set of splits before training | [`audit`](reference/presets.md#audit) | A verdict, a record of what was audited, and findings under five questions; also a step after a split ([how-to](how_to/check_a_set_of_splits.md)) |
 
 ### Monitoring
 

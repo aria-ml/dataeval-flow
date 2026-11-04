@@ -16,13 +16,14 @@
 # %% [markdown]
 # # Use an ONNX model for embeddings
 #
-# You can configure an ONNX extractor with preprocessing transforms to generate
-# embeddings from pretrained models such as ResNet-50. Pretrained models provide
-# higher-fidelity embeddings than lightweight methods like BoVW.
+# To generate embeddings from a pretrained model such as ResNet-50, configure an ONNX extractor with preprocessing
+# transforms. Pretrained models provide higher-fidelity embeddings than lightweight methods like BoVW.
+# {doc}`Preprocessing and Feature Extraction <../concepts/PreprocessingAndExtraction>` explains why the representation a
+# workflow measures in matters. You need the `onnx` extra and the `.onnx` model file.
 #
 # :::{important}
-# ONNX support is an optional extra and is not installed by default. Without it,
-# your configuration validates, but task execution fails on import:
+# ONNX support is an optional extra and is not installed by default. Without it, your configuration validates, but task
+# execution fails on import:
 #
 # ```bash
 # pip install "dataeval-flow[onnx]"          # CPU
@@ -34,18 +35,7 @@
 # :::
 
 # %% [markdown]
-# ## Used in these tutorials
-#
-# This guide is used by:
-#
-# - {doc}`Clean a dataset <data_cleaning>`
-# - {doc}`Audit a set of splits before training <audit>`
-# - {doc}`Assess dataset coverage <data_coverage>`
-# - {doc}`Monitor incoming data for drift <drift_monitoring>`
-# - {doc}`Detect out-of-distribution samples <ood_detection>`
-
-# %% [markdown]
-# ## YAML
+# ## Configure the extractor in YAML
 #
 # ```yaml
 # preprocessors:
@@ -72,7 +62,7 @@
 # ```
 
 # %% [markdown]
-# ## Python
+# ## Configure the extractor in Python
 
 # %% tags=["remove_output"]
 from dataeval_flow.config import PreprocessingStep, PreprocessorConfig
@@ -100,7 +90,7 @@ resnet_preprocess = PreprocessorConfig(
 )
 
 # %% [markdown]
-# ## Key fields
+# ## Set the key fields
 #
 # | Field | Description |
 # | --- | --- |
@@ -110,7 +100,7 @@ resnet_preprocess = PreprocessorConfig(
 # | `batch_size` | Images per inference batch |
 
 # %% [markdown]
-# ## When to use ONNX vs BoVW
+# ## Choose between ONNX and BoVW
 #
 # | Feature | ONNX | BoVW |
 # | --- | --- | --- |
@@ -119,6 +109,12 @@ resnet_preprocess = PreprocessorConfig(
 # | Embedding quality | High (pretrained features) | Good (learned visual words) |
 # | Setup complexity | Higher | Minimal |
 #
-# Use ONNX when your tasks require rich feature representations from pretrained
-# models. Use BoVW (see {doc}`Clean a dataset <data_cleaning>`) when you need a lightweight
-# setup without external model files.
+# Use ONNX when your tasks require rich feature representations from pretrained models. Use BoVW (see
+# {doc}`Clean a dataset <data_cleaning>`) when you need a lightweight setup without external model files.
+
+# %% [markdown]
+# ## Next steps
+#
+# - {doc}`data_coverage` — Measure how well a dataset covers the embedding space of an extractor.
+# - {doc}`../how_to/torch_embeddings` — Read an intermediate layer of your own PyTorch model instead.
+# - {doc}`../concepts/PreprocessingAndExtraction` — Learn why the representation a workflow measures in matters.

@@ -1,12 +1,13 @@
 # Configure outlier detection
 
-The `quality` workflow is flagging too much, too little, or the wrong thing. This guide covers the knobs that
-control what counts as an outlier and when a finding becomes a warning.
-
-## Used in these tutorials
-
-- {doc}`Clean a dataset <../notebooks/data_cleaning>`
-- {doc}`Tune data cleaning with a matrix <../notebooks/tune_data_cleaning>`
+The [`quality`](../reference/presets.md#quality) workflow is flagging too much, too little, or the wrong thing. Its
+`outliers` block controls what counts as an outlier, and its `checks` block controls when a finding becomes a warning.
+The [`outliers`](../reference/evaluators.md#outliers) evaluator runs the same detection alone, and it takes every
+setting of the preset's `outliers` block, spelled the same way. The
+[Data Quality and Cleaning](../concepts/DataQualityAndCleaning.md) explanation covers the concepts behind the
+detection, and the
+[DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html) is the
+authoritative treatment of the detection methods themselves. This guide needs a pipeline that runs `quality`.
 
 ## Pick a statistical method
 
@@ -15,9 +16,9 @@ flagged. There is no universally correct choice. It depends on how heavy-tailed 
 
 | Method | Flags a sample when a statistic is… | Use when |
 | --- | --- | --- |
-| `adaptive` | beyond a threshold chosen from the observed distribution | you do not yet know the shape of your data — a good first run |
-| `modzscore` | far from the *median*, scaled by median absolute deviation | the dataset already contains outliers that would drag a mean |
-| `zscore` | far from the *mean*, scaled by standard deviation | statistics are roughly normal and outliers are rare |
+| `adaptive` | beyond a threshold chosen from the observed distribution | you do not yet know the shape of your data (a good first run) |
+| `modzscore` | far from the median, scaled by median absolute deviation | the dataset already contains outliers that would drag a mean |
+| `zscore` | far from the mean, scaled by standard deviation | statistics are roughly normal and outliers are rare |
 | `iqr` | outside the interquartile fences | the distribution is skewed and you want a distribution-free rule |
 
 ```yaml
@@ -31,28 +32,29 @@ workflows:
 
 ## Choose which statistics to test
 
-`outliers.flags` selects the *groups* of image statistics the method is applied to. At least one is required.
+`outliers.flags` selects the groups of image statistics the method is applied to. At least one is required.
 
-- `dimension` — geometry: width, height, aspect ratio, channel count, value range, total pixel count, and (for detection
+- `dimension`: geometry. Width, height, aspect ratio, channel count, value range, total pixel count, and (for detection
   boxes) offsets and distances to the image center and edges.
-- `pixel` — the intensity *distribution*: mean, standard deviation, variance, skew, kurtosis, entropy, and the
+- `pixel`: the intensity distribution. Mean, standard deviation, variance, skew, kurtosis, entropy, and the
   fraction of zero or missing/NaN pixels. As of DataEval v1.1 these are reported in the units the data is stored in,
-  so their magnitude depends on the encoding — a 12-bit mean reads in the thousands.
-- `visual` — perceived appearance derived from intensity percentiles: brightness, contrast, darkness, and
+  so their magnitude depends on the encoding. A 12-bit mean reads in the thousands.
+- `visual`: perceived appearance derived from intensity percentiles. Brightness, contrast, darkness, and
   edge-detection sharpness. These read the 0–255 display range regardless of encoding, so one image answers the same
   whatever it is stored as.
 
-Float imagery needs `value_range` before the `visual` group — and pixel histogram and entropy — can be computed at
-all; without it they answer `NaN`. Declare it on the dataset — see {doc}`configure_metadata_binning`.
+Float imagery needs `value_range` before the `visual` group, and pixel histogram and entropy, can be computed at
+all. Without it they answer `NaN`. See [Declare the value range of float images](declare_a_value_range.md).
 
 Narrow the list when you already know what kind of defect you are hunting. A dimension-only run over a freshly
-converted dataset is fast and answers one question cleanly. To narrow further, name a sub-group — `pixel_basic`,
-`visual_basic`, `dimension_basic` and the others listed in {doc}`measure_band_groups` — in place of its family.
+converted dataset is fast and answers one question cleanly. To narrow further, name a sub-group in place of its
+family: `pixel_basic`, `visual_basic`, `dimension_basic` and the others listed in
+[Measure band groups](measure_band_groups.md).
 
 ## Override the threshold
 
 Write `outliers.outlier_threshold` as `[method, bound]` to replace the method's built-in cutoff. Write the method alone
-to use the DataEval default for it; raise the bound to flag less, lower it to flag more.
+to use the DataEval default for it. Raise the bound to flag less, and lower it to flag more.
 
 ```yaml
     outliers:
@@ -60,11 +62,12 @@ to use the DataEval default for it; raise the bound to flag less, lower it to fl
 ```
 
 Because the right value depends on the dataset, this is the parameter most worth sweeping. A `matrix:` on the task
-runs it once per value and compares the flag rates in one table: see {doc}`Sweep settings with a matrix
-<run_a_matrix>`, and {doc}`Tune data cleaning with a matrix <../notebooks/tune_data_cleaning>` for a worked run.
+runs it once per value and compares the flag rates in one table. See
+[Sweep settings with a matrix](run_a_matrix.md), and
+[Tune data cleaning with a matrix](../notebooks/tune_data_cleaning.py) for a worked run.
 
 :::{note}
-The pixel rescale that arrived in v0.2 did **not** move any outlier flag, and a threshold tuned under v0.1 is still
+The pixel rescale that arrived in v0.2 did not move any outlier flag, and a threshold tuned under v0.1 is still
 correct. Every method offered here is location-scale equivariant: each measures distance in units of the
 distribution's own spread, so scaling every value by a constant moves the statistic and the cutoff together.
 :::
@@ -98,11 +101,11 @@ tasks:
 ```
 
 Leaving `outliers.cluster_threshold` unset skips cluster-based detection entirely, even when an extractor is
-configured. `outliers.n_clusters` is a hint — omit it and the algorithm auto-detects. `hdbscan` handles clusters of
-varying density and does not need a cluster count; `kmeans` is faster and predictable when you know roughly how many
+configured. `outliers.n_clusters` is a hint: omit it and the algorithm auto-detects. `hdbscan` handles clusters of
+varying density and does not need a cluster count. `kmeans` is faster and predictable when you know roughly how many
 groups to expect.
 
-## Decide when a finding becomes a warning
+## Set when a finding becomes a warning
 
 Detection and {term}`severity <Severity>` are separate concerns. `checks` sets the bound past which each finding is
 a `warning`, counted in the report's health line. It does not change what is detected.
@@ -115,9 +118,10 @@ a `warning`, counted in the report's health line. It does not change what is det
       class-outliers: {warning: 12.0}        # % flagged within any single class
 ```
 
-Rough guidance: tighten toward 1–2% for curated benchmarks and safety-critical datasets; loosen toward 10–15% for
-large web-scraped or naturally diverse collections. Class imbalance is judged by the `bias` preset; for a class
-hierarchy with a long tail, raise its `class-imbalance` to 10–20 to avoid a warning that only restates the domain.
+Rough guidance: tighten toward 1–2% for curated benchmarks and safety-critical datasets, and loosen toward 10–15% for
+large web-scraped or naturally diverse collections. Class imbalance is judged by the
+[`bias`](../reference/presets.md#bias) preset. For a class hierarchy with a long tail, raise its `class-imbalance` to
+10–20 to avoid a warning that only restates the domain.
 
 ## Verify the effect
 
@@ -128,18 +132,13 @@ result = run_task(config, task)
 print(result.report())
 ```
 
-See {doc}`read_evaluation_outputs` for the report structure and how to pull the flagged indices out of the result for
-inspection.
+See [Read evaluation outputs](read_evaluation_outputs.md) for the report structure, and [Get the numbers behind a
+finding](get_the_numbers_behind_a_finding.md) for how to pull the flagged indices out of the result for inspection.
 
-## Related material
+## Next steps
 
-- {doc}`configure_metadata_binning` — the `metadata:` policy this workflow names, `intrinsic_factors` for measuring
-  statistics into the metadata, and `value_range` for float imagery
-- [Data Quality and Cleaning](../concepts/DataQualityAndCleaning.md) — the concepts behind outlier and duplicate
-  detection
-- [Evaluator Catalog](../reference/evaluators.md#outliers) — the `outliers` evaluator runs the same detection
-  alone, and takes every setting of the preset's `outliers` block, spelled the same way
-- [DataEval Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html) — the
-  authoritative treatment of the detection methods themselves
-- [Preset Catalog: `quality`](../reference/presets.md#quality) — every setting and `checks:` default
-  of `quality`, from `QualityConfig` and `QualityChecks`
+- [Clean a dataset](../notebooks/data_cleaning.py) — Run `quality` end to end on a sample of a dataset and read its
+  report.
+- [Data Quality and Cleaning](../concepts/DataQualityAndCleaning.md) — The ideas behind outlier and duplicate detection.
+- [Configure metadata binning](configure_metadata_binning.md) — Use `intrinsic_factors` to measure image statistics into
+  the `metadata:` policy that the workflow names.

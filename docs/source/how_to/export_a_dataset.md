@@ -1,9 +1,11 @@
 # Export a dataset
 
-Declare an `exports:` block to write a {term}`source <Source>` out as a dataset on disk, together with the provenance
-that produced it. It takes a conformed dataset out of the tool: merged, relabeled, and filtered as the config
-describes. This guide covers declaring an export, the available formats, what the emitted dataset carries, and what it
-does not.
+To write a {term}`source <Source>` out as a dataset on disk, together with the provenance that produced it, declare an
+`exports:` block. It takes a conformed dataset out of the tool: merged, relabeled, and filtered as the config describes.
+The [`export`](../reference/transforms.md#export) step writes through the same writers, and
+[Provenance](../concepts/Provenance.md) explains the label-space digest that ties an export to its run. The
+{doc}`API Reference <../reference/autoapi/dataeval_flow/index>` lists every field on `ExportConfig`. You need an
+object-detection source and an output directory.
 
 ## Declare an export
 
@@ -54,14 +56,14 @@ exports:
 | `replace` | Clears the destination first |
 | `append` | Writes into what is already there |
 
-The default refuses so a re-run cannot overwrite a dataset somebody is using. `replace` empties the destination
-before the write and does not restore it if the write then fails. `append` may leave stale files behind that a reload
-of the destination would pick up.
+The default refuses so a re-run cannot overwrite a dataset somebody is using. `replace` empties the destination before
+the write and does not restore it if the write then fails. `append` may leave stale files behind that a reload of the
+destination would pick up.
 
 ## Declare the ontology on the export
 
 An export names no workflow, so it inherits no {term}`ontology <Ontology>`. Declare one on the export itself, by name
-under the top-level `ontologies:` key or as a path:
+under the top-level `ontologies:` key or as a path. {doc}`Declare an ontology <declare_an_ontology>` shows the options.
 
 ```yaml
 ontologies:
@@ -75,8 +77,7 @@ exports:
 ```
 
 If you omit it while a workflow declares one, the digests will not match: the dataset carries a label-space identity
-the run's envelope does not. The run warns and names the workflows that declare one, so you can copy the value
-across.
+the run's envelope does not. The run warns and names the workflows that declare one, so you can copy the value across.
 
 ## Read the provenance the export writes
 
@@ -89,7 +90,7 @@ entry records:
   conformed it, and, as `provenance`, its dataset's `provenance:` facts,
 - the `label_space` records, each with its `digest`,
 - `digest`: the content and metadata digests and the item count of the whole destination as Flow reads it back. A
-  VisDrone export, which Flow can't read back, records `digest: null` and a `digest_reason`, as does a COCO or YOLO
+  VisDrone export, which Flow cannot read back, records `digest: null` and a `digest_reason`, as does a COCO or YOLO
   export whose read-back fails.
 
 `mode: append` adds an entry rather than replacing the file, so a directory written twice records both writes. The
@@ -111,12 +112,12 @@ recorded = json.loads((export_dir / "provenance.json").read_text())["runs"][-1][
 Only the COCO writer also embeds the same mapping in its own `info` block. The other three drop it, which is why the
 sidecar is written for every format.
 
-The `label_space` digests are the values the {term}`result envelope <Result Envelope>` carries and a `taxonomy`
-run stamps from its alignment, whose `Relabel` stanza conforms the source. Declare the same ontology on the taxonomy
-run, on the workflows, and on the export, and one digest match ties an emitted dataset to the run that produced it and
-to the taxonomy run that justified its vocabulary.
+The `label_space` digests are the values the {term}`result envelope <Result Envelope>` carries and a `taxonomy` run
+stamps from its alignment, whose `Relabel` stanza conforms the source. Declare the same ontology on the taxonomy run,
+on the workflows, and on the export, and one digest match ties an emitted dataset to the run that produced it and to
+the taxonomy run that justified its vocabulary.
 
-## Know what an export drops
+## Check what an export drops
 
 An export is not lossless. Detections are rebuilt from the realized dataset, because a view can filter and relabel
 boxes and nothing then maps an output detection back to the annotation it came from. Each box keeps its geometry and
@@ -129,14 +130,13 @@ its class. Dropped are:
 Read the source's own files where you need those. Flow also reads a `huggingface_vision` export back with no class
 names and every label as -1, so audit and train from a `coco` or `yolo` export.
 
-## Know when the imagery is copied and when it is re-encoded
+## Check when the imagery is copied or re-encoded
 
 Images are referenced by path where the source is file-backed and its view left the imagery alone, so a write copies
 files. That keeps an export cheap.
 
-The realized pixels are encoded in two cases: a source that is not file-backed, and a view that changed the image
-size or the channel count. `Crop`, `Resize`, and `SelectChannels` all produce imagery the file on disk no longer
-matches.
+The realized pixels are encoded in two cases: a source that is not file-backed, and a view that changed the image size
+or the channel count. `Crop`, `Resize`, and `SelectChannels` all produce imagery the file on disk no longer matches.
 
 Encoded imagery must be 8-bit, and grayscale or three-channel. An export refuses any other dtype or channel count.
 Drop the view operation that normalizes the pixel range or changes the channel count.
@@ -154,8 +154,8 @@ item `17` of the first operand.
 ## Export the parts of a split
 
 A `splits` entry, run as a step of a custom workflow, hands on its parts as `<step>.train`, `<step>.val` and
-`<step>.test`; `train` is the rebalanced one where the entry sets `rebalance:`. An `export` step writes any of them.
-The workflow below splits an object-detection source and writes its train and test:
+`<step>.test`. `train` is the rebalanced one where the entry sets `rebalance:`. An `export` step writes any of them. The
+workflow below splits an object-detection source and writes its train and test:
 
 ```yaml
 workflows:
@@ -178,7 +178,7 @@ tasks:
 ```
 
 Each is written under `datasets/<task>.<step>/`, here `datasets/build_splits.train_set/`. With `folds: 3` the entry
-runs `kfold`, and `train` and `val` are lists keyed by fold, `"0"` to `"2"`; an `export` step handed one writes each
+runs `kfold`, and `train` and `val` are lists keyed by fold, `"0"` to `"2"`. An `export` step handed one writes each
 element under its key, as `datasets/build_splits.train_set/0/`. `test` is one Dataset shared by every fold.
 
 ```yaml
@@ -198,9 +198,8 @@ Each `provenance.json` records the digest of what was written, read back (see
 source and gate on the audit's digest, as
 [Gate training on an audit](gate_training_on_an_audit.md#refuse-data-that-was-not-audited) shows.
 
-## Related material
+## Next steps
 
-- {doc}`build_dataset_views` — the views that conform and merge a dataset before it is exported
-- {doc}`declare_an_ontology` — declaring the label space an export records
-- [Provenance](../concepts/Provenance.md) — the label-space digest that joins an export, a run, and a taxonomy run
-- {doc}`API Reference <../reference/autoapi/dataeval_flow/index>` — every field on `ExportConfig`
+- [Provenance](../concepts/Provenance.md) — Learn how the label-space digest joins an export, a run and a taxonomy run.
+- [Narrow a dataset with views](build_dataset_views.md) — Conform and merge a dataset before you export it.
+- [Gate training on an audit](gate_training_on_an_audit.md) — Refuse to train on data that was not audited.

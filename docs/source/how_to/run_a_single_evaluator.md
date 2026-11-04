@@ -1,20 +1,21 @@
-# Run a Single Evaluator
+# Run a single evaluator
 
-Run one DataEval evaluator on a source, such as finding duplicates, without
-configuring a workflow. The result is DataEval's own output, with no health status.
+Run one DataEval evaluator on a source, such as finding duplicates, without configuring a workflow. The result is
+DataEval's own output, with no health status. This guide runs [`duplicates`](../reference/evaluators.md#duplicates), and
+[Workflows and Evaluators](../concepts/WorkflowsAndEvaluators.md) explains when to use an evaluator instead of a
+workflow. You need a config that defines `datasets:` and `sources:`.
 
-## 1. See what is available
+## List the evaluators
 
 ```bash
 dataeval-flow evaluators
 ```
 
-Each line names an evaluator type, what it consumes, and how many sources its task
-takes. `dataeval-flow evaluators duplicates` prints that evaluator's
-parameters. The [Evaluator Catalog](../reference/evaluators.md) lists every type, what it consumes, and how many
-sources its task takes.
+Each line names an evaluator type, what it consumes, and how many sources its task takes. The command
+`dataeval-flow evaluators duplicates` prints that evaluator's parameters. The
+[Evaluator Catalog](../reference/evaluators.md) lists the same for every type.
 
-## 2. Define the evaluator
+## Define the evaluator
 
 Add an entry under `evaluators:`, next to your datasets and sources:
 
@@ -25,10 +26,9 @@ evaluators:
     flags: [hash_basic, hash_d4]
 ```
 
-Parameter names are DataEval's own. A misspelled parameter fails the config load
-rather than being ignored.
+Parameter names are DataEval's own. A misspelled parameter fails the config load rather than being ignored.
 
-## 3. Add a task that runs it
+## Add a task that runs it
 
 A task names `evaluator:` instead of `workflow:`, never both:
 
@@ -39,11 +39,13 @@ tasks:
     sources: [train, test]
 ```
 
-`duplicates` searches every source you name together, so the task above
-also finds images duplicated between `train` and `test`.
+`duplicates` searches every source you name together, so the task above also finds images duplicated between `train` and
+`test`. The config load refuses a task that names the wrong number of sources or leaves out an extractor its evaluator
+needs.
 
-To add embedding-space near duplicates, set `cluster_sensitivity` and name an
-extractor. Cluster mode reads one source:
+### Search for near duplicates in embedding space
+
+To add embedding-space near duplicates, set `cluster_sensitivity` and name an extractor. Cluster mode reads one source:
 
 ```yaml
 extractors:
@@ -64,12 +66,13 @@ tasks:
     extractor: bovw_ext
 ```
 
-BoVW needs no model file, so it works out of the box; an ONNX model is the
-higher-fidelity choice once you have one — see
+BoVW needs no model file, so it works out of the box. An ONNX model is the higher-fidelity choice once you have one: see
 [Use an ONNX model for embeddings](../notebooks/onnx_embeddings.py).
 
-An evaluator that compares sources reads them by position. A drift check takes the reference first, then the
-data to test:
+### Compare sources by position
+
+An evaluator that compares sources reads them by position. A drift check takes the reference first, then the data to
+test:
 
 ```yaml
 evaluators:
@@ -83,17 +86,12 @@ tasks:
     extractor: bovw_ext
 ```
 
-`drift-wasserstein` takes three sources: the reference, an in-distribution validation set, then the data to
-test.
+`drift-wasserstein` takes three sources: the reference, an in-distribution validation set, then the data to test.
 
-The config refuses, when it loads, a task that names the wrong number of sources or
-leaves out an extractor its evaluator needs.
+## Read the output
 
-## 4. Read the output
-
-Run the pipeline as usual. In `results/result.json` the task's entry has
-`"kind": "evaluator"`, the result envelope under `metadata`, and DataEval's output
-under `output`:
+Run the pipeline as usual. In `results/result.json` the task's entry has `"kind": "evaluator"`, the result envelope
+under `metadata`, and DataEval's output under `output`:
 
 ```json
 {
@@ -108,15 +106,14 @@ under `output`:
 }
 ```
 
-There is no `health` entry. `--fail-on-warning` never fails a run because of an
-evaluator, though an evaluator that fails to run still fails it.
+There is no `health` entry. `--fail-on-warning` never fails a run because of an evaluator, though an evaluator that
+fails to run still fails it.
 
-## 5. From Python
+## Run it from Python
 
-The same run from Python returns an `EvaluatorResult`. Like a workflow's
-`ChainResult`, it is a `Result`: `report()`, `to_dict()` and `export()` work the
-same way on both, and `output` holds what the run produced. `run_tasks` returns
-each task's result keyed by the task's name:
+The same run from Python returns an `EvaluatorResult`. Like a workflow's `ChainResult`, it is a `Result`: `report()`,
+`to_dict()` and `export()` work the same way on both, and `output` holds what the run produced. `run_tasks` returns each
+task's result keyed by the task's name:
 
 ```python
 from pathlib import Path
@@ -133,8 +130,7 @@ assert isinstance(result, DuplicatesResult)
 native = result.output  # DataEval's own DuplicatesOutput
 ```
 
-`run` runs an evaluator on a dataset already in memory, with no config file, and
-returns the config's own result class:
+`run` runs an evaluator on a dataset already in memory, with no config file, and returns the config's own result class:
 
 ```python
 from dataeval_flow import run
@@ -143,18 +139,14 @@ from dataeval_flow.evaluators.quality import DuplicatesConfig
 result = run(DuplicatesConfig(), dataset)  # a DuplicatesResult; `dataset` is any AnnotatedDataset
 ```
 
-`result.output` is the object DataEval returned, so its own methods work as DataEval
-documents them — for Duplicates, `native.aggregate_by_image()` groups the rows by image.
-`isinstance(result, DuplicatesResult)` types it. Reading `output` on a failed run raises an error naming
-what went wrong. Check `result.success` first. The
-[Evaluator Catalog](../reference/evaluators.md) links each evaluator to its DataEval
-reference page.
+`result.output` is the object DataEval returned, so its own methods work as DataEval documents them. For Duplicates,
+`native.aggregate_by_image()` groups the rows by image. `isinstance(result, DuplicatesResult)` types it. Reading
+`output` on a failed run raises an error that names what went wrong, so check `result.success` first. The Evaluator
+Catalog links each evaluator to its DataEval reference page.
 
-## See also
+## Next steps
 
-- [Workflows and Evaluators](../concepts/WorkflowsAndEvaluators.md) — when to use an
-  evaluator instead of a workflow
-- [Evaluator Catalog](../reference/evaluators.md) — every evaluator and parameter
-- [Evaluator recipes](evaluator_recipes.md) — one worked example per question
-- [Read evaluation outputs](read_evaluation_outputs.md) — the result envelope both
-  kinds share
+- [Workflows and Evaluators](../concepts/WorkflowsAndEvaluators.md) — Choose between an evaluator and a workflow.
+- [Read the result envelope](read_the_result_envelope.md) — Read the envelope that evaluators and workflows share.
+- [Find regions the data does not cover](find_uncovered_regions.md) — Run an evaluator that needs an extractor, and read
+  its output.
