@@ -1,15 +1,14 @@
 # Glossary
 
-Key vocabulary for using DataEval Flow. Orchestration terms (workflow, pipeline,
-source, extractor, …) are defined here in full; for the underlying evaluator
-science, each entry links to the
-[DataEval explanations](https://dataeval.readthedocs.io/en/latest/) and the
-DataEval Flow [Explanation pages](../concepts/index.md).
+Key vocabulary for using DataEval Flow. Orchestration terms (workflow, pipeline, source, extractor, …) are defined here
+in full. For the underlying evaluator science, each entry links to the
+[DataEval explanations](https://dataeval.readthedocs.io/en/latest/) and the DataEval Flow
+[Explanations](../concepts/index.md).
 
 ```{glossary}
 Accepted Risk
     A warning accepted under an `audit` entry's `accepted:`, with the reason, keyed by check type (every split), by
-    check step (all its runs) or by `step[split]` (one run). An accepted warning can't make the
+    check step (all its runs) or by `step[split]` (one run). An accepted warning cannot make the
     {term}`verdict<Verdict>` `not-ready`, but it leaves the verdict `ready-with-caveats`, keeps its severity and
     evidence, and still counts toward health. See [Preset Catalog](presets.md#audit).
 
@@ -22,7 +21,7 @@ Binning
     Cutting a continuous {term}`factor<Factor>` into intervals so evaluators read
     interval codes rather than measured values. Bias, balance, diversity, and
     parity all operate on binned codes, so where the cuts fall changes the
-    numbers they report. A categorical factor is *digitized*: mapped to
+    numbers they report. A categorical factor is digitized: mapped to
     ordinals, one code per distinct value. See
     [Configure metadata binning](../how_to/configure_metadata_binning.md).
 
@@ -155,7 +154,7 @@ Execution Mode
     the same data, are the same in every mode. See [Execution Modes](../concepts/ExecutionModes.md).
 
 Extractor
-    Also *feature extractor*. A component that turns images into
+    Also called a feature extractor. A component that turns images into
     {term}`embeddings<Embedding>`. DataEval Flow ships ONNX, PyTorch,
     {term}`BoVW<Bag-of-Visual-Words (BoVW)>`, Flatten, and Uncertainty
     extractors; an extractor may reference a {term}`preprocessor<Preprocessor>`.
@@ -179,7 +178,7 @@ Key
     [Addresses and lists](../concepts/WorkflowsAsChains.md#addresses-and-lists).
 
 MAITE
-    Modular AI Trustworthy Engineering — the JATIC protocol for interoperable
+    Modular AI Trustworthy Engineering, the JATIC protocol for interoperable
     AI/ML datasets, models, and components. MAITE-compliant inputs give DataEval
     Flow native interoperability with the rest of the JATIC suite.
 
@@ -218,12 +217,12 @@ Not Assessed
     why. See [How thresholds work](checks.md#how-thresholds-work).
 
 ONNX
-    Open Neural Network Exchange — an open model format. DataEval Flow can use an
+    Open Neural Network Exchange, an open model format. DataEval Flow can use an
     ONNX model as a {term}`feature extractor<Extractor>` for embedding
     extraction.
 
 Ontology
-    A machine-readable statement of the sanctioned label space — the concepts in a
+    A machine-readable statement of the sanctioned label space: the concepts in a
     domain and how they relate. Declaring one lets the `taxonomy` workflow
     validate a dataset's labels and name classes missing entirely. See the
     [DataEval Ontology explanation](https://dataeval.readthedocs.io/en/latest/concepts/Ontology.html).
@@ -246,7 +245,7 @@ Output
 Performance Target
     A value a model's metric should reach, such as 0.9 accuracy: what `performance-sufficiency` reads off a
     `sufficiency` learning curve, set in its `targets:`, and what `feasibility` decides the data can demonstrate
-    reachable, set in its `target:`. Not an annotated object (a detection or a track), which is a *target* in the
+    reachable, set in its `target:`. Not an annotated object (a detection or a track), which is a target in the
     sense of `target-outliers` and the item or target level.
 
 Pipeline
@@ -315,7 +314,7 @@ Severity
     Each check's entry in the [Check Catalog](checks.md) says which applies when.
 
 Source
-    A configured dataset input — a {term}`MAITE`-compatible dataset or one
+    A configured dataset input: a {term}`MAITE`-compatible dataset or one
     consumed through an adapter (HuggingFace, COCO, YOLO, TorchVision,
     ImageFolder).
 
@@ -334,8 +333,8 @@ Subject
     from its type, as in `Drift (MMD) · mmd`. See [Naming Conventions](naming.md).
 
 Task
-    A single configured unit of work within a {term}`pipeline<Pipeline>` —
-    binding a {term}`source<Source>` (or sources) to exactly one
+    A single configured unit of work within a {term}`pipeline<Pipeline>`. It
+    binds a {term}`source<Source>` (or sources) to exactly one
     {term}`workflow<Workflow>` or {term}`evaluator<Evaluator>`.
 
 Test Source

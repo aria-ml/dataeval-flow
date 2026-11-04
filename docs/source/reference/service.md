@@ -19,7 +19,7 @@ it. It serves until `SIGINT` or `SIGTERM`.
 | Option         | Environment variable    | Default                                             | Purpose                                         |
 | -------------- | ----------------------- | --------------------------------------------------- | ----------------------------------------------- |
 | `-d, --data`   | `DATAEVAL_DATA`         | `/dataeval` in the container; the current directory | Data root that pipelines' paths resolve against |
-| `-o, --output` | `DATAEVAL_OUTPUT`       | `/output` in the container; **required** otherwise  | Run history and every run's files               |
+| `-o, --output` | `DATAEVAL_OUTPUT`       | `/output` in the container; required otherwise      | Run history and every run's files               |
 | `-k, --cache`  | `DATAEVAL_CACHE`        | `/cache` when mounted, else `<output>/cache`        | Computation cache the runs share                |
 | `--host`       | `DATAEVAL_SERVICE_HOST` | `0.0.0.0` in the container; `127.0.0.1` otherwise   | Address to listen on                            |
 | `--port`       | `DATAEVAL_SERVICE_PORT` | `8001`                                              | Port to listen on                               |
@@ -30,13 +30,13 @@ A command-line option overrides its environment variable, which overrides the de
 root does not exist, or the `service` extra is not installed. It exits `3` when another service already holds the
 run queue in the same output directory.
 
-The service reads no secrets and has **no authentication**. Anyone who can reach its port can queue, cancel and read
-runs. Bind it to a trusted network only.
+The service reads no secrets and has no authentication. Anyone who can reach its port can queue, cancel and read runs.
+Bind it to a trusted network only.
 
-A pipeline may run the `sufficiency` evaluator, which runs a trainer: Python code. Its `trainer.path` must name a file
-in the `trainers/` folder of the service's data root, and a path elsewhere is refused, symlinks followed, so a posted
-pipeline runs only trainers the operator put there. The service checks the path when it validates a pipeline, and never
-imports a trainer then: a run loads it in its own process when it starts.
+A pipeline may run the `sufficiency` evaluator, which runs a trainer. A trainer is Python code. Its `trainer.path` must
+name a file in the `trainers/` folder of the service's data root. A path elsewhere is refused, with symlinks followed,
+so a posted pipeline runs only trainers the operator put there. The service checks the path when it validates a
+pipeline and never imports a trainer then. A run loads the trainer in its own process when it starts.
 
 ## Endpoints
 
@@ -81,9 +81,9 @@ Request and response bodies are JSON, except the logs and the files. Times are U
 | `422`  | The request is malformed, the run would fail before any task ran, or the run cannot answer the selection; an `after` beyond the run's last event, or a `limit` outside 1 to 100; the body says why                                                                                                                                                                                                                                                                                                                             |
 | `503`  | From a probe only: the service cannot run work; the body names the reasons                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
-A `422` body is `{"detail": [{"type", "loc", "msg"}, ...]}`: `loc` is where in the request the error is, such as
-`["body", "pipeline", "result", "formats"]`, as Pydantic gives it for a field the configuration refuses, or
-`["body", "predicate", "index"]` for a bin a selection names that the histogram doesn't have. Every `404` and `409`
+A `422` body is `{"detail": [{"type", "loc", "msg"}, ...]}`. `loc` is where in the request the error is. For a field the
+configuration refuses, Pydantic gives a `loc` such as `["body", "pipeline", "result", "formats"]`. For a bin that a
+selection names and the histogram does not have, `loc` is `["body", "predicate", "index"]`. Every `404` and `409`
 carries `{"detail": "<why>"}`, except the extension errors.
 
 The builder contracts' errors (`schema_changed`, `activity_unavailable`, `document_too_large` and `too_many_nodes`)
@@ -109,7 +109,7 @@ All three routes refuse with `422` a request that would fail before any task ran
 - a `result: require` when none of the tasks to run gives a verdict (only presets such as `audit` do)
 - a `result: formats` without `json`: the service reads each run's results as JSON
 
-A pipeline whose workflows don't connect is refused by `/v1/validate` and `/v1/runs` with one `422` entry per problem,
+A pipeline whose workflows do not connect is refused by `/v1/validate` and `/v1/runs` with one `422` entry per problem,
 while `/v1/resolve` answers `200` and reports the same problems as `diagnostics`. Each entry's `loc` is the problem's
 step, and its port when it has one, such as `["body", "pipeline", "workflows", 0, "steps", 1, "input"]`.
 
@@ -168,8 +168,8 @@ data decides them.
 A diagnostic's `document_pointer` points at the port when it has one, else at the step, else at the workflow or task.
 `task` is `null` for a workflow no selected task runs. Its `node_id` names the step the problem is on, which may not be
 among `nodes`: the graph stops before it, or it is a preset step whose nodes are `<step>/<inner>`. Locate it by
-`document_pointer`. A `task_problem` can name a task that isn't in the selected `tasks[]`, because every task's bindings
-are checked, as `/v1/validate` checks them.
+`document_pointer`. A `task_problem` can name a task that is not in the selected `tasks[]`, because every task's
+bindings are checked, as `/v1/validate` checks them.
 
 A problem with a scope of a custom workflow (see [Inline](#inline)) points at the scope, `/workflows/<i>/scopes/<k>`, or
 at one of its inputs, `/workflows/<i>/scopes/<k>/inputs/<slot>`. Its `node_id` is `null`, as no one step has the
@@ -177,24 +177,24 @@ problem, and its `port` holds the scope's input name, `<slot>`, where an input i
 
 Each `code` is one of:
 
-| Code                 | Raised when                                                                                                                |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `unknown_address`    | An address names no slot, step or output                                                                                   |
-| `forward_address`    | It names a step that runs later                                                                                            |
-| `ambiguous_output`   | A bare name is used on a multi-output step, or `.output` on a single-output step                                           |
-| `unavailable_output` | The settings leave the output empty                                                                                        |
-| `wrong_type`         | The data type doesn't match the port                                                                                       |
-| `wrong_class`        | The Output class doesn't fit the port's classes                                                                            |
-| `list_mismatch`      | A list is read where a non-list port won't broadcast, lists are nested, `[key]` is used on a non-list, or a key is unknown |
-| `count_mismatch`     | The port's `count` is violated                                                                                             |
-| `wrong_dataset`      | A `same_node`, `shared_datasets` or `computed_on` rule is violated                                                         |
-| `too_many_verdicts`  | A workflow has more than one verdict-giving step                                                                           |
-| `bad_extractor`      | A step's `extractor` names no entry or is invalid                                                                          |
-| `bad_by`             | `by:` or `pairs:` is misused                                                                                               |
-| `unknown_entry`      | An evaluator or workflow step names an entry its pool lacks, or a custom workflow                                          |
-| `bad_address`        | A port field holds text that isn't an address, or a pooled step has no `input:`                                            |
-| `task_problem`       | A task's sources don't bind to its workflow's inputs, an extractor is missing, or exports clash                            |
-| `graph_error`        | Anything else                                                                                                              |
+| Code                 | Raised when                                                                                                                   |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `unknown_address`    | An address names no slot, step or output                                                                                      |
+| `forward_address`    | It names a step that runs later                                                                                               |
+| `ambiguous_output`   | A bare name is used on a multi-output step, or `.output` on a single-output step                                              |
+| `unavailable_output` | The settings leave the output empty                                                                                           |
+| `wrong_type`         | The data type does not match the port                                                                                         |
+| `wrong_class`        | The Output class does not fit the port's classes                                                                              |
+| `list_mismatch`      | A list is read where a non-list port will not broadcast, lists are nested, `[key]` is used on a non-list, or a key is unknown |
+| `count_mismatch`     | The port's `count` is violated                                                                                                |
+| `wrong_dataset`      | A `same_node`, `shared_datasets` or `computed_on` rule is violated                                                            |
+| `too_many_verdicts`  | A workflow has more than one verdict-giving step                                                                              |
+| `bad_extractor`      | A step's `extractor` names no entry or is invalid                                                                             |
+| `bad_by`             | `by:` or `pairs:` is misused                                                                                                  |
+| `unknown_entry`      | An evaluator or workflow step names an entry its pool lacks, or a custom workflow                                             |
+| `bad_address`        | A port field holds text that is not an address, or a pooled step has no `input:`                                              |
+| `task_problem`       | A task's sources do not bind to its workflow's inputs, an extractor is missing, or exports clash                              |
+| `graph_error`        | Anything else                                                                                                                 |
 
 A workflow reports at most one graph problem: resolution stops at the first, and the steps before it are kept in the
 graph. Steps run in the order written, so reading a step listed later is `forward_address`. A task with a `matrix`
@@ -204,11 +204,11 @@ outputs a step leaves empty, or which keys a list holds, is not reflected in the
 ## Preset decomposition
 
 `POST /v1/presets/decompose` prepares the copy of a preset entry as a custom workflow, or the inlining of a preset step
-into the workflow running it: the whole candidate pipeline an editor shows and, once the user accepts it, applies as one
-edit. It reads no data, stores nothing and queues nothing.
-It checks the pin and parses the draft as `/v1/resolve` does, so a stale pin is the same `409 schema_changed` and a
-malformed draft the same `422`, located under `["body", "pipeline", ...]`. A candidate resolving to more than
-`limits.max_resolved_nodes` nodes is a `413` `too_many_nodes`. Clients check `features.preset_decomposition`.
+into the workflow running it. The candidate is the whole pipeline an editor shows and, once the user accepts it, applies
+as one edit. The route reads no data, stores nothing and queues nothing. It checks the pin and parses the draft as
+`/v1/resolve` does, so a stale pin is the same `409 schema_changed` and a malformed draft the same `422`, located under
+`["body", "pipeline", ...]`. A candidate resolving to more than `limits.max_resolved_nodes` nodes is a `413`
+`too_many_nodes`. Clients check `features.preset_decomposition`.
 
 The body is:
 
@@ -221,13 +221,16 @@ The body is:
 | `reassign_tasks`              | List of task names   | `[]`     | Tasks running the target entry to run the copy instead; every other task is left alone                        |
 | `expected_schema_fingerprint` | `schema_fingerprint` | None     | As in the [run request](#run-request)                                                                         |
 
-A request that names nothing to decompose is a `422` located at the field. For `copy_definition`: a `target_pointer`
-that isn't `/workflows/<i>`, or names no workflow or one that is no preset; a missing or taken `new_name`; or a
-`reassign_tasks` entry that is unknown, repeated or runs another workflow, located at its index, such as
-`["body", "reassign_tasks", 1]`. For `inline_step`: a `new_name` or `reassign_tasks` given, which it doesn't take; a
-`target_pointer` that isn't `/workflows/<i>/steps/<j>`, or names no step of a custom workflow; a step that runs no
-preset; or a step that doesn't resolve, whose bindings are then unknown (see [Inline](#inline)). An index in a pointer
-is written as JSON Pointer writes one, so `/workflows/01` is refused.
+A request that names nothing to decompose is a `422` located at the field. Each of these is a `422` too:
+
+- For `copy_definition`: a `target_pointer` that is not `/workflows/<i>`, or names no workflow or one that is no preset;
+  a missing or taken `new_name`; or a `reassign_tasks` entry that is unknown, repeated or runs another workflow, located
+  at its index, such as `["body", "reassign_tasks", 1]`.
+- For `inline_step`: a `new_name` or `reassign_tasks` given, which it does not take; a `target_pointer` that is not
+  `/workflows/<i>/steps/<j>`, or names no step of a custom workflow; a step that runs no preset; or a step that does not
+  resolve, whose bindings are then unknown (see [Inline](#inline)).
+
+An index in a pointer is written as JSON Pointer writes one, so `/workflows/01` is refused.
 
 Both answers carry `schema`, `schema_fingerprint`, `operation`, `target_pointer`, `supported_operations` and `status`;
 tell them apart by `status`.
@@ -291,11 +294,11 @@ without making the copy unavailable. The client applies `pipeline` as it is; `ch
 
 `structure` has one entry per setting that decides the preset's steps: the steps the copy keeps as `included_steps`, and
 as `excluded_steps` the ones another value would add, which are never in the candidate. `value` is the setting's value,
-its default where the entry doesn't write it, and `written` says whether the entry does; `effective_value` is what a
+its default where the entry does not write it, and `written` says whether the entry does; `effective_value` is what a
 `null` value stands for, where it stands for one, and is `null` otherwise. A preset none of whose settings decides its
 steps, such as `quality`, has an empty `structure`. `representational_changes` are differences in how the copy is
 represented, though its results mean the same: `result_type` (the copy's results carry the custom workflow's type) and
-`outputs_not_carried` (a custom workflow declares no outputs, so it can't run as a step).
+`outputs_not_carried` (a custom workflow declares no outputs, so it cannot run as a step).
 
 ### Names and `derived_from`
 
@@ -316,7 +319,7 @@ and the workflow's other uses of it stay as they were. The answer is `ready` or 
 `supported_operations` is `["copy_definition", "inline_step"]`.
 
 A target that is no step of a custom workflow, or runs no preset, is a `422` at `["body", "target_pointer"]`, as is a
-step that doesn't resolve: the workflow's graph stops at or before it, so its bindings are unknown, and the message
+step that does not resolve: the workflow's graph stops at or before it, so its bindings are unknown, and the message
 says why. This is checked before any reason is looked for. A trimmed answer, from inlining step `c`, which runs preset
 `q` (`quality`), of workflow `outer`:
 
@@ -403,7 +406,7 @@ problem.
 
 ### Unsupported
 
-A copy or inlining that can't be prepared answers `200` with `status: "unsupported"`, the OpenAPI component
+A copy or inlining that cannot be prepared answers `200` with `status: "unsupported"`, the OpenAPI component
 `DecomposeUnsupported`: every reason found and no `pipeline` to apply.
 
 ```json
@@ -433,8 +436,8 @@ Branch on `code`; `category` says whose gap it is:
 
 | Code                         | Category              | Raised when                                                                                       |
 | ---------------------------- | --------------------- | ------------------------------------------------------------------------------------------------- |
-| `unsupported_matrix_rewrite` | `scope_limit`         | A reassigned task's matrix varies a setting of the preset entry, which the copy doesn't have      |
-| `undeclared_structure`       | `plugin_contract_gap` | A plugin preset declares no `structure`, so Flow can't say which settings decide its steps        |
+| `unsupported_matrix_rewrite` | `scope_limit`         | A reassigned task's matrix varies a setting of the preset entry, which the copy does not have     |
+| `undeclared_structure`       | `plugin_contract_gap` | A plugin preset declares no `structure`, so Flow cannot say which settings decide its steps       |
 | `unrepresentable_preflight`  | `plugin_contract_gap` | A plugin preset refuses runs by overriding `Preset.preflight`, which no custom workflow can carry |
 
 For `inline_step`, `unsupported_matrix_rewrite` is raised for a key of a task running the workflow with the step that
@@ -442,8 +445,8 @@ varies a setting of the preset entry, or an address field of a step the inlining
 the step running the preset or take the key out of the matrix. `undeclared_structure` and `unrepresentable_preflight`
 are raised as for a copy.
 
-The categories are `implementation_gap` (Flow doesn't do it yet; no reason has it today), `plugin_contract_gap` (the
-preset's author has to declare something) and `scope_limit` (Flow doesn't do it by design). `missing_capability` names
+The categories are `implementation_gap` (Flow does not do it yet; no reason has it today), `plugin_contract_gap` (the
+preset's author has to declare something) and `scope_limit` (Flow does not do it by design). `missing_capability` names
 what is missing, where one is, and `remediation` says what would change the answer. An `unsupported_matrix_rewrite`
 reason's `document_pointer` is the matrix key itself, `/tasks/<i>/matrix/<key>`, or `/tasks/<i>/matrix/<grid>/<key>` in
 a list of grids, with `/` and `~` in the key escaped as JSON Pointer escapes them; `details` gives the `task` and the
@@ -580,7 +583,7 @@ Steps run one at a time, in config order. A task with a matrix runs its steps on
 `<task>:<step>#<n>`, with `definition_node_id` naming the step it repeats. A step that takes a list reports its
 elements, each with a status, a reason and `not_assessed`, on its finished row.
 
-The service closes a run's activity before its record turns final, so activity never trails the record: a run that is
+The service closes a run's activity before its record turns final, so activity never trails the record. A run that is
 cancelled, fails or is interrupted leaves its running steps `cancelled` or `interrupted`, and the rest `pending` with a
 reason. Events are kept for the run's life, so `first_available_sequence` is always `1` and `cursor_expired` is never
 sent. A run queued before the service recorded activity has no events: its activity routes answer `409
@@ -589,7 +592,7 @@ activity_unavailable`, and its results, logs and artifacts stay readable.
 ## Items
 
 The item routes serve the images, boxes, labels and metadata a run read, for as long as the data still matches what
-the run read. A run records what it read when it runs a `content-digest` task over the source: the manifest holds each
+the run read. A run records what it read when it runs a `content-digest` task over the source. The manifest holds each
 item's SHA-256 over its image and labels, and over its metadata, with its position under the source's view and beneath
 it. The service keeps no copy of the data. To serve an item, it loads the source from the run's own snapshot, finds the
 item the run read by its position beneath the view, hashes it again, and compares. A run that reads a source to show
@@ -646,7 +649,7 @@ Only a `verified` item carries its image, boxes and metadata.
 
 `GET /v1/runs/{id}/items/{source}/{index}/image` returns the item's image as a PNG at its own size. `target` crops one
 box with a margin of a tenth of its size. `max_side` shrinks the image to fit that many pixels across. An item that is
-not `verified` answers `409` with the item's status, a box the item doesn't hold `404`, and an item that is no image
+not `verified` answers `409` with the item's status, a box the item does not hold `404`, and an item that is no image
 `422`. A float image is scaled to 0–255 by the dataset's `value_range`, else by its own range.
 
 ## Selections
