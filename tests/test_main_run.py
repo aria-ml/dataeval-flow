@@ -571,6 +571,18 @@ class TestWorkflowsCommand:
         assert {"name", "description"} <= set(entries[0])
         assert [e["name"] for e in entries] == sorted(e["name"] for e in entries)
 
+    def test_an_experimental_workflow_is_marked(self, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch):
+        from dataeval_flow.__main__ import _list_workflows
+        from dataeval_flow.workflows.bias import BiasWorkflow
+
+        monkeypatch.setattr(BiasWorkflow, "experimental", True)
+        assert _list_workflows(None, as_json=True) == 0
+        marked = {e["name"] for e in json.loads(capsys.readouterr().out) if e["experimental"]}
+        assert marked == {"bias"}
+        assert _list_workflows(None, as_json=False) == 0
+        lines = capsys.readouterr().out.splitlines()
+        assert [line.split()[0] for line in lines if "(experimental)" in line] == ["bias"]
+
     def test_named_workflow_prints_its_config_schema(self, capsys: pytest.CaptureFixture):
         from dataeval_flow.__main__ import _list_workflows
 
@@ -618,6 +630,16 @@ class TestEvaluatorsCommand:
         entries = json.loads(capsys.readouterr().out)
         assert {"name", "description", "consumes", "sources"} <= set(entries[0])
         assert [e["name"] for e in entries] == sorted(e["name"] for e in entries)
+
+    def test_experimental_evaluators_are_marked(self, capsys: pytest.CaptureFixture):
+        from dataeval_flow.__main__ import _list_evaluators
+
+        experimental = {"feasibility", "parity", "sufficiency"}
+        assert _list_evaluators(None, as_json=True) == 0
+        assert {e["name"] for e in json.loads(capsys.readouterr().out) if e["experimental"]} == experimental
+        assert _list_evaluators(None, as_json=False) == 0
+        lines = capsys.readouterr().out.splitlines()
+        assert {line.split()[0] for line in lines if "(experimental)" in line} == experimental
 
     def test_named_evaluator_prints_its_config_schema(self, capsys: pytest.CaptureFixture):
         from dataeval_flow.__main__ import _list_evaluators

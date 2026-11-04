@@ -436,14 +436,17 @@ def _list_workflows(name: str | None, *, as_json: bool) -> int:
         print(json.dumps(workflow.config_type.model_json_schema(), indent=2))
         return 0
 
-    entries = [{"name": cls.name, "description": cls.description} for cls in list_workflows()]
+    entries = [
+        {"name": cls.name, "description": cls.description, "experimental": cls.experimental} for cls in list_workflows()
+    ]
     if as_json:
         print(json.dumps(entries, indent=2))
         return 0
 
-    width = max(len(w["name"]) for w in entries)
+    width = max(len(str(w["name"])) for w in entries)
     for entry in entries:
-        print(f"  {entry['name']:<{width}}  {entry['description']}")
+        marker = "(experimental) " if entry["experimental"] else ""
+        print(f"  {entry['name']:<{width}}  {marker}{entry['description']}")
     return 0
 
 
@@ -471,15 +474,17 @@ def _list_evaluators(name: str | None, *, as_json: bool) -> int:
         print(json.dumps(entries, indent=2))
         return 0
 
-    width = max(len(e["name"]) for e in entries)
+    width = max(len(str(e["name"])) for e in entries)
     for entry in entries:
-        print(f"  {entry['name']:<{width}}  {entry['description']}")
+        marker = "(experimental) " if entry["experimental"] else ""
+        print(f"  {entry['name']:<{width}}  {marker}{entry['description']}")
         print(f"  {'':<{width}}  consumes: {entry['consumes']}; sources: {entry['sources']}")
     return 0
 
 
-def _evaluator_entry(cls: "type[Evaluator[Any, Any]]") -> dict[str, str]:
-    """An evaluator's listing: its name and description, what it consumes, and how many sources it reads."""
+def _evaluator_entry(cls: "type[Evaluator[Any, Any]]") -> dict[str, str | bool]:
+    """An evaluator's listing: its name and description, what it consumes, how many sources it reads, and whether
+    it is experimental."""
     spec = cls.config_type.inputs
     consumes = [*sorted(spec.required), *(f"{kind} (optional)" for kind in sorted(spec.optional))]
     return {
@@ -487,6 +492,7 @@ def _evaluator_entry(cls: "type[Evaluator[Any, Any]]") -> dict[str, str]:
         "description": cls.description,
         "consumes": ", ".join(consumes),
         "sources": spec.sources.value,
+        "experimental": cls.experimental,
     }
 
 

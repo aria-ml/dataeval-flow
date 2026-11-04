@@ -287,6 +287,7 @@ class TestRegistry:
             "description": "Statistic names per source",
             "consumes": "stats",
             "sources": "1+",
+            "experimental": False,
         }
 
 

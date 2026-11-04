@@ -83,7 +83,8 @@ you upgrade. It covers each change that a v0.2 config or script needs.
   - A cancelled, failed or interrupted run closes what was running before its record turns final
 - `ExperimentalWarning`: a run warns with it once per process, the first time it uses an experimental step type
   - `parity` and `factor-parity` are experimental, as DataEval's `Parity` is
-  - `experimental = True` marks a step class experimental, a plugin's too; `dataeval-flow steps` and the catalog show it
+  - `experimental = True` marks a step class experimental, a plugin's too
+  - `dataeval-flow steps`, `evaluators` and `workflows` mark it, and so does the catalog
   - It subclasses DataEval's `ExperimentalWarning`, so one filter covers both
 - `run_tasks(..., on_result=...)`, called with each task's name and result as soon as the task finishes
 - `judges` and `judged_by` in the step catalog link each check to the Outputs it judges

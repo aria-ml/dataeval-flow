@@ -11,8 +11,9 @@ workflow. You need a config that defines `datasets:` and `sources:`.
 dataeval-flow evaluators
 ```
 
-Each line names an evaluator type, what it consumes, and how many sources its task takes. The command
-`dataeval-flow evaluators duplicates` prints that evaluator's parameters. The
+Each line names an evaluator type, what it consumes, and how many sources its task takes. An experimental type says
+`(experimental)` before its description. The command `dataeval-flow evaluators duplicates` prints that evaluator's
+parameters. The
 [Evaluator Catalog](../reference/evaluators.md) lists the same for every type.
 
 ## Define the evaluator
