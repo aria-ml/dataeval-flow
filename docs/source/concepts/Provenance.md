@@ -1,112 +1,89 @@
 # Provenance
 
-A finding is only interpretable if you know what produced it. "The dataset has a
-12% out-of-distribution rate" means nothing without its lineage: *which* dataset,
-under *which* selection, represented by *which* model, evaluated with *which*
-configuration, by *which* version of the tool, and *when*. **Provenance** is that
-recorded lineage — the context that travels with a result so it can be
-interpreted, audited, compared to other runs, and handed to another tool without
-out-of-band knowledge.
+A finding is only interpretable if you know what produced it. "The dataset has a 12% out-of-distribution rate" means
+nothing without its lineage: which dataset, under which selection, represented by which model, evaluated with which
+configuration, by which version of the tool, and when. **Provenance** is that recorded lineage: the context that travels
+with a result so it can be interpreted, audited, compared to other runs, and handed to another tool without out-of-band
+knowledge.
 
-In test and evaluation, provenance is a requirement. An assessment archives
-results and revisits them later; a program compares an operational dataset
-against a baseline collected months earlier; a downstream stage in a pipeline
-consumes findings it did not produce. Each of these needs the result to be
-**self-describing**. A findings document without provenance is a number stripped
-of the context that makes it meaningful. DataEval Flow's output architecture
-exists to attach that context automatically — the architecture is the *how*;
-provenance is the *why*.
+In test and evaluation, provenance is a requirement. An assessment archives results and revisits them later; a program
+compares an operational dataset against a baseline collected months earlier; a downstream stage in a pipeline consumes
+findings it did not produce. Each of these needs the result to be self-describing. A findings document without
+provenance is a number stripped of the context that makes it meaningful. DataEval Flow's output architecture exists to
+attach that context automatically. The architecture is the how; provenance is the why.
 
 ## Every result is an envelope
 
-Every workflow returns its result in the same shape: a typed **result envelope**
-that pairs a human-readable report with a machine-readable record of the run. The
-envelope carries the workflow's name, whether it succeeded, the typed findings, any
-errors, and — central to provenance — a **metadata envelope** describing the run
-itself. A person reads the report; another tool consumes the structured document;
-both are projections of the same envelope, so the two views never drift apart.
+Every workflow returns its result in the same shape: a typed **result envelope** that pairs a human-readable report with
+a machine-readable record of the run. The envelope carries the workflow's name, whether it succeeded, the typed
+findings, any errors, and a **metadata envelope** that describes the run itself. The metadata envelope is central to
+provenance. A person reads the report; another tool consumes the structured document; both are projections of the same
+envelope, so the two views never drift apart.
 
 ## The metadata envelope is the provenance record
 
-The metadata envelope is the machine-readable record of *what was run*, kept
-distinct from *what was found*. It captures the context a consumer needs to
-interpret the findings, including:
+The metadata envelope is the machine-readable record of what was run, kept distinct from what was found. It captures the
+context a consumer needs to interpret the findings, including:
 
-- a schema **version** and a **timestamp**,
-- the **dataset identifier(s)** evaluated, and where relevant the label source,
-- the **label space** the labels were read under, recorded as a digest when a dataset
-  was conformed to a reference vocabulary. The same digest appears on the alignment
-  result, so a result can be matched to the taxonomy run that produced its vocabulary,
-- the **model**, **preprocessor**, and **selection** identifiers that defined the
-  representation,
-- human-readable **source descriptions**,
-- the **resolved configuration** that produced the result — the fully-resolved
-  description of the run, serving as an audit trail, and
-- the **tool name and version** plus the **execution time**, and the **versions of the
-  libraries** the numbers depend on: DataEval, PyTorch, NumPy, the image decoders
-  (Pillow, datamaite, OpenCV) and the extractor's runtime.
+- a schema version and a timestamp,
+- the dataset identifier(s) evaluated, and where relevant the label source,
+- the label space the labels were read under, recorded as a digest when a dataset was conformed to a reference
+  vocabulary. The same digest appears on the alignment result, so a result can be matched to the taxonomy run that
+  produced its vocabulary,
+- the model, preprocessor, and selection identifiers that defined the representation,
+- human-readable source descriptions,
+- the resolved configuration that produced the result, which is the fully-resolved description of the run and serves as
+  an audit trail, and
+- the tool name and version plus the execution time, and the versions of the libraries the numbers depend on: DataEval,
+  PyTorch, NumPy, the image decoders (Pillow, datamaite, OpenCV) and the extractor's runtime.
 
-Recording this context in a fixed, versioned structure is what lets results be
-archived, compared across runs, and consumed by other tools without out-of-band
-knowledge. The same envelope renders a text report for a person — a summary with an
-overall health status, optionally followed by per-finding detail and the resolved
-configuration — that is a *view* of the result, not a separate computation, so a
-reader and an automated consumer are always looking at the same run.
+Recording this context in a fixed, versioned structure is what lets results be archived, compared across runs, and
+consumed by other tools without out-of-band knowledge. The same envelope renders a text report for a person: a summary
+with an overall health status, optionally followed by per-finding detail and the resolved configuration. That report is
+a view of the result, not a separate computation, so a reader and an automated consumer are always looking at the same
+run.
 
 ## Resolved configuration closes the loop
 
-The most consequential field in the metadata envelope is the **resolved
-configuration**. Because the exact, fully-resolved description of the run travels
-with the result, the inputs that produced any finding can be recovered and re-run.
-This is precisely where provenance meets [reproducibility](Reproducibility.md):
-provenance records the inputs; reproducibility guarantees that replaying them
-reproduces the result. A result you can trace is a result you can reproduce.
+The most consequential field in the metadata envelope is the resolved configuration. Because the exact, fully-resolved
+description of the run travels with the result, the inputs that produced any finding can be recovered and re-run. This
+is where provenance meets [reproducibility](Reproducibility.md): provenance records the inputs, and reproducibility
+guarantees that replaying them reproduces the result.
 
 ## A merged dataset records every operand
 
-A source can merge other sources into one dataset. Every envelope field that
-names one input then names all of them: **dataset identifiers** list each
-operand's dataset, the **selection identifier** lists every view in the chain,
-operand views first and the merged source's own view last, the **source
-descriptions** spell the merge out, and the **label source** becomes a list
-where the operands disagree about where their labels came from.
+A source can merge other sources into one dataset. Every envelope field that names one input then names all of them:
+dataset identifiers list each operand's dataset, the selection identifier lists every view in the chain, operand views
+first and the merged source's own view last, the source descriptions spell the merge out, and the label source becomes a
+list where the operands disagree about where their labels came from.
 
-The resolved configuration recurses too. A merged source expands into a `merge`
-list, one entry per operand, with each operand's dataset config and view config
-inlined. Nothing about the run has to be looked up elsewhere, so a merged run is
-replayable from the envelope alone.
+The resolved configuration recurses too. A merged source expands into a `merge` list, one entry per operand, with each
+operand's dataset config and view config inlined. Nothing about the run has to be looked up elsewhere, so a merged run
+is replayable from the envelope alone.
 
 ## The label space is what a label means
 
-A label is an integer, and an integer means nothing without the vocabulary it
-indexes. Two results that agree on a class name can still disagree on what that
-class contains, and no other field separates them. The envelope therefore
-records the vocabulary itself, in **label space**.
+A label is an integer, and an integer means nothing without the vocabulary it indexes. Two results that agree on a class
+name can still disagree on what that class contains, and no other field separates them. The envelope therefore records
+the vocabulary itself, in `label_space`.
 
-There is one record per conformed view: one for each operand of a merged source,
-plus one for a merged source's own view where that view relabels again. Each
-record carries the source whose view applied the rewrite, the ontology and its
-digest, the class remapping, the target vocabulary in index order, and a digest
-over the three.
+There is one record per conformed view: one for each operand of a merged source, plus one for a merged source's own view
+where that view relabels again. Each record carries the source whose view applied the rewrite, the ontology and its
+digest, the class remapping, the target vocabulary in index order, and a digest over the three.
 
-There is one record per operand: a merge applies a different remapping per
-operand against one shared target. A single record would have to union those
-mappings, and a union hashes to a value no run ever produced.
+There is one record per operand: a merge applies a different remapping per operand against one shared target. A single
+record would have to union those mappings, and a union hashes to a value no run ever produced.
 
-Any workflow can declare an ontology, not only `taxonomy`; `scope`
-alone refuses one. That is the join. A `taxonomy` run computes the digest
-from its own alignment; any other workflow computes the same digest from the
-`Relabel` parameters in its source's view. Declare the same ontology on both and
-the downstream result's digest equals the digest of the taxonomy run that justified its
-vocabulary, so matching the two is a comparison of one value. An exported dataset
-carries the same digest in its provenance sidecar, which extends the join to the
-dataset itself.
+Any workflow can declare an ontology, not only `taxonomy`; `scope` alone refuses one. That is the join. A `taxonomy` run
+computes the digest from its own alignment; any other workflow computes the same digest from the `Relabel` parameters in
+its source's view. Declare the same ontology on both and the downstream result's digest equals the digest of the
+taxonomy run that justified its vocabulary, so matching the two is a comparison of one value. An exported dataset
+carries the same digest in its provenance sidecar, which extends the join to the dataset itself.
 
 ## Where a dataset came from
 
-Some provenance can't be measured: who owns a dataset, its licence, and where and when
-it was collected. A `datasets:` entry records these in `provenance:`, as names mapped to
-text, numbers or booleans:
+Some provenance cannot be measured: who owns a dataset, its license, and where and when it was collected. A `datasets:`
+entry records these in `provenance:`, as names mapped to text, numbers or booleans:
 
     datasets:
       - name: fleet
@@ -114,83 +91,82 @@ text, numbers or booleans:
         path: fleet
         provenance: {owner: Perception team, license: CC-BY-4.0, collected: 2025-06-01}
 
-Flow doesn't check the values. Each result records them as written, in the dataset's
-entry in `resolved_config`, and a date is kept as ISO 8601 text. The names `owner`,
-`license`, `origin` and `collected` are suggestions, not a schema. `provenance:` is no
-part of the dataset's cache key, so adding or editing it never recomputes anything.
+Flow does not check the values. Each result records them as written, in the dataset's entry in `resolved_config`, and a
+date is kept as ISO 8601 text. The names `owner`, `license`, `origin` and `collected` are suggestions, not a schema.
+`provenance:` is not part of the dataset's cache key, so adding or editing it never recomputes anything.
 
-The word also names two other things: this page's metadata envelope, and the
-`provenance.json` an export writes beside a dataset. `provenance:` on a dataset is the
-part people supply.
+The word also names two other things: this page's metadata envelope, and the `provenance.json` an export writes beside a
+dataset. `provenance:` on a dataset is the part people supply.
 
 ## Pinning the data a result read
 
-A result names its datasets, but a name doesn't prove the data behind it is unchanged.
-The `content-digest` evaluator reads every item of a source and records two SHA-256
-digests: one over each item's image and labels and the class names, which is what a
-model trains on, and one over each item's metadata, as attached to that item. The items'
-order doesn't change them; adding, removing or editing any item does. It never reads
-through the cache, whose key samples only some items, so an edit between the samples
-can't hide from it.
+A result names its datasets, but a name does not prove the data behind it is unchanged. The
+[`content-digest`](../reference/evaluators.md#content-digest) evaluator reads every item of a source and records two
+SHA-256 digests: one over each item's image and labels and the class names, which is what a model trains on, and one
+over each item's metadata, as attached to that item. The items' order does not change them; adding, removing or editing
+any item does. It never reads through the cache, whose key samples only some items, so an edit between the samples
+cannot hide from it.
 
-`dataeval_flow.dataset_digest()` computes the same digests in Python. A training job can
-call it on the data it is about to train on and refuse to start when the content digest
-differs from the one a run recorded. Images are hashed as decoded pixels, which a
-different decoder can change slightly, so compare digests made with the same
-`library_versions`. [Gate training on an audit](../how_to/gate_training_on_an_audit.md)
-shows the check, and the data a recorded digest matches.
+`dataeval_flow.dataset_digest()` computes the same digests in Python. A training job can call it on the data it is about
+to train on and refuse to start when the content digest differs from the one a run recorded. Images are hashed as
+decoded pixels, which a different decoder can change slightly, so compare digests made with the same `library_versions`.
+[Gate training on an audit](../how_to/gate_training_on_an_audit.md) shows the check, and the data a recorded digest
+matches.
 
 ## Provenance enables interoperability
 
-Provenance is also what lets a DataEval Flow result leave the tool and compose
-with the rest of the JATIC suite. The mechanism is {term}`MAITE`, the protocol for
-interoperable AI/ML components in the JATIC ecosystem, and it operates at both ends
-of a run:
+Provenance is also what lets a DataEval Flow result leave the tool and compose with the rest of the JATIC suite. The
+mechanism is {term}`MAITE`, the protocol for interoperable AI/ML components in the JATIC ecosystem, and it operates at
+both ends of a run:
 
-- **At the input**, DataEval Flow consumes MAITE-protocol datasets and models
-  natively and registers MAITE entry points, so its adapters and task runner are
-  discoverable by other MAITE-aware tools. Non-MAITE sources are brought in through
-  built-in adapters (HuggingFace, COCO, YOLO, TorchVision, ImageFolder), but native
-  interoperability comes from MAITE-compliant inputs.
-- **At the output**, the metadata envelope carries the JATIC-required provenance
-  fields in a versioned structure, so a result is a well-formed artifact other
-  JATIC tools can ingest. Findings produced in one stage compose with the rest of
+- At the input, DataEval Flow consumes MAITE-protocol datasets and models natively and registers MAITE entry points, so
+  its adapters and task runner are discoverable by other MAITE-aware tools. Non-MAITE sources are brought in through
+  built-in adapters (HuggingFace, COCO, YOLO, TorchVision, ImageFolder), but native interoperability comes from
+  MAITE-compliant inputs.
+- At the output, the metadata envelope carries the JATIC-required provenance fields in a versioned structure, so a
+  result is a well-formed artifact other JATIC tools can ingest. Findings produced in one stage compose with the rest of
   a MAITE-conforming pipeline.
-
-Provenance makes a result readable by people and traceable by the tools
-downstream of it.
 
 ## Provenance and reproducibility
 
-[Reproducibility](Reproducibility.md) is the guarantee that the same inputs yield
-the same result; provenance is the record of what those inputs were. One without
-the other is incomplete: a reproducible run whose inputs are not recorded cannot be
-re-found, and a richly documented run that cannot be replayed cannot be verified.
-DataEval Flow provides both from the same place — the resolved configuration is
-recorded in the envelope (provenance) and is the complete description needed to
-re-run (reproducibility).
+[Reproducibility](Reproducibility.md) is the guarantee that the same inputs yield the same result; provenance is the
+record of what those inputs were. One without the other is incomplete: a reproducible run whose inputs are not recorded
+cannot be re-found, and a richly documented run that cannot be replayed cannot be verified. DataEval Flow provides both
+from the same place. The resolved configuration is recorded in the envelope (provenance) and is the complete description
+needed to re-run (reproducibility).
 
 ## When it matters
 
-- **Audits and assessments** — a result carries the exact context a reviewer needs
-  to judge and replay it.
-- **Comparison over time** — versioned, self-describing envelopes can be archived
-  and compared run-to-run.
-- **Downstream composition** — other JATIC/MAITE tools ingest a result with its
-  provenance intact.
+- Audits and assessments: a result carries the exact context a reviewer needs to judge and replay it.
+- Comparison over time: versioned, self-describing envelopes can be archived and compared run-to-run.
+- Downstream composition: other JATIC/MAITE tools ingest a result with its provenance intact.
 
 ## Related concept pages
 
-- [Reproducibility](Reproducibility.md) — the guarantee that the recorded inputs
-  reproduce the result
-- [Preprocessing and Feature Extraction](PreprocessingAndExtraction.md) — the
-  model, preprocessor, and selection identities recorded in the envelope
+- [Reproducibility](Reproducibility.md): the guarantee that the recorded inputs reproduce the result
+- [Preprocessing and Feature Extraction](PreprocessingAndExtraction.md): the model, preprocessor, and selection
+  identities recorded in the envelope
 
 ## See this in practice
 
 ### Tutorials
 
-- [Auditing a set of splits](../notebooks/audit.py) — the record of what was audited, and
-  recomputing a split's content digest
-- [Cleaning a dataset](../notebooks/data_cleaning.py) — exporting a machine-readable
-  result alongside the text report
+- [Audit a set of splits before training](../notebooks/audit.py): the record of what was audited, and recomputing a
+  split's content digest
+- [Clean a dataset](../notebooks/data_cleaning.py): exporting a machine-readable result alongside the text report
+
+### How-to guides
+
+- [Read the result envelope](../how_to/read_the_result_envelope.md): export a result and read its envelope, provenance
+  fields, evaluator results and matrix results
+- [Gate training on an audit](../how_to/gate_training_on_an_audit.md): refuse data whose content digest does not match
+  the record, and find which items changed
+- [Export a dataset](../how_to/export_a_dataset.md): write a conformed or merged source out as a dataset on disk, with
+  the provenance that produced it
+- [Merge sources into one dataset](../how_to/merge_sources.md): conform two datasets to a shared vocabulary and combine
+  them with `merge:`
+
+### Reference
+
+- [Evaluator Catalog](../reference/evaluators.md#content-digest): the `content-digest` evaluator, what it reads and what
+  it makes

@@ -8,8 +8,8 @@ them, remove the duplicates, check what is left, split it and write it out, all 
 
 A `workflows:` entry is one of two things:
 
-- **A workflow type,** named by `type:`, with that type's settings.
-- **A chain,** with `inputs:` and `steps:` and no `type:`.
+- A workflow type, named by `type:`, with that type's settings.
+- A chain, with `inputs:` and `steps:` and no `type:`.
 
 ```yaml
 workflows:
@@ -67,7 +67,7 @@ Transform steps make Datasets. The [Transform Catalog](../reference/transforms.m
 | `wrap` | an object-detection Dataset | a classification Dataset with one item per detection (`wrapper: DetectionCrops`) |
 | `select` | a Dataset, and a `prioritization` ranking of it (`ranking:`) | the first `n`, or `fraction`, of the ranking |
 | `remove` | a Dataset, and Duplicates or Outliers outputs computed on it (`plans:`) | the Dataset without what the plans name |
-| `conform` | a Dataset, and a `label-alignment` of it (`alignment:`) | the Dataset relabelled onto the ontology |
+| `conform` | a Dataset, and a `label-alignment` of it (`alignment:`) | the Dataset relabeled onto the ontology |
 | `export` | an object-detection Dataset | a dataset on disk under the run's output directory, and a record of it |
 
 `remove`, `select` and `conform` apply an evaluator's output to a Dataset, and only to the Dataset it was computed on.
@@ -249,8 +249,8 @@ It holds the Dataset's address (`name`), the step that made it and that step's `
  "digest": "ca2f57f5f4ad", "items": 47}
 ```
 
-The report's Steps table names, under *Reads*, every address each step read, one per line. Each Dataset among them is
-walked back through the first Dataset it was made from, to the source bound to it, and an Output is named as it is.
+The report's Steps table names every address each step read, one per line, in its Reads column. Each Dataset among them
+is walked back through the first Dataset it was made from, to the source bound to it, and an Output is named as it is.
 For a `remove` step that read `merged` and the `dupes` Output:
 
 ```text
@@ -266,14 +266,47 @@ The digest tells runs apart cheaply. It is computed from each source's cache key
 from the data: the plan `remove` applied, the indices `select`, `split` and `kfold` chose, and the remap `conform`
 applied. So two `remove` steps whose different plan arguments remove the same items give the same digest, and removing
 one detection changes the digest though the number of items stays the same. A source's cache key samples only some of
-its items, so the same digest doesn't prove the same content. The `content-digest` evaluator reads every item, and its
-digest does; see [Provenance](Provenance.md#pinning-the-data-a-result-read).
+its items, so the same digest does not prove the same content. The
+[`content-digest`](../reference/evaluators.md#content-digest) evaluator reads every item, and its digest does; see
+[Provenance](Provenance.md#pinning-the-data-a-result-read).
 
 An `export` step writes into the dataset's `provenance.json` each source the Dataset descends from, with the dataset and
 view it read; the lineage of the Dataset it wrote; the digest of what it wrote, read back, as `digest`; and a
-`label_space` list shaped as a top-level export's. The list
-holds each source's own Relabel records first, as a top-level export of that source writes them, then one record per
-`conform` on the way, in chain order, with its remap and ontology digest and the step's address as its `source`.
+`label_space` list shaped as a top-level export's. The list holds each source's own Relabel records first, as a
+top-level export of that source writes them, then one record per `conform` on the way, in chain order, with its remap
+and ontology digest and the step's address as its `source`.
 
-See [Chain steps into a workflow of your own](../how_to/write_a_custom_workflow.md) to write one, and
-[Workflows and Evaluators](WorkflowsAndEvaluators.md) for what evaluators and workflow types each decide.
+## Related concept pages
+
+- [Workflows and Evaluators](WorkflowsAndEvaluators.md): what evaluators and workflow types each decide
+- [Provenance](Provenance.md): what a result records about how it was produced, including the digest that pins the data
+  a result read
+
+## See this in practice
+
+### Tutorials
+
+- [Clean a dataset](../notebooks/data_cleaning.py): run the `quality` preset, then run it as a step of a custom workflow
+  that exports the cleaned dataset
+
+### How-to guides
+
+- [Chain steps into a workflow of your own](../how_to/write_a_custom_workflow.md): conform and merge two datasets,
+  remove their duplicates, export the result, and check what is left, as one chain of steps
+- [Reuse a cleaning chain on new data](../how_to/reuse_a_workflow.md): keep a chain in your config, or in a file each
+  project loads, and run it on each new dataset
+- [Judge a custom workflow like a preset](../how_to/judge_a_workflow_like_a_preset.md): use `groups:`, `verdict:`,
+  `record:`, `next_steps:`, `preflight:` and `scopes:` to judge a custom workflow the way a preset does
+- [Check a set of splits](../how_to/check_a_set_of_splits.md): collect the evaluation parts of a split and run `audit`
+  as a step
+- [Read evaluation outputs](../how_to/read_evaluation_outputs.md): read the text, chain and HTML reports, their
+  severities and the health line
+- [Get the numbers behind a finding](../how_to/get_the_numbers_behind_a_finding.md): reach a result's step outputs,
+  verdict, digests, binning record and datasets from Python
+
+### Reference
+
+- [Transform Catalog](../reference/transforms.md): each transform's settings
+- [Check Catalog](../reference/checks.md): the built-in checks
+- [Combine Catalog](../reference/combines.md): the built-in combines
+- [Preset Catalog](../reference/presets.md): the chain each workflow type expands to

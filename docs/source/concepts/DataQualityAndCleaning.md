@@ -1,59 +1,58 @@
 # Data Quality and Cleaning
 
-Before a dataset is fit to train or evaluate a model, it has to be sound. Real
-collections accumulate problems: **outliers** — samples that deviate sharply from
-the rest, often from corruption or collection error; **duplicates** and
-near-duplicates that inflate apparent dataset size and leak between splits; and
-**label issues** — mislabeled or inconsistently labeled samples that teach a model
-the wrong thing. Left in place, these defects degrade training, distort metrics,
-and undermine every downstream conclusion. Data cleaning is the task of finding
-and flagging them so they can be reviewed or removed.
+Before you train or evaluate a model on a dataset, the dataset has to be sound. Real collections accumulate problems.
+**Outliers** are samples that deviate sharply from the rest, often from corruption or collection error. **Duplicates**
+and near-duplicates inflate the apparent dataset size and leak between splits. **Label issues** are mislabeled or
+inconsistently labeled samples that teach a model the wrong thing. Left in place, these defects degrade training,
+distort metrics, and undermine every downstream conclusion. Data cleaning is the task of finding and flagging them so
+they can be reviewed or removed.
 
-In DataEval Flow, {term}`data cleaning <Data Cleaning>` is a workflow: you point
-the `quality` workflow at a source, and it flags {term}`outliers <Outlier>` and
-duplicates, reports them with the source's label counts, and hands on the dataset
-without the outliers and duplicates. Class imbalance is the `bias` preset's. The orchestration layer's
-contribution is making this a declarative, reproducible step in a pipeline; the
-detection methods themselves — the statistical outlier tests, the duplicate-detection
-hashing and clustering, and the label statistics — are DataEval's.
+In DataEval Flow, {term}`data cleaning <Data Cleaning>` is a workflow. You point the
+[`quality`](../reference/presets.md#quality) workflow at a source. It flags {term}`outliers <Outlier>` and duplicates,
+reports them with the source's label counts, and hands on the dataset without the outliers and duplicates. Class
+imbalance is the [`bias`](../reference/presets.md#bias) preset's. The orchestration layer makes this a declarative,
+reproducible step in a pipeline. The detection methods themselves are DataEval's: the statistical outlier tests, the
+duplicate-detection hashing and clustering, and the label statistics.
 
-The underlying science is explained authoritatively in DataEval's
-[Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html),
-which covers how outliers, duplicates, and label issues are detected and what each
+DataEval's [Data Integrity explanation](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html) is the
+authoritative account of the science. It covers how outliers, duplicates, and label issues are detected and what each
 signal means.
 
-To run only duplicate or outlier detection, without the rest of data cleaning or its
-checks, use the `duplicates` or `outliers` evaluator — see
-[Run a single evaluator](../how_to/run_a_single_evaluator.md).
+To run only duplicate or outlier detection, without the rest of data cleaning or its checks, use the
+[`duplicates`](../reference/evaluators.md#duplicates) or [`outliers`](../reference/evaluators.md#outliers) evaluator.
+[Run a single evaluator](../how_to/run_a_single_evaluator.md) shows how.
 
 ## When to use it
 
-Run data cleaning early — on freshly collected or freshly ingested data, before it
-feeds training, splitting, or analysis. It is also worth re-running whenever a
-dataset is augmented, since new data brings new opportunities for duplication and
+Run data cleaning early, on freshly collected or freshly ingested data, before it feeds training, splitting, or
+analysis. Run it again whenever you augment a dataset, because new data brings new opportunities for duplication and
 labeling error.
 
 ## Related concept pages
 
-- [Distribution Shift](DistributionShift.md) — when anomalous samples reflect a
-  genuine shift rather than a collection defect
-- [Dataset Splitting](DatasetSplitting.md) — duplicates are a leakage risk that
-  splitting must avoid
+- [Distribution Shift](DistributionShift.md): When anomalous samples reflect a real shift rather than a collection
+  defect.
+- [Dataset Splitting](DatasetSplitting.md): Duplicates are a leakage risk that splitting must avoid.
 
 ## See this in practice
 
 ### Tutorials
 
-- [Cleaning a dataset](../notebooks/data_cleaning.py) — the `quality` workflow
-  end to end
+- [Clean a dataset](../notebooks/data_cleaning.py): Run the `quality` workflow end to end.
+
+### How-to guides
+
+- [Configure outlier detection](../how_to/configure_outlier_detection.md): Pick the method, the statistics and the
+  thresholds that decide what `quality` flags and warns on.
+- [Run a single evaluator](../how_to/run_a_single_evaluator.md): Run one DataEval evaluator, such as `duplicates`, with
+  no health status.
 
 ### Reference
 
-- [Preset Catalog: `quality`](../reference/presets.md#quality): the preset's chain, settings and
-  `checks:` defaults
+- [`quality`](../reference/presets.md#quality): The Preset Catalog entry with the preset's chain, settings and `checks:`
+  defaults.
 
-### Authoritative reference
+## References
 
-- DataEval —
-  [Data Integrity](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html)
-  (outliers, duplicates, and label-issue detection)
+1. DataEval, [Data Integrity](https://dataeval.readthedocs.io/en/latest/concepts/DataIntegrity.html). Outlier,
+   duplicate, and label-issue detection.

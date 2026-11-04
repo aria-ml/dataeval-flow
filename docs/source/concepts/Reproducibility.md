@@ -1,78 +1,60 @@
 # Reproducibility
 
-A data-evaluation result is only as trustworthy as your ability to produce it
-again. In test and evaluation, a metric that cannot be reproduced cannot be
-defended: you cannot tell whether a number changed because the data changed or
-because the process did, you cannot independently verify a finding during an
-assessment, and you cannot meaningfully compare two evaluations run weeks apart.
-**Reproducibility** is the property that the same evaluation, applied to the same
-data, yields the same result — every time, on any machine, by anyone.
+A data-evaluation result is only as trustworthy as your ability to produce it again. In test and evaluation, a metric
+that cannot be reproduced cannot be defended: you cannot tell whether a number changed because the data changed or
+because the process did, you cannot independently verify a finding during an assessment, and you cannot meaningfully
+compare two evaluations run weeks apart. **Reproducibility** is the property that the same evaluation, applied to the
+same data, yields the same result, every time, on any machine, by anyone.
 
-An evaluation assembled by hand is rarely fully version-controlled: a notebook of
-loading, transforming, embedding, and formatting code differs from engineer to
-engineer and carries hidden state. The glue is where reproducibility breaks.
-DataEval Flow's design exists to
-remove that glue: it makes the *description* of a run the only thing that
-determines its result, so that re-running is deterministic by construction. The
-app architecture below is the *how*; reproducibility is the *why*.
+An evaluation assembled by hand is rarely fully version-controlled: a notebook of loading, transforming, embedding, and
+formatting code differs from engineer to engineer and carries hidden state. The glue is where reproducibility breaks.
+DataEval Flow's design exists to remove that glue: it makes the description of a run the only thing that determines its
+result, so that re-running is deterministic by construction. The app architecture below describes how Flow does this,
+and reproducibility is the reason it does.
 
 ## The run is described, not coded
 
-The defining choice of DataEval Flow is that a pipeline is **data, not code**. A
-run is a declarative configuration — YAML or JSON — that names the datasets,
-transforms, extractors, and workflows involved and binds them into tasks. Nothing
-about the run lives in a script that has to be read to understand what happened:
-the configuration *is* the run. Because that configuration is a complete,
-version-controllable artifact, the same configuration applied to the same data
-produces the same result, and that fact can be checked into version control,
-reviewed, and replayed.
+The defining choice of DataEval Flow is that a pipeline is data, not code. A run is a declarative configuration, in YAML
+or JSON, that names the datasets, transforms, extractors, and workflows involved and binds them into tasks. Nothing
+about the run lives in a script that has to be read to understand what happened: the configuration is the run. Because
+that configuration is a complete, version-controllable artifact, the same configuration applied to the same data
+produces the same result, and the configuration can be checked into version control, reviewed, and replayed.
 
-The configuration is organized as named building blocks — datasets, views,
-preprocessors, extractors, workflows — that tasks reference *by name*. Selecting
-a workflow by a registered name keeps the configuration the single source of
-truth for what runs: there is no
-out-of-band code path that can change the outcome.
+The configuration is organized as named building blocks (datasets, views, preprocessors, extractors, workflows) that
+tasks reference by name. Selecting a workflow by a registered name keeps the configuration the single source of truth
+for what runs: there is no out-of-band code path that can change the outcome.
 
 ## Nothing runs until it validates
 
-Every section of a configuration is backed by a typed schema, so a run is
-validated before any computation begins. Required fields are checked, unknown
-fields are rejected, and every by-name reference — a task's source, its extractor,
-its preprocessors — is resolved up front. A misnamed source or an invalid
-parameter fails during validation, before an expensive run begins. Deterministic,
-validated inputs are a precondition for a deterministic
-result.
+Every section of a configuration is backed by a typed schema, so a run is validated before any computation begins.
+Required fields are checked, unknown fields are rejected, and every by-name reference (a task's source, its extractor,
+its preprocessors) is resolved up front. A misnamed source or an invalid parameter fails during validation, before an
+expensive run begins. Deterministic, validated inputs are a precondition for a deterministic result.
 
 ## What is developed interactively is what runs in production
 
-The same declarative pipeline executes two ways. **Interactive** tools — a
-terminal UI and a simple CLI config builder — help you author and inspect a
-pipeline, but the artifact they produce is just the declarative configuration.
-**Headless** execution then runs that exact configuration to completion and exits,
-with no human in the loop. This is the mode used in containers, CI pipelines, and
-scheduled jobs. The split is what makes runs repeatable: a pipeline explored
-interactively is captured as configuration, and that same configuration is what
-runs unattended later. A **service** queues configurations submitted over HTTP and
-runs each as that same headless command, from a snapshot of the configuration taken
-when it was queued (see {doc}`ExecutionModes`).
+The same declarative pipeline executes two ways. Interactive tools, a terminal UI and a simple CLI config builder, help
+you author and inspect a pipeline, but the artifact they produce is only the declarative configuration. Headless
+execution then runs that exact configuration to completion and exits, with no human in the loop. This is the mode used
+in containers, CI pipelines, and scheduled jobs. The split is what makes runs repeatable: a pipeline explored
+interactively is captured as configuration, and that same configuration is what runs unattended later. A service queues
+configurations submitted over HTTP and runs each as that same headless command, from a snapshot of the configuration
+taken when it was queued (see {doc}`ExecutionModes`).
 
-## Portability: the same run on a laptop and in a container
+## The same run on a laptop and in a container
 
-Relative paths in a configuration — to datasets, to model files — are resolved
-against a **data root** (an explicit argument, the `DATAEVAL_DATA` environment
-variable, or the current directory) using conventional sub-directories. That
-indirection is what lets the *same* configuration run unchanged on a developer's
-laptop and inside a container where the data is mounted at a fixed location. The
-[container reference](../reference/containers.md) documents the mounts and
+Relative paths in a configuration, to datasets and to model files, are resolved against a **data root** (an explicit
+argument, the `DATAEVAL_DATA` environment variable, or the current directory) using conventional sub-directories. That
+indirection is what lets the same configuration run unchanged on a developer's laptop and inside a container where the
+data is mounted at a fixed location. The [Container Reference](../reference/containers.md) documents the mounts and
 precedence rules that anchor a run.
 
 ## Randomness is pinned
 
-A declarative configuration only determines the result if nothing inside the run is
-free to vary. Several evaluators are stochastic — clustering for cluster-based
-outlier and duplicate detection, random splits, shuffled {term}`views <View>`, the
-sampling inside mutual-information estimators. Left unseeded, two runs of the same
-configuration can legitimately disagree.
+A declarative configuration only determines the result if nothing inside the run is free to vary. Several evaluators are
+stochastic: clustering for cluster-based outlier and duplicate detection, random splits, shuffled {term}`views <View>`,
+the sampling inside mutual-information estimators. Left unseeded, two runs of the same configuration can legitimately
+disagree.
 
 Setting `seed` at the top level of a configuration pins them all:
 
@@ -81,72 +63,67 @@ seed: 42
 deterministic: false   # optional; forces PyTorch's deterministic algorithms
 ```
 
-The seed is applied through DataEval's own seed configuration, so it reaches the
-evaluators and the NumPy and PyTorch global generators together — a partial
-seeding would leave some component free to drift. It is applied **before each
-task**, so a task's result does not depend on which tasks happened to run before
-it.
+The seed is applied through DataEval's own seed configuration, so it reaches the evaluators and the NumPy and PyTorch
+global generators together. A partial seeding would leave some component free to drift. The seed is applied before each
+task, so a task's result does not depend on which tasks happened to run before it.
 
-A seeded run records its seed in the {term}`result envelope <Result Envelope>`'s
-resolved configuration, which is what lets the envelope alone be enough to repeat
-the run. Leaving `seed` unset is a deliberate choice: it declares that this run
-does not need to be bit-reproducible, and nothing is recorded to claim otherwise.
+A seeded run records its seed in the {term}`result envelope <Result Envelope>`'s resolved configuration, which is what
+lets the envelope alone be enough to repeat the run. Leaving `seed` unset is a deliberate choice: it declares that this
+run does not need to be bit-reproducible, and nothing is recorded to claim otherwise.
 
 ## Caching preserves the result
 
-Re-running an evaluation should be cheap, but caching is only safe if it never
-changes the answer. DataEval Flow caches the expensive, reusable products of a
-pipeline — extracted {term}`embeddings <Embeddings>`, image statistics, computed
-metadata, clustering results — under a key derived from **everything that affects
-the result**:
+Re-running an evaluation should be cheap, but caching is only safe if it never changes the answer. DataEval Flow caches
+the expensive, reusable products of a pipeline (extracted {term}`embeddings <Embeddings>`, image statistics, computed
+metadata, clustering results) under a key derived from everything that affects the result:
 
-- a fingerprint of the **dataset**,
-- the **view** (subset or ordering) applied to it, and
-- a hash of the producing **configuration** — the extractor, its parameters, and
-  the preprocessing pipeline.
+- a fingerprint of the dataset,
+- the view (subset or ordering) applied to it, and
+- a hash of the producing configuration: the extractor, its parameters, and the preprocessing pipeline.
 
-Because the key incorporates all of these, a stored artifact is reused only when
-the data, the selection, and the configuration all match; change the preprocessing
-or an extractor parameter and the key changes, so a stale result is never silently
-returned. The custom preprocessors and extractors described in
-[Preprocessing and Feature Extraction](PreprocessingAndExtraction.md) are written
-to have deterministic representations precisely so they contribute stably to these
-keys. The bottom line: **a cached run and a cold run of the same configuration
-are equivalent.** The cache changes how long a run
+Because the key incorporates all of these, a stored artifact is reused only when the data, the selection, and the
+configuration all match. Change the preprocessing or an extractor parameter and the key changes, so a stale result is
+never silently returned. The custom preprocessors and extractors described in [Preprocessing and Feature
+Extraction](PreprocessingAndExtraction.md) are written to have deterministic representations so they contribute stably
+to these keys. A cached run and a cold run of the same configuration are equivalent. The cache changes how long a run
 takes, never what it produces.
 
 ## Reproducibility and provenance
 
-Reproducibility answers "can I get the same result again?"; [provenance](Provenance.md)
-answers "where did this result come from?" They are two halves of a trustworthy
-result. Reproducibility is the guarantee; provenance is the record of the exact
-inputs that guarantee depends on. DataEval Flow records the fully-resolved
-configuration of every run in its result envelope, so the inputs needed to
-reproduce any finding travel with the finding itself.
+Reproducibility answers "can I get the same result again?" and [provenance](Provenance.md) answers "where did this
+result come from?" They are two halves of a trustworthy result. Reproducibility is the guarantee; provenance is the
+record of the exact inputs that guarantee depends on. DataEval Flow records the fully-resolved configuration of every
+run in its result envelope, so the inputs needed to reproduce any finding travel with the finding itself.
 
 ## When it matters
 
-- **Regression detection** across program increments — re-run a saved
-  configuration and compare; any change in the result is attributable to the data,
-  not the process.
-- **Independent verification** during a product or program assessment — a reviewer
-  can replay the exact run.
-- **Automated, scheduled evaluation** — a headless, deterministic run drops into
-  a container and CI as a repeatable batch job.
+- Regression detection across program increments: re-run a saved configuration and compare. Any change in the result is
+  attributable to the data, not the process.
+- Independent verification during a product or program assessment: a reviewer can replay the exact run.
+- Automated, scheduled evaluation: a headless, deterministic run drops into a container and CI as a repeatable batch
+  job.
 
 ## Related concept pages
 
-- [Provenance](Provenance.md) — the recorded lineage that lets a result be
-  reproduced and audited
-- [Preprocessing and Feature Extraction](PreprocessingAndExtraction.md) — the
-  deterministic transforms and extractors that are the primary cached artifacts
+- [Provenance](Provenance.md): the recorded lineage that lets a result be reproduced and audited
+- [Preprocessing and Feature Extraction](PreprocessingAndExtraction.md): the deterministic transforms and extractors
+  that are the primary cached artifacts
 
 ## See this in practice
 
 ### Tutorials
 
-- [Cleaning a dataset](../notebooks/data_cleaning.py) — a complete config-driven run,
-  end to end
-- [Tune data cleaning with a matrix](../notebooks/tune_data_cleaning.py) — repeated
-  evaluation where config-keyed caching reuse is most visible: nine runs over one draw
-  of the data, sharing its statistics, embeddings and clusters
+- [Clean a dataset](../notebooks/data_cleaning.py): a complete config-driven run, end to end
+- [Tune data cleaning with a matrix](../notebooks/tune_data_cleaning.py): repeated evaluation where config-keyed caching
+  reuse is most visible, with nine runs over one draw of the data that share its statistics, embeddings and clusters
+
+### How-to guides
+
+- [Reuse results with the disk cache](../how_to/reuse_results_with_cache.md): persist embeddings and statistics across
+  runs, and know what invalidates them
+- [Write a pipeline config](../how_to/write_a_pipeline_config.md): declare the datasets, sources, extractors, a workflow
+  of each type and the tasks in `params.yaml`
+
+### Reference
+
+- [Container Reference](../reference/containers.md): the mounts and precedence rules that anchor a run
