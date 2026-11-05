@@ -124,6 +124,12 @@ RUN : "${APT_CACHE_BUST}" \
     && apt-get install -y --no-install-recommends --only-upgrade libc6 libc-bin libsqlite3-0 zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
+# The runtime image installs nothing after the patching layer above, so it does not need a package manager. Removing
+# apt (the package behind apt-get) and its library takes both out of the image and out of every scanner report. dpkg
+# stays, so scanners still read the package database. A separate layer keeps the patching layer above byte-identical
+# to the build stage's, preserving that cache reuse.
+RUN dpkg --purge apt libapt-pkg6.0t64
+
 # Create non-root user early for --chown on COPY
 RUN useradd --create-home --shell /bin/bash dataeval \
     && mkdir -p /dataeval /output /cache \

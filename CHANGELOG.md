@@ -125,6 +125,8 @@ section, maps every old key to its replacement.
 - Requires DataEval 1.2.0 or newer; `environment.yml` installs it from conda-forge
 - Pillow (`>=13.0.0`) is a core dependency, used to encode thumbnails
 - PyPI releases carry a signed PEP 740 attestation for each file
+- The container images no longer include `apt`, which the runtime never used; `dpkg` stays, so scanners still list the
+  OS packages
 - A run that fails only on health warnings exits `3` (was `1`), so CI can tell it from a crash or a mistyped flag (`2`)
 - The text report is 80 columns wide by default (was 90)
 - The `dataeval-flow` command writes each task's result files as soon as the task finishes, so a killed run keeps them
