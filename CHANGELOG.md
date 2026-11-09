@@ -52,7 +52,8 @@ section, maps every old key to its replacement.
     factor `groups:` names, and, unless `group_near_duplicates: false`, exact and near duplicates found from the image
     hashes
   - A target on units of more than one item needs an average, such as `accuracy|sequence_mean`, and the run says so
-  - The Output's extras give `groups`, `largest_group` and `duplicate_merges`
+  - The Output's extras give `groups`, `largest_group` and `duplicate_merges`, and the check's basis lines say how many
+    independent units the bounds count
 - Evaluators: `balance`, `diversity`, `parity`, `representation`, `label-alignment`, `factor-summary`, `factor-triage`,
   `factor-leakage`, `label-reconciliation`, `ontology-validation`, `coverage`, `prioritization`, `completeness`,
   `divergence`, `drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-wasserstein`, `drift-domain-classifier`,

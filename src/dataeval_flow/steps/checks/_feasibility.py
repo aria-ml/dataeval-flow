@@ -185,8 +185,9 @@ def _allowances(output: FeasibilityOutput) -> str:
 
 def _basis(output: FeasibilityOutput, rows: list[dict[str, Any]]) -> Fields:
     """What the table rests on, a line each: the key to its marks, the confidence, the population where it is not simply
-    every item the source holds, and the allowances if any. What each answer means, the assumption every answer rests
-    on, and what would settle a target are in the documentation, and in the evaluator's output."""
+    every item the source holds, how the items were grouped into independent units, and the allowances if any. What
+    each answer means, the assumption every answer rests on, and what would settle a target are in the documentation,
+    and in the evaluator's output."""
     confidence = _confidence(output)
     plain = not isinstance(output, PopulatedFeasibilityOutput) or (
         output.labeled == output.items and not output.absent_classes
@@ -205,6 +206,8 @@ def _basis(output: FeasibilityOutput, rows: list[dict[str, Any]]) -> Fields:
     ]
     if isinstance(output, PopulatedFeasibilityOutput) and not plain:
         items.append(("Population", output.population()))
+    if isinstance(output, PopulatedFeasibilityOutput) and output.groups:  # zero where the grouping was not recorded
+        items.append(("Grouping", output.grouping()))
     if allowances := _allowances(output):
         starred = any(row["determination"] == "infeasible_under_recorded_assumptions" for row in rows)
         items.append(("Allowances", f"{allowances}, asserted by you" + ("; * rests on them" if starred else "")))
