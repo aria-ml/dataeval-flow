@@ -6,7 +6,7 @@ import time
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from dataeval import Metadata
 
@@ -19,25 +19,32 @@ from dataeval_flow.evaluators._inputs import EvaluatorInputs
 from dataeval_flow.evaluators.quality._config import FactorLeakageConfig
 from dataeval_flow.evaluators.quality._result import FactorLeakageOutput
 
+if TYPE_CHECKING:
+    import polars as pl
+
 # Columns DataEval's per-item frame holds that are not factors.
 _BOOKKEEPING = frozenset(
     {"level", "item_index", "target_index", "class_label", "score", "box", "item_id", "instance_index"}
 )
 
 
-def raw_values(metadata: Metadata, name: str, source: str) -> list[Any]:
-    """The values `name` holds, one per item that has one, read whatever the policy excludes: the per-item frame keeps
-    an excluded column, raw, even on Metadata loaded from Flow's cache."""
+def item_column(metadata: Metadata, name: str, source: str) -> tuple["pl.DataFrame", str]:
+    """The per-item frame and the column of it that holds the factor `name`, whatever the policy excludes: the frame
+    keeps an excluded column, raw, even on Metadata loaded from Flow's cache."""
     frame = metadata.rows_at(metadata.item_level)
     columns = [column for column in frame.columns if column not in _BOOKKEEPING and not column.endswith("#")]
     if name in columns:
-        found = name
-    else:
-        like = [column for column in columns if strip_row_level(column) == strip_row_level(name)]
-        if not like:
-            held = ", ".join(sorted(columns)) or "none"
-            raise ValueError(f"Source '{source}' has no factor '{name}'; its metadata holds {held}.")
-        found = like[0]
+        return frame, name
+    like = [column for column in columns if strip_row_level(column) == strip_row_level(name)]
+    if not like:
+        held = ", ".join(sorted(columns)) or "none"
+        raise ValueError(f"Source '{source}' has no factor '{name}'; its metadata holds {held}.")
+    return frame, like[0]
+
+
+def raw_values(metadata: Metadata, name: str, source: str) -> list[Any]:
+    """The values `name` holds, one per item that has one, read whatever the policy excludes."""
+    frame, found = item_column(metadata, name, source)
     return frame[found].drop_nulls().to_list()
 
 

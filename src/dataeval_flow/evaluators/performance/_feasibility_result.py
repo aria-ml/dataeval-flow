@@ -17,12 +17,18 @@ class PopulatedFeasibilityOutput(FeasibilityOutput):
     """DataEval's output, with the population Flow read it from, which ``data()`` leaves to the extras.
 
     DataEval states the population as "labeled items of <dataset>" and nothing more. These say how many items the
-    source held, how many of them were labeled, and which declared classes no labeled item belongs to.
+    source held, how many of them were labeled, and which declared classes no labeled item belongs to. They also say
+    how the items were grouped into the independent units the bounds count: how many groups there are among the
+    source's items, how many items the largest holds, and how many fewer groups there are because exact or near
+    duplicates joined them.
     """
 
     items: int = 0
     labeled: int = 0
     absent_classes: list[str] = field(default_factory=list)
+    groups: int = 0
+    largest_group: int = 0
+    duplicate_merges: int = 0
 
     def data(self) -> dict[str, Any]:
         """DataEval's determinations and evidence alone, not the population beside them."""

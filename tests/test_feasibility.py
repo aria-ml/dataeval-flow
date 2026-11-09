@@ -11,7 +11,7 @@ from dataeval import Metadata
 from dataeval.performance import Feasibility
 from pydantic import ValidationError
 
-from dataeval_flow import run, run_task, run_tasks
+from dataeval_flow import InputKind, run, run_task, run_tasks
 from dataeval_flow._chain._graph import GraphError
 from dataeval_flow._view import root_indices
 from dataeval_flow.config import (
@@ -33,7 +33,7 @@ from dataeval_flow.evaluators.performance import (
 from dataeval_flow.evaluators.performance._feasibility_result import PopulatedFeasibilityOutput
 from dataeval_flow.steps import ChainResult
 from tests.chain_toys import ToyDetections, chain_pipeline
-from tests.evaluator_toys import FLAT, ToyClasses, ToyImages, output_json
+from tests.evaluator_toys import FLAT, ToyClasses, ToyCopies, ToyImages, output_json
 
 # Four classes a flatten extractor separates, so the built-in witnesses demonstrate an easy target; and the same with
 # 60% of the labels redrawn at random, so no model does better than 1 - 0.6 * 3/4 = 0.55 on them.
@@ -48,6 +48,12 @@ def _run(data: Any = None, **settings: Any) -> FeasibilityResult:
     result = run(FeasibilityConfig(**settings), ToyClasses(**_SEPARABLE) if data is None else data, extractor=FLAT)
     assert isinstance(result, FeasibilityResult)
     return result
+
+
+def _partition(groups: Any) -> list[int]:
+    """`groups` renumbered from 0 by first appearance, so two labelings of one partition compare equal."""
+    ids: dict[Any, int] = {}
+    return [ids.setdefault(group, len(ids)) for group in groups]
 
 
 def _determinations(result: FeasibilityResult) -> list[dict[str, Any]]:
@@ -112,7 +118,14 @@ def test_the_result_states_alpha_and_the_population() -> None:
     result = _run(ToyClasses(**_SEPARABLE, declared=6, unlabeled=range(10)))
     assert result.metadata.resolved_config["evaluator"]["alpha"] == 0.05  # stated, not null
     assert result.metadata.dataeval.name.endswith("Feasibility.evaluate")
-    assert output_json(result)["extras"] == {"items": 400, "labeled": 390, "absent_classes": ["c4", "c5"]}
+    assert output_json(result)["extras"] == {
+        "items": 400,
+        "labeled": 390,
+        "absent_classes": ["c4", "c5"],
+        "groups": 400,  # no two items repeat, share a factor or duplicate each other
+        "largest_group": 1,
+        "duplicate_merges": 0,
+    }
     assert isinstance(result.output, PopulatedFeasibilityOutput)
     assert result.output.population() == (
         "labeled items only, 390 of 400; classes with no labeled item are in no claim: c4, c5"
@@ -350,7 +363,9 @@ def test_the_dataset_and_its_embeddings_stay_aligned_under_a_seeded_shuffle(seen
     assert result.success, result.errors
     items = np.stack([np.ravel(seen.dataset[i][0]) for i in range(len(seen.dataset))])
     assert np.allclose(seen.kwargs["embeddings"], items)
-    assert seen.kwargs["groups"] == root_indices(seen.dataset) != list(range(300))  # the shuffle reordered the units
+    roots = root_indices(seen.dataset)
+    assert _partition(seen.kwargs["groups"]) == _partition(roots)
+    assert roots != list(range(300))  # the shuffle reordered the units
 
 
 def test_the_units_are_the_items_at_the_bottom_of_a_chain_of_views(seen: SimpleNamespace) -> None:
@@ -381,8 +396,160 @@ def test_the_units_are_the_items_at_the_bottom_of_a_chain_of_views(seen: SimpleN
     assert isinstance(result, ChainResult)
     chosen = result.steps["top"].output.resolve_indices()
     expected = [[5, 9, 9, 2, 40, 7, 5, 11][i] for i in chosen]
-    assert seen.kwargs["groups"] == expected == root_indices(seen.dataset)
+    assert expected == root_indices(seen.dataset)
+    assert _partition(seen.kwargs["groups"]) == _partition(expected)
     assert len(set(expected)) < len(expected)  # a repeat: two items, one unit
+
+
+# --- The independent units: a factor, exact and near duplicates ---
+
+
+# A target on units of more than one item must say how to average over a unit.
+_AVERAGED = {"accuracy|sequence_mean": 0.9}
+
+
+def _site_by_pair(base: int, copy: int) -> str:
+    """Bases 2k and 2k+1 share a site, and each of their copies has a site of its own."""
+    return f"pair{base // 2}" if copy == 0 else f"own{base}-{copy}"
+
+
+def _group_sizes(groups: Any) -> list[int]:
+    return sorted(np.bincount(_partition(groups)).tolist())
+
+
+def test_exact_and_near_copies_are_one_group_by_default(seen: SimpleNamespace) -> None:
+    result = _run(ToyCopies(bases=40, exact=1, near=1), target=_AVERAGED)
+    assert result.success, result.errors
+    assert len(seen.kwargs["groups"]) == 120
+    assert _partition(seen.kwargs["groups"]) == [base for base in range(40) for _ in range(3)]
+    assert output_json(result)["extras"] == {
+        "items": 120,
+        "labeled": 120,
+        "absent_classes": [],
+        "groups": 40,
+        "largest_group": 3,
+        "duplicate_merges": 80,
+    }
+    assert seen.inputs.stats is not None
+    assert seen.inputs.metadata is None  # no factor was named, so none was read
+
+
+def test_exact_copies_alone_are_found_too(seen: SimpleNamespace) -> None:
+    assert _run(ToyCopies(bases=40, exact=2), target=_AVERAGED).success
+    assert _group_sizes(seen.kwargs["groups"]) == [3] * 40
+
+
+def test_near_copies_alone_are_found_too(seen: SimpleNamespace) -> None:
+    assert _run(ToyCopies(bases=40, near=2), target=_AVERAGED).success
+    assert _group_sizes(seen.kwargs["groups"]) == [3] * 40
+
+
+def test_without_copies_every_item_is_a_group_and_nothing_is_merged() -> None:
+    result = _run(ToyCopies(bases=40))
+    assert result.success, result.errors
+    extras = output_json(result)["extras"]
+    assert (extras["groups"], extras["largest_group"], extras["duplicate_merges"]) == (40, 1, 0)
+
+
+def test_turning_duplicate_grouping_off_reads_no_hash_and_leaves_each_item_a_group(seen: SimpleNamespace) -> None:
+    result = _run(ToyCopies(bases=40, exact=1, near=1), group_near_duplicates=False)
+    assert result.success, result.errors
+    assert seen.inputs.stats is None
+    assert seen.inputs.metadata is None
+    assert _partition(seen.kwargs["groups"]) == list(range(120))
+    extras = output_json(result)["extras"]
+    assert (extras["groups"], extras["largest_group"], extras["duplicate_merges"]) == (120, 1, 0)
+
+
+def test_a_factor_alone_groups_the_items_that_share_its_value(seen: SimpleNamespace) -> None:
+    data = ToyCopies(bases=40, exact=1, near=1, site=lambda base, copy: f"s{base % 8}")  # noqa: ARG005
+    result = _run(data, groups="site", group_near_duplicates=False, target=_AVERAGED)
+    assert result.success, result.errors
+    assert seen.inputs.stats is None
+    assert seen.inputs.metadata is not None
+    assert _group_sizes(seen.kwargs["groups"]) == [15] * 8
+    extras = output_json(result)["extras"]
+    assert (extras["groups"], extras["largest_group"], extras["duplicate_merges"]) == (8, 15, 0)
+
+
+def test_the_factor_and_the_duplicates_make_one_grouping(seen: SimpleNamespace) -> None:
+    """Here 100 of the 120 items hold a value of their own, so DataEval's metadata drops `site` as a factor, as it does
+    a scene or recording ID. It still groups, because the evaluator reads the value as recorded."""
+    result = _run(ToyCopies(bases=40, exact=1, near=1, site=_site_by_pair), groups="site", target=_AVERAGED)
+    assert result.success, result.errors
+    assert _group_sizes(seen.kwargs["groups"]) == [6] * 20  # a base pair by its site, each base's copies by hash
+    extras = output_json(result)["extras"]
+    # By the factor alone: 20 pairs of base images and 80 copies on their own. Duplicates join each copy to its base.
+    assert (extras["groups"], extras["largest_group"], extras["duplicate_merges"]) == (20, 6, 80)
+
+
+def test_the_groups_a_view_repeats_still_join_the_factor_and_duplicates(seen: SimpleNamespace) -> None:
+    indices = [0, 1, 2, 3, 0, 1]  # items 0 and 1 are copies of one image, and the last two repeat them
+    config = PipelineConfig(
+        datasets=[DatasetProtocolConfig(name="d", format="maite", dataset=ToyCopies(bases=40, exact=1))],
+        views=[ViewConfig(name="v", operations=[ViewOperation(type="Indices", params={"indices": indices})])],
+        sources=[SourceConfig(name="src", dataset="d", view="v")],
+        extractors=[FLAT],
+        evaluators=[FeasibilityConfig(name="e", target={"accuracy|sequence_mean": 0.5}, seed=0)],
+        tasks=[TaskConfig(name="t", workflow="e", sources=["src"], kind="evaluator", extractor="flat")],
+    )
+    result = run_tasks(config)["t"]
+    assert result.success, result.errors
+    assert _partition(seen.kwargs["groups"]) == [0, 0, 1, 1, 0, 0]
+
+
+def test_the_grouping_is_in_the_resolved_config() -> None:
+    result = _run(ToyCopies(bases=40, site=lambda base, copy: f"s{base % 8}"), groups="site", target=_AVERAGED)  # noqa: ARG005
+    assert result.success, result.errors
+    assert result.metadata.resolved_config["evaluator"]["groups"] == "site"
+    assert result.metadata.resolved_config["evaluator"]["group_near_duplicates"] is True
+
+
+def test_a_factor_the_source_lacks_is_refused_naming_the_factors_it_has() -> None:
+    result = _run(ToyCopies(bases=40, site=lambda base, copy: "s"), groups="place", group_near_duplicates=False)  # noqa: ARG005
+    _refused(result, "Source 'dataset' has no factor 'place'", "its metadata holds site")
+
+
+def test_a_numeric_factor_with_no_value_for_a_labeled_item_is_refused() -> None:
+    """Counting such an item alone would claim it independent of every other, which nothing shows."""
+    data = ToyCopies(bases=40, site=lambda base, copy: math.nan if base < 3 else float(base % 5))  # noqa: ARG005
+    result = _run(data, groups="site", group_near_duplicates=False, target=_AVERAGED)
+    _refused(result, "Source 'dataset'", "`site`", "3 of its 40 labeled items", "no value")
+
+
+def test_a_target_without_an_average_is_refused_where_items_share_a_unit_and_says_what_to_write(
+    seen: SimpleNamespace,
+) -> None:
+    result = _run(ToyCopies(bases=40, exact=1), target={"accuracy": 0.9, "ap:a/fixed_representation": 0.8})
+    _refused(
+        result,
+        "The 80 items of source 'dataset' fall into 40 independent units, the largest of 2 items",
+        "write `accuracy|sequence_mean`, `ap:a/fixed_representation|sequence_mean`",
+    )
+    assert not hasattr(seen, "kwargs")  # DataEval was never reached
+
+
+def test_a_target_without_an_average_is_fine_where_no_two_items_share_a_unit() -> None:
+    assert _run(ToyCopies(bases=40), target={"accuracy": 0.9}).success
+
+
+def test_the_inputs_the_run_reads_follow_its_settings() -> None:
+    always = {InputKind.DATASET, InputKind.EMBEDDINGS, InputKind.LABELS}
+    target = {"accuracy": 0.9}
+    assert FeasibilityConfig(target=target).wanted_kinds() == always | {InputKind.STATS}
+    assert FeasibilityConfig(target=target, group_near_duplicates=False).wanted_kinds() == always
+    assert FeasibilityConfig(target=target, groups="site").wanted_kinds() == always | {
+        InputKind.STATS,
+        InputKind.METADATA,
+    }
+    assert FeasibilityConfig(target=target, groups="site", group_near_duplicates=False).wanted_kinds() == always | {
+        InputKind.METADATA
+    }
+
+
+def test_an_empty_factor_name_is_refused() -> None:
+    with pytest.raises(ValidationError, match="at least 1 character"):
+        FeasibilityConfig(target={"accuracy": 0.9}, groups="")
 
 
 # --- The config ---
