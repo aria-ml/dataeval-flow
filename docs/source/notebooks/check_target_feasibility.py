@@ -147,7 +147,7 @@ if not model_path.exists():
 #
 # :::{note}
 # A requirement for a classifier like this one would be 85% or 90%, and these images do not demonstrate it. The best
-# lower bound in the text report is about 42%: a general-purpose model's 768 numbers do not separate 24 look-alike
+# lower bound in the text report is about 41%: a general-purpose model's 768 numbers do not separate 24 look-alike
 # vehicle types well, and the evaluator tests only the two simple models it builds from them. So the first target is the
 # highest round number that this model demonstrates, 40%, to show a demonstrated answer. The second is a harder target,
 # 50%, chosen to show an answer that is not demonstrated and, in the "Rule a target out with allowances" section, one
@@ -169,10 +169,12 @@ if not model_path.exists():
 # - Some data is refused. A dataset made from another, such as the crops of detection boxes that `wrap` makes, is
 #   refused: its items come from the same photo, so they are not independent, and the evaluator cannot tell which share
 #   one. So is a dataset whose labeled images fall in fewer than two classes.
-# - Repeated photos distort an answer. The evaluator treats every image as a separate example. In this training set, 67
-#   photos appear more than once, 139 images in all, each filed under different classes, so no model can name all of
-#   them right. For a real decision you would remove them first, as {doc}`data_cleaning` does. They stay here to keep
-#   this tutorial short.
+# - Repeated photos distort an answer. In this training set, 67 photos appear more than once, 139 images in all, each
+#   filed under different classes, so no model can name all of them right. By default the evaluator counts photos that
+#   repeat as one example, because a model that learned one copy scores well on the other, and it then wants each target
+#   written with an average, such as `accuracy|sequence_mean`. This tutorial sets `group_near_duplicates=False`, so
+#   that its targets keep the simple form. For a real decision, leave grouping on, or remove the repeats first, as
+#   {doc}`data_cleaning` does.
 # - A sample keeps the run short. You will judge 3,000 images, drawn after a seeded shuffle, because the training set is
 #   stored class by class and the first 3,000 would hold only some of the classes. More images narrow the bounds, at the
 #   price of a longer run.
@@ -244,8 +246,14 @@ config = PipelineConfig(
     ],
     extractors=[TorchExtractorConfig(name="vit", model_path=str(model_path), preprocessor="imagenet", batch_size=64)],
     evaluators=[
-        FeasibilityConfig(name="feasibility", target=targets, alpha=0.025),
-        FeasibilityConfig(name="feasibility_allowed", target=targets, alpha=0.025, allowances=AllowancesConfig(beta=0)),
+        FeasibilityConfig(name="feasibility", target=targets, alpha=0.025, group_near_duplicates=False),
+        FeasibilityConfig(
+            name="feasibility_allowed",
+            target=targets,
+            alpha=0.025,
+            group_near_duplicates=False,
+            allowances=AllowancesConfig(beta=0),
+        ),
     ],
     workflows=[reachable("reachable", "feasibility"), reachable("reachable_allowed", "feasibility_allowed")],
     tasks=[
@@ -269,6 +277,16 @@ result = run_task(config, config.tasks[0])
 if not result.success:
     print(f"Workflow failed: {result.errors}")
 assert result.success
+# The prose below quotes these numbers; a run that drifts from them fails here, not in a reader's copy.
+import re
+
+first, second = result.steps["measured"].output.determinations.to_dicts()
+assert (first["determination"], second["determination"]) == ("demonstrated_feasible", "unresolved")
+assert 0.405 <= first["witness"] < 0.415  # "about 41%"
+assert second["ceiling"] is None  # nothing bounds the second target from above
+scored = re.search(r"scored ([\d.]+)% accuracy on 1,500", str(result.steps["measured"].output))
+assert scored is not None
+assert 43.5 <= float(scored.group(1)) < 44.5  # "about 44%"
 
 # %% [markdown]
 # ## Read the text report
@@ -280,7 +298,7 @@ assert result.success
 #   table;
 # - the target, such as `accuracy ≥ 40%`;
 # - a bar of what the evidence decides, on a scale from 0 to 100% accuracy;
-# - the bound the bar is drawn from, `≥42.4%` where only a lower bound was found.
+# - the bound the bar is drawn from, `≥40.7%` where only a lower bound was found.
 #
 # In the bar, `█` is what is shown, up to the lower bound. `▒` is what is ruled out, above the upper bound. `░` is what
 # is open between them. Under the table, a line each gives the key to the marks, says how confident the bounds are
@@ -291,13 +309,13 @@ print(result.report())
 
 # %% [markdown]
 # The first target is **demonstrated** (`✓`). The evaluator fitted a simple model, a linear model, to the numbers that
-# describe half of the images, and tested it on the other half. It named the vehicle right on about 46% of them. After
-# allowing for having tested only 1,500 images, the lower bound is about 42%. So, with 97.5% confidence, a model of this
+# describe half of the images, and tested it on the other half. It named the vehicle right on about 44% of them. After
+# allowing for having tested only 1,500 images, the lower bound is about 41%. So, with 97.5% confidence, a model of this
 # kind names the vehicle right at least 40% of the time on new images from this population, if no evaluation image was
 # used to train or choose a model, or to set a target. There is no upper bound, so no part of the bar is ruled out.
 #
 # The second target has **insufficient evidence** (`?`): it is neither shown nor ruled out. The same model is the best
-# one tested, and its lower bound, about 42%, is short of 50%. Nothing bounds from above the models that read only the
+# one tested, and its lower bound, about 41%, is short of 50%. Nothing bounds from above the models that read only the
 # 768 numbers, so nothing rules 50% out either. To settle it, test a stronger model, to show it, or get repeated labels
 # or allowances you can justify, to rule it out. The "Look at the proof" section shows where DataEval says so, and the
 # "Rule a target out with allowances" section uses the allowances.
@@ -402,20 +420,23 @@ allowed = run_task(config, config.tasks[1])
 if not allowed.success:
     print(f"Workflow failed: {allowed.errors}")
 assert allowed.success
+ruled_out = allowed.steps["measured"].output.determinations.to_dicts()[1]
+assert ruled_out["determination"] == "infeasible_under_recorded_assumptions"
+assert 0.465 <= ruled_out["ceiling"] < 0.475  # "about 47%"
 
 # %%
 print(allowed.report())
 
 # %% [markdown]
 # The first target is unchanged: it is demonstrated, and no allowance was needed to show it. The second is now
-# **ruled out** (`✗`). Its upper bound is about 46%, below 50%, so, if the allowance holds, no model that reads only the
+# **ruled out** (`✗`). Its upper bound is about 47%, below 50%, so, if the allowance holds, no model that reads only the
 # 768 numbers names the vehicle right 50% of the time on new images from this population. The `*` beside the upper bound
 # marks an answer that rests on assumptions, and the `Allowances` line names the one you asserted. The finding still
 # warns: a ruled-out target is not a demonstrated one, and it holds only as far as the allowance does.
 #
 # DataEval checks your allowance against what it measured, once. Had a tested model's lower bound been above the upper
 # bound the allowance sets, the answer would have been **evidence conflict** (`!`), which means that something you
-# assumed is wrong. Here the lower bound, about 42%, is below the upper bound, about 46%, so the allowance survives that
+# assumed is wrong. Here the lower bound, about 41%, is below the upper bound, about 47%, so the allowance survives that
 # test. That does not prove it.
 #
 # `gamma: 0`, which needs `beta`, would go further: it asserts that the 768 numbers lose nothing a model reading the

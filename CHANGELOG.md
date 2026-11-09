@@ -48,6 +48,11 @@ section, maps every old key to its replacement.
     insufficient evidence or an evidence conflict
   - `alpha` is one error budget for every bound, and `allowances: {beta, gamma}` are your assertions, recorded as
     assumed
+  - Items that share a source are one independent unit: items a view repeats, items with the same value of the metadata
+    factor `groups:` names, and, unless `group_near_duplicates: false`, exact and near duplicates found from the image
+    hashes
+  - A target on units of more than one item needs an average, such as `accuracy|sequence_mean`, and the run says so
+  - The Output's extras give `groups`, `largest_group` and `duplicate_merges`
 - Evaluators: `balance`, `diversity`, `parity`, `representation`, `label-alignment`, `factor-summary`, `factor-triage`,
   `factor-leakage`, `label-reconciliation`, `ontology-validation`, `coverage`, `prioritization`, `completeness`,
   `divergence`, `drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-wasserstein`, `drift-domain-classifier`,

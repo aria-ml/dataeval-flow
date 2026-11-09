@@ -87,6 +87,42 @@ class ToyFactors:
         return self._images[index], target, {"site": ["north", "south", "east"][index % 3], "angle": float(index % 7)}
 
 
+class ToyCopies:
+    """Classification images in which each base image comes with copies, so the items share sources.
+
+    Each of `bases` random images is followed by `exact` byte-for-byte copies and then `near` one-pixel edits, which
+    the perceptual hashes still read as the same image. Items are in that order, base by base, and a base's copies
+    carry its label (the base's index parity). `site(base, copy)`, if given, is the item's `site` metadata factor,
+    where `copy` is 0 for the base image itself; it may return NaN, which leaves a numeric factor empty there.
+    """
+
+    def __init__(
+        self, bases: int = 40, *, exact: int = 0, near: int = 0, site: Callable[[int, int], str | float] | None = None
+    ) -> None:
+        rng = np.random.default_rng(0)
+        self._items: list[tuple[np.ndarray[Any, Any], int, dict[str, Any]]] = []
+        for base in range(bases):
+            image = rng.integers(0, 255, (3, 16, 16), dtype=np.uint8)
+            for copy in range(1 + exact + near):
+                shown = image.copy()
+                if copy > exact:
+                    shown[0, 0, 0] ^= 1
+                datum: dict[str, Any] = {"id": len(self._items)}
+                if site is not None:
+                    datum["site"] = site(base, copy)
+                self._items.append((shown, base % 2, datum))
+        self.metadata: DatasetMetadata = {"id": f"copies-{bases}-{exact}-{near}", "index2label": {0: "a", 1: "b"}}
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+    def __getitem__(self, index: int) -> tuple[Any, Any, dict[str, Any]]:
+        image, label, datum = self._items[index]
+        target = np.zeros(2, dtype=np.float32)
+        target[label] = 1.0
+        return image, target, datum
+
+
 class ToyClasses:
     """Classification items in `classes` classes that a flatten extractor separates: a class sets the level of the 16
     pixels (0.0, 0.25, ...), with noise of 0.02, so any k-NN reads it back from the embeddings.

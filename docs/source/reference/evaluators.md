@@ -41,7 +41,7 @@ extractor `bovw_ext`, as [Run a single evaluator](../how_to/run_a_single_evaluat
 | `content-digest` | `dataeval_flow.dataset_digest` | the Dataset itself, every item | 1 | refused |
 | `profile` | `dataeval.core.image_stats`, `dataeval.Metadata` | stats; metadata | 1 | refused |
 | `sufficiency` (experimental) | `dataeval.performance.Sufficiency` | the Dataset itself, every item, through a trainer file | 2: the training set, then the test set | refused |
-| `feasibility` (experimental) | `dataeval.performance.Feasibility` | the Dataset itself, embeddings and labels | 1 | required |
+| `feasibility` (experimental) | `dataeval.performance.Feasibility`, `dataeval.quality.Duplicates` | the Dataset itself, embeddings and labels; stats to group duplicates, metadata to group by a factor | 1 | required |
 
 A task's `extractor:` still lands in the result envelope's `model_id`, whether or not that run's mode actually reads it.
 
@@ -1121,6 +1121,16 @@ image was used to train or choose a model, or to set a requirement.
 - **A derived dataset is refused.** The items of `DetectionCrops` (made by [`wrap`](transforms.md#wrap)) and of similar
   wrappers share a source and are not independent, and `feasibility` has no way to tell which share one, so it judges no
   target on them.
+- **Items that share a source are one unit.** A target is judged on independent units, not items, because a model that
+  learned one copy of an image scores well on another. Items are one unit when a view repeats one of them, when they
+  hold the same value of the metadata factor `groups` names, or, unless `group_near_duplicates` is `false`, when they
+  are exact or near duplicates of each other. Flow finds duplicates by hashing the images with DataEval's `Duplicates`
+  at its default radius, which for images is 0: it joins copies whose perceptual hashes are identical, as a re-saved
+  image's often are, and not an edited copy whose hash moved. `groups` is read as the dataset recorded it, so a scene or
+  recording ID that nearly every image holds apart still works; a labeled item with no value of it is refused, because
+  nothing shows it independent of the others. Where any unit holds more than one item, a target must say how to average
+  over a unit, for example `accuracy|sequence_mean`, and the run is refused with that advice otherwise. Images too
+  small to hash perceptually are joined only when exact copies, which DataEval logs.
 - **Allowances are your assertions.** Without repeated labels, which Flow does not take, a target at the default scope,
   `full_input`, can be demonstrated but not ruled out: it comes back `unresolved`. `allowances: {beta: 0}` asserts that
   no model reading the representation beats one fixed answer per cell of DataEval's partition of it, which widens the
@@ -1139,13 +1149,17 @@ tutorial](https://dataeval.readthedocs.io/en/latest/notebooks/tt_assess_ic_feasi
   extractor, which must give one row per item.
 - **Makes:** a `feasibility` Output: a mapping of `determinations`, one row per target in the order given, and
   `evidence`, every bound of the call by id. Its extras are `items`, the source's item count, `labeled`, how many of
-  them have a label, and `absent_classes`, the declared classes with no labeled item.
+  them have a label, `absent_classes`, the declared classes with no labeled item, `groups`, how many independent units
+  the items fall into, `largest_group`, how many items the largest unit holds, and `duplicate_merges`, how many fewer
+  units there are because duplicates joined them.
 
 **Settings** ({py:class}`~dataeval_flow.evaluators.performance.FeasibilityConfig`):
 
 | Parameter | DataEval argument | Left unset |
 | --- | --- | --- |
 | `target` | `target` of `evaluate`: `metric[:class][/scope][\|aggregation]` mapped to a threshold in (0, 1]. The metric is `accuracy` or `ap`; the scope `full_input`, `fixed_representation` or `partition_restricted`; the aggregation `sequence_mean` | required |
+| `groups` | `groups` of `evaluate`, as a metadata factor name: items with one value are one independent unit | none; no factor joins items |
+| `group_near_duplicates` | Flow's own: join exact and near duplicates found by `Duplicates` | `true` |
 | `alpha` | `alpha`: the error budget of the whole call | `0.05`, stated in the result's `resolved_config` |
 | `panel_size` | `panel_size`: labels per local panel, at least 2 | DataEval's provisional default (`5`) |
 | `n_cells` | `n_cells`: partition cells for the local panels | by the number of audit units (10 below 20,000) |

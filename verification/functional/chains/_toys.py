@@ -170,7 +170,9 @@ EVALUATOR_DATA: dict[str, tuple[Any, bool]] = {
 # Settings a bare config cannot supply because the field has no default.
 EVALUATOR_SETTINGS: dict[str, dict[str, Any]] = {
     "factor-leakage": {"factors": ["site"]},
-    "feasibility": {"target": {"accuracy": 0.5}},
+    # `Images(40)` holds a byte-identical pair, which `feasibility` joins into one unit, and a target on units of more
+    # than one item must say how to average over a unit.
+    "feasibility": {"target": {"accuracy|sequence_mean": 0.5}},
     "label-alignment": {"ontology": {"a": None, "b": None}},
     "label-reconciliation": {"ontology": {"a": None, "b": None}},
     "ontology-validation": {"ontology": {"a": None, "b": None}},

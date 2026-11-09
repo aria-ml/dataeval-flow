@@ -6769,7 +6769,7 @@
     },
     "FeasibilityConfig": {
       "additionalProperties": false,
-      "description": "Config for ``feasibility``, DataEval's Feasibility.\n\nFor each target, such as ``accuracy: 0.9``, decides whether the labeled items of the one source demonstrate that\na model can reach it, rule it out under recorded assumptions, or neither, and keeps the evidence behind each\nanswer. One call is one ledger: ``alpha`` is the error budget shared by every bound of every target, so adding a\ntarget widens every bound, and choosing among several calls on one dataset (several extractors, say) needs\n``alpha`` divided by their number. For that reason a task's ``matrix:`` may vary only ``sources``.\n\nOnly the labeled items count, and the claims are about them. A source that is a derived dataset, such as\n``DetectionCrops``, is refused, because its items share a source image and are not independent; so is a source with\nfewer than two classes among its labeled items. The task's extractor must not have seen the labels, which Flow\ncannot check.\n\nEvery parameter, its DataEval argument and its unset behavior is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators feasibility`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: feasibility\n        type: feasibility\n        target: {accuracy: 0.9}\n        allowances: {beta: 0, gamma: 0}",
+      "description": "Config for ``feasibility``, DataEval's Feasibility.\n\nFor each target, such as ``accuracy: 0.9``, decides whether the labeled items of the one source demonstrate that\na model can reach it, rule it out under recorded assumptions, or neither, and keeps the evidence behind each\nanswer. One call is one ledger: ``alpha`` is the error budget shared by every bound of every target, so adding a\ntarget widens every bound, and choosing among several calls on one dataset (several extractors, say) needs\n``alpha`` divided by their number. For that reason a task's ``matrix:`` may vary only ``sources``.\n\nOnly the labeled items count, and the claims are about them. A source that is a derived dataset, such as\n``DetectionCrops``, is refused, because its items share a source image and are not independent; so is a source with\nfewer than two classes among its labeled items. The task's extractor must not have seen the labels, which Flow\ncannot check.\n\nA target is judged on independent units, not items: two copies of one image let a model that learned one score on\nthe other, so counted apart they would make a target look reachable that is not. Items are one unit when a view\nrepeats one of them, when they share the value of the metadata factor ``groups`` names, or when they are exact or\nnear duplicates of each other (``group_near_duplicates``, on by default). Near duplicates are those DataEval's\n``Duplicates`` finds at its default hash radius, which for images is 0: it joins only copies whose perceptual\nhashes are identical, as a re-saved image often is, so an edited copy whose hash moved is not joined. Name a factor\nthat holds the source of each item, such as the scene or the recording, when the data has one.\n\nEvery parameter, its DataEval argument and its unset behavior is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators feasibility`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: feasibility\n        type: feasibility\n        target: {accuracy: 0.9}\n        groups: scene\n        allowances: {beta: 0, gamma: 0}",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -6791,6 +6791,26 @@
           "minProperties": 1,
           "title": "Target",
           "type": "object"
+        },
+        "groups": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The metadata factor that says which items share a source, such as the scene, the recording or the patient: items with one value are one independent unit. Every labeled item needs a value. Unset, no factor joins items. Duplicates join them as well when `group_near_duplicates` is on.",
+          "title": "Groups"
+        },
+        "group_near_duplicates": {
+          "default": true,
+          "description": "Whether exact and near duplicates are one unit. Flow finds them with DataEval's `Duplicates` on the source's image hashes, at its default hash radius, and joins each group, so copies of one image never count as independent evidence. Off, the hashes are not measured and only `groups`, and the items a view repeats, join items.",
+          "title": "Group Near Duplicates",
+          "type": "boolean"
         },
         "alpha": {
           "default": 0.05,

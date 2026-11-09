@@ -11,8 +11,10 @@ from collections.abc import Callable
 from typing import Any, Literal
 
 import pytest
+from dataeval.quality import Duplicates
 from pydantic import ConfigDict, TypeAdapter
 
+from dataeval_flow import InputKind
 from dataeval_flow.evaluators import get_evaluator, list_evaluators
 from dataeval_flow.evaluators._fields import FLOW_FIELDS
 from dataeval_flow.evaluators._registry import _BUILTINS
@@ -61,6 +63,18 @@ _FLOW_ONLY: frozenset[str] = frozenset(
 # Fields Flow converts before DataEval sees them, whose types are Flow's by design.
 _CONVERTED: set[tuple[str, str]] = {("duplicates", "flags"), ("outliers", "flags")}
 
+# The input kinds an evaluator reads through a DataEval class other than its own: `feasibility` groups the items that
+# duplicate each other with `Duplicates.from_stats`, and judges a target with `Feasibility.evaluate`.
+_READ_THROUGH: dict[tuple[str, InputKind], type] = {("feasibility", InputKind.STATS): Duplicates}
+
+
+def _methods(evaluator: Any) -> list[tuple[Any, str]]:
+    """The DataEval class and method each input kind of the evaluator is read through."""
+    return [
+        (_READ_THROUGH.get((evaluator.name, kind), evaluator.dataeval_class), method)
+        for kind, method in evaluator.dataeval_methods.items()
+    ]
+
 
 def _dataeval_fields(cls: "type | Callable[..., Any]") -> dict[str, Any]:
     """The fields of `cls.Config`, a pydantic model or a dataclass, with their annotations.
@@ -89,9 +103,7 @@ def _method_parameters(evaluator: Any) -> set[str]:
     if inspect.isfunction(evaluator.dataeval_class):
         return set(inspect.signature(evaluator.dataeval_class).parameters) - {"self"}
     return {
-        name
-        for method in evaluator.dataeval_methods.values()
-        for name in inspect.signature(getattr(evaluator.dataeval_class, method)).parameters
+        name for owner, method in _methods(evaluator) for name in inspect.signature(getattr(owner, method)).parameters
     } - {"self"}
 
 
@@ -123,8 +135,8 @@ def test_every_builtin_has_a_wiring_list():
 @pytest.mark.parametrize("name", _NAMES)
 def test_every_dataeval_method_exists(name: str):
     evaluator = get_evaluator(name)
-    for method in evaluator.dataeval_methods.values():
-        assert callable(getattr(evaluator.dataeval_class, method, None)), f"{name}: {method} is gone"
+    for owner, method in _methods(evaluator):
+        assert callable(getattr(owner, method, None)), f"{name}: {owner.__name__}.{method} is gone"
 
 
 @pytest.mark.parametrize("name", _NAMES)

@@ -8,7 +8,7 @@ __all__ = ["AllowancesConfig", "FeasibilityConfig"]
 
 import math
 import re
-from typing import ClassVar, Self
+from typing import Any, ClassVar, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -78,6 +78,14 @@ class FeasibilityConfig(EvaluatorConfig[FeasibilityResult]):
     fewer than two classes among its labeled items. The task's extractor must not have seen the labels, which Flow
     cannot check.
 
+    A target is judged on independent units, not items: two copies of one image let a model that learned one score on
+    the other, so counted apart they would make a target look reachable that is not. Items are one unit when a view
+    repeats one of them, when they share the value of the metadata factor ``groups`` names, or when they are exact or
+    near duplicates of each other (``group_near_duplicates``, on by default). Near duplicates are those DataEval's
+    ``Duplicates`` finds at its default hash radius, which for images is 0: it joins only copies whose perceptual
+    hashes are identical, as a re-saved image often is, so an edited copy whose hash moved is not joined. Name a factor
+    that holds the source of each item, such as the scene or the recording, when the data has one.
+
     Every parameter, its DataEval argument and its unset behavior is listed in the Evaluator Catalog
     (``reference/evaluators``), and ``dataeval-flow evaluators feasibility`` prints the JSON Schema.
 
@@ -87,12 +95,14 @@ class FeasibilityConfig(EvaluatorConfig[FeasibilityResult]):
           - name: feasibility
             type: feasibility
             target: {accuracy: 0.9}
+            groups: scene
             allowances: {beta: 0, gamma: 0}
     """
 
     type: str = Field(default="feasibility", description="The evaluator type this entry configures: `feasibility`.")
     inputs: ClassVar[InputSpec] = InputSpec(
         required=frozenset({InputKind.DATASET, InputKind.EMBEDDINGS, InputKind.LABELS}),
+        optional=frozenset({InputKind.STATS, InputKind.METADATA}),
         sources=SourceCount.ONE,
         dataset_kinds=frozenset({"classification"}),
     )
@@ -110,6 +120,24 @@ class FeasibilityConfig(EvaluatorConfig[FeasibilityResult]):
             "`partition_restricted` to judge models that read less; `|sequence_mean` averages accuracy over groups "
             "of items. A recall target needs a false-positive limit and is not offered. Adding a target widens "
             "every bound, because `alpha` is shared among them."
+        ),
+    )
+    groups: str | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "The metadata factor that says which items share a source, such as the scene, the recording or the "
+            "patient: items with one value are one independent unit. Every labeled item needs a value. Unset, no "
+            "factor joins items. Duplicates join them as well when `group_near_duplicates` is on."
+        ),
+    )
+    group_near_duplicates: bool = Field(
+        default=True,
+        description=(
+            "Whether exact and near duplicates are one unit. Flow finds them with DataEval's `Duplicates` on the "
+            "source's image hashes, at its default hash radius, and joins each group, so copies of one image never "
+            "count as independent evidence. Off, the hashes are not measured and only `groups`, and the items a view "
+            "repeats, join items."
         ),
     )
     alpha: float = Field(
@@ -158,6 +186,18 @@ class FeasibilityConfig(EvaluatorConfig[FeasibilityResult]):
             "`beta: 0` asserts that no model reading the representation beats one fixed answer per cell."
         ),
     )
+
+    def wanted_kinds(self) -> frozenset[InputKind]:
+        """The image hashes when duplicates are grouped, and the metadata when a factor is."""
+        stats = frozenset({InputKind.STATS}) if self.group_near_duplicates else frozenset()
+        metadata = frozenset({InputKind.METADATA}) if self.groups is not None else frozenset()
+        return self.inputs.required | stats | metadata
+
+    def stats_request(self) -> dict[str, Any]:
+        """The hash families ``Duplicates`` reads by default, requested for the duplicate consumer."""
+        from dataeval_flow.evaluators.quality._config import DuplicatesConfig
+
+        return {**DuplicatesConfig().stats_request(), "duplicate_declaration": "`group_near_duplicates`"}
 
     @field_validator("target")
     @classmethod
