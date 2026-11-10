@@ -1133,10 +1133,11 @@ demonstrated, `✗` ruled out, `?` insufficient evidence, `~` not ruled out, `!`
 and the bounds, `≥42.4%` where only a lower bound was found and `41.6–75.1%` between two. A lower bound is rounded down
 and an upper bound up to 0.1%, as DataEval's printout rounds them, so that rounding never overstates a bound, and an
 upper bound that rules a target out carries `*`. Below the table, a line each gives the key to the marks in use, the
-confidence the bounds hold at together, and the allowances the call assumed; the population (the labeled items, and the
-declared classes with none) follows when it is not simply every item the source holds. The rest stays in the evaluator's
-output: the unrounded bounds, the evidence behind each with its assumptions, and DataEval's whole printout, which
-`str(output)` prints.
+confidence the bounds hold at together, how the items were grouped into the independent units the bounds count (how many
+units, the largest, and how many fewer there are because exact or near duplicates joined them), and the allowances the
+call assumed; the population (the labeled items, and the declared classes with none) follows when it is not simply
+every item the source holds. The rest stays in the evaluator's output: the unrounded bounds, the evidence behind each
+with its assumptions, and DataEval's whole printout, which `str(output)` prints.
 
 Every answer carries one assumption, which DataEval's printout states: no evaluation image was used to train or choose a
 model, or to set a target. Flow cannot check it. Each bound's evidence records the rest, such as that the embeddings

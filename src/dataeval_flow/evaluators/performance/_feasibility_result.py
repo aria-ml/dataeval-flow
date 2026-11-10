@@ -42,6 +42,16 @@ class PopulatedFeasibilityOutput(FeasibilityOutput):
             line += f"; classes with no labeled item are in no claim: {', '.join(self.absent_classes)}"
         return line
 
+    def grouping(self) -> str:
+        """The independent units the bounds count, in a line: how many there are among the source's items, the
+        largest, and how many fewer there are because exact or near duplicates joined them."""
+        if self.groups == self.items:
+            return f"each of the {self.items:,} items is its own unit"
+        line = f"{self.groups:,} independent units among {self.items:,} items, the largest of {self.largest_group:,}"
+        if self.duplicate_merges:
+            line += f"; exact and near duplicates account for {self.duplicate_merges:,} fewer units"
+        return line
+
 
 class FeasibilityResult(EvaluatorResult[FeasibilityOutput]):
     """The result of a ``feasibility`` run: ``output`` is DataEval's ``FeasibilityOutput``.

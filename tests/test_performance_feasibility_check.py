@@ -24,12 +24,12 @@ from dataeval_flow.steps import ChainResult, CheckContext
 from dataeval_flow.steps.checks import PerformanceFeasibilityCheck, PerformanceFeasibilityConfig
 from dataeval_flow.steps.checks._feasibility import _SYMBOLS, _WORDS, _pct
 from tests.chain_toys import chain_pipeline
-from tests.evaluator_toys import FLAT, ToyClasses
+from tests.evaluator_toys import FLAT, ToyClasses, ToyCopies
 
 _BOTH = {"beta": 0, "gamma": 0}
 
 
-def _output(target: dict[str, float], data: ToyClasses | None = None, **settings: Any) -> FeasibilityOutput:
+def _output(target: dict[str, float], data: ToyClasses | ToyCopies | None = None, **settings: Any) -> FeasibilityOutput:
     config = FeasibilityConfig(target=target, seed=0, **settings)
     result = run(config, data or ToyClasses(count=400, classes=4), extractor=FLAT)
     assert result.success, result.errors
@@ -227,6 +227,23 @@ def test_the_population_names_the_declared_classes_that_have_no_labeled_item() -
     assert _basis(_judge(output))["Population"] == (
         "labeled items only, 390 of 400; classes with no labeled item are in no claim: c4, c5"
     )
+
+
+def test_the_grouping_line_says_so_when_every_item_is_its_own_unit() -> None:
+    assert _basis(_judge(_output({"accuracy": 0.9})))["Grouping"] == "each of the 400 items is its own unit"
+
+
+def test_the_grouping_line_counts_the_units_and_the_ones_duplicates_removed() -> None:
+    output = _output({"accuracy|sequence_mean": 0.9}, ToyCopies(bases=40, exact=1, near=1))
+    assert _basis(_judge(output))["Grouping"] == (
+        "40 independent units among 120 items, the largest of 3; exact and near duplicates account for 80 fewer units"
+    )
+
+
+def test_the_grouping_line_leaves_out_duplicates_when_none_joined_a_unit() -> None:
+    data = ToyCopies(bases=40, site=lambda base, copy: f"s{base % 8}")  # noqa: ARG005
+    output = _output({"accuracy|sequence_mean": 0.9}, data, groups="site")
+    assert _basis(_judge(output))["Grouping"] == "8 independent units among 40 items, the largest of 5"
 
 
 def test_dataevals_own_output_is_judged_without_the_population_flow_adds() -> None:
