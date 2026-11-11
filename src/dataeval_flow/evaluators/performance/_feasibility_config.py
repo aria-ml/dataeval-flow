@@ -4,23 +4,72 @@ Field names are DataEval's argument names. An unset field is not passed, so Data
 ``alpha``, which is stated explicitly so the result's ``resolved_config`` records the error budget the call spent.
 """
 
-__all__ = ["AllowancesConfig", "FeasibilityConfig"]
+__all__ = ["AllowancesConfig", "FeasibilityConfig", "TargetConfig"]
 
-import math
-import re
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from dataeval.performance import Allowances, TargetSpec
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from dataeval_flow._input_spec import InputKind, InputSpec, SourceCount
 from dataeval_flow.evaluators._base import EvaluatorConfig
 from dataeval_flow.evaluators.performance._feasibility_result import FeasibilityResult
 
-# DataEval's `metric[:class][/scope][|aggregation]` for the metrics a classification dataset takes without a
-# false-positive limit. `recall` needs a limit a key cannot carry, and `@iou` is for detection.
-_TARGET_KEY = re.compile(
-    r"(accuracy|ap)(:[^@/|]+)?(/(full_input|fixed_representation|partition_restricted))?(\|sequence_mean)?"
-)
+
+class TargetConfig(BaseModel):
+    """One performance target for ``feasibility``: the metric, the threshold to reach and what the metric is about.
+
+    Each field is a field of DataEval's ``TargetSpec``, and DataEval's own rules run when the config loads, so a target
+    DataEval would refuse is refused here with its message.
+
+    Example YAML::
+
+        target:
+          - {metric: accuracy, threshold: 0.9}
+          - {metric: ap, threshold: 0.5, class_name: cat, scope: fixed_representation}
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    metric: Literal["accuracy", "ap"] = Field(
+        description=(
+            "`accuracy`, or `ap`, the average precision (macro over the classes, or of one class with `class_name`). "
+            "`recall` is not offered: DataEval refuses it on grouped data, and Flow groups near duplicates by default."
+        )
+    )
+    threshold: float = Field(
+        gt=0, le=1, allow_inf_nan=False, description="The value the model should reach, in (0, 1], such as `0.9`."
+    )
+    class_name: str | None = Field(
+        default=None,
+        min_length=1,
+        description="The class an `ap` target is about, as the source names it. Unset, `ap` is the macro average.",
+    )
+    scope: Literal["full_input", "fixed_representation", "partition_restricted"] | None = Field(
+        default=None,
+        description=(
+            "Which models the target is judged for. Unset uses DataEval's default, `full_input`, models that read the "
+            "whole input; `fixed_representation` and `partition_restricted` judge models that read less, which the "
+            "data can rule out without allowances."
+        ),
+    )
+    aggregation: Literal["sequence_mean"] | None = Field(
+        default=None,
+        description=(
+            "How to average over units of more than one item. Needed, as `sequence_mean`, for an `accuracy` target "
+            "when items share a unit (a repeated item, a `groups` factor or a duplicate), and refused otherwise. "
+            "DataEval defines it for `accuracy` only."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _dataeval_accepts_it(self) -> "TargetConfig":
+        self.spec()  # raises DataEval's own ValueError for a combination it refuses, which pydantic reports
+        return self
+
+    def spec(self) -> TargetSpec:
+        """The ``TargetSpec`` DataEval is given: this target's set fields, the rest at DataEval's defaults."""
+        return TargetSpec(**self.model_dump(exclude_none=True))
 
 
 class AllowancesConfig(BaseModel):
@@ -37,8 +86,7 @@ class AllowancesConfig(BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    beta: float | None = Field(
-        default=None,
+    beta: float = Field(
         ge=0,
         allow_inf_nan=False,
         description=(
@@ -51,27 +99,26 @@ class AllowancesConfig(BaseModel):
         ge=0,
         allow_inf_nan=False,
         description=(
-            "Information loss, a scalar, only with `beta`: how much a model reading the whole input could gain over "
+            "Information loss, a scalar, on top of `beta`: how much a model reading the whole input could gain over "
             "one reading the representation. `0` asserts that the representation loses nothing such a model could use. "
             "Your assertion, recorded as assumed."
         ),
     )
 
-    @model_validator(mode="after")
-    def _gamma_needs_beta(self) -> Self:
-        if self.gamma is not None and self.beta is None:
-            raise ValueError("`gamma` is allowed only together with `beta`: DataEval adds it on top of `beta`.")
-        return self
+    def allowances(self) -> Allowances:
+        """The ``Allowances`` DataEval is given."""
+        return Allowances(**self.model_dump(exclude_none=True))
 
 
 class FeasibilityConfig(EvaluatorConfig[FeasibilityResult]):
     """Config for ``feasibility``, DataEval's Feasibility.
 
-    For each target, such as ``accuracy: 0.9``, decides whether the labeled items of the one source demonstrate that
-    a model can reach it, rule it out under recorded assumptions, or neither, and keeps the evidence behind each
-    answer. One call is one ledger: ``alpha`` is the error budget shared by every bound of every target, so adding a
-    target widens every bound, and choosing among several calls on one dataset (several extractors, say) needs
-    ``alpha`` divided by their number. For that reason a task's ``matrix:`` may vary only ``sources``.
+    For each target, such as ``{metric: accuracy, threshold: 0.9}``, decides whether the labeled items of the one
+    source demonstrate that a model can reach it, rule it out under recorded assumptions, or neither, and keeps the
+    bounds behind each determination. One call is one ledger: ``alpha`` is the error budget shared by every bound of
+    every target, so adding a target widens every bound, and choosing among several calls on one dataset (several
+    extractors, say) needs ``alpha`` divided by their number. For that reason a task's ``matrix:`` may vary only
+    ``sources``.
 
     Only the labeled items count, and the claims are about them. A source that is a derived dataset, such as
     ``DetectionCrops``, is refused, because its items share a source image and are not independent; so is a source with
@@ -94,7 +141,8 @@ class FeasibilityConfig(EvaluatorConfig[FeasibilityResult]):
         evaluators:
           - name: feasibility
             type: feasibility
-            target: {accuracy: 0.9}
+            target:
+              - {metric: accuracy, threshold: 0.9}
             groups: scene
             allowances: {beta: 0, gamma: 0}
     """
@@ -111,15 +159,13 @@ class FeasibilityConfig(EvaluatorConfig[FeasibilityResult]):
         "number, which Flow cannot know you mean; only separate populations (`sources`) make separate claims."
     )
 
-    target: dict[str, float] = Field(
+    target: list[TargetConfig] = Field(
         min_length=1,
         description=(
-            "The performance targets: `metric[:class][/scope][|aggregation]` mapped to the threshold the model "
-            "should reach, in (0, 1], such as `{accuracy: 0.9}`. The metric is `accuracy`, or `ap` (macro, or for "
-            "`ap:<class>`); the scope, which defaults to `full_input`, is `fixed_representation` or "
-            "`partition_restricted` to judge models that read less; `|sequence_mean` averages accuracy over groups "
-            "of items. A recall target needs a false-positive limit and is not offered. Adding a target widens "
-            "every bound, because `alpha` is shared among them."
+            "The performance targets, each a `metric` and a `threshold` the model should reach, in (0, 1], with "
+            "optionally a `class_name`, a `scope` and an `aggregation`, as listed under `TargetConfig`. The result "
+            "keeps their order. DataEval calls each one a requirement. Adding a target widens every bound, because "
+            "`alpha` is shared among them."
         ),
     )
     groups: str | None = Field(
@@ -151,25 +197,6 @@ class FeasibilityConfig(EvaluatorConfig[FeasibilityResult]):
             "best of `k` runs, needs `alpha / k` per call."
         ),
     )
-    panel_size: int | None = Field(
-        default=None,
-        ge=2,
-        description="Labels per local panel, at least 2. Unset uses DataEval's provisional default (5).",
-    )
-    n_cells: int | None = Field(
-        default=None,
-        ge=1,
-        description=(
-            "Cells of the partition the local panels pool within. Unset follows the number of audit units (10 "
-            "below 20,000)."
-        ),
-    )
-    builtin_witnesses: bool | None = Field(
-        default=None,
-        description=(
-            "Whether to fit and score the built-in k-NN and linear-probe models. Unset uses DataEval's default (true)."
-        ),
-    )
     seed: int | None = Field(
         default=None,
         description=(
@@ -183,7 +210,8 @@ class FeasibilityConfig(EvaluatorConfig[FeasibilityResult]):
             "Assumptions asserted to rule a target out at a broader scope: `beta`, then `gamma` on top of it. Without "
             "them, and without repeated labels, which Flow does not take, a target at the default scope can only be "
             "shown, not ruled out. They are your assertions, recorded as assumed; each must be a justified bound. "
-            "`beta: 0` asserts that no model reading the representation beats one fixed answer per cell."
+            "`beta: 0` asserts that no model reading the representation beats one fixed answer per cell. `beta` is "
+            "required, `gamma` optional."
         ),
     )
 
@@ -198,18 +226,3 @@ class FeasibilityConfig(EvaluatorConfig[FeasibilityResult]):
         from dataeval_flow.evaluators.quality._config import DuplicatesConfig
 
         return {**DuplicatesConfig().stats_request(), "duplicate_declaration": "`group_near_duplicates`"}
-
-    @field_validator("target")
-    @classmethod
-    def _targets(cls, value: dict[str, float]) -> dict[str, float]:
-        """Keys in DataEval's grammar, for the metrics offered, and thresholds in (0, 1], checked here because DataEval
-        parses them against the data."""
-        for key, threshold in value.items():
-            if not _TARGET_KEY.fullmatch(key):
-                raise ValueError(
-                    f"`{key}` is not a target key: write `accuracy` or `ap`, then optionally `:<class>` (for `ap`), "
-                    "`/<scope>` (`full_input`, `fixed_representation` or `partition_restricted`) and `|sequence_mean`."
-                )
-            if not (math.isfinite(threshold) and 0 < threshold <= 1):
-                raise ValueError(f"The threshold of `{key}` must be a number in (0, 1]; got {threshold}.")
-        return value

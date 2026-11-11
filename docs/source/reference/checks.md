@@ -1123,38 +1123,55 @@ bounds behind every answer.
 the `feasibility` Output it judges may. The first run in a process to use it warns with `ExperimentalWarning`.
 :::
 
-The finding is `ok` only where every target is `demonstrated_feasible`. Every other answer warns, a ruled-out target
-included, since it holds only under the assumptions recorded with its evidence: the check fails closed under
-`--fail-on-warning`. The targets live on the `feasibility` evaluator, not on the check.
+The finding is `ok` only where every target is `demonstrated_feasible`. Every other determination warns, a ruled-out
+target included, since it holds only under the assumptions recorded with its bounds, and `not_ruled_out` and `unresolved`
+show nothing either way: the check fails closed under `--fail-on-warning`. The targets live on the `feasibility`
+evaluator, not on the check. The words are DataEval's: it calls a target a requirement, an upper bound an envelope and a
+lower bound a witness.
 
-The finding is a table of a row per target, in the order the evaluator was given them: a mark for the answer (`✓`
-demonstrated, `✗` ruled out, `?` insufficient evidence, `~` not ruled out, `!` evidence conflict); the target, such as
-`accuracy ≥ 90%`; a bar of the interval the bounds leave on a scale from 0 to 100% (`█` shown, `░` open, `▒` ruled out);
-and the bounds, `≥42.4%` where only a lower bound was found and `41.6–75.1%` between two. A lower bound is rounded down
-and an upper bound up to 0.1%, as DataEval's printout rounds them, so that rounding never overstates a bound, and an
-upper bound that rules a target out carries `*`. Below the table, a line each gives the key to the marks in use, the
-confidence the bounds hold at together, how the items were grouped into the independent units the bounds count (how many
-units, the largest, and how many fewer there are because exact or near duplicates joined them), and the allowances the
-call assumed; the population (the labeled items, and the declared classes with none) follows when it is not simply
-every item the source holds. The rest stays in the evaluator's output: the unrounded bounds, the evidence behind each
-with its assumptions, and DataEval's whole printout, which `str(output)` prints.
+The finding is a table of a row per target, in the order the evaluator was given them: a mark for its determination (`✓`
+`demonstrated_feasible`, `✗` `infeasible_under_recorded_assumptions`, `~` `not_ruled_out`, `?` `unresolved`, and `!` for
+`unresolved` with the limitation `conflict`); its `#`, the index DataEval gives the requirement; the target as DataEval's
+printout names it, such as `accuracy ≥0.9`, with the class after a colon, the aggregation after `|` and a scope other
+than `full_input` after `@`, as in `ap:cat ≥0.5 @fixed_representation`; a bar of the interval the bounds leave on a
+scale from 0 to 100% (`█` shown, `░` open, `▒` ruled out); and the bounds, `≥42.4%` where only a witness was found and
+`41.6–75.1%` between a witness and an envelope. A lower bound is rounded down and an upper bound up to 0.1%, as
+DataEval's printout rounds them, so that rounding never overstates a bound, and an upper bound that rules a target out
+carries `*`. A row too wide for 80 columns continues on a line of its own.
 
-Every answer carries one assumption, which DataEval's printout states: no evaluation image was used to train or choose a
-model, or to set a target. Flow cannot check it. Each bound's evidence records the rest, such as that the embeddings
+Below the table, a line each gives the key to the marks in use, the confidence the bounds hold at together, how the
+items were grouped into the independent units the bounds count (how many units, the largest, and how many fewer there
+are because exact or near duplicates joined them), and the allowances the call assumed; the population (the labeled
+items, and the declared classes with none) follows when it is not simply every item the source holds. For each target
+that is not final, a `Limitation` line names its limitation, and
+a `Suggested minimum` line gives the independent units at which the bound named there would cross the target if the
+observed rates held: a projection, not a bound, and it is absent where DataEval finds none. A second table lists the
+bounds each determination rests on (`Decides` is `yes`), and the envelopes that do not decide (`no`): an envelope that
+holds at a narrower scope than the target is judged at is evidence, and never rules it out. The rest stays in the
+evaluator's output: the unrounded bounds, every bound with its assumptions, and DataEval's whole printout, which
+`str(output)` prints.
+
+Every determination carries one assumption, which DataEval's printout states: no evaluation image was used to train or
+choose a model, or to set a target. Flow cannot check it. Each bound's row records the rest, such as that the embeddings
 were fitted without the labels, and any allowances.
 
-What settles a target that is not demonstrated depends on what holds it back, which each row of `determinations`
-records as `limiting_factor`, with DataEval's `recommendation`:
+A limitation says what holds a determination back, and so what would settle it. Collecting that evidence is the user's
+work: DataEval measures what the data shows and does not ask for more.
 
-- `?` insufficient evidence: to show it, test a stronger model; to rule it out, get repeated labels or allowances you can
-  justify.
-- `~` not ruled out: nothing rules the target out and no tested model has shown it; test a stronger model.
-- `!` evidence conflict: a tested model's lower bound is above an upper bound, so something assumed is wrong. Trust
-  neither bound until you find it.
+| Limitation | What holds it back | What would settle it |
+| --- | --- | --- |
+| `conflict` | A witness's lower bound is above an envelope's upper bound, so the two cannot both hold and something assumed is wrong. | Find the assumption that does not hold, such as an extractor that saw the labels or an allowance that is too small. Trust neither bound until then. |
+| `no_envelope` | No envelope exists at any scope, so nothing can rule the target out: DataEval had neither embeddings nor repeated labels to bound it from above. | Not expected under Flow, which always passes embeddings. |
+| `scope_restricted` | Envelopes exist only at a narrower scope than the target is judged at, and those never decide. This is the common case for a target at the default scope, `full_input`, without allowances. | To rule it out, allowances you can justify (`beta`, then `gamma`), or judge the target at a narrower `scope`. To show it, more independent items or a better extractor; the suggested minimum projects how many items. |
+| `missing_bound` | An envelope that applies is unavailable because `max_sequence_length` was not declared. Flow offers no video, so it declares none. | Not expected under Flow. |
+| `envelope_unavailable` | Envelopes exist but every one is unavailable, for lack of independent units or panels. | More independent items: copies of one image count once. |
+| `no_eligible_witness` | No witness is eligible at the scope the target is judged at. A built-in witness reads the representation, so it is eligible at `fixed_representation` and broader; at `partition_restricted`, none is, in this release. | Judge the target at `fixed_representation` or `full_input`. |
+| `within_radius` | A bound falls on the wrong side of the target by less than its radius: the observed value is on the right side and the bound is not yet. | More independent items; the suggested minimum projects how many. |
+| `weak_witness` | The best witness's lower bound is below the target, and so is what it observed. | A stronger model, which under Flow means a different extractor. That is another call, so split `alpha` among the calls. |
 
 - **Reads:** `input`, a `feasibility` Output.
-- **Makes:** a finding titled Performance Feasibility, briefed with how many targets were demonstrated and the others'
-  answers, with the table of targets and the lines under it.
+- **Makes:** a finding titled Performance Feasibility, briefed with how many targets were `demonstrated_feasible` and the
+  other determinations' counts, with the table of targets, the lines under it and the table of deciding bounds.
 
 **Settings** ({py:class}`~dataeval_flow.steps.checks.PerformanceFeasibilityConfig`):
 
@@ -1169,7 +1186,8 @@ records as `limiting_factor`, with DataEval's `recommendation`:
 evaluators:
   - name: feasibility
     type: feasibility
-    target: {accuracy: 0.9}
+    target:
+      - {metric: accuracy, threshold: 0.9}
 
 workflows:
   - name: example

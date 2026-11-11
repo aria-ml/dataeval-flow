@@ -94,6 +94,7 @@ dataeval_flow.evaluators.performance:FeasibilityResult
 dataeval_flow.evaluators.performance:SufficiencyConfig
 dataeval_flow.evaluators.performance:SufficiencyEvaluator
 dataeval_flow.evaluators.performance:SufficiencyResult
+dataeval_flow.evaluators.performance:TargetConfig
 dataeval_flow.evaluators.performance:Trainer
 dataeval_flow.evaluators.performance:TrainerConfig
 dataeval_flow.evaluators.performance:TrainerKit

@@ -15,9 +15,9 @@ from dataeval_flow._view import root_indices
 from dataeval_flow.evaluators._evaluator import Evaluator
 from dataeval_flow.evaluators._fields import dataeval_arguments, require
 from dataeval_flow.evaluators._inputs import EvaluatorInputs
-from dataeval_flow.evaluators.performance._feasibility_config import FeasibilityConfig
+from dataeval_flow.evaluators.performance._feasibility_config import FeasibilityConfig, TargetConfig
 from dataeval_flow.evaluators.performance._feasibility_groups import Grouping, group_items
-from dataeval_flow.evaluators.performance._feasibility_result import PopulatedFeasibilityOutput
+from dataeval_flow.evaluators.performance._feasibility_result import PopulatedFeasibilityOutput, requirement_label
 from dataeval_flow.evaluators.quality._config import DuplicatesConfig
 from dataeval_flow.evaluators.quality._evaluator import find_duplicates
 from dataeval_flow.evaluators.quality._leakage import item_column
@@ -31,7 +31,7 @@ class FeasibilityEvaluator(Evaluator[FeasibilityConfig, FeasibilityOutput]):
     title: ClassVar[str] = "Feasibility"
     description: ClassVar[str] = (
         "Whether the data demonstrates each performance target reachable, rules it out under stated assumptions, or "
-        "does neither, with the proof behind every answer (DataEval Feasibility)."
+        "does neither, with the bounds behind every determination (DataEval Feasibility)."
     )
     experimental: ClassVar[bool] = True  # DataEval's Feasibility is experimental
     dataeval_class: ClassVar[type] = Feasibility
@@ -44,6 +44,7 @@ class FeasibilityEvaluator(Evaluator[FeasibilityConfig, FeasibilityOutput]):
         InputKind.METADATA: "evaluate",
     }
     output_extras: ClassVar[tuple[str, ...]] = (
+        "seed",
         "items",
         "labeled",
         "absent_classes",
@@ -54,7 +55,7 @@ class FeasibilityEvaluator(Evaluator[FeasibilityConfig, FeasibilityOutput]):
     reads_factors: ClassVar[bool] = False
 
     def run(self, config: FeasibilityConfig, inputs: Sequence[EvaluatorInputs]) -> FeasibilityOutput:
-        """Refuse a source whose items are not independent or whose labels cannot support a claim, then decide each
+        """Refuse a source whose items are not independent or whose labels cannot support a claim, then determine each
         target on the source's labeled items, grouped into the units they are independent as.
 
         Flow's extractor produced the embeddings, so DataEval is not given one. Items are one unit when a view repeats
@@ -67,7 +68,8 @@ class FeasibilityEvaluator(Evaluator[FeasibilityConfig, FeasibilityOutput]):
         ValueError
             When the source is a derived dataset (one whose root has a ``source``, such as ``DetectionCrops``), is
             empty, has no labeled item, or has labeled items in fewer than two classes; or ``groups`` names a factor
-            the source lacks or one a labeled item has no value for.
+            the source lacks or one a labeled item has no value for; or a target says nothing, or says the wrong thing,
+            about how to average over units of more than one item.
         """
         (source,) = inputs
         dataset = require(source.dataset, "its dataset", source.source)
@@ -83,15 +85,18 @@ class FeasibilityEvaluator(Evaluator[FeasibilityConfig, FeasibilityOutput]):
         allowances = arguments.pop("allowances", None)
         measured = Feasibility(**arguments).evaluate(
             dataset,
-            target=config.target,
+            target=[target.spec() for target in config.target],
             embeddings=embeddings,
             groups=grouping.units,
-            allowances=None if allowances is None else allowances.model_dump(exclude_none=True),
+            allowances=None if allowances is None else allowances.allowances(),
         )
         observed = {int(label) for label in labels}
         output = PopulatedFeasibilityOutput(
+            requirements=measured.requirements,
+            allowances=measured.allowances,
             determinations=measured.determinations,
-            evidence=measured.evidence,
+            bounds=measured.bounds,
+            seed=measured.meta().state.get("resolved_seed"),
             items=len(dataset),
             labeled=len(labels),
             absent_classes=[name for index, name in sorted(names.items()) if index not in observed],
@@ -138,18 +143,48 @@ def _factor(name: str, source: EvaluatorInputs, count: int) -> list[Any]:
     return factor
 
 
-def _require_aggregation(target: Mapping[str, float], grouping: Grouping, items: int, source: str) -> None:
-    """Raise when items share a unit and a target does not say how to average over it, which DataEval refuses too, but
-    without saying why the source is grouped."""
-    bare = [key for key in target if "|" not in key]
-    if grouping.largest_group > 1 and bare:
-        write = ", ".join(f"`{key}|sequence_mean`" for key in bare)
-        raise ValueError(
-            f"The {items:,} items of source '{source}' fall into {grouping.groups:,} independent units, the largest of "
-            f"{grouping.largest_group:,} items, because items that a view repeats, that share the `groups` factor or "
-            f"that duplicate each other are one unit. A target on units of more than one item must say how to average "
-            f"over a unit: write {write}, which averages the metric over the units."
+def _require_aggregation(target: Sequence[TargetConfig], grouping: Grouping, items: int, source: str) -> None:
+    """Raise when a target says the wrong thing about averaging over units, which DataEval refuses too, but without
+    saying why the source is grouped.
+
+    On units of more than one item only ``accuracy`` can be judged, and it must say ``aggregation: sequence_mean``:
+    DataEval defines that average for accuracy alone. Where every item is a unit of its own an aggregation is refused.
+    """
+
+    def name(spec: TargetConfig) -> str:
+        return f"`{requirement_label(spec.metric, spec.threshold, spec.class_name, None, spec.scope or 'full_input')}`"
+
+    if grouping.largest_group <= 1:
+        averaged = [name(spec) for spec in target if spec.aggregation is not None]
+        if averaged:
+            raise ValueError(
+                f"The {items:,} items of source '{source}' are each a unit of their own, so there is nothing to "
+                f"average over: remove `aggregation` from {', '.join(averaged)}. Items become one unit when a view "
+                "repeats one, when they share the `groups` factor or when they duplicate each other."
+            )
+        return
+    unaveraged = [name(spec) for spec in target if spec.aggregation is None and spec.metric == "accuracy"]
+    unaveragable = [name(spec) for spec in target if spec.metric != "accuracy"]
+    if not (unaveraged or unaveragable):
+        return
+    why = (
+        f"The {items:,} items of source '{source}' fall into {grouping.groups:,} independent units, the largest of "
+        f"{grouping.largest_group:,} items, because items that a view repeats, that share the `groups` factor or "
+        "that duplicate each other are one unit."
+    )
+    advice = []
+    if unaveraged:
+        advice.append(
+            "A target on units of more than one item must say how to average over a unit: add `aggregation: "
+            f"sequence_mean` to {', '.join(unaveraged)}, which averages the accuracy over the units."
         )
+    if unaveragable:
+        advice.append(
+            f"{', '.join(unaveragable)} cannot be judged on such units, because DataEval defines `sequence_mean` for "
+            "`accuracy` only. Remove it, or judge it on a source whose items are each a unit: set "
+            "`group_near_duplicates: false` and leave `groups` unset, if no view repeats an item either."
+        )
+    raise ValueError(" ".join([why, *advice]))
 
 
 def _refuse(dataset: Any, labels: Any, names: Mapping[int, str], source: str) -> None:
