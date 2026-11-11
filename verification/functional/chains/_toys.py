@@ -172,7 +172,7 @@ EVALUATOR_SETTINGS: dict[str, dict[str, Any]] = {
     "factor-leakage": {"factors": ["site"]},
     # `Images(40)` holds a byte-identical pair, which `feasibility` joins into one unit, and a target on units of more
     # than one item must say how to average over a unit.
-    "feasibility": {"target": {"accuracy|sequence_mean": 0.5}},
+    "feasibility": {"target": [{"metric": "accuracy", "threshold": 0.5, "aggregation": "sequence_mean"}]},
     "label-alignment": {"ontology": {"a": None, "b": None}},
     "label-reconciliation": {"ontology": {"a": None, "b": None}},
     "ontology-validation": {"ontology": {"a": None, "b": None}},

@@ -166,18 +166,10 @@
       "description": "The assumptions a ``feasibility`` run is told to make, which widen the scope at which a target can be ruled out.\n\nEach is **your assertion**, recorded as assumed in the result, not something DataEval measures. Each must be a\njustified bound: ``beta: 0`` asserts that no model reading the representation beats one fixed answer per cell of\nDataEval's partition of it.\n\nExample YAML::\n\n    allowances: {beta: 0, gamma: 0}",
       "properties": {
         "beta": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
           "description": "Cell heterogeneity, a scalar: how much better than one fixed answer per cell a model reading the representation is asserted to do. `0` asserts it does no better. Your assertion, recorded as assumed.",
-          "title": "Beta"
+          "minimum": 0,
+          "title": "Beta",
+          "type": "number"
         },
         "gamma": {
           "anyOf": [
@@ -190,10 +182,13 @@
             }
           ],
           "default": null,
-          "description": "Information loss, a scalar, only with `beta`: how much a model reading the whole input could gain over one reading the representation. `0` asserts that the representation loses nothing such a model could use. Your assertion, recorded as assumed.",
+          "description": "Information loss, a scalar, on top of `beta`: how much a model reading the whole input could gain over one reading the representation. `0` asserts that the representation loses nothing such a model could use. Your assertion, recorded as assumed.",
           "title": "Gamma"
         }
       },
+      "required": [
+        "beta"
+      ],
       "title": "AllowancesConfig",
       "type": "object"
     },
@@ -6769,7 +6764,7 @@
     },
     "FeasibilityConfig": {
       "additionalProperties": false,
-      "description": "Config for ``feasibility``, DataEval's Feasibility.\n\nFor each target, such as ``accuracy: 0.9``, decides whether the labeled items of the one source demonstrate that\na model can reach it, rule it out under recorded assumptions, or neither, and keeps the evidence behind each\nanswer. One call is one ledger: ``alpha`` is the error budget shared by every bound of every target, so adding a\ntarget widens every bound, and choosing among several calls on one dataset (several extractors, say) needs\n``alpha`` divided by their number. For that reason a task's ``matrix:`` may vary only ``sources``.\n\nOnly the labeled items count, and the claims are about them. A source that is a derived dataset, such as\n``DetectionCrops``, is refused, because its items share a source image and are not independent; so is a source with\nfewer than two classes among its labeled items. The task's extractor must not have seen the labels, which Flow\ncannot check.\n\nA target is judged on independent units, not items: two copies of one image let a model that learned one score on\nthe other, so counted apart they would make a target look reachable that is not. Items are one unit when a view\nrepeats one of them, when they share the value of the metadata factor ``groups`` names, or when they are exact or\nnear duplicates of each other (``group_near_duplicates``, on by default). Near duplicates are those DataEval's\n``Duplicates`` finds at its default hash radius, which for images is 0: it joins only copies whose perceptual\nhashes are identical, as a re-saved image often is, so an edited copy whose hash moved is not joined. Name a factor\nthat holds the source of each item, such as the scene or the recording, when the data has one.\n\nEvery parameter, its DataEval argument and its unset behavior is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators feasibility`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: feasibility\n        type: feasibility\n        target: {accuracy: 0.9}\n        groups: scene\n        allowances: {beta: 0, gamma: 0}",
+      "description": "Config for ``feasibility``, DataEval's Feasibility.\n\nFor each target, such as ``{metric: accuracy, threshold: 0.9}``, decides whether the labeled items of the one\nsource demonstrate that a model can reach it, rule it out under recorded assumptions, or neither, and keeps the\nbounds behind each determination. One call is one ledger: ``alpha`` is the error budget shared by every bound of\nevery target, so adding a target widens every bound, and choosing among several calls on one dataset (several\nextractors, say) needs ``alpha`` divided by their number. For that reason a task's ``matrix:`` may vary only\n``sources``.\n\nOnly the labeled items count, and the claims are about them. A source that is a derived dataset, such as\n``DetectionCrops``, is refused, because its items share a source image and are not independent; so is a source with\nfewer than two classes among its labeled items. The task's extractor must not have seen the labels, which Flow\ncannot check.\n\nA target is judged on independent units, not items: two copies of one image let a model that learned one score on\nthe other, so counted apart they would make a target look reachable that is not. Items are one unit when a view\nrepeats one of them, when they share the value of the metadata factor ``groups`` names, or when they are exact or\nnear duplicates of each other (``group_near_duplicates``, on by default). Near duplicates are those DataEval's\n``Duplicates`` finds at its default hash radius, which for images is 0: it joins only copies whose perceptual\nhashes are identical, as a re-saved image often is, so an edited copy whose hash moved is not joined. Name a factor\nthat holds the source of each item, such as the scene or the recording, when the data has one.\n\nEvery parameter, its DataEval argument and its unset behavior is listed in the Evaluator Catalog\n(``reference/evaluators``), and ``dataeval-flow evaluators feasibility`` prints the JSON Schema.\n\nExample YAML::\n\n    evaluators:\n      - name: feasibility\n        type: feasibility\n        target:\n          - {metric: accuracy, threshold: 0.9}\n        groups: scene\n        allowances: {beta: 0, gamma: 0}",
       "properties": {
         "name": {
           "description": "The name this entry is referenced by. Defaults to its `type`.",
@@ -6784,13 +6779,13 @@
           "type": "string"
         },
         "target": {
-          "additionalProperties": {
-            "type": "number"
+          "description": "The performance targets, each a `metric` and a `threshold` the model should reach, in (0, 1], with optionally a `class_name`, a `scope` and an `aggregation`, as listed under `TargetConfig`. The result keeps their order. DataEval calls each one a requirement. Adding a target widens every bound, because `alpha` is shared among them.",
+          "items": {
+            "$ref": "#/$defs/TargetConfig"
           },
-          "description": "The performance targets: `metric[:class][/scope][|aggregation]` mapped to the threshold the model should reach, in (0, 1], such as `{accuracy: 0.9}`. The metric is `accuracy`, or `ap` (macro, or for `ap:<class>`); the scope, which defaults to `full_input`, is `fixed_representation` or `partition_restricted` to judge models that read less; `|sequence_mean` averages accuracy over groups of items. A recall target needs a false-positive limit and is not offered. Adding a target widens every bound, because `alpha` is shared among them.",
-          "minProperties": 1,
+          "minItems": 1,
           "title": "Target",
-          "type": "object"
+          "type": "array"
         },
         "groups": {
           "anyOf": [
@@ -6820,47 +6815,6 @@
           "title": "Alpha",
           "type": "number"
         },
-        "panel_size": {
-          "anyOf": [
-            {
-              "minimum": 2,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Labels per local panel, at least 2. Unset uses DataEval's provisional default (5).",
-          "title": "Panel Size"
-        },
-        "n_cells": {
-          "anyOf": [
-            {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Cells of the partition the local panels pool within. Unset follows the number of audit units (10 below 20,000).",
-          "title": "N Cells"
-        },
-        "builtin_witnesses": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Whether to fit and score the built-in k-NN and linear-probe models. Unset uses DataEval's default (true).",
-          "title": "Builtin Witnesses"
-        },
         "seed": {
           "anyOf": [
             {
@@ -6884,7 +6838,7 @@
             }
           ],
           "default": null,
-          "description": "Assumptions asserted to rule a target out at a broader scope: `beta`, then `gamma` on top of it. Without them, and without repeated labels, which Flow does not take, a target at the default scope can only be shown, not ruled out. They are your assertions, recorded as assumed; each must be a justified bound. `beta: 0` asserts that no model reading the representation beats one fixed answer per cell."
+          "description": "Assumptions asserted to rule a target out at a broader scope: `beta`, then `gamma` on top of it. Without them, and without repeated labels, which Flow does not take, a target at the default scope can only be shown, not ruled out. They are your assertions, recorded as assumed; each must be a justified bound. `beta: 0` asserts that no model reading the representation beats one fixed answer per cell. `beta` is required, `gamma` optional."
         }
       },
       "required": [
@@ -12279,6 +12233,80 @@
         "value"
       ],
       "title": "SufficiencyTarget",
+      "type": "object"
+    },
+    "TargetConfig": {
+      "additionalProperties": false,
+      "description": "One performance target for ``feasibility``: the metric, the threshold to reach and what the metric is about.\n\nEach field is a field of DataEval's ``TargetSpec``, and DataEval's own rules run when the config loads, so a target\nDataEval would refuse is refused here with its message.\n\nExample YAML::\n\n    target:\n      - {metric: accuracy, threshold: 0.9}\n      - {metric: ap, threshold: 0.5, class_name: cat, scope: fixed_representation}",
+      "properties": {
+        "metric": {
+          "description": "`accuracy`, or `ap`, the average precision (macro over the classes, or of one class with `class_name`). `recall` is not offered: DataEval refuses it on grouped data, and Flow groups near duplicates by default.",
+          "enum": [
+            "accuracy",
+            "ap"
+          ],
+          "title": "Metric",
+          "type": "string"
+        },
+        "threshold": {
+          "description": "The value the model should reach, in (0, 1], such as `0.9`.",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Threshold",
+          "type": "number"
+        },
+        "class_name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The class an `ap` target is about, as the source names it. Unset, `ap` is the macro average.",
+          "title": "Class Name"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "enum": [
+                "full_input",
+                "fixed_representation",
+                "partition_restricted"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which models the target is judged for. Unset uses DataEval's default, `full_input`, models that read the whole input; `fixed_representation` and `partition_restricted` judge models that read less, which the data can rule out without allowances.",
+          "title": "Scope"
+        },
+        "aggregation": {
+          "anyOf": [
+            {
+              "const": "sequence_mean",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How to average over units of more than one item. Needed, as `sequence_mean`, for an `accuracy` target when items share a unit (a repeated item, a `groups` factor or a duplicate), and refused otherwise. DataEval defines it for `accuracy` only.",
+          "title": "Aggregation"
+        }
+      },
+      "required": [
+        "metric",
+        "threshold"
+      ],
+      "title": "TargetConfig",
       "type": "object"
     },
     "TargetOutliersSettings": {

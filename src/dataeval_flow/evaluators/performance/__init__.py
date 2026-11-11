@@ -9,6 +9,7 @@ __all__ = [
     "SufficiencyConfig",
     "SufficiencyEvaluator",
     "SufficiencyResult",
+    "TargetConfig",
     "Trainer",
     "TrainerConfig",
     "TrainerKit",
@@ -16,7 +17,11 @@ __all__ = [
 
 from dataeval_flow.evaluators.performance._config import SufficiencyConfig, TrainerConfig
 from dataeval_flow.evaluators.performance._evaluator import SufficiencyEvaluator
-from dataeval_flow.evaluators.performance._feasibility_config import AllowancesConfig, FeasibilityConfig
+from dataeval_flow.evaluators.performance._feasibility_config import (
+    AllowancesConfig,
+    FeasibilityConfig,
+    TargetConfig,
+)
 from dataeval_flow.evaluators.performance._feasibility_evaluator import FeasibilityEvaluator
 from dataeval_flow.evaluators.performance._feasibility_result import FeasibilityResult
 from dataeval_flow.evaluators.performance._result import SufficiencyResult

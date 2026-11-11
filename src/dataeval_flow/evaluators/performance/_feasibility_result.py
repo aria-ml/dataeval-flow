@@ -1,6 +1,6 @@
 """The ``feasibility`` evaluator's result: DataEval's own output object, typed, reported as DataEval prints it."""
 
-__all__ = ["FeasibilityResult", "PopulatedFeasibilityOutput"]
+__all__ = ["FeasibilityResult", "PopulatedFeasibilityOutput", "requirement_label"]
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -12,6 +12,18 @@ from dataeval_flow._blocks import Block
 from dataeval_flow.evaluators._result import EvaluatorResult
 
 
+def requirement_label(
+    metric: str, threshold: float, class_name: str | None, aggregation: str | None, scope: str
+) -> str:
+    """A requirement as DataEval's printout names it, built from its fields alone: ``accuracy:cat ≥0.9 |sequence_mean
+    @fixed_representation``, the class, the aggregation and the scope shown only where they are not the default."""
+    text = f"{metric}:{class_name}" if class_name is not None else metric
+    text += f" ≥{threshold:g}"
+    if aggregation is not None:
+        text += f" |{aggregation}"
+    return text if scope == "full_input" else f"{text} @{scope}"
+
+
 @dataclass(frozen=True, repr=False)
 class PopulatedFeasibilityOutput(FeasibilityOutput):
     """DataEval's output, with the population Flow read it from, which ``data()`` leaves to the extras.
@@ -20,9 +32,10 @@ class PopulatedFeasibilityOutput(FeasibilityOutput):
     source held, how many of them were labeled, and which declared classes no labeled item belongs to. They also say
     how the items were grouped into the independent units the bounds count: how many groups there are among the
     source's items, how many items the largest holds, and how many fewer groups there are because exact or near
-    duplicates joined them.
+    duplicates joined them. ``seed`` is the seed DataEval resolved, which the config states only when the user set it.
     """
 
+    seed: int | None = None
     items: int = 0
     labeled: int = 0
     absent_classes: list[str] = field(default_factory=list)
@@ -31,8 +44,9 @@ class PopulatedFeasibilityOutput(FeasibilityOutput):
     duplicate_merges: int = 0
 
     def data(self) -> dict[str, Any]:
-        """DataEval's determinations and evidence alone, not the population beside them."""
-        return {key: value for key, value in super().data().items() if key in ("determinations", "evidence")}
+        """What DataEval returned, the requirements and the allowances beside the two tables, and not the population."""
+        kept = ("requirements", "allowances", "determinations", "bounds")
+        return {key: value for key, value in super().data().items() if key in kept}
 
     def population(self) -> str:
         """The population every claim is about, in a line: the labeled items out of the source's, and the declared
@@ -63,13 +77,14 @@ class FeasibilityResult(EvaluatorResult[FeasibilityOutput]):
     Fields
     ------
     output
-        DataEval's ``FeasibilityOutput``: ``determinations``, one row per target in the order given, and ``evidence``,
-        every bound of the call by id, with its basis, population, information scope, endpoints and assumptions.
-        ``to_dict()`` writes both under ``data``, as DataEval returns them, and under ``extras`` the population Flow
-        read them from: ``items``, the source's item count, ``labeled``, how many of them have a label, and
-        ``absent_classes``, the declared classes with no labeled item. ``str(output)`` is DataEval's printout, which
+        DataEval's ``FeasibilityOutput``: ``requirements`` and ``allowances``, what was asked and what was assumed;
+        ``determinations``, one row per requirement in the order given; and ``bounds``, one row per bound behind them,
+        with ``is_determining`` marking those a determination rests on. ``to_dict()`` writes all four under ``data``,
+        as DataEval returns them, and under ``extras`` the population Flow read them from: ``items``, the source's item
+        count, ``labeled``, how many of them have a label, ``absent_classes``, the declared classes with no labeled
+        item, the grouping, and ``seed``, the seed DataEval resolved. ``str(output)`` is DataEval's printout, which
         states the confidence and the assumptions and rounds a lower bound down and an upper bound up. The report
-        draws the ``performance-feasibility`` finding's table, and does not repeat the raw tables.
+        draws the ``performance-feasibility`` finding's tables, and does not repeat the raw ones.
     metadata.evaluator
         The evaluator type, e.g. ``duplicates``.
     metadata.dataeval

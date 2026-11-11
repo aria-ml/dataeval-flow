@@ -717,7 +717,7 @@ wheels = [
 
 [[package]]
 name = "dataeval"
-version = "1.2.0"
+version = "1.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "lightgbm" },
@@ -738,9 +738,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "xxhash" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1b/30/4dde8653239f4c75701817d24869595260736a8209c21b23fcb40515aabb/dataeval-1.2.0.tar.gz", hash = "sha256:5e029f7f62fd3ad570166cad318a92d91a9f11df3e966ec52282d600b338a309", size = 1130736, upload-time = "2026-11-03T07:12:56.13Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b4/5c/0022a691f95b76bb4cff40226ebe4cf6f00005691ecd9c28c2694a0caa00/dataeval-1.2.1.tar.gz", hash = "sha256:73261ef7258d484be0c2cc6fc0e535eef50534544463a99afdc8c7fd19d10be5", size = 1122012, upload-time = "2026-11-10T19:26:30.298Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/27/22bf4c089f1c0274a42f2d355e9d0d2c5c48ace618acbd3f269ab073543b/dataeval-1.2.0-py3-none-any.whl", hash = "sha256:15955caaa999fe5fe2f895f94ffe615cb78c27e54459c8e5d18409be7818b47c", size = 1285702, upload-time = "2026-11-03T07:12:53.967Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/93/861f93ffb3ebcc1db3d1a5b13c34bcf5171b2b905e19a290bc9f591881e8/dataeval-1.2.1-py3-none-any.whl", hash = "sha256:a4161734eb73c968dcde2eb38e5d8dfd8755be8ee6f47382a2e3f14bb4b9afb3", size = 1277425, upload-time = "2026-11-10T19:26:28.197Z" },
 ]
 
 [package.optional-dependencies]
@@ -894,8 +894,8 @@ verify = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
-    { name = "dataeval", specifier = ">=1.2.0" },
-    { name = "dataeval", extras = ["ontology"], marker = "extra == 'ontology'", specifier = ">=1.2.0" },
+    { name = "dataeval", specifier = ">=1.2.1" },
+    { name = "dataeval", extras = ["ontology"], marker = "extra == 'ontology'", specifier = ">=1.2.1" },
     { name = "datamaite", extras = ["ic", "od"], specifier = ">=0.4.1" },
     { name = "fastapi", marker = "extra == 'service'", specifier = ">=0.116" },
     { name = "filelock", specifier = ">=4.2.1" },

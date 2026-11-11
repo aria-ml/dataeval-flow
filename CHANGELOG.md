@@ -44,16 +44,20 @@ section, maps every old key to its replacement.
 - `feasibility` evaluator and `performance-feasibility` check, both experimental: is a performance target reachable
   - `feasibility` runs DataEval's `Feasibility` on one classification source, with embeddings from the task's
     extractor, which must not have seen the labels
-  - Each `target:` gets one answer: demonstrated feasible, ruled out under recorded assumptions, not ruled out,
-    insufficient evidence or an evidence conflict
-  - `alpha` is one error budget for every bound, and `allowances: {beta, gamma}` are your assertions, recorded as
-    assumed
+  - Each `target:` entry, a `metric` and a `threshold` with optionally a `class_name`, a `scope` and an `aggregation`,
+    gets one of DataEval's determinations: `demonstrated_feasible`, `infeasible_under_recorded_assumptions`,
+    `not_ruled_out` or `unresolved`, the last two with a `limitation` that says what holds it back
+  - `alpha` is one error budget for every bound, and `allowances: {beta, gamma}`, with `beta` required, are your
+    assertions, recorded as assumed
   - Items that share a source are one independent unit: items a view repeats, items with the same value of the metadata
     factor `groups:` names, and, unless `group_near_duplicates: false`, exact and near duplicates found from the image
     hashes
-  - A target on units of more than one item needs an average, such as `accuracy|sequence_mean`, and the run says so
-  - The Output's extras give `groups`, `largest_group` and `duplicate_merges`, and the check's basis lines say how many
-    independent units the bounds count
+  - A target on units of more than one item needs an average, `aggregation: sequence_mean`, and only `accuracy` has one;
+    the run says so
+  - The Output's extras give `seed`, `groups`, `largest_group` and `duplicate_merges`, and the check's basis lines say
+    how many independent units the bounds count
+  - The check warns for every determination short of `demonstrated_feasible`, and draws a row per target, the limitation
+    and suggested minimum of each undecided one, and the bounds each determination rests on
 - Evaluators: `balance`, `diversity`, `parity`, `representation`, `label-alignment`, `factor-summary`, `factor-triage`,
   `factor-leakage`, `label-reconciliation`, `ontology-validation`, `coverage`, `prioritization`, `completeness`,
   `divergence`, `drift-univariate`, `drift-mmd`, `drift-kneighbors`, `drift-wasserstein`, `drift-domain-classifier`,
@@ -128,7 +132,7 @@ section, maps every old key to its replacement.
 
 #### Platform and DataEval 1.2
 
-- Requires DataEval 1.2.0 or newer; `environment.yml` installs it from conda-forge
+- Requires DataEval 1.2.1 or newer; `environment.yml` installs it from conda-forge
 - Pillow (`>=13.0.0`) is a core dependency, used to encode thumbnails
 - PyPI releases carry a signed PEP 740 attestation for each file
 - The container images no longer include `apt`, which the runtime never used; `dpkg` stays, so scanners still list the

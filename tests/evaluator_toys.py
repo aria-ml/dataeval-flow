@@ -318,7 +318,7 @@ _EXTRA_CONFIG: "dict[str, dict[str, Any]]" = {
     "ontology-validation": {"ontology": {"a": None, "b": None}},
     # Under 100 training items the default schedule starts at 0 items, so the 40-item toy names its own.
     "sufficiency": {"trainer": {"path": "trainers/majority.py", "class": "MajorityTrainer"}, "schedule": [10, 20, 40]},
-    "feasibility": {"target": {"accuracy": 0.5}},
+    "feasibility": {"target": [{"metric": "accuracy", "threshold": 0.5}]},
 }
 
 # The types whose run reads a file under the data root, which `toy_data_root` holds.

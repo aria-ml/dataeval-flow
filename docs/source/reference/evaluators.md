@@ -1094,20 +1094,20 @@ tasks:
 ### `feasibility`
 
 Whether the data demonstrates each performance target reachable, rules it out under stated assumptions, or does
-neither, with the proof behind every answer (DataEval Feasibility).
+neither, with the bounds behind every determination (DataEval Feasibility).
 
 :::{note}
 `feasibility` is experimental: it may change or be removed in any release without a deprecation cycle, as may the
 DataEval class it wraps. The first run in a process to use it warns with `ExperimentalWarning`.
 :::
 
-It runs `dataeval.performance.Feasibility`. For each target, it gathers **ceilings**, upper confidence bounds on what
-any model of a class can reach on the population, and **witnesses**, lower confidence bounds on what a frozen model
-does reach, all holding together at `alpha`. Five ordered rules then give each target one answer: `evidence_conflict`,
-`demonstrated_feasible`, `infeasible_under_recorded_assumptions`, `not_ruled_out` or `unresolved`. A final answer
-carries its proof; one that is not final names its `limiting_factor` and what would address it. A ruled-out target is
-ruled out only under the assumptions recorded with its evidence, and a demonstrated one assumes that no evaluation
-image was used to train or choose a model, or to set a requirement.
+It runs `dataeval.performance.Feasibility`. DataEval calls each target a **requirement**. For each, it gathers
+**envelopes**, upper confidence bounds on what any model of a class can reach on the population, and **witnesses**,
+lower confidence bounds on what a frozen model does reach, all holding together at `alpha`. Ordered rules then give each
+requirement one **determination**: `demonstrated_feasible`, `infeasible_under_recorded_assumptions`, `not_ruled_out` or
+`unresolved`. A determination that is not final carries a **limitation**, which names what holds it back. A ruled-out
+requirement is ruled out only under the assumptions recorded with its bounds, and a demonstrated one assumes that no
+evaluation image was used to train or choose a model, or to set a requirement.
 
 - **One call, one ledger.** `alpha` is one error budget for every bound of every target, so adding a target widens every
   bound. Comparing `k` extractors or models on one dataset, or keeping the best of `k` runs, needs `alpha / k` per
@@ -1128,18 +1128,21 @@ image was used to train or choose a model, or to set a requirement.
   at its default radius, which for images is 0: it joins copies whose perceptual hashes are identical, as a re-saved
   image's often are, and not an edited copy whose hash moved. `groups` is read as the dataset recorded it, so a scene or
   recording ID that nearly every image holds apart still works; a labeled item with no value of it is refused, because
-  nothing shows it independent of the others. Where any unit holds more than one item, a target must say how to average
-  over a unit, for example `accuracy|sequence_mean`, and the run is refused with that advice otherwise. Images too
-  small to hash perceptually are joined only when exact copies, which DataEval logs.
+  nothing shows it independent of the others. Where any unit holds more than one item, only an `accuracy` target can be
+  judged, and it must say how to average over a unit with `aggregation: sequence_mean`; the run is refused with that
+  advice otherwise, and an `ap` target is refused because DataEval defines no average for it. Where every item is a
+  unit of its own, an `aggregation` is refused too. Images too small to hash perceptually are joined only when exact
+  copies, which DataEval logs.
 - **Allowances are your assertions.** Without repeated labels, which Flow does not take, a target at the default scope,
-  `full_input`, can be demonstrated but not ruled out: it comes back `unresolved`. `allowances: {beta: 0}` asserts that
-  no model reading the representation beats one fixed answer per cell of DataEval's partition of it, which widens the
-  scope of the ceiling to `fixed_representation`; adding `gamma: 0` asserts that the representation loses nothing a
-  model reading the whole image could use, which widens it to `full_input`. They are recorded as assumed, shown beside
-  every answer they bear on, and each must be a justified bound.
-- **Not offered.** Repeated labels (`replicas`), a model's own predictions as a witness (`predictions`, `provenance`),
-  sampling plans (`sampling`, `look`), video classification (`max_sequence_length`) and recall targets, which need a
-  false-positive limit a key cannot carry. Flow may offer them later.
+  `full_input`, can be demonstrated but not ruled out: it comes back `unresolved` with the limitation `scope_restricted`.
+  `allowances: {beta: 0}` asserts that no model reading the representation beats one fixed answer per cell of DataEval's
+  partition of it, which widens the scope of the envelope to `fixed_representation`; adding `gamma: 0` asserts that the
+  representation loses nothing a model reading the whole image could use, which widens it to `full_input`. `beta` is
+  required, `gamma` optional. They are recorded as assumed, shown beside every determination they bear on, and each
+  must be a justified bound.
+- **Not offered.** Repeated labels (`replicas`), a model's own predictions or the model itself as a witness
+  (`predictions`, `model`), video classification (`max_sequence_length`, the `frame_pooled` aggregation) and `recall`
+  targets, which DataEval refuses on grouped data, as Flow's grouping makes most data. Flow may offer them later.
 
 {doc}`Check whether a performance target is reachable <../notebooks/check_target_feasibility>` runs it on
 MilitaryVehicles. DataEval's [Feasibility
@@ -1147,25 +1150,24 @@ tutorial](https://dataeval.readthedocs.io/en/latest/notebooks/tt_assess_ic_feasi
 
 - **Reads:** `input`: one Dataset, its items as they are stored, and its labels and embeddings through the task's
   extractor, which must give one row per item.
-- **Makes:** a `feasibility` Output: a mapping of `determinations`, one row per target in the order given, and
-  `evidence`, every bound of the call by id. Its extras are `items`, the source's item count, `labeled`, how many of
-  them have a label, `absent_classes`, the declared classes with no labeled item, `groups`, how many independent units
-  the items fall into, `largest_group`, how many items the largest unit holds, and `duplicate_merges`, how many fewer
-  units there are because duplicates joined them.
+- **Makes:** a `feasibility` Output: a mapping of `requirements`, the targets as DataEval's `TargetSpec`s, `allowances`,
+  what was assumed or `null`, `determinations`, one row per requirement in the order given, and `bounds`, one row per
+  bound behind them, with `is_determining` marking those a determination rests on. Its extras are `seed`, the seed
+  DataEval resolved, `items`, the source's item count, `labeled`, how many of them have a label, `absent_classes`, the
+  declared classes with no labeled item, `groups`, how many independent units the items fall into, `largest_group`, how
+  many items the largest unit holds, and `duplicate_merges`, how many fewer units there are because duplicates joined
+  them.
 
 **Settings** ({py:class}`~dataeval_flow.evaluators.performance.FeasibilityConfig`):
 
 | Parameter | DataEval argument | Left unset |
 | --- | --- | --- |
-| `target` | `target` of `evaluate`: `metric[:class][/scope][\|aggregation]` mapped to a threshold in (0, 1]. The metric is `accuracy` or `ap`; the scope `full_input`, `fixed_representation` or `partition_restricted`; the aggregation `sequence_mean` | required |
+| `target` | `target` of `evaluate`, as a list of `TargetSpec` fields: `metric` (`accuracy` or `ap`) and `threshold` in (0, 1], then optionally `class_name` (for `ap`), `scope` (`full_input`, `fixed_representation` or `partition_restricted`) and `aggregation` (`sequence_mean`, for `accuracy`). DataEval's own rules run when the config loads | required |
 | `groups` | `groups` of `evaluate`, as a metadata factor name: items with one value are one independent unit | none; no factor joins items |
 | `group_near_duplicates` | Flow's own: join exact and near duplicates found by `Duplicates` | `true` |
 | `alpha` | `alpha`: the error budget of the whole call | `0.05`, stated in the result's `resolved_config` |
-| `panel_size` | `panel_size`: labels per local panel, at least 2 | DataEval's provisional default (`5`) |
-| `n_cells` | `n_cells`: partition cells for the local panels | by the number of audit units (10 below 20,000) |
-| `builtin_witnesses` | `builtin_witnesses`: whether to fit and score the built-in k-NN and linear probe | DataEval's default (`true`) |
 | `seed` | `seed`: the seed of the splits, partition and panels | the pipeline's `seed`, else 0 |
-| `allowances` | `allowances` of `evaluate`: `{beta, gamma}`, each at least 0, `gamma` only with `beta` | none |
+| `allowances` | `allowances` of `evaluate`, as `Allowances`: `beta`, required, and `gamma`, each at least 0 | none |
 
 - **Judged by:** [`performance-feasibility`](checks.md#performance-feasibility)
 - **Used in:** none; chain it in a [workflow of your own](../how_to/write_a_custom_workflow.md)
@@ -1174,7 +1176,9 @@ tutorial](https://dataeval.readthedocs.io/en/latest/notebooks/tt_assess_ic_feasi
 evaluators:
   - name: feasibility
     type: feasibility
-    target: {accuracy: 0.9, ap: 0.8}
+    target:
+      - {metric: accuracy, threshold: 0.9}
+      - {metric: ap, threshold: 0.8, scope: fixed_representation}
     allowances: {beta: 0, gamma: 0}
 
 tasks:
