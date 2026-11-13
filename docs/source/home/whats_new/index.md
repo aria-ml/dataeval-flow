@@ -11,7 +11,7 @@ one before it has been applied.
 
 | Release | Date | Headline |
 | --- | --- | --- |
-| {doc}`v0.3 <v0.3>` | 2026-11-04 | Presets as chains of steps, the `audit` verdict, HTML reports, DataEval v1.2 |
+| {doc}`v0.3 <v0.3>` | 2026-11-12 | Presets as chains of steps, the `audit` verdict, HTML reports, DataEval v1.2 |
 | {doc}`v0.2 <v0.2>` | 2026-08-19 | DataEval v1.1, data coverage workflow, metadata encoding policies; patches to v0.2.5 |
 | {doc}`v0.1 <v0.1>` | 2026-03-30 | First release, the workflow orchestration framework |
 
