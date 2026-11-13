@@ -42,13 +42,13 @@ DataEval Workflows container - CUDA 12.6 variant
 docker run --rm --gpus all \
   --mount type=bind,source=/path/to/data,target=/dataeval,readonly \
   --mount type=bind,source=/path/to/output,target=/output \
-  registry1.dso.mil/ironbank/dataeval/dataeval-flow-cu126:0.2.2
+  registry1.dso.mil/ironbank/dataeval/dataeval-flow-cu126:0.3.0
 ```
 
 ### Interactive Help
 
 ```bash
-docker run --rm registry1.dso.mil/ironbank/dataeval/dataeval-flow-cu126:0.2.2 --help
+docker run --rm registry1.dso.mil/ironbank/dataeval/dataeval-flow-cu126:0.3.0 --help
 ```
 
 ---

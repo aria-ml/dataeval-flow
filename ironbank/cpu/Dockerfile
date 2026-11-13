@@ -8,8 +8,8 @@ ARG BASE_TAG="9.5"
 
 FROM ${BASE_REGISTRY}/${BASE_IMAGE}:${BASE_TAG}
 
-ARG DATAEVAL_FLOW_VERSION="0.2.2"
-ARG WHEELHOUSE_ARCHIVE="dataeval-flow-0.2.2-wheels-cpu.tar.gz"
+ARG DATAEVAL_FLOW_VERSION="0.3.0"
+ARG WHEELHOUSE_ARCHIVE="dataeval-flow-0.3.0-wheels-cpu.tar.gz"
 
 USER root
 
