@@ -1,6 +1,6 @@
 # DataEval Flow Roadmap
 
-Last updated: 2026-11-04
+Last updated: 2026-11-12
 
 This roadmap reflects shipped capabilities and a forward outlook through January 2027. Future-work entries marked TBD
 are placeholders for the team to refine.
@@ -113,15 +113,16 @@ config. See [CHANGELOG.md](CHANGELOG.md) and the [What's New in v0.2](docs/sourc
 - [x] v0.2.5: `max_processes` setting, `--max-processes` option and `DATAEVAL_MAX_PROCESSES` variable, and a DataEval
       1.1.4 requirement
 
-### v0.3.0 readiness verdicts and composable chains (shipped 2026-11-04)
+### v0.3.0 readiness verdicts and composable chains (shipped 2026-11-12)
 
 v0.3.0 asks whether a dataset is ready to train on. Every workflow type became a preset, a chain of steps that a
 custom workflow can reuse. The `audit` preset gives a verdict that a training job can gate on. The release also brought
 the DataEval v1.2 upgrade and the release tooling. See [CHANGELOG.md](CHANGELOG.md) and
 [What's new in v0.3](docs/source/home/whats_new/v0.3.md). The release was targeted for October 2026 and waited for
-DataEval v1.2.0, which was released on 2026-11-03.
+DataEval v1.2.0, which was released on 2026-11-03. It requires DataEval v1.2.1, released on 2026-11-10, for the
+Feasibility output that the `feasibility` evaluator reads.
 
-- [x] Depend on a released `dataeval>=1.2.0` in place of DataEval `main`
+- [x] Depend on a released `dataeval>=1.2.1` in place of DataEval `main`
 - [x] Python 3.10 support dropped: the minimum is now Python 3.11, and the supported range is 3.11 to 3.14
 - [x] Every workflow type is a preset that expands into a chain of evaluators, checks and transforms, and custom
       workflows chain those steps and presets directly

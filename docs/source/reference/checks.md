@@ -1067,7 +1067,7 @@ fitted curve needs more data than the training set holds, or never reaches it.
 
 Higher is better: a target is reached where the metric's value at the largest size measured is at least `value`.
 Where it is not, the check takes the size DataEval's `inv_project` gives, reads the fitted curve there, and adds one
-item where the curve is still short (DataEval 1.2.0rc2 rounds that size down), so the size is the first at which the
+item where the curve is still short (a safeguard, as DataEval 1.2 rounds up), so the size is the first at which the
 curve reaches the target, given as "about" that many items. A size past the largest measured is an extrapolation of
 the curve. Where the target is at or past the curve's limit, or the curve is flat or falls as the training set grows,
 the curve "never" reaches it, and the row says which. No cutoff on how far a projection reaches is applied: the ratio
