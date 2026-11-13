@@ -963,6 +963,8 @@ release:sbom:
 #
 # Triggers:
 #   - tag pipelines (v*) — every release republishes the VCRM
+#   - the default branch — a dry run that prints the commit plan and writes nothing, so the suite
+#     and its runner are exercised before a release (push_verification.py refuses to publish there)
 #   - a web pipeline with PUBLISH_VERIFICATION set — republish on demand without
 #     rebuilding anything; every other job opts out via .skip_publish_verification
 #
@@ -1000,10 +1002,12 @@ publish:verification:
   tags: [k8s-medium-cpu]
   rules:
     # The meta repo keeps one copy of the requirements, test cases, and VCRM, so whichever
-    # pipeline publishes last wins. Main runs ahead of the release and is kept out; publish
-    # from a release tag, or from a release branch via PUBLISH_VERIFICATION.
+    # pipeline publishes last wins. Main runs ahead of the release, so it runs the job as a dry
+    # run: a break in the suite or the runner shows up there, not at a release, and nothing is
+    # written. Publish from a release tag, or from a release branch via PUBLISH_VERIFICATION.
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: never
+      variables:
+        VERIFICATION_PUSH_ARGS: "--dry-run"
     - if: $PUBLISH_VERIFICATION
     - if: $CI_COMMIT_TAG =~ /^v\d+/
       when: always
