@@ -995,6 +995,9 @@ publish:verification:
   # evidence (`CI: <job>` steps) and records them, whatever they were.
   stage: verification
   dependencies: []
+  # It runs the whole verification suite, which the default pod cannot hold: the v0.3.0 tag pipeline
+  # was OOM-killed twice in `nox -s verify`. Use the runner the `verify` job runs on.
+  tags: [k8s-medium-cpu]
   rules:
     # The meta repo keeps one copy of the requirements, test cases, and VCRM, so whichever
     # pipeline publishes last wins. Main runs ahead of the release and is kept out; publish
