@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.0
 
 v0.3 breaks more than v0.2 did. Every workflow type is now a preset, a chain of steps, and several types are renamed
 or removed. Read [What's new in v0.3](https://dataeval-flow.readthedocs.io/en/latest/home/whats_new/v0.3.html) before
