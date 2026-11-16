@@ -4,10 +4,30 @@
 # DataEval Flow
 
 DataEval Flow wraps DataEval's analytics in a containerized workflow engine. Its steps compose into pipelines that run
-identically locally or in a CUDA-enabled container. Cleaning, audit, coverage, drift, OOD, splitting, and prioritization
-ship as presets, driven by YAML or JSON from a headless or interactive CLI.
+identically locally or in a CUDA-enabled container. Presets answer the questions asked of a dataset before training:
+`audit` gives a verdict on whether it is ready to train on, and `quality`, `taxonomy`, `scope`, `bias`, `splits`,
+`shift`, `prioritization` and `triage` cover cleaning, labels against an ontology, coverage, bias, splitting, drift and
+OOD, what to label next, and metadata that failed to load. Pipelines are driven by YAML or JSON from a headless or
+interactive CLI.
 
 Read the documentation at <https://dataeval-flow.readthedocs.io/>.
+
+## What's new in v0.3
+
+v0.3.0, released in November 2026, asks whether a dataset is ready to train on. The new
+[`audit`](https://dataeval-flow.readthedocs.io/en/latest/reference/presets.html#audit) preset answers with a verdict
+that a training job can gate on.
+
+- Every workflow type is now a preset, a chain of evaluators, checks and transforms that you can read, copy and change.
+  You can write chains of your own, and a task can run over a grid of settings with `matrix:`.
+- Results come with an HTML report, `result.html`, that shows thumbnails of the items a finding names.
+- A run records digests and manifests of the data it read, and `dataeval-flow verify` checks a source against them.
+- `dataeval-flow serve` queues pipelines over HTTP, as a preview.
+- Flow requires DataEval 1.2.1 and Python 3.11 or newer.
+
+v0.3 does not load a v0.2 config. Workflow types are renamed, `data-analysis` and `parameter-sweep` are removed, and
+health thresholds move under `checks:`. The error names each key and type that v0.3 no longer takes. See [What's new in
+v0.3](https://dataeval-flow.readthedocs.io/en/latest/home/whats_new/v0.3.html) and the [changelog](https://dataeval-flow.readthedocs.io/en/latest/home/changelog.html).
 
 ## What DataEval Flow is for
 
@@ -185,7 +205,7 @@ docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi
 
 ### File permissions
 
-The container runs as a non-root user (`dataeval`, UID 1000). Mounted directories for `/output` and `/cache` must be
+The container runs as a non-root user (`dataeval`, UID 1001). Mounted directories for `/output` and `/cache` must be
 writable by the container process. There are two approaches.
 
 #### Pass your host UID (recommended)
@@ -439,12 +459,15 @@ metadata binning](https://dataeval-flow.readthedocs.io/en/latest/how_to/configur
 
 Declared runtime dependencies:
 
-- `dataeval` - Core evaluation library
-- `datamaite` - MAITE protocol dataset loaders (which brings in `maite` itself)
+- `dataeval` (1.2.1 or newer) - Core evaluation library
+- `datamaite` - MAITE protocol dataset loaders, with its image classification and object detection extras
+- `maite` - The MAITE protocols the datasets and models conform to
 - `pydantic` - Structural typing and schema validation
 - `click` - Interactive prompts for the simple CLI config builder
 - `pyyaml` - YAML config parsing
 - `numpy` - Array handling
+- `pillow` - Image decoding for the dataset adapters and the report thumbnails
+- `filelock` - Not used directly; declared to require a release with a security fix
 
 PyTorch arrives transitively through `dataeval`. Optional extras (`onnx`, `opencv`, `app`, `ontology`, and the CUDA
 variants) are listed under [Running without container](#running-without-container).
